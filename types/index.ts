@@ -1,0 +1,163 @@
+import type { Database } from './supabase'
+
+type Row<T extends keyof Database['public']['Tables']> =
+  Database['public']['Tables'][T]['Row']
+
+export type ClinicRow = Row<'clinics'>
+export type DoctorNoteRow = Row<'doctor_notes'>
+export type InsightRow = Row<'insights'>
+export type TrendSignalRow = Row<'trend_signals'>
+export type ScriptRow = Row<'scripts'>
+export type ScriptFinalRow = Row<'script_finals'>
+export type FewShotRow = Row<'few_shot_library'>
+export type DiffRuleRow = Row<'diff_rules'>
+export type SlideSetRow = Row<'slide_sets'>
+
+export type Tone = 'professional' | 'educational' | 'conversational'
+export type InsightType = 'story' | 'opinion' | 'angle' | 'hook'
+export type NoteSource = 'widget' | 'voice' | 'text'
+export type SlideSetStatus = 'pending' | 'rendered' | 'exported'
+
+export interface ClinicProfile {
+  id: string
+  name: string
+  niche: 'regenerative_medicine'
+  services: string[]
+  audience: string
+  tone: Tone
+  doctor_name: string
+  medical_restrictions: string[]
+}
+
+export interface Insight {
+  id: string
+  type: InsightType
+  content: string
+  used_count: number
+  created_at: string
+}
+
+export interface TrendSignal {
+  id: string
+  topic: string
+  why_relevant: string | null
+  hook_angle: string | null
+  expires_at: string | null
+  created_at: string
+}
+
+export interface ContentItem {
+  id: string
+  topic: string | null
+  hook: string | null
+  full_script: string
+  created_at: string
+}
+
+export interface ScriptExample {
+  id: string
+  script_text: string
+  why_good: string | null
+  topic: string | null
+  score: number | null
+}
+
+export interface DiffRule {
+  id: string
+  rule: string
+  example_before: string | null
+  example_after: string | null
+  priority: number
+}
+
+export interface VisualStyle {
+  canvas: { width: number; height: number }
+  background: { type: 'photo' | 'color'; overlay_opacity: number }
+  text: {
+    primary: {
+      font: string
+      size: number
+      color: string
+      position: 'top' | 'center' | 'bottom'
+    }
+    secondary: {
+      font: string
+      size: number
+      color: string
+    }
+  }
+  logo: { url: string; position: string; size: number }
+  padding: number
+}
+
+export interface SharedContext {
+  clinic_profile: ClinicProfile
+  raw_insights: Insight[]
+  trend_signals: TrendSignal[]
+  content_memory: ContentItem[]
+  few_shot_library: ScriptExample[]
+  diff_rules: DiffRule[]
+  style_template: VisualStyle
+}
+
+// ——— Agent I/O shapes (will be used in Step 3) ———
+
+export interface AnalystOutput {
+  stories: { text: string; topic: string }[]
+  opinions: { text: string; strength: number }[]
+  angles: string[]
+  hooks: string[]
+}
+
+export interface ResearchOutput {
+  trending_topics: {
+    topic: string
+    why_relevant: string
+    hook_angle: string
+  }[]
+  working_hooks: string[]
+  avoid_topics: string[]
+}
+
+export interface ScriptVariant {
+  id: string
+  topic: string
+  hook: string
+  script: string
+  word_count: number
+  estimated_seconds: number
+}
+
+export interface WriterOutput {
+  variants: ScriptVariant[]
+}
+
+export interface CriticScore {
+  variant_id: string
+  total_score: number
+  criteria: {
+    tone_match: number
+    no_promises: number
+    hook_quality: number
+    length_ok: number
+    science_present: number
+  }
+  approved: boolean
+  feedback: string
+}
+
+export interface CriticOutput {
+  scores: CriticScore[]
+}
+
+export interface DiffPattern {
+  rule: string
+  example_before: string
+  example_after: string
+  priority: number
+}
+
+export interface DiffOutput {
+  patterns: DiffPattern[]
+  add_to_few_shot: boolean
+}
