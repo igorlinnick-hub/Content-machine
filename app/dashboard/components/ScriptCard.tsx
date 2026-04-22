@@ -1,15 +1,30 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { CriticScore, ScriptVariant } from '@/types'
+
+type FeedbackState = 'idle' | 'saving' | 'selected' | 'rejected' | 'error'
 
 interface ScriptCardProps {
   variant: ScriptVariant
   score?: CriticScore
+  clinicId?: string
+  scriptId?: string
+  siblingScriptIds?: string[]
 }
 
-export function ScriptCard({ variant, score }: ScriptCardProps) {
+export function ScriptCard({
+  variant,
+  score,
+  clinicId,
+  scriptId,
+  siblingScriptIds,
+}: ScriptCardProps) {
+  const router = useRouter()
   const [copied, setCopied] = useState(false)
+  const [feedback, setFeedback] = useState<FeedbackState>('idle')
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
   const approved = score?.approved ?? false
   const total = score?.total_score
 
@@ -19,9 +34,37 @@ export function ScriptCard({ variant, score }: ScriptCardProps) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // older browsers / insecure contexts — noop, user will see the text is still selectable
+      // older browsers / insecure contexts — user can still select text
     }
   }
+
+  async function sendFeedback(action: 'selected' | 'rejected') {
+    if (!clinicId || !scriptId) return
+    setFeedback('saving')
+    setFeedbackError(null)
+    try {
+      const res = await fetch('/api/scripts/feedback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          clinicId,
+          scriptId,
+          action,
+          siblingIds: action === 'selected' ? siblingScriptIds ?? [] : [],
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+      setFeedback(action)
+      router.refresh()
+    } catch (err) {
+      setFeedback('error')
+      setFeedbackError(err instanceof Error ? err.message : 'unknown error')
+    }
+  }
+
+  const feedbackLocked = feedback === 'selected' || feedback === 'rejected'
+  const canFeedback = Boolean(clinicId && scriptId)
 
   return (
     <article className="flex flex-col gap-3 rounded border border-neutral-200 bg-white p-4">
@@ -65,7 +108,40 @@ export function ScriptCard({ variant, score }: ScriptCardProps) {
         </details>
       )}
 
-      <footer className="flex items-center justify-end gap-3 border-t border-neutral-100 pt-3 text-xs">
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-3 text-xs">
+        <div className="flex items-center gap-2">
+          {canFeedback && (
+            <>
+              <button
+                type="button"
+                onClick={() => sendFeedback('selected')}
+                disabled={feedbackLocked || feedback === 'saving'}
+                className={`rounded px-3 py-1 font-medium ${
+                  feedback === 'selected'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-orange-100 text-orange-800 hover:bg-orange-200 disabled:opacity-50'
+                }`}
+              >
+                {feedback === 'selected' ? 'Picked' : 'Pick this'}
+              </button>
+              <button
+                type="button"
+                onClick={() => sendFeedback('rejected')}
+                disabled={feedbackLocked || feedback === 'saving'}
+                className={`rounded border px-3 py-1 ${
+                  feedback === 'rejected'
+                    ? 'border-neutral-400 bg-neutral-100 text-neutral-600'
+                    : 'border-neutral-300 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50'
+                }`}
+              >
+                {feedback === 'rejected' ? 'Passed' : 'Pass'}
+              </button>
+            </>
+          )}
+          {feedbackError && (
+            <span className="text-red-600">{feedbackError}</span>
+          )}
+        </div>
         <button
           type="button"
           onClick={onCopy}

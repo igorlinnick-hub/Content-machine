@@ -71,7 +71,20 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
         <div className="grid gap-4 md:grid-cols-1">
           {result.variants.map((v) => {
             const score = result.scores.find((s) => s.variant_id === v.id)
-            return <ScriptCard key={v.id} variant={v} score={score} />
+            const savedRow = result.saved.find((s) => s.variant_id === v.id)
+            const siblingIds = result.saved
+              .filter((s) => s.variant_id !== v.id)
+              .map((s) => s.id)
+            return (
+              <ScriptCard
+                key={v.id}
+                variant={v}
+                score={score}
+                clinicId={clinicId}
+                scriptId={savedRow?.id}
+                siblingScriptIds={siblingIds}
+              />
+            )
           })}
         </div>
       )}
