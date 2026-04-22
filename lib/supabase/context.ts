@@ -9,6 +9,8 @@ import type {
   VisualStyle,
   Tone,
   InsightType,
+  ScriptFeedbackEntry,
+  FeedbackAction,
 } from '@/types'
 import { createServerClient } from './server'
 
@@ -35,6 +37,7 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     fewShotRes,
     diffRulesRes,
     slideSetRes,
+    feedbackRes,
   ] = await Promise.all([
     supabase.from('clinics').select('*').eq('id', clinicId).single(),
     supabase
@@ -76,6 +79,12 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('script_feedback')
+      .select('id, action, created_at, script_id, scripts ( topic, hook, full_script )')
+      .eq('clinic_id', clinicId)
+      .order('created_at', { ascending: false })
+      .limit(40),
   ])
 
   if (clinicRes.error || !clinicRes.data) {
@@ -94,6 +103,8 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     tone: (c.tone ?? 'educational') as Tone,
     doctor_name: c.doctor_name ?? '',
     medical_restrictions: c.medical_restrictions ?? [],
+    content_pillars: c.content_pillars ?? [],
+    deep_dive_topics: c.deep_dive_topics ?? [],
   }
 
   const raw_insights: Insight[] = (insightsRes.data ?? []).map((r) => ({
@@ -140,6 +151,37 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
   const style_template: VisualStyle =
     (slideSetRes.data?.style_template as VisualStyle | null) ?? DEFAULT_VISUAL_STYLE
 
+  const feedback_rows = (feedbackRes.data ?? []) as Array<{
+    id: string
+    action: string
+    created_at: string | null
+    script_id: string
+    scripts:
+      | { topic: string | null; hook: string | null; full_script: string }
+      | Array<{ topic: string | null; hook: string | null; full_script: string }>
+      | null
+  }>
+  const mapFeedback = (r: (typeof feedback_rows)[number]): ScriptFeedbackEntry => {
+    const s = Array.isArray(r.scripts) ? r.scripts[0] : r.scripts
+    return {
+      id: r.id,
+      script_id: r.script_id,
+      action: r.action as FeedbackAction,
+      topic: s?.topic ?? null,
+      hook: s?.hook ?? null,
+      full_script: s?.full_script ?? '',
+      created_at: r.created_at ?? nowIso,
+    }
+  }
+  const recent_picks = feedback_rows
+    .filter((r) => r.action === 'selected')
+    .slice(0, 10)
+    .map(mapFeedback)
+  const recent_rejects = feedback_rows
+    .filter((r) => r.action === 'rejected')
+    .slice(0, 10)
+    .map(mapFeedback)
+
   return {
     clinic_profile,
     raw_insights,
@@ -148,6 +190,8 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     few_shot_library,
     diff_rules,
     style_template,
+    recent_picks,
+    recent_rejects,
   }
 }
 
@@ -309,6 +353,8 @@ export async function loadClinicProfile(
     tone: (data.tone ?? 'educational') as Tone,
     doctor_name: data.doctor_name ?? '',
     medical_restrictions: data.medical_restrictions ?? [],
+    content_pillars: data.content_pillars ?? [],
+    deep_dive_topics: data.deep_dive_topics ?? [],
   }
 }
 
@@ -411,6 +457,24 @@ export async function saveScripts(
   const { data, error } = await supabase.from('scripts').insert(rows).select('id, variant_id')
   if (error) throw error
   return (data ?? []).map((r) => ({ id: r.id, variant_id: r.variant_id ?? '' }))
+}
+
+export async function saveScriptFeedback(params: {
+  clinicId: string
+  entries: Array<{ scriptId: string; action: FeedbackAction }>
+}): Promise<number> {
+  if (params.entries.length === 0) return 0
+  const supabase = createServerClient()
+  const rows = params.entries.map((e) => ({
+    clinic_id: params.clinicId,
+    script_id: e.scriptId,
+    action: e.action,
+  }))
+  const { error, count } = await supabase
+    .from('script_feedback')
+    .insert(rows, { count: 'exact' })
+  if (error) throw error
+  return count ?? rows.length
 }
 
 export async function saveFewShotExample(

@@ -17,7 +17,9 @@ export type Database = {
       clinics: {
         Row: {
           audience: string | null
+          content_pillars: string[] | null
           created_at: string | null
+          deep_dive_topics: string[] | null
           doctor_name: string | null
           id: string
           medical_restrictions: string[] | null
@@ -28,7 +30,9 @@ export type Database = {
         }
         Insert: {
           audience?: string | null
+          content_pillars?: string[] | null
           created_at?: string | null
+          deep_dive_topics?: string[] | null
           doctor_name?: string | null
           id?: string
           medical_restrictions?: string[] | null
@@ -39,7 +43,9 @@ export type Database = {
         }
         Update: {
           audience?: string | null
+          content_pillars?: string[] | null
           created_at?: string | null
+          deep_dive_topics?: string[] | null
           doctor_name?: string | null
           id?: string
           medical_restrictions?: string[] | null
@@ -49,6 +55,45 @@ export type Database = {
           tone?: string | null
         }
         Relationships: []
+      }
+      script_feedback: {
+        Row: {
+          action: string
+          clinic_id: string
+          created_at: string | null
+          id: string
+          script_id: string
+        }
+        Insert: {
+          action: string
+          clinic_id: string
+          created_at?: string | null
+          id?: string
+          script_id: string
+        }
+        Update: {
+          action?: string
+          clinic_id?: string
+          created_at?: string | null
+          id?: string
+          script_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_feedback_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_feedback_script_id_fkey"
+            columns: ["script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       diff_rules: {
         Row: {

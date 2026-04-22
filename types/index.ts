@@ -27,6 +27,20 @@ export interface ClinicProfile {
   tone: Tone
   doctor_name: string
   medical_restrictions: string[]
+  content_pillars: string[]
+  deep_dive_topics: string[]
+}
+
+export type FeedbackAction = 'selected' | 'rejected'
+
+export interface ScriptFeedbackEntry {
+  id: string
+  script_id: string
+  action: FeedbackAction
+  topic: string | null
+  hook: string | null
+  full_script: string
+  created_at: string
 }
 
 export interface Insight {
@@ -98,6 +112,8 @@ export interface SharedContext {
   few_shot_library: ScriptExample[]
   diff_rules: DiffRule[]
   style_template: VisualStyle
+  recent_picks: ScriptFeedbackEntry[]
+  recent_rejects: ScriptFeedbackEntry[]
 }
 
 // ——— Agent I/O shapes (will be used in Step 3) ———
