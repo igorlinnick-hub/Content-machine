@@ -234,6 +234,64 @@ export async function saveDiffRules(
   }))
 }
 
+export async function saveDoctorNote(
+  clinicId: string,
+  params: { rawText: string; source?: 'widget' | 'voice' | 'text' }
+): Promise<{ id: string }> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('doctor_notes')
+    .insert({
+      clinic_id: clinicId,
+      raw_text: params.rawText,
+      source: params.source ?? 'widget',
+    })
+    .select('id')
+    .single()
+  if (error || !data) throw error ?? new Error('saveDoctorNote: insert returned no row')
+  return { id: data.id }
+}
+
+export async function markNoteProcessed(noteId: string): Promise<void> {
+  const supabase = createServerClient()
+  const { error } = await supabase
+    .from('doctor_notes')
+    .update({ processed: true })
+    .eq('id', noteId)
+  if (error) throw error
+}
+
+export interface ScoredVariant {
+  variant_id: string
+  topic: string
+  hook: string
+  script: string
+  word_count: number
+  critic_score: number
+  approved: boolean
+}
+
+export async function saveScripts(
+  clinicId: string,
+  variants: ScoredVariant[]
+): Promise<Array<{ id: string; variant_id: string }>> {
+  if (variants.length === 0) return []
+  const supabase = createServerClient()
+  const rows = variants.map((v) => ({
+    clinic_id: clinicId,
+    variant_id: v.variant_id,
+    topic: v.topic,
+    hook: v.hook,
+    full_script: v.script,
+    word_count: v.word_count,
+    critic_score: v.critic_score,
+    approved: v.approved,
+  }))
+  const { data, error } = await supabase.from('scripts').insert(rows).select('id, variant_id')
+  if (error) throw error
+  return (data ?? []).map((r) => ({ id: r.id, variant_id: r.variant_id ?? '' }))
+}
+
 export async function saveFewShotExample(
   clinicId: string,
   example: { script_text: string; why_good?: string; topic?: string; score?: number }
