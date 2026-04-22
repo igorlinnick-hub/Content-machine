@@ -234,6 +234,60 @@ export async function saveDiffRules(
   }))
 }
 
+export interface RecentScript {
+  id: string
+  variant_id: string | null
+  topic: string | null
+  hook: string | null
+  full_script: string
+  word_count: number | null
+  critic_score: number | null
+  approved: boolean | null
+  google_doc_url: string | null
+  created_at: string
+}
+
+export async function loadRecentScripts(
+  clinicId: string,
+  limit = 15
+): Promise<RecentScript[]> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('scripts')
+    .select(
+      'id, variant_id, topic, hook, full_script, word_count, critic_score, approved, google_doc_url, created_at'
+    )
+    .eq('clinic_id', clinicId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  const nowIso = new Date().toISOString()
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    variant_id: r.variant_id,
+    topic: r.topic,
+    hook: r.hook,
+    full_script: r.full_script,
+    word_count: r.word_count,
+    critic_score: r.critic_score,
+    approved: r.approved,
+    google_doc_url: r.google_doc_url,
+    created_at: r.created_at ?? nowIso,
+  }))
+}
+
+export async function loadClinicList(): Promise<
+  Array<{ id: string; name: string }>
+> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('clinics')
+    .select('id, name')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
+}
+
 export async function saveDoctorNote(
   clinicId: string,
   params: { rawText: string; source?: 'widget' | 'voice' | 'text' }
