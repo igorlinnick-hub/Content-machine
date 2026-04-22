@@ -1,7 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk'
+import type { ToolUnion, WebSearchTool20260209 } from '@anthropic-ai/sdk/resources/messages'
 
 export const MODEL_DEFAULT = 'claude-sonnet-4-6'
 export const MODEL_CRITIC = 'claude-opus-4-7'
+
+export const WEB_SEARCH_TOOL: WebSearchTool20260209 = {
+  type: 'web_search_20260209',
+  name: 'web_search',
+  max_uses: 5,
+}
 
 let _client: Anthropic | null = null
 
@@ -19,6 +26,7 @@ export interface CallAgentOptions {
   systemPrompt: string
   userContent: string
   maxTokens?: number
+  tools?: ToolUnion[]
 }
 
 export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
@@ -31,12 +39,16 @@ export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
     system: opts.systemPrompt,
     messages: [{ role: 'user', content: opts.userContent }],
     thinking: { type: 'adaptive' },
+    ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools } : {}),
   })
 
   const final = await stream.finalMessage()
-  const text = final.content
-    .map((b) => (b.type === 'text' ? b.text : ''))
-    .join('')
+  const textBlocks = final.content.flatMap((b) =>
+    b.type === 'text' ? [b.text] : []
+  )
+  // Prefer the last text block — with server-side tools (e.g. web_search),
+  // intermediate text blocks may narrate the search before the final JSON.
+  const text = textBlocks.length > 0 ? textBlocks[textBlocks.length - 1] : ''
 
   return parseJSONBlock<T>(text)
 }

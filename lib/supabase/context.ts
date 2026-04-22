@@ -288,6 +288,117 @@ export async function loadClinicList(): Promise<
   return data ?? []
 }
 
+export async function loadClinicProfile(
+  clinicId: string
+): Promise<ClinicProfile> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('clinics')
+    .select('*')
+    .eq('id', clinicId)
+    .single()
+  if (error || !data) {
+    throw new Error(
+      `loadClinicProfile: clinic ${clinicId} not found (${error?.message ?? 'no row'})`
+    )
+  }
+  return {
+    id: data.id,
+    name: data.name,
+    niche: 'regenerative_medicine',
+    services: data.services ?? [],
+    audience: data.audience ?? '',
+    tone: (data.tone ?? 'educational') as Tone,
+    doctor_name: data.doctor_name ?? '',
+    medical_restrictions: data.medical_restrictions ?? [],
+  }
+}
+
+export interface ExportedScript {
+  id: string
+  clinic_id: string
+  full_script: string
+  google_doc_id: string
+}
+
+export async function loadExportedScriptsWithoutFinal(
+  clinicId?: string
+): Promise<ExportedScript[]> {
+  const supabase = createServerClient()
+  let query = supabase
+    .from('scripts')
+    .select('id, clinic_id, full_script, google_doc_id')
+    .not('google_doc_id', 'is', null)
+  if (clinicId) query = query.eq('clinic_id', clinicId)
+  const { data: scripts, error } = await query
+  if (error) throw error
+  if (!scripts || scripts.length === 0) return []
+
+  const scriptIds = scripts.map((s) => s.id)
+  const { data: processedFinals, error: finalsErr } = await supabase
+    .from('script_finals')
+    .select('script_id')
+    .in('script_id', scriptIds)
+    .eq('diff_processed', true)
+  if (finalsErr) throw finalsErr
+
+  const processedIds = new Set(
+    (processedFinals ?? []).map((r) => r.script_id).filter((x): x is string => !!x)
+  )
+
+  return scripts
+    .filter((s) => s.clinic_id && s.google_doc_id && !processedIds.has(s.id))
+    .map((s) => ({
+      id: s.id,
+      clinic_id: s.clinic_id as string,
+      full_script: s.full_script,
+      google_doc_id: s.google_doc_id as string,
+    }))
+}
+
+export async function upsertScriptFinal(params: {
+  scriptId: string
+  clinicId: string
+  finalText: string
+  editedBy?: string
+}): Promise<{ id: string }> {
+  const supabase = createServerClient()
+  const { data: existing } = await supabase
+    .from('script_finals')
+    .select('id')
+    .eq('script_id', params.scriptId)
+    .maybeSingle()
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('script_finals')
+      .update({
+        final_text: params.finalText,
+        edited_by: params.editedBy ?? null,
+        diff_processed: true,
+      })
+      .eq('id', existing.id)
+      .select('id')
+      .single()
+    if (error || !data) throw error ?? new Error('upsertScriptFinal: update returned no row')
+    return { id: data.id }
+  }
+
+  const { data, error } = await supabase
+    .from('script_finals')
+    .insert({
+      script_id: params.scriptId,
+      clinic_id: params.clinicId,
+      final_text: params.finalText,
+      edited_by: params.editedBy ?? null,
+      diff_processed: true,
+    })
+    .select('id')
+    .single()
+  if (error || !data) throw error ?? new Error('upsertScriptFinal: insert returned no row')
+  return { id: data.id }
+}
+
 export async function saveDoctorNote(
   clinicId: string,
   params: { rawText: string; source?: 'widget' | 'voice' | 'text' }
