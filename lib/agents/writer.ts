@@ -2,12 +2,11 @@ import type { SharedContext, WriterOutput } from '@/types'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
 
 const SYSTEM_PROMPT = `You write scripts for a regenerative medicine doctor speaking to camera.
-Tone: smart, non-marketing, peer-to-peer — like explaining to a colleague.
+Voice: smart, non-marketing, peer-to-peer — like explaining to a colleague. Do NOT copy-paste a generic "educational / professional / conversational" register. The correct voice is inferred from the FEW-SHOT EXAMPLES and the DOCTOR'S RECENT PICKS.
 
 HARD RULES:
 - No medical promises ("will cure", "guaranteed", "100%", "always works").
 - Only facts with scientific grounding. If you cannot back something, do not write it.
-- Voice: confident, educational, alive — not textbook.
 - Length: strictly 200-220 words per script (count the words before you finish).
 - Structure (in order):
   1. Hook — ~35 words, ~15 seconds. A concrete fact or question, not a generic opening.
@@ -16,13 +15,17 @@ HARD RULES:
   4. Call to action — ~30 words, ~15 seconds. One specific action.
 
 INPUTS YOU WILL USE:
+- content_pillars: every variant MUST map to one pillar — stay inside the clinic's territory.
+- deep_dive_topics: when you pick a topic adjacent to one of these, go deeper and more mechanism-level.
+- raw_insights: mine stories, opinions, angles, and hooks from here — especially the clinic's own contrarian opinions. Prefer real clinic material over generic content.
 - few_shot_library: style reference, match the voice.
 - diff_rules: mandatory — every rule must be followed in the output.
 - trend_signals: use for timely topics (do not mention that they are "trending").
-- content_memory: recent topics and hooks the clinic has already shipped — do not repeat them.
-- raw_insights: mine stories, opinions, angles, and hooks from here. Prefer real clinic material over generic content.
+- content_memory: topics and hooks already shipped — do NOT repeat them.
+- DOCTOR'S RECENT PICKS: the doctor selected these from previous rounds. Their topic/hook/cadence patterns are what works — lean toward them.
+- DOCTOR'S RECENT REJECTS: the doctor passed on these. Avoid their topic angles, hook shapes, and framings.
 
-ALWAYS produce exactly 3 distinct variants, each with a different topic OR a different hook angle on the same topic.
+ALWAYS produce exactly 3 distinct variants. Make them genuinely different — different pillars, or the same pillar from different angles. Do not produce minor rewordings of the same idea.
 
 Respond with ONLY valid JSON, no markdown fences, no commentary:
 {
@@ -61,12 +64,26 @@ function buildContextBrief(ctx: SharedContext, feedback?: string): string {
   parts.push(
     `CLINIC PROFILE:
 - Name: ${p.name}
-- Services: ${p.services.join(', ') || 'n/a'}
-- Audience: ${p.audience || 'n/a'}
-- Tone: ${p.tone}
 - Doctor: ${p.doctor_name || 'n/a'}
+- Services: ${p.services.join(', ') || 'n/a'}
 - Medical restrictions: ${p.medical_restrictions.join('; ') || 'none'}`
   )
+
+  if (p.content_pillars.length) {
+    parts.push(
+      `CONTENT PILLARS (every variant must map to one):\n${p.content_pillars
+        .map((x) => `- ${x}`)
+        .join('\n')}`
+    )
+  }
+
+  if (p.deep_dive_topics.length) {
+    parts.push(
+      `DEEP-DIVE TOPICS (go long-form and mechanism-level here):\n${p.deep_dive_topics
+        .map((x) => `- ${x}`)
+        .join('\n')}`
+    )
+  }
 
   const insights = ctx.raw_insights.slice(0, 30)
   if (insights.length) {
@@ -111,6 +128,30 @@ function buildContextBrief(ctx: SharedContext, feedback?: string): string {
             }`
         )
         .join('\n\n')}`
+    )
+  }
+
+  if (ctx.recent_picks.length) {
+    parts.push(
+      `DOCTOR'S RECENT PICKS (lean toward these patterns):\n${ctx.recent_picks
+        .slice(0, 6)
+        .map(
+          (f, idx) =>
+            `--- Pick ${idx + 1} (topic: ${f.topic ?? 'n/a'}) ---\nhook: ${f.hook ?? 'n/a'}\n${f.full_script}`
+        )
+        .join('\n\n')}`
+    )
+  }
+
+  if (ctx.recent_rejects.length) {
+    parts.push(
+      `DOCTOR'S RECENT REJECTS (avoid these angles / hook shapes):\n${ctx.recent_rejects
+        .slice(0, 6)
+        .map(
+          (f) =>
+            `- topic: ${f.topic ?? 'n/a'} | hook: ${f.hook ?? 'n/a'}`
+        )
+        .join('\n')}`
     )
   }
 
