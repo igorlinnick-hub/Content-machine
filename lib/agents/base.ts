@@ -21,12 +21,15 @@ export function getAnthropic(): Anthropic {
   return _client
 }
 
+export type Effort = 'low' | 'medium' | 'high' | 'max'
+
 export interface CallAgentOptions {
   model?: string
   systemPrompt: string
   userContent: string
   maxTokens?: number
   tools?: ToolUnion[]
+  effort?: Effort
 }
 
 export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
@@ -39,6 +42,7 @@ export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
     system: opts.systemPrompt,
     messages: [{ role: 'user', content: opts.userContent }],
     thinking: { type: 'adaptive' },
+    ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
     ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools } : {}),
   })
 
@@ -46,9 +50,14 @@ export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
   const textBlocks = final.content.flatMap((b) =>
     b.type === 'text' ? [b.text] : []
   )
-  // Prefer the last text block — with server-side tools (e.g. web_search),
-  // intermediate text blocks may narrate the search before the final JSON.
   const text = textBlocks.length > 0 ? textBlocks[textBlocks.length - 1] : ''
+
+  if (!text) {
+    const types = final.content.map((b) => b.type).join(',')
+    throw new Error(
+      `callAgentJSON: no text block returned. stop_reason=${final.stop_reason} block_types=[${types}] usage=${JSON.stringify(final.usage)}`
+    )
+  }
 
   return parseJSONBlock<T>(text)
 }
@@ -70,8 +79,12 @@ function parseJSONBlock<T>(raw: string): T {
   try {
     return JSON.parse(json) as T
   } catch (e) {
+    const msg = (e as Error).message
+    const posMatch = msg.match(/position (\d+)/)
+    const pos = posMatch ? parseInt(posMatch[1], 10) : 0
+    const window = json.slice(Math.max(0, pos - 200), Math.min(json.length, pos + 200))
     throw new Error(
-      `callAgentJSON: JSON.parse failed (${(e as Error).message}). First 300 chars: ${json.slice(0, 300)}`
+      `callAgentJSON: JSON.parse failed (${msg}). Window around pos ${pos}:\n---\n${window}\n---`
     )
   }
 }

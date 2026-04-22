@@ -40,6 +40,7 @@ export async function runAnalyst(params: RunAnalystParams): Promise<RunAnalystRe
     systemPrompt: SYSTEM_PROMPT,
     userContent: `Doctor's raw notes:\n\n${params.rawText}`,
     maxTokens: 4096,
+    effort: 'low',
   })
 
   const persist = params.persist ?? true

@@ -70,6 +70,7 @@ export async function runCritic(params: RunCriticParams): Promise<CriticOutput> 
     model: MODEL_CRITIC,
     systemPrompt: SYSTEM_PROMPT,
     userContent: buildCriticBrief(params.context, params.variants),
-    maxTokens: 4096,
+    maxTokens: 8192,
+    effort: 'medium',
   })
 }

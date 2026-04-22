@@ -53,6 +53,7 @@ Analyze the edit patterns now. Return only the JSON.`
     model: MODEL_DEFAULT,
     systemPrompt: SYSTEM_PROMPT,
     userContent,
-    maxTokens: 4096,
+    maxTokens: 8192,
+    effort: 'medium',
   })
 }

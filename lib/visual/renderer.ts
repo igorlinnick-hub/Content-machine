@@ -61,7 +61,7 @@ export async function renderSlides(
         slideIndex: i,
         slideTotal: slides.length,
       })
-      await page.setContent(html, { waitUntil: 'networkidle0' })
+      await page.setContent(html, { waitUntil: 'load', timeout: 15000 })
       const shot = await page.screenshot({ type: 'png', omitBackground: false })
       out.push(Buffer.from(shot))
     }

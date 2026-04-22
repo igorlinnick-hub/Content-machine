@@ -31,7 +31,8 @@ export async function splitScriptToSlides(
     model: MODEL_DEFAULT,
     systemPrompt: SYSTEM_PROMPT,
     userContent: `Script:\n\n${script}\n\nSplit into slides now. Return only the JSON.`,
-    maxTokens: 2048,
+    maxTokens: 4096,
+    effort: 'low',
   })
 
   const slides = (out.slides ?? [])

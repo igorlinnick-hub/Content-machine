@@ -38,3 +38,7 @@ next-env.d.ts
 # supabase cli local state
 supabase/.temp/
 supabase/.branches/
+
+# google service account keys — never commit
+jobflow-*.json
+*-service-account*.json

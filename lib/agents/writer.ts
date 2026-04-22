@@ -149,6 +149,7 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     model: MODEL_DEFAULT,
     systemPrompt: SYSTEM_PROMPT,
     userContent,
-    maxTokens: 8192,
+    maxTokens: 16384,
+    effort: 'low',
   })
 }
