@@ -21,14 +21,11 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<GenerateResult | null>(null)
-  const [exportingId, setExportingId] = useState<string | null>(null)
-  const [docUrls, setDocUrls] = useState<Record<string, string>>({})
 
   async function onGenerate() {
     setLoading(true)
     setError(null)
     setResult(null)
-    setDocUrls({})
     try {
       const res = await fetch('/api/agents/generate', {
         method: 'POST',
@@ -43,28 +40,6 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
       setError(err instanceof Error ? err.message : 'unknown error')
     } finally {
       setLoading(false)
-    }
-  }
-
-  async function onExport(variantId: string) {
-    if (!result) return
-    const saved = result.saved.find((s) => s.variant_id === variantId)
-    if (!saved) return
-    setExportingId(variantId)
-    try {
-      const res = await fetch('/api/export/google', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ scriptId: saved.id }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
-      setDocUrls((prev) => ({ ...prev, [variantId]: data.doc_url }))
-      router.refresh()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'unknown error')
-    } finally {
-      setExportingId(null)
     }
   }
 
@@ -96,16 +71,7 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
         <div className="grid gap-4 md:grid-cols-1">
           {result.variants.map((v) => {
             const score = result.scores.find((s) => s.variant_id === v.id)
-            return (
-              <ScriptCard
-                key={v.id}
-                variant={v}
-                score={score}
-                googleDocUrl={docUrls[v.id] ?? null}
-                onExport={() => onExport(v.id)}
-                exporting={exportingId === v.id}
-              />
-            )
+            return <ScriptCard key={v.id} variant={v} score={score} />
           })}
         </div>
       )}

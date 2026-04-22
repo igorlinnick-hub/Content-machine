@@ -1,24 +1,27 @@
 'use client'
 
+import { useState } from 'react'
 import type { CriticScore, ScriptVariant } from '@/types'
 
 interface ScriptCardProps {
   variant: ScriptVariant
   score?: CriticScore
-  googleDocUrl?: string | null
-  onExport?: () => void
-  exporting?: boolean
 }
 
-export function ScriptCard({
-  variant,
-  score,
-  googleDocUrl,
-  onExport,
-  exporting,
-}: ScriptCardProps) {
+export function ScriptCard({ variant, score }: ScriptCardProps) {
+  const [copied, setCopied] = useState(false)
   const approved = score?.approved ?? false
   const total = score?.total_score
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(variant.script)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // older browsers / insecure contexts — noop, user will see the text is still selectable
+    }
+  }
 
   return (
     <article className="flex flex-col gap-3 rounded border border-neutral-200 bg-white p-4">
@@ -63,25 +66,13 @@ export function ScriptCard({
       )}
 
       <footer className="flex items-center justify-end gap-3 border-t border-neutral-100 pt-3 text-xs">
-        {googleDocUrl ? (
-          <a
-            href={googleDocUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-50"
-          >
-            Open Google Doc
-          </a>
-        ) : onExport ? (
-          <button
-            type="button"
-            onClick={onExport}
-            disabled={exporting}
-            className="rounded border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-50 disabled:opacity-40"
-          >
-            {exporting ? 'Exporting…' : 'Export to Google Doc'}
-          </button>
-        ) : null}
+        <button
+          type="button"
+          onClick={onCopy}
+          className="rounded border border-neutral-300 px-2 py-1 text-neutral-700 hover:bg-neutral-50"
+        >
+          {copied ? 'Copied' : 'Copy script'}
+        </button>
       </footer>
     </article>
   )

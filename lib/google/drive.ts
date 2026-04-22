@@ -1,10 +1,7 @@
 import { google } from 'googleapis'
-import type { drive_v3, docs_v1 } from 'googleapis'
+import type { drive_v3 } from 'googleapis'
 
-const SCOPES = [
-  'https://www.googleapis.com/auth/drive',
-  'https://www.googleapis.com/auth/documents',
-]
+const SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
 
 export interface Photo {
   id: string
@@ -32,71 +29,10 @@ function getAuth() {
 }
 
 let _drive: drive_v3.Drive | null = null
-let _docs: docs_v1.Docs | null = null
 
 function driveClient(): drive_v3.Drive {
   if (!_drive) _drive = google.drive({ version: 'v3', auth: getAuth() })
   return _drive
-}
-
-function docsClient(): docs_v1.Docs {
-  if (!_docs) _docs = google.docs({ version: 'v1', auth: getAuth() })
-  return _docs
-}
-
-function defaultFolderId(): string | undefined {
-  return process.env.GOOGLE_DRIVE_FOLDER_ID || undefined
-}
-
-export async function createScriptDoc(
-  script: string,
-  title: string,
-  folderId?: string
-): Promise<{ docId: string; docUrl: string }> {
-  const drive = driveClient()
-  const docs = docsClient()
-
-  const parent = folderId ?? defaultFolderId()
-  const createRes = await drive.files.create({
-    requestBody: {
-      name: title,
-      mimeType: 'application/vnd.google-apps.document',
-      parents: parent ? [parent] : undefined,
-    },
-    fields: 'id, webViewLink',
-    supportsAllDrives: true,
-  })
-
-  const docId = createRes.data.id
-  if (!docId) throw new Error('createScriptDoc: Drive returned no file id')
-
-  await docs.documents.batchUpdate({
-    documentId: docId,
-    requestBody: {
-      requests: [{ insertText: { location: { index: 1 }, text: script } }],
-    },
-  })
-
-  const docUrl =
-    createRes.data.webViewLink ?? `https://docs.google.com/document/d/${docId}/edit`
-
-  return { docId, docUrl }
-}
-
-export async function readDocContent(docId: string): Promise<string> {
-  const docs = docsClient()
-  const res = await docs.documents.get({ documentId: docId })
-  const body = res.data.body?.content ?? []
-  const lines: string[] = []
-  for (const el of body) {
-    const para = el.paragraph
-    if (!para?.elements) continue
-    const line = para.elements
-      .map((e) => e.textRun?.content ?? '')
-      .join('')
-    lines.push(line)
-  }
-  return lines.join('').replace(/\n{3,}/g, '\n\n').trim()
 }
 
 export async function getPhotosFromFolder(folderId: string): Promise<Photo[]> {
@@ -116,30 +52,4 @@ export async function getPhotosFromFolder(folderId: string): Promise<Photo[]> {
     webContentLink: f.webContentLink ?? null,
     thumbnailLink: f.thumbnailLink ?? null,
   }))
-}
-
-export async function uploadPNG(
-  buffer: Buffer,
-  filename: string,
-  folderId?: string
-): Promise<string> {
-  const drive = driveClient()
-  const parent = folderId ?? defaultFolderId()
-  const { Readable } = await import('node:stream')
-
-  const res = await drive.files.create({
-    requestBody: {
-      name: filename,
-      parents: parent ? [parent] : undefined,
-    },
-    media: {
-      mimeType: 'image/png',
-      body: Readable.from(buffer),
-    },
-    fields: 'id',
-    supportsAllDrives: true,
-  })
-
-  if (!res.data.id) throw new Error('uploadPNG: Drive returned no file id')
-  return res.data.id
 }

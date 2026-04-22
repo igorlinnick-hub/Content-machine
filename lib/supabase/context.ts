@@ -243,7 +243,6 @@ export interface RecentScript {
   word_count: number | null
   critic_score: number | null
   approved: boolean | null
-  google_doc_url: string | null
   created_at: string
 }
 
@@ -255,7 +254,7 @@ export async function loadRecentScripts(
   const { data, error } = await supabase
     .from('scripts')
     .select(
-      'id, variant_id, topic, hook, full_script, word_count, critic_score, approved, google_doc_url, created_at'
+      'id, variant_id, topic, hook, full_script, word_count, critic_score, approved, created_at'
     )
     .eq('clinic_id', clinicId)
     .order('created_at', { ascending: false })
@@ -271,7 +270,6 @@ export async function loadRecentScripts(
     word_count: r.word_count,
     critic_score: r.critic_score,
     approved: r.approved,
-    google_doc_url: r.google_doc_url,
     created_at: r.created_at ?? nowIso,
   }))
 }
@@ -312,48 +310,6 @@ export async function loadClinicProfile(
     doctor_name: data.doctor_name ?? '',
     medical_restrictions: data.medical_restrictions ?? [],
   }
-}
-
-export interface ExportedScript {
-  id: string
-  clinic_id: string
-  full_script: string
-  google_doc_id: string
-}
-
-export async function loadExportedScriptsWithoutFinal(
-  clinicId?: string
-): Promise<ExportedScript[]> {
-  const supabase = createServerClient()
-  let query = supabase
-    .from('scripts')
-    .select('id, clinic_id, full_script, google_doc_id')
-    .not('google_doc_id', 'is', null)
-  if (clinicId) query = query.eq('clinic_id', clinicId)
-  const { data: scripts, error } = await query
-  if (error) throw error
-  if (!scripts || scripts.length === 0) return []
-
-  const scriptIds = scripts.map((s) => s.id)
-  const { data: processedFinals, error: finalsErr } = await supabase
-    .from('script_finals')
-    .select('script_id')
-    .in('script_id', scriptIds)
-    .eq('diff_processed', true)
-  if (finalsErr) throw finalsErr
-
-  const processedIds = new Set(
-    (processedFinals ?? []).map((r) => r.script_id).filter((x): x is string => !!x)
-  )
-
-  return scripts
-    .filter((s) => s.clinic_id && s.google_doc_id && !processedIds.has(s.id))
-    .map((s) => ({
-      id: s.id,
-      clinic_id: s.clinic_id as string,
-      full_script: s.full_script,
-      google_doc_id: s.google_doc_id as string,
-    }))
 }
 
 export async function upsertScriptFinal(params: {

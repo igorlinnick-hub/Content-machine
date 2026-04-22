@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import type { RecentScript } from '@/lib/supabase/context'
 
 interface RecentScriptsProps {
@@ -5,12 +8,24 @@ interface RecentScriptsProps {
 }
 
 export function RecentScripts({ scripts }: RecentScriptsProps) {
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
   if (scripts.length === 0) {
     return (
       <p className="text-sm text-neutral-500">
         No scripts yet. Use the generator above to create the first batch.
       </p>
     )
+  }
+
+  async function onCopy(id: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopiedId(id)
+      setTimeout(() => setCopiedId(null), 1500)
+    } catch {
+      // noop
+    }
   }
 
   return (
@@ -32,18 +47,13 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
               {s.approved ? ' · approved' : ''}
             </p>
           </div>
-          {s.google_doc_url ? (
-            <a
-              href={s.google_doc_url}
-              target="_blank"
-              rel="noreferrer"
-              className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
-            >
-              Google Doc
-            </a>
-          ) : (
-            <span className="shrink-0 text-xs text-neutral-400">not exported</span>
-          )}
+          <button
+            type="button"
+            onClick={() => onCopy(s.id, s.full_script)}
+            className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+          >
+            {copiedId === s.id ? 'Copied' : 'Copy'}
+          </button>
         </li>
       ))}
     </ul>
