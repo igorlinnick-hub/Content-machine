@@ -1,0 +1,58 @@
+import { NextResponse } from 'next/server'
+import archiver from 'archiver'
+import { loadSlideSet, markSlideSetStatus } from '@/lib/visual/store'
+import { renderSlides } from '@/lib/visual/renderer'
+
+export const runtime = 'nodejs'
+export const maxDuration = 300
+
+export async function GET(req: Request) {
+  const url = new URL(req.url)
+  const slideSetId = url.searchParams.get('slideSetId')?.trim()
+  if (!slideSetId) {
+    return NextResponse.json({ error: 'slideSetId is required' }, { status: 400 })
+  }
+
+  try {
+    const slideSet = await loadSlideSet(slideSetId)
+    if (slideSet.slides.length === 0) {
+      return NextResponse.json(
+        { error: 'slide set is empty' },
+        { status: 400 }
+      )
+    }
+
+    const buffers = await renderSlides(
+      slideSet.slides.map((text) => ({ text, photoUrl: null })),
+      slideSet.style_template
+    )
+
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const archive = archiver('zip', { zlib: { level: 9 } })
+        archive.on('data', (chunk: Buffer) => controller.enqueue(new Uint8Array(chunk)))
+        archive.on('end', () => controller.close())
+        archive.on('error', (err) => controller.error(err))
+
+        buffers.forEach((buf, i) => {
+          const idx = String(i + 1).padStart(2, '0')
+          archive.append(buf, { name: `slide-${idx}.png` })
+        })
+        archive.finalize().catch((err) => controller.error(err))
+      },
+    })
+
+    await markSlideSetStatus(slideSetId, 'exported')
+
+    return new Response(stream, {
+      headers: {
+        'content-type': 'application/zip',
+        'content-disposition': `attachment; filename="slides-${slideSetId}.zip"`,
+        'cache-control': 'no-store',
+      },
+    })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'unknown error'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
