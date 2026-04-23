@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 type Step = 0 | 1 | 2 | 3 | 4
 
@@ -14,29 +15,31 @@ interface State {
   contrarianOpinions: string[]
 }
 
-const STEPS: Array<{
-  title: string
-  hint: string
-}> = [
+const STEPS: Array<{ title: string; hint: string; cta: string }> = [
   {
     title: 'Who is this clinic?',
-    hint: 'We need a name we can put on posts and a doctor who owns the voice.',
+    hint: 'We need a name for the brand and a doctor whose voice will own the channel.',
+    cta: 'Continue',
   },
   {
     title: 'What services do you actually offer?',
-    hint: 'The concrete menu — PRP, peptides, exosomes, longevity protocols, etc. Add as many as you want.',
+    hint: 'The concrete menu — PRP, peptides, exosomes, longevity protocols. Add as many as you want.',
+    cta: 'Continue',
   },
   {
-    title: 'What should we go deep on?',
-    hint: 'Topics you want to be THE voice on. The agent will write long-form, science-first content around these.',
+    title: 'Where do you want to go deep?',
+    hint: 'Topics you want to be THE voice on. The writer will go long-form and mechanism-level here.',
+    cta: 'Continue',
   },
   {
     title: 'Your content pillars',
-    hint: '3–5 recurring themes every week can map to. Think categories, not single posts (e.g. "recovery science", "debunking clinic myths").',
+    hint: '3–5 recurring themes every week can map to. Categories, not single posts.',
+    cta: 'Continue',
   },
   {
     title: 'Opinions most doctors won’t say out loud',
-    hint: '2–3 contrarian takes you actually believe. These seed the writer with a point of view instead of generic health content.',
+    hint: '2–3 contrarian takes you actually believe. These give the writer a real point of view.',
+    cta: 'Finish setup',
   },
 ]
 
@@ -97,30 +100,40 @@ export default function OnboardingPage() {
   }
 
   const progress = ((step + 1) / STEPS.length) * 100
+  const last = step === STEPS.length - 1
 
   return (
-    <main className="min-h-screen bg-neutral-50">
-      <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-6 py-12">
-        <header className="flex flex-col gap-4">
-          <div className="flex items-center justify-between text-xs text-neutral-500">
-            <span>
-              Step {step + 1} / {STEPS.length}
-            </span>
-            <span>Content Machine setup</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200">
-            <div
-              className="h-full rounded-full bg-orange-500 transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold">{STEPS[step].title}</h1>
-            <p className="mt-2 text-sm text-neutral-500">{STEPS[step].hint}</p>
-          </div>
+    <main className="min-h-screen bg-white text-neutral-900">
+      <div className="fixed inset-x-0 top-0 z-10 h-1 bg-neutral-100">
+        <div
+          className="h-full bg-orange-500 transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-5 pb-12 pt-14 sm:px-6">
+        <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-neutral-500">
+          <Link href="/dashboard" className="hover:text-neutral-900">
+            ← Back
+          </Link>
+          <span className="font-medium text-orange-500">
+            Content Machine setup
+          </span>
+          <span>
+            {step + 1} / {STEPS.length}
+          </span>
+        </div>
+
+        <header className="flex flex-col gap-3">
+          <h1 className="text-3xl font-semibold leading-tight text-neutral-900 sm:text-4xl">
+            {STEPS[step].title}
+          </h1>
+          <p className="text-base text-neutral-600 sm:text-lg">
+            {STEPS[step].hint}
+          </p>
         </header>
 
-        <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        <section className="cm-card p-5 sm:p-7">
           {step === 0 && (
             <Step0
               clinicName={state.clinicName}
@@ -170,38 +183,38 @@ export default function OnboardingPage() {
         </section>
 
         {error && (
-          <p className="rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </p>
         )}
 
-        <footer className="flex items-center justify-between">
+        <footer className="mt-auto flex items-center justify-between gap-3 pt-4">
           <button
             type="button"
-            onClick={() => setStep((s) => (Math.max(0, s - 1) as Step))}
+            onClick={() => setStep((s) => Math.max(0, s - 1) as Step)}
             disabled={step === 0 || submitting}
-            className="rounded-lg px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-100 disabled:opacity-40"
+            className="cm-btn cm-btn-ghost text-sm"
           >
             Back
           </button>
 
-          {step < STEPS.length - 1 ? (
+          {!last ? (
             <button
               type="button"
               onClick={() => canAdvance && setStep((s) => (s + 1) as Step)}
               disabled={!canAdvance}
-              className="rounded-lg bg-orange-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:opacity-40"
+              className="cm-btn cm-btn-primary text-base sm:px-7 sm:py-3"
             >
-              Next
+              {STEPS[step].cta}
             </button>
           ) : (
             <button
               type="button"
               onClick={submit}
               disabled={!canAdvance || submitting}
-              className="rounded-lg bg-orange-500 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-orange-600 disabled:opacity-40"
+              className="cm-btn cm-btn-primary text-base sm:px-7 sm:py-3"
             >
-              {submitting ? 'Creating clinic…' : 'Finish setup'}
+              {submitting ? 'Creating clinic…' : STEPS[step].cta}
             </button>
           )}
         </footer>
@@ -227,7 +240,7 @@ function Step0({
           value={clinicName}
           onChange={(e) => onChange({ clinicName: e.target.value })}
           placeholder="e.g. Regen Health Clinic"
-          className="input"
+          className="cm-input"
         />
       </Field>
       <Field label="Doctor name (primary face of the brand)">
@@ -236,24 +249,9 @@ function Step0({
           value={doctorName}
           onChange={(e) => onChange({ doctorName: e.target.value })}
           placeholder="e.g. Dr. Sarah Chen"
-          className="input"
+          className="cm-input"
         />
       </Field>
-      <style jsx>{`
-        .input {
-          width: 100%;
-          border: 1px solid #d4d4d4;
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 14px;
-          background: white;
-        }
-        .input:focus {
-          outline: 2px solid #f97316;
-          outline-offset: 1px;
-          border-color: transparent;
-        }
-      `}</style>
     </div>
   )
 }
@@ -304,32 +302,39 @@ function TagEditor({
     onChange(items.filter((_, i) => i !== idx))
   }
 
-  const InputTag = multiline ? 'textarea' : 'input'
-
   return (
     <div className="flex flex-col gap-4">
       <label className="flex flex-col gap-2">
         <span className="text-sm font-medium text-neutral-800">{label}</span>
         <div className="flex items-start gap-2">
-          <InputTag
-            value={draft}
-            onChange={(
-              e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-            ) => setDraft(e.target.value)}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (!multiline && e.key === 'Enter') {
-                e.preventDefault()
-                commit()
-              }
-            }}
-            placeholder={placeholder}
-            rows={multiline ? 3 : undefined}
-            className="input flex-1"
-          />
+          {multiline ? (
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={placeholder}
+              rows={3}
+              className="cm-input flex-1 resize-y"
+            />
+          ) : (
+            <input
+              type="text"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commit()
+                }
+              }}
+              placeholder={placeholder}
+              className="cm-input flex-1"
+            />
+          )}
           <button
             type="button"
             onClick={commit}
-            className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+            disabled={!draft.trim()}
+            className="cm-btn cm-btn-primary shrink-0 text-sm"
           >
             Add
           </button>
@@ -343,7 +348,7 @@ function TagEditor({
           {items.map((item, i) => (
             <li
               key={`${i}-${item}`}
-              className="flex items-start justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm"
+              className="flex items-start justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm"
             >
               <span className="flex-1 whitespace-pre-wrap text-neutral-800">
                 {item}
@@ -351,7 +356,7 @@ function TagEditor({
               <button
                 type="button"
                 onClick={() => remove(i)}
-                className="text-xs text-neutral-500 hover:text-red-600"
+                className="shrink-0 text-xs font-medium text-neutral-500 transition hover:text-red-600"
               >
                 Remove
               </button>
@@ -359,23 +364,6 @@ function TagEditor({
           ))}
         </ul>
       )}
-
-      <style jsx>{`
-        .input {
-          border: 1px solid #d4d4d4;
-          border-radius: 8px;
-          padding: 10px 12px;
-          font-size: 14px;
-          background: white;
-          font-family: inherit;
-          resize: vertical;
-        }
-        .input:focus {
-          outline: 2px solid #f97316;
-          outline-offset: 1px;
-          border-color: transparent;
-        }
-      `}</style>
     </div>
   )
 }

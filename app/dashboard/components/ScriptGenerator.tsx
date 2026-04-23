@@ -44,25 +44,34 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-5">
+      <div className="cm-card flex flex-col items-stretch gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-base font-semibold text-neutral-900">
+            Ready to generate 3 fresh variants
+          </p>
+          <p className="text-sm text-neutral-600">
+            Pulls from your notes, pillars, and past picks.
+          </p>
+        </div>
         <button
           type="button"
           onClick={onGenerate}
           disabled={loading}
-          className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="cm-btn cm-btn-primary w-full text-base sm:w-auto sm:px-7 sm:py-3"
         >
-          {loading ? 'Generating 3 variants…' : 'Generate 3 variants'}
+          {loading ? 'Generating…' : 'Generate 3 variants'}
         </button>
-        {result?.rewritten && (
-          <span className="text-xs text-neutral-500">
-            Rewritten once after critic feedback.
-          </span>
-        )}
       </div>
 
+      {result?.rewritten && (
+        <p className="text-xs text-neutral-500">
+          Rewritten once after critic feedback.
+        </p>
+      )}
+
       {error && (
-        <p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
       )}

@@ -14,15 +14,23 @@ interface SubmitState {
 
 export function DailyWidgets({ clinicId, questions }: DailyWidgetsProps) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid gap-4 md:grid-cols-3">
       {questions.map((q, idx) => (
-        <QuestionCard key={idx} clinicId={clinicId} question={q} />
+        <QuestionCard key={idx} index={idx + 1} clinicId={clinicId} question={q} />
       ))}
     </div>
   )
 }
 
-function QuestionCard({ clinicId, question }: { clinicId: string; question: string }) {
+function QuestionCard({
+  index,
+  clinicId,
+  question,
+}: {
+  index: number
+  clinicId: string
+  question: string
+}) {
   const [text, setText] = useState('')
   const [state, setState] = useState<SubmitState>({ status: 'idle' })
 
@@ -44,7 +52,9 @@ function QuestionCard({ clinicId, question }: { clinicId: string; question: stri
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
       setState({
         status: 'done',
-        message: `Saved · ${data.insights_saved ?? 0} insights extracted`,
+        message: `Saved — ${data.insights_saved ?? 0} insight${
+          data.insights_saved === 1 ? '' : 's'
+        } extracted`,
       })
       setText('')
     } catch (err) {
@@ -58,27 +68,31 @@ function QuestionCard({ clinicId, question }: { clinicId: string; question: stri
   const disabled = state.status === 'submitting'
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="rounded border border-neutral-200 bg-white p-4"
-    >
-      <p className="text-sm font-medium">{question}</p>
+    <form onSubmit={onSubmit} className="cm-card flex flex-col gap-3 p-5">
+      <div className="flex items-start gap-2">
+        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-orange-50 text-[11px] font-semibold text-orange-600">
+          {index}
+        </span>
+        <p className="text-sm font-medium leading-snug text-neutral-900">
+          {question}
+        </p>
+      </div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        rows={3}
+        rows={4}
         disabled={disabled}
-        placeholder="Type your answer..."
-        className="mt-3 w-full resize-none rounded border border-neutral-300 p-2 text-sm disabled:opacity-50"
+        placeholder="Type your answer…"
+        className="cm-input resize-none text-sm"
       />
-      <div className="mt-2 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <span
           className={`text-xs ${
             state.status === 'error'
               ? 'text-red-600'
               : state.status === 'done'
-              ? 'text-green-700'
-              : 'text-neutral-500'
+                ? 'text-green-700'
+                : 'text-neutral-500'
           }`}
         >
           {state.message ?? ' '}
@@ -86,7 +100,7 @@ function QuestionCard({ clinicId, question }: { clinicId: string; question: stri
         <button
           type="submit"
           disabled={disabled || !text.trim()}
-          className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+          className="cm-btn cm-btn-primary text-sm"
         >
           {disabled ? 'Saving…' : 'Save answer'}
         </button>

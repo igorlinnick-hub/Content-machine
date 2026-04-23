@@ -4,20 +4,120 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0a0a0a;
+  --muted: #737373;
+  --border: #e5e5e5;
+  --card: #ffffff;
+  --accent: #f97316;
+  --accent-hover: #ea580c;
+  --success: #16a34a;
+  --danger: #dc2626;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
 }
 
 body {
+  font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Form primitives reused across pages */
+.cm-input {
+  width: 100%;
+  background: #ffffff;
+  color: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  font-family: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.cm-input::placeholder {
+  color: #a3a3a3;
+}
+.cm-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.18);
+}
+.cm-input:disabled {
+  opacity: 0.6;
+}
+
+/* Button primitives */
+.cm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease,
+    opacity 120ms ease;
+  border: 1px solid transparent;
+}
+.cm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cm-btn-primary {
+  background: var(--accent);
+  color: #ffffff;
+}
+.cm-btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.cm-btn-ghost {
+  background: transparent;
   color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  border-color: var(--border);
+}
+.cm-btn-ghost:hover:not(:disabled) {
+  background: #f5f5f5;
+}
+
+.cm-btn-success {
+  background: var(--success);
+  color: #ffffff;
+}
+.cm-btn-success-outline {
+  background: #ffffff;
+  color: var(--success);
+  border-color: #bbf7d0;
+}
+.cm-btn-success-outline:hover:not(:disabled) {
+  background: #f0fdf4;
+}
+
+.cm-btn-danger {
+  background: var(--danger);
+  color: #ffffff;
+}
+.cm-btn-danger-outline {
+  background: #ffffff;
+  color: var(--danger);
+  border-color: #fecaca;
+}
+.cm-btn-danger-outline:hover:not(:disabled) {
+  background: #fef2f2;
+}
+
+.cm-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(10, 10, 10, 0.04);
 }
 
 @layer utilities {

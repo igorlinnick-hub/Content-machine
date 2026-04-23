@@ -12,9 +12,11 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
 
   if (scripts.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">
-        No scripts yet. Use the generator above to create the first batch.
-      </p>
+      <div className="cm-card p-6 text-center">
+        <p className="text-sm text-neutral-600">
+          No scripts yet. Generate your first batch above.
+        </p>
+      </div>
     )
   }
 
@@ -24,38 +26,61 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 1500)
     } catch {
-      // noop
+      // noop — user can still select text
     }
   }
 
   return (
-    <ul className="flex flex-col divide-y divide-neutral-200 rounded border border-neutral-200 bg-white">
-      {scripts.map((s) => (
-        <li key={s.id} className="flex items-start justify-between gap-3 p-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">
-              {s.topic ?? 'Untitled'}
-            </p>
-            <p className="mt-0.5 truncate text-xs text-neutral-500">
-              {s.hook ?? '—'}
-            </p>
-            <p className="mt-1 text-xs text-neutral-500">
-              {formatDate(s.created_at)} · {s.word_count ?? '?'} words
-              {typeof s.critic_score === 'number'
-                ? ` · ${s.critic_score.toFixed(1)}/10`
-                : ''}
-              {s.approved ? ' · approved' : ''}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onCopy(s.id, s.full_script)}
-            className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+    <ul className="cm-card divide-y divide-neutral-200 overflow-hidden">
+      {scripts.map((s) => {
+        const score = typeof s.critic_score === 'number' ? s.critic_score : null
+        const strong = score !== null && score >= 7
+        return (
+          <li
+            key={s.id}
+            className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5"
           >
-            {copiedId === s.id ? 'Copied' : 'Copy'}
-          </button>
-        </li>
-      ))}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold text-neutral-900">
+                  {s.topic ?? 'Untitled'}
+                </p>
+                {score !== null && (
+                  <span
+                    className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+                      strong
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {score.toFixed(1)}
+                  </span>
+                )}
+                {s.approved && (
+                  <span className="inline-flex items-center rounded-md bg-orange-50 px-1.5 py-0.5 text-[11px] font-medium text-orange-700">
+                    approved
+                  </span>
+                )}
+              </div>
+              {s.hook && (
+                <p className="mt-1 truncate text-sm italic text-neutral-600">
+                  {s.hook}
+                </p>
+              )}
+              <p className="mt-1 text-xs text-neutral-500">
+                {formatDate(s.created_at)} · {s.word_count ?? '?'} words
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onCopy(s.id, s.full_script)}
+              className="cm-btn cm-btn-ghost shrink-0 text-xs"
+            >
+              {copiedId === s.id ? 'Copied' : 'Copy'}
+            </button>
+          </li>
+        )
+      })}
     </ul>
   )
 }
