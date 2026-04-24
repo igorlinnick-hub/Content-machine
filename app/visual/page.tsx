@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { loadClinicList, loadRecentScripts } from '@/lib/supabase/context'
-import { loadRecentSlideSets, loadStyleTemplate } from '@/lib/visual/store'
-import { SlideGenerator } from './components/SlideGenerator'
+import { loadClinicList } from '@/lib/supabase/context'
+import { loadPosts, loadStyleTemplate } from '@/lib/visual/store'
+import { resolveAccess } from '@/lib/auth/session'
+import { loadPlan } from '@/lib/posts/plan'
+import { ContentPlan } from './components/ContentPlan'
+import { PostsGallery } from './components/PostsGallery'
 import { StyleEditor } from './components/StyleEditor'
 
 export const dynamic = 'force-dynamic'
@@ -12,68 +15,59 @@ interface VisualPageProps {
 }
 
 export default async function VisualPage({ searchParams }: VisualPageProps) {
+  const access = await resolveAccess()
+  if (!access) redirect('/')
+  if (access.role !== 'admin') redirect('/dashboard')
+
   const clinics = await loadClinicList()
   if (clinics.length === 0) redirect('/onboarding')
 
   const clinicId = searchParams.clinicId ?? clinics[0].id
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
-  const [recentScripts, recentSets, style] = await Promise.all([
-    loadRecentScripts(clinic.id, 10),
-    loadRecentSlideSets(clinic.id, 8),
+  const [posts, style, plan] = await Promise.all([
+    loadPosts(clinic.id, 30),
     loadStyleTemplate(clinic.id),
+    loadPlan(clinic.id),
   ])
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-10">
-      <header className="flex items-start justify-between gap-4">
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-5 py-8 sm:px-6 sm:py-10">
+      <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-5">
         <div>
-          <h1 className="text-2xl font-semibold">{clinic.name} · Instagram slides</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            This module is isolated — it only reads shipped scripts from the database.
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-orange-500">
+            Posts workspace
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold text-neutral-900">
+            {clinic.name}
+          </h1>
+          <p className="mt-1 text-sm text-neutral-600">
+            Plan topics, generate carousel posts, download ZIPs.
           </p>
         </div>
         <Link
           href={`/dashboard?clinicId=${clinic.id}`}
-          className="rounded border border-neutral-300 px-3 py-1.5 text-xs text-neutral-700"
+          className="cm-btn cm-btn-ghost text-sm"
         >
           ← Dashboard
         </Link>
       </header>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Generate slides from a script</h2>
-        <SlideGenerator scripts={recentScripts} />
-      </section>
+      <ContentPlan clinicId={clinic.id} initialTopics={plan} />
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Style template</h2>
-        <StyleEditor clinicId={clinic.id} initialStyle={style} />
+        <h2 className="text-lg font-semibold">Posts</h2>
+        <PostsGallery posts={posts} />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Recent slide sets</h2>
-        {recentSets.length === 0 ? (
-          <p className="text-sm text-neutral-500">No slide sets yet.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-neutral-200 rounded border border-neutral-200 bg-white">
-            {recentSets.map((s) => (
-              <li key={s.id} className="flex items-center justify-between p-3 text-sm">
-                <span className="truncate">
-                  {s.slide_count} slides · {s.status} ·{' '}
-                  {new Date(s.created_at).toLocaleString()}
-                </span>
-                <a
-                  href={`/api/visual/download?slideSetId=${s.id}`}
-                  className="shrink-0 rounded border border-neutral-300 px-2 py-1 text-xs hover:bg-neutral-50"
-                >
-                  Download ZIP
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <details className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm">
+        <summary className="cursor-pointer font-medium text-neutral-700">
+          Visual style template
+        </summary>
+        <div className="mt-4">
+          <StyleEditor clinicId={clinic.id} initialStyle={style} />
+        </div>
+      </details>
     </main>
   )
 }

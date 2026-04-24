@@ -2,11 +2,17 @@ import { NextResponse } from 'next/server'
 import archiver from 'archiver'
 import { loadSlideSet, markSlideSetStatus } from '@/lib/visual/store'
 import { renderSlides } from '@/lib/visual/renderer'
+import { resolveAccess } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
 export async function GET(req: Request) {
+  const access = await resolveAccess()
+  if (!access || access.role !== 'admin') {
+    return NextResponse.json({ error: 'admin access required' }, { status: 403 })
+  }
+
   const url = new URL(req.url)
   const slideSetId = url.searchParams.get('slideSetId')?.trim()
   if (!slideSetId) {

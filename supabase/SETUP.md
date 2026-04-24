@@ -65,7 +65,27 @@ where schemaname = 'public' order by tablename;
 
 ---
 
-## 5. После этого
+## 5. Auth (cookie-based, миграция 003)
+
+После того как применишь `supabase/migrations/003_clinic_access_tokens.sql`:
+
+1. **Сгенерируй ADMIN_KEY** (любая длинная случайная строка):
+   ```bash
+   openssl rand -base64 32 | tr -d '=+/' | head -c 32
+   ```
+   Положи в `.env.local` как `ADMIN_KEY=...` и в Vercel env vars.
+
+2. **Первый вход админом:** открой `https://<домен>/admin/<ADMIN_KEY>` — поставится cookie, редирект на дашборд.
+
+3. **Сгенерируй ссылку для врача:** в дашборде блок «Doctor install link» → **New link** → копируй URL или сканируй QR с телефона врача.
+
+4. **Врач устанавливает PWA:** открывает ссылку в Safari → ставится cookie + token в localStorage → редирект на дашборд → «Поделиться → На экран „Домой"». Иконка живёт год.
+
+5. **Если ссылка утекла:** в дашборде → **Revoke + new** — все старые ссылки умирают, генерится свежая.
+
+---
+
+## 6. После этого
 
 Сообщи мне что схема применена и `.env.local` заполнен — я сгенерирую TypeScript типы (`types/supabase.ts`) и продолжим на Шаг 2 (SharedContext + типы).
 

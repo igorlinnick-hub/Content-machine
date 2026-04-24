@@ -7,6 +7,7 @@ import {
   loadStyleTemplate,
 } from '@/lib/visual/store'
 import { getPhotosFromFolder } from '@/lib/google/drive'
+import { resolveAccess } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -18,6 +19,11 @@ interface GeneratePostBody {
 }
 
 export async function POST(req: Request) {
+  const access = await resolveAccess()
+  if (!access || access.role !== 'admin') {
+    return NextResponse.json({ error: 'admin access required' }, { status: 403 })
+  }
+
   let body: GeneratePostBody
   try {
     body = (await req.json()) as GeneratePostBody

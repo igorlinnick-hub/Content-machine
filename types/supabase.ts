@@ -56,6 +56,92 @@ export type Database = {
         }
         Relationships: []
       }
+      content_plan_topics: {
+        Row: {
+          id: string
+          clinic_id: string
+          topic: string
+          position: number
+          status: string
+          last_script_id: string | null
+          completed_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          topic: string
+          position?: number
+          status?: string
+          last_script_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          topic?: string
+          position?: number
+          status?: string
+          last_script_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plan_topics_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_plan_topics_last_script_id_fkey"
+            columns: ["last_script_id"]
+            isOneToOne: false
+            referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_access_tokens: {
+        Row: {
+          token: string
+          clinic_id: string
+          role: string
+          label: string | null
+          created_at: string
+          last_used_at: string | null
+          revoked_at: string | null
+        }
+        Insert: {
+          token: string
+          clinic_id: string
+          role?: string
+          label?: string | null
+          created_at?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+        Update: {
+          token?: string
+          clinic_id?: string
+          role?: string
+          label?: string | null
+          created_at?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_access_tokens_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       script_feedback: {
         Row: {
           action: string

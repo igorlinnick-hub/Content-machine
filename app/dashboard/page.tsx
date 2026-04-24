@@ -3,38 +3,66 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { loadClinicList, loadRecentScripts } from '@/lib/supabase/context'
 import { getDailyQuestions } from '@/lib/widgets/questions'
+import { resolveAccess } from '@/lib/auth/session'
 import { DailyWidgets } from './components/DailyWidgets'
 import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
+import { TokenBootstrap } from './components/TokenBootstrap'
+import { InstallLinkCard } from './components/InstallLinkCard'
 
 export const dynamic = 'force-dynamic'
 
 interface DashboardPageProps {
-  searchParams: { clinicId?: string }
+  searchParams: { clinicId?: string; cm_bootstrap?: string }
 }
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
-  const clinics = await loadClinicList()
-  if (clinics.length === 0) redirect('/onboarding')
+  const access = await resolveAccess()
+  if (!access) redirect('/')
 
-  const clinicId = searchParams.clinicId ?? clinics[0].id
-  const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
+  // Doctors are pinned to their clinic. Admin can switch via ?clinicId.
+  let clinicId: string
+  let clinics: Array<{ id: string; name: string }> = []
+
+  if (access.role === 'admin') {
+    clinics = await loadClinicList()
+    if (clinics.length === 0) redirect('/onboarding')
+    clinicId = searchParams.clinicId ?? clinics[0].id
+  } else {
+    clinicId = access.clinicId
+    clinics = [{ id: clinicId, name: '' }] // placeholder; replaced below
+  }
 
   const supabase = createServerClient()
   const { data: clinicRow } = await supabase
     .from('clinics')
-    .select('doctor_name, services, content_pillars')
-    .eq('id', clinic.id)
+    .select('name, doctor_name, services, content_pillars')
+    .eq('id', clinicId)
     .single()
 
-  const questions = getDailyQuestions()
-  const recent = await loadRecentScripts(clinic.id, 5)
+  if (!clinicRow) {
+    // clinic was deleted under us — bail to landing
+    redirect('/')
+  }
 
-  const services = clinicRow?.services ?? []
-  const pillars = clinicRow?.content_pillars ?? []
+  const clinicName = clinicRow.name
+  if (access.role !== 'admin') {
+    clinics = [{ id: clinicId, name: clinicName }]
+  } else {
+    clinics = clinics.map((c) => (c.id === clinicId ? { ...c, name: clinicName } : c))
+  }
+
+  const questions = getDailyQuestions()
+  const recent = await loadRecentScripts(clinicId, 5)
+
+  const services = clinicRow.services ?? []
+  const pillars = clinicRow.content_pillars ?? []
+
+  const showAdminTools = access.role === 'admin'
 
   return (
     <main className="min-h-screen bg-white">
+      <TokenBootstrap />
       <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
         <header className="flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -42,9 +70,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               Content Machine
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-neutral-900 sm:text-4xl">
-              {clinic.name}
+              {clinicName}
             </h1>
-            {clinicRow?.doctor_name && (
+            {clinicRow.doctor_name && (
               <p className="mt-1 text-base text-neutral-600">
                 {clinicRow.doctor_name}
               </p>
@@ -72,14 +100,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {clinics.length > 1 && (
+            {showAdminTools && clinics.length > 1 && (
               <nav className="flex flex-wrap gap-1.5">
                 {clinics.map((c) => (
                   <Link
                     key={c.id}
                     href={`/dashboard?clinicId=${c.id}`}
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                      c.id === clinic.id
+                      c.id === clinicId
                         ? 'bg-neutral-900 text-white'
                         : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-50'
                     }`}
@@ -89,21 +117,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 ))}
               </nav>
             )}
-            <Link
-              href="/onboarding"
-              className="cm-btn cm-btn-ghost text-sm"
-            >
-              Retake quiz
+            <Link href="/onboarding" className="cm-btn cm-btn-ghost text-sm">
+              Edit profile
             </Link>
+            {showAdminTools && (
+              <Link href={`/visual?clinicId=${clinicId}`} className="cm-btn cm-btn-ghost text-sm">
+                Visual posts →
+              </Link>
+            )}
           </div>
         </header>
+
+        {showAdminTools && <InstallLinkCard clinicId={clinicId} />}
 
         <Section
           number={1}
           title="Today's questions"
           subtitle="Quick answers feed the agents. 30 seconds each."
         >
-          <DailyWidgets clinicId={clinic.id} questions={questions} />
+          <DailyWidgets clinicId={clinicId} questions={questions} />
         </Section>
 
         <Section
@@ -111,7 +143,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           title="Generate scripts"
           subtitle="Three variants per round. Pick the one that sounds like you — the writer learns from every choice."
         >
-          <ScriptGenerator clinicId={clinic.id} />
+          <ScriptGenerator clinicId={clinicId} />
         </Section>
 
         <Section

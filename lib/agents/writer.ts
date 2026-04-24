@@ -180,11 +180,19 @@ function buildContextBrief(ctx: SharedContext, feedback?: string): string {
 export interface RunWriterParams {
   context: SharedContext
   feedback?: string
+  topicHint?: string
+  variantCount?: number
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
   const brief = buildContextBrief(params.context, params.feedback)
-  const userContent = `${brief}\n\nGenerate exactly 3 script variants now. Return only the JSON object.`
+  const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
+
+  const topicSection = params.topicHint
+    ? `\n\nTOPIC FROM THE CONTENT PLAN — write ALL variants on this exact topic. Pick distinct angles or hooks, but the underlying topic is fixed:\n"${params.topicHint.trim()}"\n`
+    : ''
+
+  const userContent = `${brief}${topicSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Return only the JSON object.`
 
   return callAgentJSON<WriterOutput>({
     model: MODEL_DEFAULT,

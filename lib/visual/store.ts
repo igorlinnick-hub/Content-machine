@@ -179,3 +179,54 @@ export async function loadRecentSlideSets(
     slide_count: Array.isArray(r.slides) ? (r.slides as unknown[]).length : 0,
   }))
 }
+
+export interface PostListItem {
+  slide_set_id: string
+  script_id: string | null
+  topic: string | null
+  hook: string | null
+  script: string | null
+  slide_count: number
+  status: SlideSetStatus
+  created_at: string
+}
+
+export async function loadPosts(
+  clinicId: string,
+  limit = 30
+): Promise<PostListItem[]> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('slide_sets')
+    .select(
+      'id, script_id, status, created_at, slides, scripts ( topic, hook, full_script )'
+    )
+    .eq('clinic_id', clinicId)
+    .not('script_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  const nowIso = new Date().toISOString()
+  return (data ?? []).map((r) => {
+    const s = Array.isArray(r.scripts) ? r.scripts[0] : r.scripts
+    return {
+      slide_set_id: r.id,
+      script_id: r.script_id,
+      topic: s?.topic ?? null,
+      hook: s?.hook ?? null,
+      script: s?.full_script ?? null,
+      slide_count: Array.isArray(r.slides) ? (r.slides as unknown[]).length : 0,
+      status: (r.status ?? 'rendered') as SlideSetStatus,
+      created_at: r.created_at ?? nowIso,
+    }
+  })
+}
+
+export async function deletePost(slideSetId: string): Promise<void> {
+  const supabase = createServerClient()
+  const { error } = await supabase
+    .from('slide_sets')
+    .delete()
+    .eq('id', slideSetId)
+  if (error) throw error
+}

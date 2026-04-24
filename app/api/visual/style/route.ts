@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { saveStyleTemplate } from '@/lib/visual/store'
+import { resolveAccess } from '@/lib/auth/session'
 import type { VisualStyle } from '@/types'
 
 export const runtime = 'nodejs'
@@ -10,6 +11,11 @@ interface StylePostBody {
 }
 
 export async function POST(req: Request) {
+  const access = await resolveAccess()
+  if (!access || access.role !== 'admin') {
+    return NextResponse.json({ error: 'admin access required' }, { status: 403 })
+  }
+
   let body: StylePostBody
   try {
     body = (await req.json()) as StylePostBody
