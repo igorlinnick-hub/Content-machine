@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
 import { SessionRestore } from './components/SessionRestore'
+import { AdminLogin } from './components/AdminLogin'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,12 +39,9 @@ export default async function Home({
             {errorMsg}
           </p>
         )}
-        <p className="text-xs text-neutral-400">
-          Admin? Visit <code>/admin/&lt;your-key&gt;</code> to sign in.
-        </p>
-        <Link href="/onboarding" className="hidden">
-          New clinic
-        </Link>
+        <div className="mt-4 flex w-full justify-center">
+          <AdminLogin />
+        </div>
       </div>
     </main>
   )
