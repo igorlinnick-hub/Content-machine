@@ -98,6 +98,7 @@ export async function createSlideSet(params: {
   slides: string[]
   styleTemplate: VisualStyle
   driveFolderId?: string | null
+  categoryId?: string | null
   status?: SlideSetStatus
 }): Promise<{ id: string }> {
   const supabase = createServerClient()
@@ -109,6 +110,7 @@ export async function createSlideSet(params: {
       slides: toJson(params.slides),
       style_template: toJson(params.styleTemplate),
       drive_folder_id: params.driveFolderId ?? null,
+      category_id: params.categoryId ?? null,
       status: params.status ?? 'rendered',
     })
     .select('id')
@@ -189,6 +191,7 @@ export interface PostListItem {
   slide_count: number
   status: SlideSetStatus
   created_at: string
+  category: { id: string; name: string; emoji: string | null } | null
 }
 
 export async function loadPosts(
@@ -199,7 +202,7 @@ export async function loadPosts(
   const { data, error } = await supabase
     .from('slide_sets')
     .select(
-      'id, script_id, status, created_at, slides, scripts ( topic, hook, full_script )'
+      'id, script_id, status, created_at, slides, scripts ( topic, hook, full_script ), clinic_categories ( id, name, emoji )'
     )
     .eq('clinic_id', clinicId)
     .not('script_id', 'is', null)
@@ -209,6 +212,9 @@ export async function loadPosts(
   const nowIso = new Date().toISOString()
   return (data ?? []).map((r) => {
     const s = Array.isArray(r.scripts) ? r.scripts[0] : r.scripts
+    const cat = Array.isArray(r.clinic_categories)
+      ? r.clinic_categories[0]
+      : r.clinic_categories
     return {
       slide_set_id: r.id,
       script_id: r.script_id,
@@ -218,6 +224,7 @@ export async function loadPosts(
       slide_count: Array.isArray(r.slides) ? (r.slides as unknown[]).length : 0,
       status: (r.status ?? 'rendered') as SlideSetStatus,
       created_at: r.created_at ?? nowIso,
+      category: cat ? { id: cat.id, name: cat.name, emoji: cat.emoji } : null,
     }
   })
 }

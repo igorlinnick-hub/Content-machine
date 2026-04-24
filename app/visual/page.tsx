@@ -1,12 +1,15 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { loadClinicList } from '@/lib/supabase/context'
+import { loadClinicList, loadFewShotExamples } from '@/lib/supabase/context'
 import { loadPosts, loadStyleTemplate } from '@/lib/visual/store'
 import { resolveAccess } from '@/lib/auth/session'
 import { loadPlan } from '@/lib/posts/plan'
+import { ensureDefaultCategories } from '@/lib/posts/categories'
 import { ContentPlan } from './components/ContentPlan'
 import { PostsGallery } from './components/PostsGallery'
 import { StyleEditor } from './components/StyleEditor'
+import { CategoriesEditor } from './components/CategoriesEditor'
+import { FewShotEditor } from './components/FewShotEditor'
 import { RoleBadge } from '@/app/components/RoleBadge'
 
 export const dynamic = 'force-dynamic'
@@ -26,10 +29,12 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const clinicId = searchParams.clinicId ?? clinics[0].id
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
-  const [posts, style, plan] = await Promise.all([
+  const [posts, style, plan, categories, fewShot] = await Promise.all([
     loadPosts(clinic.id, 30),
     loadStyleTemplate(clinic.id),
     loadPlan(clinic.id),
+    ensureDefaultCategories(clinic.id),
+    loadFewShotExamples(clinic.id),
   ])
 
   return (
@@ -42,9 +47,6 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
           <h1 className="mt-2 text-3xl font-semibold text-neutral-900">
             {clinic.name}
           </h1>
-          <p className="mt-1 text-sm text-neutral-600">
-            Plan topics, generate carousel posts, download ZIPs.
-          </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -56,6 +58,10 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
           <RoleBadge role="admin" />
         </div>
       </header>
+
+      <CategoriesEditor clinicId={clinic.id} initialCategories={categories} />
+
+      <FewShotEditor clinicId={clinic.id} initialExamples={fewShot} />
 
       <ContentPlan clinicId={clinic.id} initialTopics={plan} />
 

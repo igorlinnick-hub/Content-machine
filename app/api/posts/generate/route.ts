@@ -11,6 +11,7 @@ import { renderSlides } from '@/lib/visual/renderer'
 import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
 import { getPhotosFromFolder } from '@/lib/google/drive'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
+import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -50,11 +51,21 @@ export async function POST(req: Request) {
     }
 
     const context = await loadSharedContext(clinicId)
+    const categories = await ensureDefaultCategories(clinicId)
+
+    // Match category up-front from the plan topic alone so we can
+    // feed the right CTA template into the writer.
+    const preMatch = matchCategory(planTopic.topic, categories)
+    const ctaHint =
+      preMatch?.category.cta_template ??
+      categories.find((c) => c.cta_template)?.cta_template ??
+      null
 
     // 3 variants on the same topic, then critic picks the best.
     const writerOut = await runWriter({
       context,
       topicHint: planTopic.topic,
+      ctaHint,
       variantCount: 3,
     })
     const criticOut = await runCritic({ context, variants: writerOut })
@@ -93,14 +104,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'failed to save winner script' }, { status: 500 })
     }
 
+    // Re-match category against the winning topic+script — gives
+    // a sharper signal than the plan topic alone.
+    const finalMatch = matchCategory(
+      `${winner.topic} ${winner.script.slice(0, 400)}`,
+      categories
+    )
+    const matchedCategory = finalMatch?.category ?? preMatch?.category ?? null
+    const folderId =
+      body.photoFolderId?.trim() ||
+      matchedCategory?.drive_folder_id ||
+      null
+
     // Render slides for the winning script.
     const style = await loadStyleTemplate(clinicId)
     const { slides } = await splitScriptToSlides(winner.script)
 
     let photoUrls: (string | null)[] = slides.map(() => null)
-    if (body.photoFolderId && style.background.type === 'photo') {
+    if (folderId && style.background.type === 'photo') {
       try {
-        const photos = await getPhotosFromFolder(body.photoFolderId)
+        const photos = await getPhotosFromFolder(folderId)
         if (photos.length > 0) {
           photoUrls = slides.map(
             (_, i) => photos[i % photos.length]?.webContentLink ?? null
@@ -121,7 +144,8 @@ export async function POST(req: Request) {
       scriptId: winnerSaved.id,
       slides,
       styleTemplate: style,
-      driveFolderId: body.photoFolderId ?? null,
+      driveFolderId: folderId,
+      categoryId: matchedCategory?.id ?? null,
       status: 'rendered',
     })
 
@@ -140,6 +164,14 @@ export async function POST(req: Request) {
       slides,
       previews: buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`),
       download_url: `/api/visual/download?slideSetId=${slideSet.id}`,
+      category: matchedCategory
+        ? {
+            id: matchedCategory.id,
+            slug: matchedCategory.slug,
+            name: matchedCategory.name,
+            emoji: matchedCategory.emoji,
+          }
+        : null,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown error'

@@ -56,6 +56,53 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_categories: {
+        Row: {
+          id: string
+          clinic_id: string
+          slug: string
+          name: string
+          emoji: string | null
+          position: number
+          triggers: string[]
+          drive_folder_id: string | null
+          cta_template: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          slug: string
+          name: string
+          emoji?: string | null
+          position?: number
+          triggers?: string[]
+          drive_folder_id?: string | null
+          cta_template?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          slug?: string
+          name?: string
+          emoji?: string | null
+          position?: number
+          triggers?: string[]
+          drive_folder_id?: string | null
+          cta_template?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_categories_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_plan_topics: {
         Row: {
           id: string
@@ -441,6 +488,7 @@ export type Database = {
           slides: Json | null
           status: string | null
           style_template: Json | null
+          category_id: string | null
         }
         Insert: {
           clinic_id?: string | null
@@ -451,6 +499,7 @@ export type Database = {
           slides?: Json | null
           status?: string | null
           style_template?: Json | null
+          category_id?: string | null
         }
         Update: {
           clinic_id?: string | null
@@ -461,6 +510,7 @@ export type Database = {
           slides?: Json | null
           status?: string | null
           style_template?: Json | null
+          category_id?: string | null
         }
         Relationships: [
           {
@@ -475,6 +525,13 @@ export type Database = {
             columns: ["script_id"]
             isOneToOne: false
             referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slide_sets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_categories"
             referencedColumns: ["id"]
           },
         ]

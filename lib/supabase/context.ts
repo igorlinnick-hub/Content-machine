@@ -502,3 +502,33 @@ export async function saveFewShotExample(
     score: data.score,
   }
 }
+
+export async function loadFewShotExamples(
+  clinicId: string
+): Promise<ScriptExample[]> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('few_shot_library')
+    .select('id, script_text, why_good, topic, score')
+    .eq('clinic_id', clinicId)
+    .eq('active', true)
+    .order('score', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    script_text: r.script_text,
+    why_good: r.why_good,
+    topic: r.topic,
+    score: r.score,
+  }))
+}
+
+export async function deactivateFewShotExample(exampleId: string): Promise<void> {
+  const supabase = createServerClient()
+  const { error } = await supabase
+    .from('few_shot_library')
+    .update({ active: false })
+    .eq('id', exampleId)
+  if (error) throw error
+}

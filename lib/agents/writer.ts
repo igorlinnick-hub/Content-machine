@@ -181,6 +181,7 @@ export interface RunWriterParams {
   context: SharedContext
   feedback?: string
   topicHint?: string
+  ctaHint?: string | null
   variantCount?: number
 }
 
@@ -192,7 +193,11 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     ? `\n\nTOPIC FROM THE CONTENT PLAN — write ALL variants on this exact topic. Pick distinct angles or hooks, but the underlying topic is fixed:\n"${params.topicHint.trim()}"\n`
     : ''
 
-  const userContent = `${brief}${topicSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Return only the JSON object.`
+  const ctaSection = params.ctaHint
+    ? `\n\nCTA TEMPLATE — the call-to-action block (step 4) of every variant must follow this pattern. Replace any {placeholders} with concrete text that fits the script:\n"${params.ctaHint.trim()}"\n`
+    : ''
+
+  const userContent = `${brief}${topicSection}${ctaSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Return only the JSON object.`
 
   return callAgentJSON<WriterOutput>({
     model: MODEL_DEFAULT,
