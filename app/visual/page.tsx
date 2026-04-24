@@ -7,6 +7,7 @@ import { loadPlan } from '@/lib/posts/plan'
 import { ContentPlan } from './components/ContentPlan'
 import { PostsGallery } from './components/PostsGallery'
 import { StyleEditor } from './components/StyleEditor'
+import { RoleBadge } from '@/app/components/RoleBadge'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,12 +46,15 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
             Plan topics, generate carousel posts, download ZIPs.
           </p>
         </div>
-        <Link
-          href={`/dashboard?clinicId=${clinic.id}`}
-          className="cm-btn cm-btn-ghost text-sm"
-        >
-          ← Dashboard
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/dashboard?clinicId=${clinic.id}`}
+            className="cm-btn cm-btn-ghost text-sm"
+          >
+            ← Dashboard
+          </Link>
+          <RoleBadge role="admin" />
+        </div>
       </header>
 
       <ContentPlan clinicId={clinic.id} initialTopics={plan} />

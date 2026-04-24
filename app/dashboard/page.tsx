@@ -9,6 +9,7 @@ import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { InstallLinkCard } from './components/InstallLinkCard'
+import { RoleBadge } from '@/app/components/RoleBadge'
 
 export const dynamic = 'force-dynamic'
 
@@ -125,6 +126,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 Visual posts →
               </Link>
             )}
+            <RoleBadge
+              role={access.role}
+              doctorName={access.role !== 'admin' ? clinicRow.doctor_name : null}
+            />
           </div>
         </header>
 
