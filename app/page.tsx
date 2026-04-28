@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
 import { SessionRestore } from './components/SessionRestore'
 import { AdminLogin } from './components/AdminLogin'
+import { DoctorLogin } from './components/DoctorLogin'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,11 @@ export default async function Home({
             {errorMsg}
           </p>
         )}
-        <div className="mt-4 flex w-full justify-center">
+        <div className="mt-4 flex w-full flex-col items-center gap-3">
+          <DoctorLogin />
+          <span className="text-[11px] uppercase tracking-[0.16em] text-neutral-300">
+            or
+          </span>
           <AdminLogin />
         </div>
       </div>
