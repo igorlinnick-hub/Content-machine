@@ -10,6 +10,8 @@ export interface DoctorAccess {
   role: 'doctor' | 'editor'
   clinicId: string
   token: string
+  doctorName: string | null
+  firstVisit: boolean
 }
 
 export interface AdminAccess {
@@ -39,12 +41,15 @@ export async function resolveAccess(): Promise<Access | null> {
   if (tokenCookie) {
     const row = await lookupActiveToken(tokenCookie)
     if (row) {
+      const firstVisit = row.last_used_at === null
       // fire-and-forget; we don't block the page render
       void touchToken(tokenCookie)
       return {
         role: row.role,
         clinicId: row.clinic_id,
         token: tokenCookie,
+        doctorName: row.label,
+        firstVisit,
       }
     }
   }

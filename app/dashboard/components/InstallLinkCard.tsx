@@ -11,6 +11,8 @@ interface Props {
 interface Link {
   token: string
   url: string
+  doctorName: string | null
+  lastUsedAt: string | null
 }
 
 export function InstallLinkCard({ clinicId }: Props) {
@@ -18,6 +20,7 @@ export function InstallLinkCard({ clinicId }: Props) {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [doctorName, setDoctorName] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -42,20 +45,32 @@ export function InstallLinkCard({ clinicId }: Props) {
   }, [clinicId])
 
   async function generate(revokeExisting: boolean) {
+    if (!doctorName.trim()) {
+      setError("Enter the doctor's first name first.")
+      return
+    }
     setGenerating(true)
     setError(null)
     try {
       const res = await fetch('/api/admin/install-link', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clinicId, revokeExisting }),
+        body: JSON.stringify({
+          clinicId,
+          revokeExisting,
+          doctorName: doctorName.trim(),
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
-      setLinks(revokeExisting ? [{ token: data.token, url: data.url }] : [
-        { token: data.token, url: data.url },
-        ...links,
-      ])
+      const newLink: Link = {
+        token: data.token,
+        url: data.url,
+        doctorName: data.doctorName ?? doctorName.trim(),
+        lastUsedAt: null,
+      }
+      setLinks(revokeExisting ? [newLink] : [newLink, ...links])
+      setDoctorName('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to generate')
     } finally {
@@ -65,23 +80,39 @@ export function InstallLinkCard({ clinicId }: Props) {
 
   return (
     <section className="cm-card p-5">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-500">
-            Doctor install link
-          </h3>
-          <p className="mt-1 text-sm text-neutral-600">
-            Send this once. Doctor opens in Safari → Add to Home Screen → done.
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-2">
+      <header className="flex flex-col gap-1">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-500">
+          Doctor install link
+        </h3>
+        <p className="text-sm text-neutral-600">
+          Send this once. Doctor opens in Safari → Add to Home Screen → done.
+          On first open they&apos;ll see a personalized welcome and walk through the
+          setup quiz themselves.
+        </p>
+      </header>
+
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+        <label className="flex flex-1 flex-col gap-1">
+          <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+            Doctor first name
+          </span>
+          <input
+            type="text"
+            value={doctorName}
+            onChange={(e) => setDoctorName(e.target.value)}
+            placeholder="Shawn"
+            className="cm-input text-sm"
+            disabled={generating}
+          />
+        </label>
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => generate(false)}
-            disabled={generating}
-            className="cm-btn cm-btn-ghost text-xs"
+            disabled={generating || !doctorName.trim()}
+            className="cm-btn cm-btn-primary text-xs"
           >
-            {generating ? 'Generating…' : 'New link'}
+            {generating ? 'Generating…' : 'Generate link'}
           </button>
           {links.length > 0 && (
             <button
@@ -95,14 +126,14 @@ export function InstallLinkCard({ clinicId }: Props) {
                   generate(true)
                 }
               }}
-              disabled={generating}
+              disabled={generating || !doctorName.trim()}
               className="cm-btn cm-btn-ghost text-xs text-red-600"
             >
               Revoke + new
             </button>
           )}
         </div>
-      </header>
+      </div>
 
       {error && (
         <p className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -114,10 +145,11 @@ export function InstallLinkCard({ clinicId }: Props) {
         <p className="mt-4 text-xs text-neutral-500">Loading…</p>
       ) : links.length === 0 ? (
         <p className="mt-4 text-sm text-neutral-600">
-          No active links yet. Click <em>New link</em> to create one.
+          No active links yet. Enter the doctor&apos;s first name and click{' '}
+          <em>Generate link</em>.
         </p>
       ) : (
-        <ul className="mt-4 flex flex-col gap-4">
+        <ul className="mt-5 flex flex-col gap-4">
           {links.map((l) => (
             <LinkRow key={l.token} link={l} />
           ))}
@@ -153,6 +185,8 @@ function LinkRow({ link }: { link: Link }) {
     }
   }
 
+  const status = link.lastUsedAt ? 'Used' : 'Unused'
+
   return (
     <li className="flex flex-col items-start gap-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4 sm:flex-row">
       <div className="shrink-0 rounded bg-white p-2 ring-1 ring-neutral-200">
@@ -163,6 +197,22 @@ function LinkRow({ link }: { link: Link }) {
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {link.doctorName && (
+            <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+              Dr. {link.doctorName}
+            </span>
+          )}
+          <span
+            className={`rounded-full border px-2.5 py-0.5 text-[11px] uppercase tracking-wider ${
+              link.lastUsedAt
+                ? 'border-neutral-200 bg-white text-neutral-500'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            }`}
+          >
+            {status}
+          </span>
+        </div>
         <code className="break-all rounded bg-white px-3 py-2 text-xs text-neutral-800 ring-1 ring-neutral-200">
           {link.url}
         </code>

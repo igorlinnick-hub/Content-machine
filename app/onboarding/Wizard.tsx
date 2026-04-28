@@ -18,6 +18,8 @@ interface State {
 export interface WizardProps {
   mode: 'create' | 'edit'
   initial?: Partial<State>
+  welcome?: boolean
+  tokenDoctorName?: string | null
 }
 
 const STEPS: Array<{ title: string; hint: string; cta: string }> = [
@@ -48,14 +50,22 @@ const STEPS: Array<{ title: string; hint: string; cta: string }> = [
   },
 ]
 
-export default function Wizard({ mode, initial }: WizardProps) {
+export default function Wizard({
+  mode,
+  initial,
+  welcome,
+  tokenDoctorName,
+}: WizardProps) {
   const router = useRouter()
+  const [phase, setPhase] = useState<'welcome' | 'wizard'>(
+    welcome ? 'welcome' : 'wizard'
+  )
   const [step, setStep] = useState<Step>(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [state, setState] = useState<State>({
     clinicName: initial?.clinicName ?? '',
-    doctorName: initial?.doctorName ?? '',
+    doctorName: initial?.doctorName || tokenDoctorName || '',
     services: initial?.services ?? [],
     deepDiveTopics: initial?.deepDiveTopics ?? [],
     contentPillars: initial?.contentPillars ?? [],
@@ -63,6 +73,15 @@ export default function Wizard({ mode, initial }: WizardProps) {
   })
 
   const editing = mode === 'edit'
+
+  if (phase === 'welcome') {
+    return (
+      <WelcomeIntro
+        doctorName={tokenDoctorName ?? null}
+        onContinue={() => setPhase('wizard')}
+      />
+    )
+  }
 
   const canAdvance = useMemo(() => {
     switch (step) {
@@ -120,7 +139,7 @@ export default function Wizard({ mode, initial }: WizardProps) {
         />
       </div>
 
-      <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-5 pb-12 pt-14 sm:px-6">
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col gap-8 px-5 pb-12 pt-14 sm:px-6 cm-fade-in">
         <div className="flex items-center justify-between text-xs uppercase tracking-[0.18em] text-neutral-500">
           <Link href="/dashboard" className="hover:text-neutral-900">
             ← Back
@@ -239,6 +258,98 @@ export default function Wizard({ mode, initial }: WizardProps) {
         </footer>
       </div>
     </main>
+  )
+}
+
+function WelcomeIntro({
+  doctorName,
+  onContinue,
+}: {
+  doctorName: string | null
+  onContinue: () => void
+}) {
+  const greeting = doctorName ? `Hey ${doctorName}` : 'Hey there'
+
+  return (
+    <main className="min-h-screen bg-white text-neutral-900">
+      <div className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-10 px-5 py-10 sm:px-6 cm-fade-in">
+        <div className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
+            Content Machine
+          </p>
+          <h1 className="text-4xl font-semibold leading-tight text-neutral-900 sm:text-5xl">
+            {greeting} 👋
+          </h1>
+          <p className="text-lg text-neutral-600">
+            Take this quick quiz so your AI team writes content that actually
+            sounds like <em>you</em> — not generic clinic copy.
+          </p>
+        </div>
+
+        <ul className="cm-fade-in-stagger flex flex-col gap-3 text-sm text-neutral-700">
+          <WelcomeStep
+            n={1}
+            title="Your clinic & your name"
+            why="So we can sign posts in your voice."
+          />
+          <WelcomeStep
+            n={2}
+            title="What you actually do"
+            why="The real menu of services — not marketing speak."
+          />
+          <WelcomeStep
+            n={3}
+            title="What you want to be known for"
+            why="Topics where you'll go deep and become THE voice."
+          />
+          <WelcomeStep
+            n={4}
+            title="Your weekly content pillars"
+            why="3–5 themes every post can map to."
+          />
+          <WelcomeStep
+            n={5}
+            title="Opinions most doctors won't say"
+            why="Contrarian takes you actually believe — gives the writing real edge."
+          />
+        </ul>
+
+        <div className="flex flex-col gap-3">
+          <button
+            type="button"
+            onClick={onContinue}
+            className="cm-btn cm-btn-primary self-start text-base sm:px-7 sm:py-3"
+          >
+            Start the quiz →
+          </button>
+          <p className="text-xs text-neutral-400">
+            Takes about 4 minutes. You can always come back and edit later.
+          </p>
+        </div>
+      </div>
+    </main>
+  )
+}
+
+function WelcomeStep({
+  n,
+  title,
+  why,
+}: {
+  n: number
+  title: string
+  why: string
+}) {
+  return (
+    <li className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-semibold text-white">
+        {n}
+      </span>
+      <div className="flex flex-col gap-0.5">
+        <span className="font-medium text-neutral-900">{title}</span>
+        <span className="text-xs text-neutral-500">{why}</span>
+      </div>
+    </li>
   )
 }
 

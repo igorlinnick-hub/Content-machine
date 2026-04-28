@@ -5,9 +5,17 @@ import Wizard from './Wizard'
 
 export const dynamic = 'force-dynamic'
 
-export default async function OnboardingPage() {
+interface OnboardingPageProps {
+  searchParams: { welcome?: string }
+}
+
+export default async function OnboardingPage({
+  searchParams,
+}: OnboardingPageProps) {
   const access = await resolveAccess()
   if (!access) redirect('/')
+
+  const welcome = searchParams.welcome === '1'
 
   if (access.role === 'admin') {
     return <Wizard mode="create" />
@@ -26,9 +34,11 @@ export default async function OnboardingPage() {
   return (
     <Wizard
       mode="edit"
+      welcome={welcome}
+      tokenDoctorName={access.doctorName}
       initial={{
         clinicName: clinic.name ?? '',
-        doctorName: clinic.doctor_name ?? '',
+        doctorName: clinic.doctor_name ?? access.doctorName ?? '',
         services: clinic.services ?? [],
         deepDiveTopics: clinic.deep_dive_topics ?? [],
         contentPillars: clinic.content_pillars ?? [],

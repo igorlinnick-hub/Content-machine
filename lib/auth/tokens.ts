@@ -17,6 +17,7 @@ export interface AccessTokenRow {
   role: 'doctor' | 'editor'
   label: string | null
   revoked_at: string | null
+  last_used_at: string | null
 }
 
 export async function createAccessToken(params: {
@@ -34,7 +35,7 @@ export async function createAccessToken(params: {
       role: params.role ?? 'doctor',
       label: params.label ?? null,
     })
-    .select('token, clinic_id, role, label, revoked_at')
+    .select('token, clinic_id, role, label, revoked_at, last_used_at')
     .single()
   if (error || !data) throw error ?? new Error('createAccessToken: no row returned')
   return data as AccessTokenRow
@@ -47,7 +48,7 @@ export async function lookupActiveToken(
   const supabase = createServerClient()
   const { data } = await supabase
     .from('clinic_access_tokens')
-    .select('token, clinic_id, role, label, revoked_at')
+    .select('token, clinic_id, role, label, revoked_at, last_used_at')
     .eq('token', token)
     .is('revoked_at', null)
     .maybeSingle()
@@ -76,7 +77,7 @@ export async function listActiveTokensForClinic(
   const supabase = createServerClient()
   const { data } = await supabase
     .from('clinic_access_tokens')
-    .select('token, clinic_id, role, label, revoked_at')
+    .select('token, clinic_id, role, label, revoked_at, last_used_at')
     .eq('clinic_id', clinicId)
     .is('revoked_at', null)
     .order('created_at', { ascending: false })

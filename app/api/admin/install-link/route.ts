@@ -14,9 +14,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'admin access required' }, { status: 403 })
   }
 
-  let body: { clinicId?: string; revokeExisting?: boolean }
+  let body: { clinicId?: string; revokeExisting?: boolean; doctorName?: string }
   try {
-    body = (await req.json()) as { clinicId?: string; revokeExisting?: boolean }
+    body = (await req.json()) as {
+      clinicId?: string
+      revokeExisting?: boolean
+      doctorName?: string
+    }
   } catch {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 })
   }
@@ -25,6 +29,8 @@ export async function POST(req: Request) {
   if (!clinicId) {
     return NextResponse.json({ error: 'clinicId required' }, { status: 400 })
   }
+
+  const doctorName = body.doctorName?.trim() || undefined
 
   if (body.revokeExisting) {
     const existing = await listActiveTokensForClinic(clinicId)
@@ -35,11 +41,19 @@ export async function POST(req: Request) {
     )
   }
 
-  const row = await createAccessToken({ clinicId, role: 'doctor' })
+  const row = await createAccessToken({
+    clinicId,
+    role: 'doctor',
+    label: doctorName,
+  })
   const url = new URL(req.url)
   const installUrl = `${url.origin}/c/${row.token}`
 
-  return NextResponse.json({ token: row.token, url: installUrl })
+  return NextResponse.json({
+    token: row.token,
+    url: installUrl,
+    doctorName: row.label,
+  })
 }
 
 export async function GET(req: Request) {
@@ -60,6 +74,8 @@ export async function GET(req: Request) {
     .map((t) => ({
       token: t.token,
       url: `${url.origin}/c/${t.token}`,
+      doctorName: t.label,
+      lastUsedAt: t.last_used_at,
     }))
   return NextResponse.json({ links })
 }

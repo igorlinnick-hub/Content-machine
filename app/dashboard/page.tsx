@@ -60,23 +60,36 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const pillars = clinicRow.content_pillars ?? []
 
   const showAdminTools = access.role === 'admin'
+  const isDoctor = access.role !== 'admin'
+  const doctorDisplayName =
+    (isDoctor && access.doctorName) || clinicRow.doctor_name || null
+
+  const headline = isDoctor
+    ? doctorDisplayName
+      ? `Hi, ${doctorDisplayName} 👋`
+      : 'Welcome 👋'
+    : clinicName
+
+  const subline = isDoctor
+    ? clinicName
+    : clinicRow.doctor_name || null
+
+  const profileIncomplete = services.length === 0 || pillars.length === 0
 
   return (
     <main className="min-h-screen bg-white">
       <TokenBootstrap />
-      <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10 cm-fade-in">
         <header className="flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-[0.16em] text-orange-500">
               Content Machine
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-neutral-900 sm:text-4xl">
-              {clinicName}
+              {headline}
             </h1>
-            {clinicRow.doctor_name && (
-              <p className="mt-1 text-base text-neutral-600">
-                {clinicRow.doctor_name}
-              </p>
+            {subline && (
+              <p className="mt-1 text-base text-neutral-600">{subline}</p>
             )}
             {(services.length > 0 || pillars.length > 0) && (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -128,17 +141,39 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             )}
             <RoleBadge
               role={access.role}
-              doctorName={access.role !== 'admin' ? clinicRow.doctor_name : null}
+              doctorName={isDoctor ? doctorDisplayName : null}
             />
           </div>
         </header>
 
         {showAdminTools && <InstallLinkCard clinicId={clinicId} />}
 
+        {isDoctor && profileIncomplete && (
+          <Link
+            href="/onboarding"
+            className="cm-card flex items-center justify-between gap-4 p-5 transition hover:border-orange-300 hover:shadow-md"
+          >
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-500">
+                First step
+              </p>
+              <h3 className="mt-1 text-lg font-semibold text-neutral-900">
+                Finish setting up your profile
+              </h3>
+              <p className="mt-1 text-sm text-neutral-600">
+                Takes ~4 minutes. Your AI team needs this to write in your voice.
+              </p>
+            </div>
+            <span className="cm-btn cm-btn-primary shrink-0 text-sm">
+              Take the quiz →
+            </span>
+          </Link>
+        )}
+
         <Section
           number={1}
           title="Today's questions"
-          subtitle="Quick answers feed the agents. 30 seconds each."
+          subtitle="Two quick prompts. Your answers train the AI on how you actually think and talk — 30 seconds each."
         >
           <DailyWidgets clinicId={clinicId} questions={questions} />
         </Section>
@@ -146,7 +181,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <Section
           number={2}
           title="Generate scripts"
-          subtitle="Three variants per round. Pick the one that sounds like you — the writer learns from every choice."
+          subtitle="Pick a topic. Get 3 variants written in your voice. Tap the one that sounds most like you — the writer remembers."
         >
           <ScriptGenerator clinicId={clinicId} />
         </Section>
@@ -154,7 +189,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <Section
           number={3}
           title="Recent scripts"
-          subtitle="Your last 5 approved or saved scripts."
+          subtitle="Your last 5 saved scripts. Tap any to copy or post."
         >
           <RecentScripts scripts={recent} />
         </Section>
