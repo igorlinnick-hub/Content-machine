@@ -524,6 +524,23 @@ export async function loadFewShotExamples(
   }))
 }
 
+// Pin / unpin a manual example so it always sits at the top of the few-shot
+// pool regardless of what the diff-agent later auto-adds. Pinned = score 1000
+// (well above any auto-assigned 70-95). Unpinned = score NULL (sorts last).
+export const PIN_SCORE = 1000
+
+export async function setFewShotPin(
+  exampleId: string,
+  pinned: boolean
+): Promise<void> {
+  const supabase = createServerClient()
+  const { error } = await supabase
+    .from('few_shot_library')
+    .update({ score: pinned ? PIN_SCORE : null })
+    .eq('id', exampleId)
+  if (error) throw error
+}
+
 export async function deactivateFewShotExample(exampleId: string): Promise<void> {
   const supabase = createServerClient()
   const { error } = await supabase

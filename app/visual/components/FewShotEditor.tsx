@@ -67,6 +67,28 @@ export function FewShotEditor({ clinicId, initialExamples }: Props) {
     }
   }
 
+  async function togglePin(id: string, pinned: boolean) {
+    try {
+      const res = await fetch(`/api/posts/few-shot/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ pinned }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error ?? `HTTP ${res.status}`)
+      }
+      setExamples((prev) =>
+        prev
+          .map((e) => (e.id === id ? { ...e, score: pinned ? 1000 : null } : e))
+          // Re-sort: pinned (high score) first, then everything else.
+          .sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed to update pin')
+    }
+  }
+
   return (
     <details className="rounded-lg border border-neutral-200 bg-white p-5">
       <summary className="cursor-pointer text-base font-semibold text-neutral-900">
@@ -162,35 +184,74 @@ export function FewShotEditor({ clinicId, initialExamples }: Props) {
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {examples.map((ex) => (
-              <li
-                key={ex.id}
-                className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3"
-              >
-                <div className="min-w-0 flex-1">
-                  {ex.topic && (
-                    <p className="text-xs font-medium text-neutral-700">
-                      {ex.topic}
-                    </p>
-                  )}
-                  <p className="mt-1 line-clamp-3 text-xs text-neutral-600">
-                    {ex.script_text}
-                  </p>
-                  {ex.why_good && (
-                    <p className="mt-1 text-[11px] italic text-neutral-500">
-                      {ex.why_good}
-                    </p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => remove(ex.id)}
-                  className="shrink-0 text-xs text-neutral-500 hover:text-red-600"
+            {examples.map((ex) => {
+              const pinned = (ex.score ?? 0) >= 1000
+              const autoScored =
+                ex.score !== null && ex.score !== undefined && ex.score < 1000
+              return (
+                <li
+                  key={ex.id}
+                  className={`flex items-start gap-3 rounded-lg border p-3 ${
+                    pinned
+                      ? 'border-orange-200 bg-orange-50/60'
+                      : 'border-neutral-200 bg-neutral-50'
+                  }`}
                 >
-                  ×
-                </button>
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {pinned && (
+                        <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                          📌 Pinned
+                        </span>
+                      )}
+                      {autoScored && (
+                        <span className="rounded-full border border-neutral-300 bg-white px-2 py-0.5 text-[10px] font-medium text-neutral-600">
+                          Auto · {ex.score}
+                        </span>
+                      )}
+                      {ex.topic && (
+                        <p className="text-xs font-medium text-neutral-700">
+                          {ex.topic}
+                        </p>
+                      )}
+                    </div>
+                    <p className="mt-1 line-clamp-3 text-xs text-neutral-600">
+                      {ex.script_text}
+                    </p>
+                    {ex.why_good && (
+                      <p className="mt-1 text-[11px] italic text-neutral-500">
+                        {ex.why_good}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => togglePin(ex.id, !pinned)}
+                      className={`text-[11px] font-medium ${
+                        pinned
+                          ? 'text-orange-700 hover:text-orange-900'
+                          : 'text-neutral-500 hover:text-orange-600'
+                      }`}
+                      title={
+                        pinned
+                          ? 'Remove pin — let auto-scoring rank it'
+                          : 'Pin to top — keep above auto-added examples'
+                      }
+                    >
+                      {pinned ? 'Unpin' : 'Pin'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(ex.id)}
+                      className="text-xs text-neutral-500 hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
