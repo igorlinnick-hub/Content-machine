@@ -252,6 +252,6 @@ function StatusDot({ status }: { status: 'pending' | 'done' | 'skipped' }) {
       ? 'bg-green-500'
       : status === 'skipped'
         ? 'bg-neutral-300'
-        : 'bg-orange-400'
+        : 'bg-sky-400'
   return <span className={`h-2 w-2 shrink-0 rounded-full ${cls}`} aria-hidden />
 }

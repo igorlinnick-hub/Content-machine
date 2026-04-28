@@ -21,6 +21,7 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<GenerateResult | null>(null)
+  const [topic, setTopic] = useState('')
 
   async function onGenerate() {
     setLoading(true)
@@ -30,7 +31,10 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
       const res = await fetch('/api/agents/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clinicId }),
+        body: JSON.stringify({
+          clinicId,
+          topicHint: topic.trim() || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
@@ -45,23 +49,39 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="cm-card flex flex-col items-stretch gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="cm-card flex flex-col gap-4 p-5">
         <div>
           <p className="text-base font-semibold text-neutral-900">
             Ready to generate 3 fresh variants
           </p>
           <p className="text-sm text-neutral-600">
-            Pulls from your notes, pillars, and past picks.
+            Leave the topic blank to let your team pick from your pillars, or
+            give them a specific topic.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={loading}
-          className="cm-btn cm-btn-primary w-full text-base sm:w-auto sm:px-7 sm:py-3"
-        >
-          {loading ? 'Generating…' : 'Generate 3 variants'}
-        </button>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="flex flex-1 flex-col gap-1">
+            <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+              Topic <span className="text-neutral-400">(optional)</span>
+            </span>
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. PRP for chronic shoulder pain"
+              className="cm-input text-sm"
+              disabled={loading}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={onGenerate}
+            disabled={loading}
+            className="cm-btn cm-btn-primary text-base sm:px-7 sm:py-3"
+          >
+            {loading ? 'Generating…' : 'Generate 3 variants'}
+          </button>
+        </div>
       </div>
 
       {result?.rewritten && (

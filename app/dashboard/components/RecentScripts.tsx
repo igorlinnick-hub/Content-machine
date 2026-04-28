@@ -57,7 +57,7 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
                   </span>
                 )}
                 {s.approved && (
-                  <span className="inline-flex items-center rounded-md bg-orange-50 px-1.5 py-0.5 text-[11px] font-medium text-orange-700">
+                  <span className="inline-flex items-center rounded-md bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700">
                     approved
                   </span>
                 )}

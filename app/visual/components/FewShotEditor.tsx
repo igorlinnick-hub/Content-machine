@@ -193,14 +193,14 @@ export function FewShotEditor({ clinicId, initialExamples }: Props) {
                   key={ex.id}
                   className={`flex items-start gap-3 rounded-lg border p-3 ${
                     pinned
-                      ? 'border-orange-200 bg-orange-50/60'
+                      ? 'border-sky-200 bg-sky-50/60'
                       : 'border-neutral-200 bg-neutral-50'
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {pinned && (
-                        <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
+                        <span className="rounded-full bg-sky-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">
                           📌 Pinned
                         </span>
                       )}
@@ -230,8 +230,8 @@ export function FewShotEditor({ clinicId, initialExamples }: Props) {
                       onClick={() => togglePin(ex.id, !pinned)}
                       className={`text-[11px] font-medium ${
                         pinned
-                          ? 'text-orange-700 hover:text-orange-900'
-                          : 'text-neutral-500 hover:text-orange-600'
+                          ? 'text-sky-700 hover:text-sky-900'
+                          : 'text-neutral-500 hover:text-sky-600'
                       }`}
                       title={
                         pinned

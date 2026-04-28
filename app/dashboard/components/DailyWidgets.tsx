@@ -70,7 +70,7 @@ function QuestionCard({
   return (
     <form onSubmit={onSubmit} className="cm-card flex flex-col gap-3 p-5">
       <div className="flex items-start gap-2">
-        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-orange-50 text-[11px] font-semibold text-orange-600">
+        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-50 text-[11px] font-semibold text-sky-600">
           {index}
         </span>
         <p className="text-sm font-medium leading-snug text-neutral-900">

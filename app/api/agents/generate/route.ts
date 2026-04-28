@@ -9,6 +9,7 @@ export const maxDuration = 300
 
 interface GeneratePostBody {
   clinicId: string
+  topicHint?: string
 }
 
 export async function POST(req: Request) {
@@ -24,16 +25,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'clinicId is required' }, { status: 400 })
   }
 
+  const topicHint = body.topicHint?.trim() || undefined
+
   try {
     const context = await loadSharedContext(clinicId)
 
-    let variants = await runWriter({ context })
+    let variants = await runWriter({ context, topicHint })
     let scores = await runCritic({ context, variants })
 
     const needsRewrite = scores.scores.some((s) => !s.approved)
     if (needsRewrite) {
       const feedback = buildFeedback(scores)
-      variants = await runWriter({ context, feedback })
+      variants = await runWriter({ context, feedback, topicHint })
       scores = await runCritic({ context, variants })
     }
 

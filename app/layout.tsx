@@ -11,6 +11,13 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Content Machine',
   description: 'AI content platform for regenerative-medicine clinics',
+  manifest: '/manifest.webmanifest',
+  themeColor: '#0ea5e9',
+  appleWebApp: {
+    capable: true,
+    title: 'Content Machine',
+    statusBarStyle: 'default',
+  },
 }
 
 export default function RootLayout({

@@ -10,6 +10,8 @@ import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { InstallLinkCard } from './components/InstallLinkCard'
 import { BrandCard } from './components/BrandCard'
+import { QuickNote } from './components/QuickNote'
+import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 
 export const dynamic = 'force-dynamic'
@@ -83,7 +85,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10 cm-fade-in">
         <header className="flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-[0.16em] text-orange-500">
+            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-sky-500">
+              <Logomark size={18} />
               Content Machine
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-neutral-900 sm:text-4xl">
@@ -105,7 +108,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 {pillars.slice(0, 3).map((p) => (
                   <span
                     key={`pil-${p}`}
-                    className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs text-orange-700"
+                    className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs text-sky-700"
                   >
                     {p}
                   </span>
@@ -157,10 +160,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {isDoctor && profileIncomplete && (
           <Link
             href="/onboarding"
-            className="cm-card flex items-center justify-between gap-4 p-5 transition hover:border-orange-300 hover:shadow-md"
+            className="cm-card flex items-center justify-between gap-4 p-5 transition hover:border-sky-300 hover:shadow-md"
           >
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-orange-500">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
                 First step
               </p>
               <h3 className="mt-1 text-lg font-semibold text-neutral-900">
@@ -186,14 +189,22 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <Section
           number={2}
+          title="Anything else on your mind?"
+          subtitle="A free-form note. Stories, complaints, opinions, weird cases — anything that didn't fit a question."
+        >
+          <QuickNote clinicId={clinicId} />
+        </Section>
+
+        <Section
+          number={3}
           title="Generate scripts"
-          subtitle="Pick a topic. Get 3 variants written in your voice. Tap the one that sounds most like you — the writer remembers."
+          subtitle="Leave the topic blank to let your team pick from your pillars, or type a specific topic. Three variants every time."
         >
           <ScriptGenerator clinicId={clinicId} />
         </Section>
 
         <Section
-          number={3}
+          number={4}
           title="Recent scripts"
           subtitle="Your last 5 saved scripts. Tap any to copy or post."
         >
@@ -222,7 +233,7 @@ function Section({
   return (
     <section className="flex flex-col gap-4">
       <div className="flex items-start gap-3">
-        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-semibold text-white">
+        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-500 text-xs font-semibold text-white">
           {number}
         </span>
         <div>

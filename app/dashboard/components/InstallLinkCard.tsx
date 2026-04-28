@@ -81,7 +81,7 @@ export function InstallLinkCard({ clinicId }: Props) {
   return (
     <section className="cm-card p-5">
       <header className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-500">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-500">
           Doctor install link
         </h3>
         <p className="text-sm text-neutral-600">
@@ -199,7 +199,7 @@ function LinkRow({ link }: { link: Link }) {
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {link.doctorName && (
-            <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+            <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
               Dr. {link.doctorName}
             </span>
           )}

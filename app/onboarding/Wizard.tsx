@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Logomark } from '@/app/components/Logomark'
 
 type Step = 0 | 1 | 2 | 3 | 4
 
@@ -134,7 +135,7 @@ export default function Wizard({
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="fixed inset-x-0 top-0 z-10 h-1 bg-neutral-100">
         <div
-          className="h-full bg-orange-500 transition-all duration-300"
+          className="h-full bg-sky-500 transition-all duration-300"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -144,7 +145,7 @@ export default function Wizard({
           <Link href="/dashboard" className="hover:text-neutral-900">
             ← Back
           </Link>
-          <span className="font-medium text-orange-500">
+          <span className="font-medium text-sky-500">
             {editing ? 'Edit clinic profile' : 'Content Machine setup'}
           </span>
           <span>
@@ -280,16 +281,17 @@ function WelcomeIntro({
       {/* Ambient orange glow — pure decoration, no DOM cost */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-[18%] -top-40 h-[520px] w-[520px] rounded-full bg-orange-200/45 blur-3xl"
+        className="pointer-events-none absolute -right-[18%] -top-40 h-[520px] w-[520px] rounded-full bg-sky-200/45 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-[10%] top-[60%] h-[360px] w-[360px] rounded-full bg-orange-100/60 blur-3xl"
+        className="pointer-events-none absolute -left-[10%] top-[60%] h-[360px] w-[360px] rounded-full bg-sky-100/60 blur-3xl"
       />
 
       <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-5 py-12 sm:gap-14 sm:px-6 sm:py-16">
         <div className="flex flex-col gap-5 cm-fade-in">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-500">
+            <Logomark size={20} />
             Content Machine
           </p>
           <h1 className="text-balance text-4xl font-semibold leading-[1.05] text-neutral-900 sm:text-6xl">
@@ -317,11 +319,11 @@ function WelcomeIntro({
             {AGENTS.map((a) => (
               <li
                 key={a.name}
-                className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white/70 px-4 py-3 backdrop-blur transition hover:border-orange-200 hover:bg-white"
+                className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white/70 px-4 py-3 backdrop-blur transition hover:border-sky-200 hover:bg-white"
               >
                 <span className="relative mt-1.5 inline-flex h-2.5 w-2.5 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-cm-ping rounded-full bg-orange-400 opacity-70" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-orange-500" />
+                  <span className="absolute inline-flex h-full w-full animate-cm-ping rounded-full bg-sky-400 opacity-70" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-sky-500" />
                 </span>
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium text-neutral-900">{a.name}</span>
@@ -399,7 +401,7 @@ function WelcomeStep({
 }) {
   return (
     <li className="flex items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
-      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-orange-500 text-xs font-semibold text-white">
+      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-500 text-xs font-semibold text-white">
         {n}
       </span>
       <div className="flex flex-col gap-0.5">
@@ -456,7 +458,7 @@ function Field({
     <label className="flex flex-col gap-2">
       <span className="text-sm font-medium text-neutral-800">
         {label}
-        {required && <span className="text-orange-500"> *</span>}
+        {required && <span className="text-sky-500"> *</span>}
       </span>
       {children}
     </label>

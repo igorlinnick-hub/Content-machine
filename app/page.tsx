@@ -3,6 +3,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { SessionRestore } from './components/SessionRestore'
 import { AdminLogin } from './components/AdminLogin'
 import { DoctorLogin } from './components/DoctorLogin'
+import { Logomark } from './components/Logomark'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,16 +29,17 @@ export default async function Home({
       {/* Ambient orange glows */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-[15%] -top-32 h-[520px] w-[520px] rounded-full bg-orange-200/45 blur-3xl"
+        className="pointer-events-none absolute -right-[15%] -top-32 h-[520px] w-[520px] rounded-full bg-sky-200/45 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-[12%] top-[55%] h-[420px] w-[420px] rounded-full bg-orange-100/60 blur-3xl"
+        className="pointer-events-none absolute -left-[12%] top-[55%] h-[420px] w-[420px] rounded-full bg-sky-100/60 blur-3xl"
       />
 
       <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-5 py-12 sm:gap-14 sm:px-6 sm:py-16">
         <div className="flex flex-col gap-5 cm-fade-in">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-500">
+            <Logomark size={20} />
             Content Machine
           </p>
           <h1 className="text-balance text-4xl font-semibold leading-[1.05] text-neutral-900 sm:text-6xl">

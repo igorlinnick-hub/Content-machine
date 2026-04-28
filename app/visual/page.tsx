@@ -41,7 +41,7 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-5 py-8 sm:px-6 sm:py-10">
       <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-5">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-orange-500">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-500">
             Posts workspace
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-neutral-900">

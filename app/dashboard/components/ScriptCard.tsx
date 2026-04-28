@@ -178,8 +178,8 @@ export function ScriptCard({
         )}
       </header>
 
-      <p className="rounded-lg border border-orange-100 bg-orange-50 px-4 py-3 text-sm italic text-orange-900">
-        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider not-italic text-orange-500">
+      <p className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm italic text-sky-900">
+        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider not-italic text-sky-500">
           Hook
         </span>
         {variant.hook}
@@ -229,7 +229,7 @@ export function ScriptCard({
                   className={`cm-btn text-sm ${
                     refineOpen
                       ? 'cm-btn-primary'
-                      : 'cm-btn-ghost border border-orange-200 text-orange-700 hover:bg-orange-50'
+                      : 'cm-btn-ghost border border-sky-200 text-sky-700 hover:bg-sky-50'
                   }`}
                 >
                   {refining ? 'Refining…' : refineOpen ? 'Cancel' : 'Refine'}
@@ -263,7 +263,7 @@ export function ScriptCard({
                 type="button"
                 onClick={makeSlides}
                 disabled={!canSlides}
-                className="cm-btn cm-btn-ghost text-sm border border-orange-200 text-orange-700 hover:bg-orange-50"
+                className="cm-btn cm-btn-ghost text-sm border border-sky-200 text-sky-700 hover:bg-sky-50"
                 title="Render this script as a PNG carousel"
               >
                 {slidesLoading ? 'Making slides…' : slides ? '🎴 Re-render' : '🎴 Make slides'}
@@ -286,9 +286,9 @@ export function ScriptCard({
         )}
 
         {slides && slides.previews.length > 0 && (
-          <div className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+          <div className="flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50/40 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wider text-orange-700">
+              <p className="text-xs font-medium uppercase tracking-wider text-sky-700">
                 {slides.count} slide{slides.count === 1 ? '' : 's'} ready
               </p>
               <a
@@ -314,10 +314,10 @@ export function ScriptCard({
         )}
 
         {refineOpen && (
-          <div className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50/60 p-3">
+          <div className="flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50/60 p-3">
             <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-orange-700">
-                What to change <span className="text-orange-500">(optional)</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-sky-700">
+                What to change <span className="text-sky-500">(optional)</span>
               </span>
               <input
                 type="text"

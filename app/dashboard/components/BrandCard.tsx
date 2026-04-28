@@ -97,7 +97,7 @@ export function BrandCard({ clinicId }: Props) {
   return (
     <section className="cm-card p-5">
       <header className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-orange-500">
+        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-500">
           Clinic logo
         </h3>
         <p className="text-sm text-neutral-600">
@@ -138,8 +138,8 @@ export function BrandCard({ clinicId }: Props) {
             onClick={() => fileInputRef.current?.click()}
             className={`flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-6 text-center transition ${
               dragOver
-                ? 'border-orange-400 bg-orange-50'
-                : 'border-neutral-200 bg-neutral-50 hover:border-orange-300 hover:bg-orange-50/50'
+                ? 'border-sky-400 bg-sky-50'
+                : 'border-neutral-200 bg-neutral-50 hover:border-sky-300 hover:bg-sky-50/50'
             }`}
           >
             <p className="text-sm font-medium text-neutral-800">

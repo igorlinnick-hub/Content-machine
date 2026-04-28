@@ -27,9 +27,9 @@ export function RoleBadge({ role, doctorName }: Props) {
 
   const isAdmin = role === 'admin'
   const label = isAdmin ? 'Admin' : doctorName ? `Doctor: ${doctorName}` : 'Doctor'
-  const dotCls = isAdmin ? 'bg-orange-500' : 'bg-neutral-400'
+  const dotCls = isAdmin ? 'bg-sky-500' : 'bg-neutral-400'
   const ringCls = isAdmin
-    ? 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100'
+    ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
     : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100'
 
   return (

@@ -71,7 +71,7 @@ export function PostsGallery({ posts }: Props) {
                   </p>
                 </div>
                 {p.category && (
-                  <span className="shrink-0 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-[11px] font-medium text-orange-700">
+                  <span className="shrink-0 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-medium text-sky-700">
                     {p.category.emoji && <span className="mr-1">{p.category.emoji}</span>}
                     {p.category.name}
                   </span>
