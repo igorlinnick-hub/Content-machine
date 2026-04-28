@@ -261,6 +261,13 @@ export default function Wizard({
   )
 }
 
+const AGENTS: Array<{ name: string; role: string }> = [
+  { name: 'Writer', role: 'Drafts every script in your voice' },
+  { name: 'Critic', role: 'Kills weak takes before you see them' },
+  { name: 'Researcher', role: 'Scans medical literature weekly' },
+  { name: 'Designer', role: 'Turns scripts into Instagram slides' },
+]
+
 function WelcomeIntro({
   doctorName,
   onContinue,
@@ -268,62 +275,112 @@ function WelcomeIntro({
   doctorName: string | null
   onContinue: () => void
 }) {
-  const greeting = doctorName ? `Hey ${doctorName}` : 'Hey there'
-
   return (
-    <main className="min-h-screen bg-white text-neutral-900">
-      <div className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-10 px-5 py-10 sm:px-6 cm-fade-in">
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
+    <main className="relative min-h-screen overflow-hidden bg-white text-neutral-900">
+      {/* Ambient orange glow — pure decoration, no DOM cost */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-[18%] -top-40 h-[520px] w-[520px] rounded-full bg-orange-200/45 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-[10%] top-[60%] h-[360px] w-[360px] rounded-full bg-orange-100/60 blur-3xl"
+      />
+
+      <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-5 py-12 sm:gap-14 sm:px-6 sm:py-16">
+        <div className="flex flex-col gap-5 cm-fade-in">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">
             Content Machine
           </p>
-          <h1 className="text-4xl font-semibold leading-tight text-neutral-900 sm:text-5xl">
-            {greeting} 👋
+          <h1 className="text-balance text-4xl font-semibold leading-[1.05] text-neutral-900 sm:text-6xl">
+            {doctorName ? `Hey ${doctorName}.` : 'Hey there.'}
+            <br />
+            <span className="text-neutral-400">
+              Your AI team is ready.
+            </span>
           </h1>
-          <p className="text-lg text-neutral-600">
-            Take this quick quiz so your AI team writes content that actually
-            sounds like <em>you</em> — not generic clinic copy.
+          <p className="text-lg leading-relaxed text-neutral-600 sm:text-xl">
+            Four agents who write, research, critique, and design — every
+            week, in your voice, about you. Spend four minutes telling them
+            how you think, and they take it from there.
           </p>
         </div>
 
-        <ul className="cm-fade-in-stagger flex flex-col gap-3 text-sm text-neutral-700">
-          <WelcomeStep
-            n={1}
-            title="Your clinic & your name"
-            why="So we can sign posts in your voice."
-          />
-          <WelcomeStep
-            n={2}
-            title="What you actually do"
-            why="The real menu of services — not marketing speak."
-          />
-          <WelcomeStep
-            n={3}
-            title="What you want to be known for"
-            why="Topics where you'll go deep and become THE voice."
-          />
-          <WelcomeStep
-            n={4}
-            title="Your weekly content pillars"
-            why="3–5 themes every post can map to."
-          />
-          <WelcomeStep
-            n={5}
-            title="Opinions most doctors won't say"
-            why="Contrarian takes you actually believe — gives the writing real edge."
-          />
-        </ul>
+        <div
+          className="flex flex-col gap-3 cm-fade-in"
+          style={{ animationDelay: '0.18s' }}
+        >
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
+            Meet your team
+          </p>
+          <ul className="cm-fade-in-stagger grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {AGENTS.map((a) => (
+              <li
+                key={a.name}
+                className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white/70 px-4 py-3 backdrop-blur transition hover:border-orange-200 hover:bg-white"
+              >
+                <span className="relative mt-1.5 inline-flex h-2.5 w-2.5 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-cm-ping rounded-full bg-orange-400 opacity-70" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-orange-500" />
+                </span>
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium text-neutral-900">{a.name}</span>
+                  <span className="text-xs text-neutral-500">{a.role}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <div className="flex flex-col gap-3">
+        <div
+          className="flex flex-col gap-3 cm-fade-in"
+          style={{ animationDelay: '0.32s' }}
+        >
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-400">
+            What we&apos;ll need from you · 4 min
+          </p>
+          <ul className="cm-fade-in-stagger flex flex-col gap-2.5 text-sm text-neutral-700">
+            <WelcomeStep
+              n={1}
+              title="Your clinic & your name"
+              why="So your team signs posts in your voice."
+            />
+            <WelcomeStep
+              n={2}
+              title="What you actually do"
+              why="The real menu of services — not marketing speak."
+            />
+            <WelcomeStep
+              n={3}
+              title="What you want to be known for"
+              why="Topics where you'll go deep and become THE voice."
+            />
+            <WelcomeStep
+              n={4}
+              title="Your weekly content pillars"
+              why="3–5 themes every post can map to."
+            />
+            <WelcomeStep
+              n={5}
+              title="Opinions most doctors won't say"
+              why="Contrarian takes you actually believe — gives your content real edge."
+            />
+          </ul>
+        </div>
+
+        <div
+          className="flex flex-col gap-3 cm-fade-in"
+          style={{ animationDelay: '0.48s' }}
+        >
           <button
             type="button"
             onClick={onContinue}
-            className="cm-btn cm-btn-primary self-start text-base sm:px-7 sm:py-3"
+            className="cm-btn cm-btn-primary self-start text-base sm:px-8 sm:py-3.5 sm:text-lg"
           >
-            Start the quiz →
+            Let&apos;s begin →
           </button>
           <p className="text-xs text-neutral-400">
-            Takes about 4 minutes. You can always come back and edit later.
+            About four minutes. You can edit anything later.
           </p>
         </div>
       </div>
