@@ -16,35 +16,63 @@ export default async function Home({
 
   const errorMsg =
     searchParams.error === 'invalid_link'
-      ? 'That install link is invalid or has been revoked. Ask the clinic admin for a new one.'
+      ? 'That install link is invalid or has been revoked. Ask your clinic for a fresh one.'
       : searchParams.error === 'invalid_admin'
         ? 'Admin key is invalid.'
         : null
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-white px-6">
+    <main className="relative min-h-screen overflow-hidden bg-white text-neutral-900">
       <SessionRestore />
-      <div className="flex max-w-md flex-col items-center gap-6 text-center">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
-          Content Machine
-        </p>
-        <h1 className="text-4xl font-semibold leading-tight text-neutral-900 sm:text-5xl">
-          AI content ops for regenerative-medicine clinics.
-        </h1>
-        <p className="text-base text-neutral-600">
-          This app is invite-only. If you have an install link from your clinic,
-          open it once and add it to your home screen.
-        </p>
-        {errorMsg && (
-          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {errorMsg}
+
+      {/* Ambient orange glows */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-[15%] -top-32 h-[520px] w-[520px] rounded-full bg-orange-200/45 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-[12%] top-[55%] h-[420px] w-[420px] rounded-full bg-orange-100/60 blur-3xl"
+      />
+
+      <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-5 py-12 sm:gap-14 sm:px-6 sm:py-16">
+        <div className="flex flex-col gap-5 cm-fade-in">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-orange-500">
+            Content Machine
           </p>
+          <h1 className="text-balance text-4xl font-semibold leading-[1.05] text-neutral-900 sm:text-6xl">
+            An AI team that writes
+            <br />
+            <span className="text-neutral-400">
+              in your voice. About you.
+            </span>
+          </h1>
+          <p className="max-w-xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
+            Built for regenerative-medicine doctors. Your clinic sends you a
+            one-time install link — open it on your phone once and your team
+            of agents goes to work.
+          </p>
+        </div>
+
+        {errorMsg && (
+          <div
+            className="cm-fade-in rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            style={{ animationDelay: '0.1s' }}
+          >
+            {errorMsg}
+          </div>
         )}
-        <div className="mt-4 flex w-full flex-col items-center gap-3">
+
+        <div
+          className="flex flex-col gap-5 cm-fade-in"
+          style={{ animationDelay: '0.2s' }}
+        >
           <DoctorLogin />
-          <span className="text-[11px] uppercase tracking-[0.16em] text-neutral-300">
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-neutral-300">
+            <span className="h-px flex-1 bg-neutral-200" />
             or
-          </span>
+            <span className="h-px flex-1 bg-neutral-200" />
+          </div>
           <AdminLogin />
         </div>
       </div>
