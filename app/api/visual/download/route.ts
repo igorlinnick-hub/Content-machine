@@ -9,8 +9,8 @@ export const maxDuration = 300
 
 export async function GET(req: Request) {
   const access = await resolveAccess()
-  if (!access || access.role !== 'admin') {
-    return NextResponse.json({ error: 'admin access required' }, { status: 403 })
+  if (!access) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
   const url = new URL(req.url)
@@ -25,6 +25,12 @@ export async function GET(req: Request) {
       return NextResponse.json(
         { error: 'slide set is empty' },
         { status: 400 }
+      )
+    }
+    if (access.role !== 'admin' && slideSet.clinic_id !== access.clinicId) {
+      return NextResponse.json(
+        { error: 'slide set does not belong to your clinic' },
+        { status: 403 }
       )
     }
 

@@ -33,6 +33,13 @@ export function ScriptCard({
   const [refining, setRefining] = useState(false)
   const [refineError, setRefineError] = useState<string | null>(null)
   const [refineCount, setRefineCount] = useState(0)
+  const [slidesLoading, setSlidesLoading] = useState(false)
+  const [slidesError, setSlidesError] = useState<string | null>(null)
+  const [slides, setSlides] = useState<{
+    downloadUrl: string
+    previews: string[]
+    count: number
+  } | null>(null)
   const total = score?.total_score
   const strong = typeof total === 'number' && total >= 7
 
@@ -111,9 +118,34 @@ export function ScriptCard({
     }
   }
 
+  async function makeSlides() {
+    if (!scriptId) return
+    setSlidesLoading(true)
+    setSlidesError(null)
+    try {
+      const res = await fetch('/api/visual/generate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scriptId, returnPreview: true }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+      setSlides({
+        downloadUrl: data.download_url as string,
+        previews: (data.previews as string[]) ?? [],
+        count: (data.slide_count as number) ?? 0,
+      })
+    } catch (err) {
+      setSlidesError(err instanceof Error ? err.message : 'unknown error')
+    } finally {
+      setSlidesLoading(false)
+    }
+  }
+
   const locked = feedback === 'selected' || feedback === 'rejected'
   const canFeedback = Boolean(clinicId && scriptId)
   const canRefine = canFeedback && !locked && !refining
+  const canSlides = Boolean(scriptId) && !slidesLoading
 
   return (
     <article className="cm-card flex flex-col gap-4 p-5 sm:p-6">
@@ -225,14 +257,61 @@ export function ScriptCard({
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onCopy}
-            className="cm-btn cm-btn-ghost text-sm"
-          >
-            {copied ? 'Copied' : 'Copy script'}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {scriptId && (
+              <button
+                type="button"
+                onClick={makeSlides}
+                disabled={!canSlides}
+                className="cm-btn cm-btn-ghost text-sm border border-orange-200 text-orange-700 hover:bg-orange-50"
+                title="Render this script as a PNG carousel"
+              >
+                {slidesLoading ? 'Making slides…' : slides ? '🎴 Re-render' : '🎴 Make slides'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onCopy}
+              className="cm-btn cm-btn-ghost text-sm"
+            >
+              {copied ? 'Copied' : 'Copy script'}
+            </button>
+          </div>
         </div>
+
+        {slidesError && (
+          <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            {slidesError}
+          </p>
+        )}
+
+        {slides && slides.previews.length > 0 && (
+          <div className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-orange-700">
+                {slides.count} slide{slides.count === 1 ? '' : 's'} ready
+              </p>
+              <a
+                href={slides.downloadUrl}
+                download
+                className="cm-btn cm-btn-primary text-xs"
+              >
+                Download .zip
+              </a>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto pb-1">
+              {slides.previews.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt={`Slide ${i + 1}`}
+                  className="h-24 w-24 shrink-0 rounded border border-neutral-200 bg-white object-contain"
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {refineOpen && (
           <div className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50/60 p-3">

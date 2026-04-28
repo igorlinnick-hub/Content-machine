@@ -20,8 +20,8 @@ interface GeneratePostBody {
 
 export async function POST(req: Request) {
   const access = await resolveAccess()
-  if (!access || access.role !== 'admin') {
-    return NextResponse.json({ error: 'admin access required' }, { status: 403 })
+  if (!access) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
   let body: GeneratePostBody
@@ -38,6 +38,16 @@ export async function POST(req: Request) {
 
   try {
     const script = await loadScriptForRender(scriptId)
+
+    // Doctors and editors can only render scripts inside their own clinic.
+    // Admin can render anything (multi-clinic super-power).
+    if (access.role !== 'admin' && script.clinic_id !== access.clinicId) {
+      return NextResponse.json(
+        { error: 'script does not belong to your clinic' },
+        { status: 403 }
+      )
+    }
+
     const style = await loadStyleTemplate(script.clinic_id)
 
     const { slides } = await splitScriptToSlides(script.full_script)
