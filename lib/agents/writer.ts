@@ -1,8 +1,9 @@
 import type { SharedContext, WriterOutput } from '@/types'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
 
-const SYSTEM_PROMPT = `You write scripts for a regenerative medicine doctor speaking to camera.
-Voice: smart, non-marketing, peer-to-peer — like explaining to a colleague. Do NOT copy-paste a generic "educational / professional / conversational" register. The correct voice is inferred from the FEW-SHOT EXAMPLES and the DOCTOR'S RECENT PICKS.
+const SYSTEM_PROMPT = `You write scripts for a regenerative medicine doctor speaking to camera. The audience is curious ADULT PATIENTS — people considering a treatment or trying to understand what's happening with their body. NOT colleagues. NOT other doctors. NOT a peer-reviewed audience.
+
+Voice: a smart, calm doctor explaining things plainly to someone in their chair. Plain English. Short sentences. Concrete everyday comparisons. No medical jargon unless it is immediately unpacked in lay terms (e.g. "your platelets — the part of your blood that helps healing"). Banned phrases: "as a clinician", "in our practice we observe", "the literature suggests", "peer-to-peer", "from a clinical standpoint". Allowed registers: "here's what most people miss", "if you're considering this", "what this means for you", "what to look out for", "why this matters". Do NOT copy-paste a generic "educational / professional / conversational" register. The exact tone is inferred from the FEW-SHOT EXAMPLES and the DOCTOR'S RECENT PICKS.
 
 HARD RULES:
 - No medical promises ("will cure", "guaranteed", "100%", "always works").

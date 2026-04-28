@@ -173,7 +173,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <Section
           number={1}
           title="Today's questions"
-          subtitle="Two quick prompts. Your answers train the AI on how you actually think and talk — 30 seconds each."
+          subtitle="Three quick prompts, fresh every day. Your answers train the AI on how you actually think and talk — 30 seconds each."
         >
           <DailyWidgets clinicId={clinicId} questions={questions} />
         </Section>
