@@ -9,6 +9,7 @@ import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { InstallLinkCard } from './components/InstallLinkCard'
+import { BrandCard } from './components/BrandCard'
 import { RoleBadge } from '@/app/components/RoleBadge'
 
 export const dynamic = 'force-dynamic'
@@ -146,7 +147,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </header>
 
-        {showAdminTools && <InstallLinkCard clinicId={clinicId} />}
+        {showAdminTools && (
+          <div className="flex flex-col gap-5">
+            <BrandCard clinicId={clinicId} />
+            <InstallLinkCard clinicId={clinicId} />
+          </div>
+        )}
 
         {isDoctor && profileIncomplete && (
           <Link

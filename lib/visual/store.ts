@@ -19,16 +19,33 @@ export const DEFAULT_VISUAL_STYLE: VisualStyle = {
 
 export async function loadStyleTemplate(clinicId: string): Promise<VisualStyle> {
   const supabase = createServerClient()
-  const { data } = await supabase
-    .from('slide_sets')
-    .select('style_template')
-    .eq('clinic_id', clinicId)
-    .not('style_template', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (data?.style_template) return data.style_template as unknown as VisualStyle
-  return DEFAULT_VISUAL_STYLE
+  const [styleRow, clinicRow] = await Promise.all([
+    supabase
+      .from('slide_sets')
+      .select('style_template')
+      .eq('clinic_id', clinicId)
+      .not('style_template', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('clinics')
+      .select('logo_url')
+      .eq('id', clinicId)
+      .maybeSingle(),
+  ])
+
+  const base =
+    (styleRow.data?.style_template as unknown as VisualStyle | undefined) ??
+    DEFAULT_VISUAL_STYLE
+  const clinicLogo = (clinicRow.data?.logo_url as string | null | undefined) ?? null
+
+  // Clinic-level logo wins unless the saved style explicitly set one
+  // (in which case the per-style override is intentional).
+  if (clinicLogo && (!base.logo.url || base.logo.url.trim().length === 0)) {
+    return { ...base, logo: { ...base.logo, url: clinicLogo } }
+  }
+  return base
 }
 
 export async function saveStyleTemplate(
