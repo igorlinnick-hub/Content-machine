@@ -15,16 +15,24 @@ interface ScriptCardProps {
 }
 
 export function ScriptCard({
-  variant,
-  score,
+  variant: initialVariant,
+  score: initialScore,
   clinicId,
-  scriptId,
+  scriptId: initialScriptId,
   siblingScriptIds,
 }: ScriptCardProps) {
   const router = useRouter()
+  const [variant, setVariant] = useState<ScriptVariant>(initialVariant)
+  const [score, setScore] = useState<CriticScore | undefined>(initialScore)
+  const [scriptId, setScriptId] = useState<string | undefined>(initialScriptId)
   const [copied, setCopied] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
+  const [refineOpen, setRefineOpen] = useState(false)
+  const [refineNote, setRefineNote] = useState('')
+  const [refining, setRefining] = useState(false)
+  const [refineError, setRefineError] = useState<string | null>(null)
+  const [refineCount, setRefineCount] = useState(0)
   const total = score?.total_score
   const strong = typeof total === 'number' && total >= 7
 
@@ -63,8 +71,49 @@ export function ScriptCard({
     }
   }
 
+  async function refine() {
+    if (!clinicId || !scriptId) return
+    setRefining(true)
+    setRefineError(null)
+    try {
+      const res = await fetch('/api/agents/refine', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          clinicId,
+          scriptId,
+          note: refineNote.trim() || undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+      if (data.variant) {
+        setVariant(data.variant as ScriptVariant)
+      }
+      if (data.score) {
+        setScore(data.score as CriticScore)
+      } else {
+        setScore(undefined)
+      }
+      if (data.scriptId) {
+        setScriptId(data.scriptId as string)
+      }
+      // Reset feedback state for the new attempt.
+      setFeedback('idle')
+      setFeedbackError(null)
+      setRefineNote('')
+      setRefineOpen(false)
+      setRefineCount((c) => c + 1)
+    } catch (err) {
+      setRefineError(err instanceof Error ? err.message : 'unknown error')
+    } finally {
+      setRefining(false)
+    }
+  }
+
   const locked = feedback === 'selected' || feedback === 'rejected'
   const canFeedback = Boolean(clinicId && scriptId)
+  const canRefine = canFeedback && !locked && !refining
 
   return (
     <article className="cm-card flex flex-col gap-4 p-5 sm:p-6">
@@ -124,47 +173,102 @@ export function ScriptCard({
         </details>
       )}
 
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-neutral-100 pt-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {canFeedback && (
-            <>
-              <button
-                type="button"
-                onClick={() => sendFeedback('selected')}
-                disabled={locked || feedback === 'saving'}
-                className={`cm-btn text-sm ${
-                  feedback === 'selected'
-                    ? 'cm-btn-success'
-                    : 'cm-btn-success-outline'
-                }`}
-              >
-                {feedback === 'selected' ? '✓ Picked' : 'Pick'}
-              </button>
-              <button
-                type="button"
-                onClick={() => sendFeedback('rejected')}
-                disabled={locked || feedback === 'saving'}
-                className={`cm-btn text-sm ${
-                  feedback === 'rejected'
-                    ? 'cm-btn-danger'
-                    : 'cm-btn-danger-outline'
-                }`}
-              >
-                {feedback === 'rejected' ? '✕ Passed' : 'Pass'}
-              </button>
-            </>
-          )}
-          {feedbackError && (
-            <span className="text-xs text-red-600">{feedbackError}</span>
-          )}
+      <footer className="flex flex-col gap-3 border-t border-neutral-100 pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {canFeedback && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => sendFeedback('selected')}
+                  disabled={locked || feedback === 'saving' || refining}
+                  className={`cm-btn text-sm ${
+                    feedback === 'selected'
+                      ? 'cm-btn-success'
+                      : 'cm-btn-success-outline'
+                  }`}
+                >
+                  {feedback === 'selected' ? '✓ Picked' : 'Pick'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRefineOpen((v) => !v)}
+                  disabled={!canRefine}
+                  className={`cm-btn text-sm ${
+                    refineOpen
+                      ? 'cm-btn-primary'
+                      : 'cm-btn-ghost border border-orange-200 text-orange-700 hover:bg-orange-50'
+                  }`}
+                >
+                  {refining ? 'Refining…' : refineOpen ? 'Cancel' : 'Refine'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sendFeedback('rejected')}
+                  disabled={locked || feedback === 'saving' || refining}
+                  className={`cm-btn text-sm ${
+                    feedback === 'rejected'
+                      ? 'cm-btn-danger'
+                      : 'cm-btn-danger-outline'
+                  }`}
+                >
+                  {feedback === 'rejected' ? '✕ Passed' : 'Pass'}
+                </button>
+              </>
+            )}
+            {feedbackError && (
+              <span className="text-xs text-red-600">{feedbackError}</span>
+            )}
+            {refineCount > 0 && (
+              <span className="text-[11px] uppercase tracking-wider text-neutral-400">
+                refined ×{refineCount}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="cm-btn cm-btn-ghost text-sm"
+          >
+            {copied ? 'Copied' : 'Copy script'}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onCopy}
-          className="cm-btn cm-btn-ghost text-sm"
-        >
-          {copied ? 'Copied' : 'Copy script'}
-        </button>
+
+        {refineOpen && (
+          <div className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50/60 p-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-orange-700">
+                What to change <span className="text-orange-500">(optional)</span>
+              </span>
+              <input
+                type="text"
+                value={refineNote}
+                onChange={(e) => setRefineNote(e.target.value)}
+                placeholder="Hook is too generic / make it more concrete / shorten"
+                className="cm-input text-sm"
+                disabled={refining}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={refine}
+                disabled={refining}
+                className="cm-btn cm-btn-primary text-xs"
+              >
+                {refining ? 'Refining…' : 'Try again'}
+              </button>
+              <span className="self-center text-[11px] text-neutral-500">
+                Same topic, kept what worked, fixed what didn&apos;t. ~30 sec.
+              </span>
+            </div>
+            {refineError && (
+              <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {refineError}
+              </p>
+            )}
+          </div>
+        )}
       </footer>
     </article>
   )

@@ -184,6 +184,12 @@ export interface RunWriterParams {
   topicHint?: string
   ctaHint?: string | null
   variantCount?: number
+  refineFrom?: {
+    topic: string | null
+    hook: string | null
+    script: string
+    note?: string
+  }
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
@@ -198,7 +204,17 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     ? `\n\nCTA TEMPLATE — the call-to-action block (step 4) of every variant must follow this pattern. Replace any {placeholders} with concrete text that fits the script:\n"${params.ctaHint.trim()}"\n`
     : ''
 
-  const userContent = `${brief}${topicSection}${ctaSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Return only the JSON object.`
+  const refineSection = params.refineFrom
+    ? `\n\nPREVIOUS ATTEMPT (refine — do NOT restart from scratch):\ntopic: ${
+        params.refineFrom.topic ?? 'n/a'
+      }\nhook: ${params.refineFrom.hook ?? 'n/a'}\nscript:\n${params.refineFrom.script.trim()}${
+        params.refineFrom.note && params.refineFrom.note.trim().length > 0
+          ? `\n\nDOCTOR FEEDBACK ON PREVIOUS ATTEMPT:\n"${params.refineFrom.note.trim()}"`
+          : '\n\nThe doctor said the idea is right but the execution is not yet there. Keep the topic and the underlying angle.'
+      }\n\nKeep what worked, fix what was weak. Tighten the hook if it was generic. Sharpen the science block. Make the clinic-approach block more concrete. Same length budget (200-220 words).`
+    : ''
+
+  const userContent = `${brief}${topicSection}${ctaSection}${refineSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Return only the JSON object.`
 
   return callAgentJSON<WriterOutput>({
     model: MODEL_DEFAULT,
