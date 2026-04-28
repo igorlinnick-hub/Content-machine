@@ -920,5 +920,69 @@ app/api/posts/[slideSetId]/route.ts
 
 **Открытое решение (2026-04-28):** строить ли это сейчас, в каком масштабе, и что делать с per-clinic color overrides — обсуждается с клиентом.
 
+### Решения принятые 2026-04-28 (для следующей сессии — это мандат на старт работы)
+
+Запланированный rebuild template-системы согласован по сценарию **Path A** (полная переделка). Ниже — финальные решения, которые надо выполнить **в ту же секунду как пользователь вернётся в проект**. Не переспрашивать.
+
+**1. Формат канваса.**
+- Меняем default с `1080×1080` на **`1080×1350`** (4:5 portrait — Instagram post). Применить в `DEFAULT_VISUAL_STYLE.canvas` в `lib/visual/store.ts`.
+
+**2. Два режима карусели — выбираются на ScriptCard перед генерацией.**
+- **Mode B "Photo-rich"** — все слайды с фото-фоном + navy rounded cards (как HWC POST EXAMPLE 1).
+- **Mode A "Clean"** — slide 1 cover на фото с дизайном, slides 2..N-1 белый фон + чёрный текст + accent chip сверху, slide N белый CTA с акцентом.
+- **UX выбора:** один button `🎴 Make slides` → разворачивается mini-picker внутри карточки `[Photo-rich | Clean]` → "Go". (Вариант B из обсуждения.)
+- API `/api/visual/generate` принимает `slide_mode: 'photo' | 'clean'` (default = `'clean'`).
+
+**3. Mode A "Clean" — структура (5 слайдов минимум).**
+Доверено агенту, выглядит так:
+- Slide 1 (cover) — фото-фон + accent chip сверху ("Mental Health" / "GLP-1" — берётся из matched category) + большой headline (тема/hook) + subhead. Логотипа НЕТ.
+- Slide 2-4 (body) — белый фон + accent-coloured chip сверху ("The Science", "How it works", "What this means for you") + body text чёрным. Маленький логотип-марка bottom-right.
+- Slide 5 (cta) — белый фон + крупный headline ("Ready to start?" / "Curious if this fits?") + 1-line body + accent-coloured "Book a consultation — link in bio" + полный логотип bottom-center.
+
+**4. Триггеры категорий — без изменений.**
+Оставить `lib/posts/categories.ts DEFAULT_CATEGORIES` как есть (Mounjaro в Pain & Joint и Weight Loss НЕ дублируется, как ошибочно предлагалось ранее).
+
+**5. Новая фича: "Import existing script".**
+Дополнительный вход на дашборд (admin или doctor) — paste готовый script text в textarea → сразу генерим карусель из него (минуя writer). Использует тот же splitter + новые шаблоны. Полезно когда у врача есть свой написанный пост.
+- UI: новый button или секция "Have a script already? Paste it here" на дашборде, с textarea + mode-picker + Make slides.
+- Endpoint: extend `/api/visual/generate` чтобы принимать `rawScript` вместо `scriptId`. Сначала сохраняем в `scripts` (без variant_id, без critic), потом рендерим.
+
+### План выполнения (когда вернёмся к работе)
+
+| # | Шаг | Файлы | Время |
+|---|---|---|---|
+| 1 | Расширить `VisualStyle` + добавить `TypedSlide` + `SlideMode` | `types/index.ts` | 15 мин |
+| 2 | Новый `DEFAULT_VISUAL_STYLE`: canvas 1080×1350, brand colors (HWC navy/sky как стартовый дефолт), per-mode defaults | `lib/visual/store.ts` | 15 мин |
+| 3 | Splitter возвращает `TypedSlide[]` с поддержкой mode (5 слайдов в clean, 4-5 в photo-rich) | `lib/visual/slides.ts` | 30 мин |
+| 4 | Шаблоны: cover/body/cta каждый с двумя modes (photo-rich vs clean) — итого 6 path'ов | `lib/visual/templates/{cover,body,cta,shared}.ts` | 90 мин |
+| 5 | Dispatcher + backwards compat (старые `slide_sets` со строками рендерятся как clean body) | `lib/visual/templates.ts` | 15 мин |
+| 6 | Renderer пробрасывает typed slides | `lib/visual/renderer.ts` | 15 мин |
+| 7 | `/api/visual/generate` принимает `slide_mode` + опц. `rawScript` | `app/api/visual/generate/route.ts` | 20 мин |
+| 8 | Style Editor: 5 brand color picker'ов + canvas size dropdown | `app/visual/components/StyleEditor.tsx` | 30 мин |
+| 9 | ScriptCard: button раскрывает mode-picker | `app/dashboard/components/ScriptCard.tsx` | 25 мин |
+| 10 | Новая секция "Import script" на /dashboard | `app/dashboard/components/ImportScript.tsx` + page.tsx | 30 мин |
+| 11 | Локальный тест с HWC scriptом, обоими modes | — | 30 мин |
+| 12 | Деплой + verify | — | 15 мин |
+| 13 | Обновить §16 — что построено по факту | `HANDOFF.md` | 15 мин |
+| **Total** | | | **~5.5 часов** |
+
+### Что пользователь получает после билда
+
+- Любая генерация → выбор режима → за ~30 сек готовый PNG-zip.
+- **Photo-rich** = HWC EXAMPLE 1 layout, ~85% совпадение pixel-perfect (зависит от шрифта).
+- **Clean** = editorial минимализм, фото только на cover, body белые, CTA с accent-акцентом.
+- Brand colors настраиваются в Style Editor — primary navy, accent sky-blue, card text white, surface white, surface text near-black. HWC по дефолту.
+- Логотип клиники из `clinics.logo_url` подставляется автоматом.
+- Категория и фото-фоны (для photo-rich) подбираются по trigger-словам из топика (механика уже работает).
+- Опция "Import existing script" — paste своего готового текста, минуя writer.
+
+### НЕ в этом релизе (явно)
+
+- Serif-headline mode (POST EXAMPLE 3) — отдельная задача после.
+- Per-template font picker в UI — defaults в коде.
+- Photo overlay opacity slider — захардкожено.
+- Auto-photo selection per slide type — все слайды одной категории.
+- Pixel-perfect шрифт (HWC использует Montserrat / Poppins, у нас Inter Black) — calibration после первого реального теста.
+
 *Design ledger создан: 2026-04-28*
 
