@@ -74,15 +74,6 @@ export default function Wizard({
 
   const editing = mode === 'edit'
 
-  if (phase === 'welcome') {
-    return (
-      <WelcomeIntro
-        doctorName={tokenDoctorName ?? null}
-        onContinue={() => setPhase('wizard')}
-      />
-    )
-  }
-
   const canAdvance = useMemo(() => {
     switch (step) {
       case 0:
@@ -129,6 +120,15 @@ export default function Wizard({
 
   const progress = ((step + 1) / STEPS.length) * 100
   const last = step === STEPS.length - 1
+
+  if (phase === 'welcome') {
+    return (
+      <WelcomeIntro
+        doctorName={tokenDoctorName ?? null}
+        onContinue={() => setPhase('wizard')}
+      />
+    )
+  }
 
   return (
     <main className="min-h-screen bg-white text-neutral-900">
