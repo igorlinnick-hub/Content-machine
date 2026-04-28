@@ -869,5 +869,56 @@ app/api/posts/[slideSetId]/route.ts
 
 Всё что касается слайдов — `DEFAULT_VISUAL_STYLE` в `lib/visual/store.ts` + `slide_sets.style_template` в БД. Всё что касается app UI — Tailwind classes inline + CSS vars в `app/globals.css`.
 
+### Hawaii Wellness Clinic — reference design (первый реальный клиент)
+
+Файлы (НЕ закоммичены в репо, лежат локально):
+- `~/Downloads/HWC/POST EXAMPLE 1/{1..5}.png` — myth-busting carousel про Ketamine Therapy (5 слайдов: cover → 3 myths → CTA с командой).
+- `~/Downloads/HWC/POST EXAMPLE 2/*.png` — Mental Health / depression carousel (другая стилистика — фото-фон + chip-категория наверху).
+- `~/Downloads/HWC/POST EXAMPLE 3 Screen /Screenshot….png` — single-slide hook ("3 Things your Doctor won't tell you…") — тёмное фото + serif headline + author chip.
+- `~/Downloads/HWC/POST EXAMPLE 1/LOGO Brand.png` — официальный логотип HWC: волна (синий gradient navy → light blue) + "HAWAII WELLNESS CLINIC" stacked navy + tagline "ADVANCED THERAPIES FOR MIND AND BODY" в light blue.
+
+#### Извлечённые design tokens
+
+**Colors:**
+- Primary navy (deep blue): ≈ `#1e3a8a` / `#1e40af` (используется в логотипе, в card backgrounds на cover-слайдах, в headings)
+- Accent light blue: ≈ `#3b82f6` / `#60a5fa` (rounded chips типа "Mental Health", subtler accents, gradient fills)
+- White text on blue panels
+- Dark navy text on white background
+
+**Layout primitives, повторяющиеся в 3-х наборах:**
+- **Rounded cards** (radius ~16-24px) тёмно-синего цвета поверх фото — несут заголовок и body. Текст белый.
+- **Chip labels** (rounded full pill) — категория ("Myth 1", "Mental Health", "@dr.vassily").
+- **Photo backgrounds** на body-слайдах с blue overlay (transparent) частично закрывают фото снизу/сверху для контраста с текстом.
+- **Logo** размещён bottom-right (small мини-логотип в виде только волны без текста) или bottom-center (полная stacked-версия на CTA).
+- **Soft gradient washes** (sky-blue radial) на cover-слайдах с белым фоном — мягкое сияние сверху-справа.
+
+**Slide types — наблюдаемая структура post:**
+1. **Cover** — белый или мягкий gradient bg, eyebrow ("MYTHS"), big all-caps headline ("KETAMINE THERAPY"), all-caps subhead ("COVER EVERYTHING YOU'VE HEARD ABOUT KETAMINE THERAPY IS PROBABLY WRONG"). Логотип не виден.
+2. **Body** — фото-фон, top-card chip ("Myth N — quote"), bottom-card body text. Text white on dark blue card.
+3. **CTA** — фото клиники / команды / brain-image, bottom-card "STILL HAVE QUESTIONS?" + "BOOK A CONSULTATION — LINK IN BIO". Логотип виден.
+
+**Typography:**
+- Sans-serif heavy weight для всех headings (выглядит как Montserrat / Poppins / Inter Black, верифицировать у клиента).
+- All-caps на cover и CTA.
+- Body text в regular weight, всё ещё all-caps в myths-стиле, sentence-case в depression-стиле.
+- Один пример (POST EXAMPLE 3) — serif headline на тёмном фоне; это другой "stylistic mode" (dramatic / contrarian-hook).
+
+#### Что из этого — HWC-specific vs универсальное
+
+- **HWC-specific:** конкретные синие цвета, логотип, формулировки CTA.
+- **Универсальное (можно сделать дефолтом):** layout-системы — cover / body / CTA шаблоны; rounded card overlays; chip-категории; photo-bg + overlay; positioned logo. Каждая клиника настраивает свою цветовую палитру через style_template.
+
+#### Текущее состояние renderer'а vs нужное
+
+Сейчас `lib/visual/templates.ts buildSlideHTML` рисует ОДИН тип слайда: text по центру / сверху / снизу + опциональный photo bg + опциональный logo. Не поддерживает:
+- Разные шаблоны cover / body / CTA.
+- Top-chip + bottom-card композиции.
+- Брендовую цветовую систему (`primary_color`, `accent_color`, `card_bg`).
+- Eyebrow / subhead на cover.
+
+Чтобы попасть в HWC-стиль — нужен **template system overhaul**. Это отдельная задача (~3-5 ч).
+
+**Открытое решение (2026-04-28):** строить ли это сейчас, в каком масштабе, и что делать с per-clinic color overrides — обсуждается с клиентом.
+
 *Design ledger создан: 2026-04-28*
 
