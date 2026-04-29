@@ -153,15 +153,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </header>
 
-        <Section
-          title="Today's input"
-          subtitle="Three quick prompts plus an open note — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
-        >
-          <div className="flex flex-col gap-5">
-            <DailyWidgets clinicId={clinicId} questions={questions} />
-            <QuickNote clinicId={clinicId} />
+        <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm sm:p-7">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
+              Main workspace
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold text-neutral-900">
+              Generate scripts
+            </h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Leave the topic blank to let your team pick from your pillars, or type a specific topic. Three variants every time.
+            </p>
           </div>
-        </Section>
+          <ScriptGenerator clinicId={clinicId} />
+        </section>
 
         {isDoctor && profileIncomplete && (
           <Link
@@ -186,10 +191,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         )}
 
         <Section
-          title="Generate scripts"
-          subtitle="Leave the topic blank to let your team pick from your pillars, or type a specific topic. Three variants every time."
+          title="Today's input"
+          subtitle="Three quick prompts plus an open note — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
         >
-          <ScriptGenerator clinicId={clinicId} />
+          <div className="flex flex-col gap-5">
+            <DailyWidgets clinicId={clinicId} questions={questions} />
+            <QuickNote clinicId={clinicId} />
+          </div>
         </Section>
 
         <Section
