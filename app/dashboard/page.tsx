@@ -8,8 +8,6 @@ import { DailyWidgets } from './components/DailyWidgets'
 import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
-import { InstallLinkCard } from './components/InstallLinkCard'
-import { BrandCard } from './components/BrandCard'
 import { QuickNote } from './components/QuickNote'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
@@ -140,6 +138,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 Visual posts →
               </Link>
             )}
+            {showAdminTools && (
+              <Link
+                href={`/settings?clinicId=${clinicId}`}
+                className="cm-btn cm-btn-ghost text-sm"
+              >
+                Settings
+              </Link>
+            )}
             <RoleBadge
               role={access.role}
               doctorName={isDoctor ? doctorDisplayName : null}
@@ -177,33 +183,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               Take the quiz →
             </span>
           </Link>
-        )}
-
-        {showAdminTools && (
-          <div className="flex flex-col gap-5">
-            <BrandCard clinicId={clinicId} />
-            <details className="cm-card group p-0 [&[open]>summary>span.cm-chev]:rotate-90">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 transition hover:bg-neutral-50">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-500">
-                    Doctor install link
-                  </span>
-                  <span className="text-xs text-neutral-500">
-                    Generate or revoke the link you send to a doctor. Hidden by default — open when you need it.
-                  </span>
-                </div>
-                <span
-                  className="cm-chev inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 transition-transform"
-                  aria-hidden
-                >
-                  ›
-                </span>
-              </summary>
-              <div className="border-t border-neutral-200 p-5">
-                <InstallLinkCard clinicId={clinicId} />
-              </div>
-            </details>
-          </div>
         )}
 
         <Section
