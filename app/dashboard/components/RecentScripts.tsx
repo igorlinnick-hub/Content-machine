@@ -31,57 +31,66 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
   }
 
   return (
-    <ul className="cm-card divide-y divide-neutral-200 overflow-hidden">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {scripts.map((s) => {
         const score = typeof s.critic_score === 'number' ? s.critic_score : null
         const strong = score !== null && score >= 7
+        const preview = (s.hook ?? s.full_script ?? '').replace(/\s+/g, ' ').trim()
         return (
-          <li
+          <article
             key={s.id}
-            className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-5"
+            className="group flex h-full flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_1px_2px_rgba(10,10,10,0.04)] transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md"
           >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-neutral-900">
-                  {s.topic ?? 'Untitled'}
-                </p>
+            <header className="flex items-start justify-between gap-2">
+              <h3 className="line-clamp-2 text-base font-semibold leading-snug text-neutral-900">
+                {s.topic ?? 'Untitled'}
+              </h3>
+              <div className="flex shrink-0 items-center gap-1">
                 {score !== null && (
                   <span
-                    className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ${
+                    className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${
                       strong
                         ? 'bg-green-100 text-green-800'
                         : 'bg-amber-100 text-amber-800'
                     }`}
+                    title={`Critic score ${score.toFixed(1)}`}
                   >
                     {score.toFixed(1)}
                   </span>
                 )}
                 {s.approved && (
-                  <span className="inline-flex items-center rounded-md bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700">
-                    approved
+                  <span
+                    className="inline-flex items-center rounded-md bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700"
+                    title="Approved by you"
+                  >
+                    ✓
                   </span>
                 )}
               </div>
-              {s.hook && (
-                <p className="mt-1 truncate text-sm italic text-neutral-600">
-                  {s.hook}
-                </p>
-              )}
-              <p className="mt-1 text-xs text-neutral-500">
+            </header>
+
+            {preview && (
+              <p className="line-clamp-3 flex-1 text-sm leading-relaxed text-neutral-600">
+                {preview}
+              </p>
+            )}
+
+            <footer className="flex items-center justify-between gap-2 pt-1">
+              <p className="text-xs text-neutral-500">
                 {formatDate(s.created_at)} · {s.word_count ?? '?'} words
               </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onCopy(s.id, s.full_script)}
-              className="cm-btn cm-btn-ghost shrink-0 text-xs"
-            >
-              {copiedId === s.id ? 'Copied' : 'Copy'}
-            </button>
-          </li>
+              <button
+                type="button"
+                onClick={() => onCopy(s.id, s.full_script)}
+                className="cm-btn cm-btn-ghost shrink-0 text-xs"
+              >
+                {copiedId === s.id ? 'Copied' : 'Copy'}
+              </button>
+            </footer>
+          </article>
         )
       })}
-    </ul>
+    </div>
   )
 }
 

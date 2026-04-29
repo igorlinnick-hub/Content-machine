@@ -135,9 +135,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 ))}
               </nav>
             )}
-            <Link href="/onboarding" className="cm-btn cm-btn-ghost text-sm">
-              Edit profile
-            </Link>
             {showAdminTools && (
               <Link href={`/visual?clinicId=${clinicId}`} className="cm-btn cm-btn-ghost text-sm">
                 Visual posts →
@@ -150,12 +147,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </header>
 
-        {showAdminTools && (
+        <Section
+          title="Today's input"
+          subtitle="Three quick prompts plus an open note — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
+        >
           <div className="flex flex-col gap-5">
-            <BrandCard clinicId={clinicId} />
-            <InstallLinkCard clinicId={clinicId} />
+            <DailyWidgets clinicId={clinicId} questions={questions} />
+            <QuickNote clinicId={clinicId} />
           </div>
-        )}
+        </Section>
 
         {isDoctor && profileIncomplete && (
           <Link
@@ -179,24 +179,34 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         )}
 
-        <Section
-          number={1}
-          title="Today's questions"
-          subtitle="Three quick prompts, fresh every day. Your answers train the AI on how you actually think and talk — 30 seconds each."
-        >
-          <DailyWidgets clinicId={clinicId} questions={questions} />
-        </Section>
+        {showAdminTools && (
+          <div className="flex flex-col gap-5">
+            <BrandCard clinicId={clinicId} />
+            <details className="cm-card group p-0 [&[open]>summary>span.cm-chev]:rotate-90">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 transition hover:bg-neutral-50">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-500">
+                    Doctor install link
+                  </span>
+                  <span className="text-xs text-neutral-500">
+                    Generate or revoke the link you send to a doctor. Hidden by default — open when you need it.
+                  </span>
+                </div>
+                <span
+                  className="cm-chev inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 transition-transform"
+                  aria-hidden
+                >
+                  ›
+                </span>
+              </summary>
+              <div className="border-t border-neutral-200 p-5">
+                <InstallLinkCard clinicId={clinicId} />
+              </div>
+            </details>
+          </div>
+        )}
 
         <Section
-          number={2}
-          title="Anything else on your mind?"
-          subtitle="A free-form note. Stories, complaints, opinions, weird cases — anything that didn't fit a question."
-        >
-          <QuickNote clinicId={clinicId} />
-        </Section>
-
-        <Section
-          number={3}
           title="Generate scripts"
           subtitle="Leave the topic blank to let your team pick from your pillars, or type a specific topic. Three variants every time."
         >
@@ -204,7 +214,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </Section>
 
         <Section
-          number={4}
           title="Recent scripts"
           subtitle="Your last 5 saved scripts. Tap any to copy or post."
         >
@@ -220,26 +229,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 }
 
 function Section({
-  number,
   title,
   subtitle,
   children,
 }: {
-  number: number
   title: string
   subtitle: string
   children: React.ReactNode
 }) {
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-start gap-3">
-        <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-500 text-xs font-semibold text-white">
-          {number}
-        </span>
-        <div>
-          <h2 className="text-xl font-semibold text-neutral-900">{title}</h2>
-          <p className="mt-0.5 text-sm text-neutral-600">{subtitle}</p>
-        </div>
+      <div>
+        <h2 className="text-xl font-semibold text-neutral-900">{title}</h2>
+        <p className="mt-1 text-sm text-neutral-600">{subtitle}</p>
       </div>
       <div>{children}</div>
     </section>

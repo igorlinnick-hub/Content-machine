@@ -79,19 +79,14 @@ export function InstallLinkCard({ clinicId }: Props) {
   }
 
   return (
-    <section className="cm-card p-5">
-      <header className="flex flex-col gap-1">
-        <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-sky-500">
-          Doctor install link
-        </h3>
-        <p className="text-sm text-neutral-600">
-          Send this once. Doctor opens in Safari → Add to Home Screen → done.
-          On first open they&apos;ll see a personalized welcome and walk through the
-          setup quiz themselves.
-        </p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <p className="text-sm text-neutral-600">
+        Send this once. Doctor opens in Safari → Add to Home Screen → done.
+        On first open they&apos;ll see a personalized welcome and walk through the
+        setup quiz themselves.
+      </p>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <label className="flex flex-1 flex-col gap-1">
           <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
             Doctor first name
