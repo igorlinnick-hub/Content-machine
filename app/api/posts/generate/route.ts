@@ -19,6 +19,7 @@ export const maxDuration = 300
 interface Body {
   clinicId?: string
   topicId?: string
+  topic?: string
   photoFolderId?: string
 }
 
@@ -37,25 +38,32 @@ export async function POST(req: Request) {
 
   const clinicId = body.clinicId?.trim()
   const topicId = body.topicId?.trim()
-  if (!clinicId || !topicId) {
+  const freeTopic = body.topic?.trim()
+  if (!clinicId || (!topicId && !freeTopic)) {
     return NextResponse.json(
-      { error: 'clinicId and topicId required' },
+      { error: 'clinicId and either topicId or topic required' },
       { status: 400 }
     )
   }
 
   try {
-    const planTopic = await getTopic(topicId)
-    if (!planTopic) {
-      return NextResponse.json({ error: 'topic not found' }, { status: 404 })
+    let topicText: string
+    if (topicId) {
+      const planTopic = await getTopic(topicId)
+      if (!planTopic) {
+        return NextResponse.json({ error: 'topic not found' }, { status: 404 })
+      }
+      topicText = planTopic.topic
+    } else {
+      topicText = freeTopic!
     }
 
     const context = await loadSharedContext(clinicId)
     const categories = await ensureDefaultCategories(clinicId)
 
-    // Match category up-front from the plan topic alone so we can
+    // Match category up-front from the topic alone so we can
     // feed the right CTA template into the writer.
-    const preMatch = matchCategory(planTopic.topic, categories)
+    const preMatch = matchCategory(topicText, categories)
     const ctaHint =
       preMatch?.category.cta_template ??
       categories.find((c) => c.cta_template)?.cta_template ??
@@ -64,7 +72,7 @@ export async function POST(req: Request) {
     // 3 variants on the same topic, then critic picks the best.
     const writerOut = await runWriter({
       context,
-      topicHint: planTopic.topic,
+      topicHint: topicText,
       ctaHint,
       variantCount: 3,
     })
@@ -149,11 +157,13 @@ export async function POST(req: Request) {
       status: 'rendered',
     })
 
-    // Mark plan topic done and link to the script.
-    await updateTopic(topicId, {
-      status: 'done',
-      last_script_id: winnerSaved.id,
-    })
+    // Mark plan topic done and link to the script (only when generated from plan).
+    if (topicId) {
+      await updateTopic(topicId, {
+        status: 'done',
+        last_script_id: winnerSaved.id,
+      })
+    }
 
     return NextResponse.json({
       slide_set_id: slideSet.id,
