@@ -80,11 +80,37 @@ export function InstallLinkCard({ clinicId }: Props) {
 
   return (
     <section className="flex flex-col gap-4">
-      <p className="text-sm text-neutral-600">
-        Send this once. Doctor opens in Safari → Add to Home Screen → done.
-        On first open they&apos;ll see a personalized welcome and walk through the
-        setup quiz themselves.
-      </p>
+      <details className="rounded-lg border border-sky-200 bg-sky-50 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-sky-900">
+          How the doctor installs it on a phone (no App Store)
+        </summary>
+        <ol className="mt-3 flex flex-col gap-2 text-sm text-neutral-700">
+          <li>
+            <span className="font-semibold text-neutral-900">1.</span> Send the
+            link below by SMS / WhatsApp / Telegram, or have them scan the QR code.
+          </li>
+          <li>
+            <span className="font-semibold text-neutral-900">2.</span> They open
+            it on the phone — <em>iPhone:</em> Safari (must be Safari, not
+            Chrome). <em>Android:</em> Chrome.
+          </li>
+          <li>
+            <span className="font-semibold text-neutral-900">3.</span> They tap
+            the Share icon → <strong>Add to Home Screen</strong>. The Content
+            Machine icon now lives on the home screen — opens fullscreen, no
+            browser bar, no login next time.
+          </li>
+          <li>
+            <span className="font-semibold text-neutral-900">4.</span> First
+            launch shows a personalized welcome and walks them through the
+            5-step setup quiz. After that — daily prompts every morning.
+          </li>
+        </ol>
+        <p className="mt-3 text-xs text-neutral-500">
+          The link is one-time-use-per-doctor and stays valid for a year. Revoke
+          it any time below.
+        </p>
+      </details>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <label className="flex flex-1 flex-col gap-1">

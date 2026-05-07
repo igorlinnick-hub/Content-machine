@@ -4,10 +4,54 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
+import { CategoriesEditor } from './CategoriesEditor'
+import { ContentPlan } from './ContentPlan'
+import { FewShotEditor } from './FewShotEditor'
+import { PostReferencesEditor } from './PostReferencesEditor'
+
+interface PlanTopic {
+  id: string
+  topic: string
+  position: number
+  status: 'pending' | 'done' | 'skipped'
+  last_script_id: string | null
+}
+
+interface Category {
+  id?: string
+  slug: string
+  name: string
+  emoji: string | null
+  triggers: string[]
+  drive_folder_id: string | null
+  cta_template: string | null
+}
+
+interface FewShotItem {
+  id: string
+  script_text: string
+  why_good: string | null
+  topic: string | null
+  score: number | null
+}
+
+interface ReferenceItem {
+  id: string
+  image_url: string
+  label: string | null
+  mode: 'photo' | 'clean' | null
+  role: 'cover' | 'body' | 'cta' | 'full_post' | null
+  category_slug: string | null
+  notes: string | null
+}
 
 interface Props {
   clinicId: string
   posts: PostListItem[]
+  plan: PlanTopic[]
+  categories: Category[]
+  fewShot: FewShotItem[]
+  references: ReferenceItem[]
 }
 
 interface PostDetail {
@@ -31,7 +75,14 @@ interface GenerateResponse {
   category: { id: string; name: string; emoji: string | null } | null
 }
 
-export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
+export function PostsWorkspace({
+  clinicId,
+  posts: initialPosts,
+  plan,
+  categories,
+  fewShot,
+  references,
+}: Props) {
   const router = useRouter()
   const [posts, setPosts] = useState<PostListItem[]>(initialPosts)
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -183,6 +234,26 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
+      <section className="flex flex-col gap-3">
+        <header>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
+            Library & plan
+          </p>
+          <p className="mt-1 text-sm text-neutral-600">
+            Topics drive what to make. Golden scripts and posts teach the AI how
+            it should sound and look. Categories route a topic to its photo folder + CTA.
+          </p>
+        </header>
+        <ContentPlan clinicId={clinicId} initialTopics={plan} />
+        <FewShotEditor clinicId={clinicId} initialExamples={fewShot} />
+        <PostReferencesEditor
+          clinicId={clinicId}
+          initialReferences={references}
+          categorySlugs={categories.map((c) => ({ slug: c.slug, name: c.name }))}
+        />
+        <CategoriesEditor clinicId={clinicId} initialCategories={categories} />
+      </section>
+
       <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex flex-1 flex-col gap-1">

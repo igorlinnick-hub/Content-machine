@@ -539,6 +539,59 @@ export type Database = {
           },
         ]
       }
+      post_references: {
+        Row: {
+          id: string
+          clinic_id: string
+          image_url: string
+          storage_path: string | null
+          label: string | null
+          mode: string | null
+          role: string | null
+          category_slug: string | null
+          notes: string | null
+          position: number
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          image_url: string
+          storage_path?: string | null
+          label?: string | null
+          mode?: string | null
+          role?: string | null
+          category_slug?: string | null
+          notes?: string | null
+          position?: number
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          image_url?: string
+          storage_path?: string | null
+          label?: string | null
+          mode?: string | null
+          role?: string | null
+          category_slug?: string | null
+          notes?: string | null
+          position?: number
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_references_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trend_signals: {
         Row: {
           clinic_id: string | null

@@ -168,6 +168,39 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           <ScriptGenerator clinicId={clinicId} />
         </section>
 
+        {showAdminTools && (
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Link
+              href={`/visual?clinicId=${clinicId}`}
+              className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
+                Posts workspace
+              </p>
+              <h3 className="text-base font-semibold text-neutral-900">
+                Visual posts, topics & golden references →
+              </h3>
+              <p className="text-sm text-neutral-600">
+                Topics list, golden scripts, golden post references (PNG), categories, slide editor.
+              </p>
+            </Link>
+            <Link
+              href={`/settings?clinicId=${clinicId}`}
+              className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
+                Settings
+              </p>
+              <h3 className="text-base font-semibold text-neutral-900">
+                Brand & doctor access →
+              </h3>
+              <p className="text-sm text-neutral-600">
+                Clinic logo (appears on every slide) and the install link you send to a doctor.
+              </p>
+            </Link>
+          </section>
+        )}
+
         {isDoctor && profileIncomplete && (
           <Link
             href="/onboarding"

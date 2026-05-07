@@ -986,3 +986,58 @@ app/api/posts/[slideSetId]/route.ts
 
 *Design ledger создан: 2026-04-28*
 
+---
+
+## 17. POSTS GENERATION — VERCEL FIX (создан 2026-05-07)
+
+Раздел существует чтобы любая будущая сессия могла поднять контекст без расспросов и сразу продолжить с шага, на котором остановились.
+
+### Что работает (подтверждено 2026-05-07)
+
+- `/api/posts/generate` отдаёт **HTTP 200** на dev. На warm dev: `200 in 277653ms`. Возврат: 7 текстовых слайдов + 7 PNG-превью (`data:image/png;base64,…`), категория сматчилась («Medical Weight Loss» в smoke-тесте).
+- Изолированный smoke `puppeteer.launch + screenshot` (1080×1080) рендерит 3 слайда за ~1.7 c после прогрева. Скрипт удалён, файлы `/tmp/cm-slide-{1,2,3}.png` остались как артефакты теста.
+- `npx tsc --noEmit` чистый.
+
+### Что сломано / под подозрением
+
+1. **Vercel deploy: `puppeteer` не найдёт Chromium.**
+   - В `package.json` стоит `puppeteer ^24.42.0` (full). Локально Chromium лежит в `~/.cache/puppeteer/chrome/mac_arm-147.0.7727.57/`, в serverless build Vercel этой папки не будет — postinstall-скрипт не скачивает бинарник в production install, и даже если бы скачивал, размер > лимита Lambda layer.
+   - Нужный фикс: `puppeteer-core` + `@sparticuz/chromium-min` (или `@sparticuz/chromium`), `launch({ executablePath: await chromium.executablePath(), args: chromium.args, headless: chromium.headless })` в `lib/visual/renderer.ts`.
+2. **`maxDuration = 300` впритык.**
+   - Live-замер: 277 c суммарно. Anthropic-вызовы (writer 3 варианта Sonnet 4.6 + critic Opus 4.7 + splitter) дают ~270 c. Puppeteer ~3 c.
+   - Vercel **Hobby**: лимит 10 c — упадёт мгновенно. **Pro**: до 300 c — на грани.
+3. **Локально перебивали миграцию `005_clinic_categories.sql`** (содержимое было `щл`). Восстановлена 2026-05-07 через `git checkout HEAD --`. Больше следов не осталось.
+
+### Цель к концу следующей сессии
+
+«**`/api/posts/generate` стабильно отвечает HTTP 200 на Vercel и UI получает PNG.**» Скорость не главная метрика, но не должно быть таймаута. Локальная скорость не оптимизируем.
+
+### Definition of done
+
+- [ ] `puppeteer` заменён на `puppeteer-core` + `@sparticuz/chromium*`.
+- [ ] `lib/visual/renderer.ts` использует `executablePath` из chromium-пакета на Vercel и обычный chromium локально (определять по `process.env.VERCEL` или `AWS_LAMBDA_FUNCTION_NAME`).
+- [ ] Один деплой-прогон на Vercel, в логах функции `/api/posts/generate` видно `200 in <300000>ms`. UI получает превью.
+- [ ] HANDOFF §17 обновлён фактом результата + дата.
+
+### План (последовательно)
+
+| # | Шаг | Файл / команда | ETA |
+|---|-----|----------------|-----|
+| 1 | Поставить puppeteer-core + @sparticuz/chromium-min, удалить full puppeteer | `package.json`, `npm i` | 5 мин |
+| 2 | Переписать `launchBrowser` в renderer | `lib/visual/renderer.ts` | 15 мин |
+| 3 | Локальный smoke (как 2026-05-07): `node /tmp/cm-render-smoke.mjs`, проверить что PNG всё ещё рендерятся | — | 10 мин |
+| 4 | Закоммитить, задеплоить на Vercel, дёрнуть `/api/posts/generate` через UI | — | 10 мин |
+| 5 | Если 200 — обновить §17 (status: shipped). Если 500 — собрать логи функции, диагностика | Vercel logs | 15 мин |
+| 6 | (опц.) Если упирается в `maxDuration` на Pro — split-эндпоинт: `/api/posts/draft` (writer+critic, ~10 c) → отдельный `/api/posts/render` (splitter+puppeteer, ~5 c). UI показывает «rendering…» между ними. | новые route'ы + UI | 1.5 ч |
+
+### Что менять НЕ нужно
+
+- **Migration 007** — уже валидна, накатили локально. Никаких правок.
+- **Текущий UI flow `/visual` Posts Workspace** — он функционально корректен, ломается только на этапе render.
+- **Anthropic-модели** — `claude-sonnet-4-6` / `claude-opus-4-7`, не трогаем (см. memory ledger).
+
+### Стартовый промпт для новой сессии
+
+> Продолжаем работу над `/api/posts/generate` (см. HANDOFF §17). Цель — стабильная PNG-генерация на Vercel. Локально подтвердил 200 OK + 7 PNG за ~277c. Подозрение — puppeteer не находит Chromium в serverless. Иду по плану §17 шаг 1.
+
+*Раздел создан: 2026-05-07*

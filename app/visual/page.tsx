@@ -1,7 +1,10 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { loadClinicList } from '@/lib/supabase/context'
+import { loadClinicList, loadFewShotExamples } from '@/lib/supabase/context'
 import { loadPosts } from '@/lib/visual/store'
+import { loadPlan } from '@/lib/posts/plan'
+import { ensureDefaultCategories } from '@/lib/posts/categories'
+import { loadPostReferences } from '@/lib/posts/references'
 import { resolveAccess } from '@/lib/auth/session'
 import { PostsWorkspace } from './components/PostsWorkspace'
 import { RoleBadge } from '@/app/components/RoleBadge'
@@ -23,7 +26,13 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const clinicId = searchParams.clinicId ?? clinics[0].id
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
-  const posts = await loadPosts(clinic.id, 50)
+  const [posts, plan, categories, fewShot, references] = await Promise.all([
+    loadPosts(clinic.id, 50),
+    loadPlan(clinic.id),
+    ensureDefaultCategories(clinic.id),
+    loadFewShotExamples(clinic.id),
+    loadPostReferences(clinic.id).catch(() => []),
+  ])
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">
@@ -47,7 +56,20 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
         </div>
       </header>
 
-      <PostsWorkspace clinicId={clinic.id} posts={posts} />
+      <PostsWorkspace
+        clinicId={clinic.id}
+        posts={posts}
+        plan={plan}
+        categories={categories}
+        fewShot={fewShot.map((e) => ({
+          id: e.id,
+          script_text: e.script_text,
+          why_good: e.why_good,
+          topic: e.topic,
+          score: e.score,
+        }))}
+        references={references}
+      />
     </main>
   )
 }
