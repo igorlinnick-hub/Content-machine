@@ -439,6 +439,8 @@ export type Database = {
           google_doc_url: string | null
           hook: string | null
           id: string
+          length_target: string | null
+          pair_id: string | null
           topic: string | null
           variant_id: string | null
           word_count: number | null
@@ -453,6 +455,8 @@ export type Database = {
           google_doc_url?: string | null
           hook?: string | null
           id?: string
+          length_target?: string | null
+          pair_id?: string | null
           topic?: string | null
           variant_id?: string | null
           word_count?: number | null
@@ -467,6 +471,8 @@ export type Database = {
           google_doc_url?: string | null
           hook?: string | null
           id?: string
+          length_target?: string | null
+          pair_id?: string | null
           topic?: string | null
           variant_id?: string | null
           word_count?: number | null
@@ -585,6 +591,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "post_references_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      script_templates: {
+        Row: {
+          id: string
+          clinic_id: string
+          name: string
+          description: string | null
+          scaffold: string
+          length_bias: string | null
+          position: number
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          name: string
+          description?: string | null
+          scaffold: string
+          length_bias?: string | null
+          position?: number
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          name?: string
+          description?: string | null
+          scaffold?: string
+          length_bias?: string | null
+          position?: number
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_templates_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"

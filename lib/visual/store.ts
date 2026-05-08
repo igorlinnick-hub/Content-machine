@@ -208,6 +208,8 @@ export interface PostListItem {
   slide_count: number
   status: SlideSetStatus
   created_at: string
+  length_target: 'short' | 'long' | null
+  pair_id: string | null
   category: { id: string; name: string; emoji: string | null } | null
 }
 
@@ -219,7 +221,7 @@ export async function loadPosts(
   const { data, error } = await supabase
     .from('slide_sets')
     .select(
-      'id, script_id, status, created_at, slides, scripts ( topic, hook, full_script ), clinic_categories ( id, name, emoji )'
+      'id, script_id, status, created_at, slides, scripts ( topic, hook, full_script, length_target, pair_id ), clinic_categories ( id, name, emoji )'
     )
     .eq('clinic_id', clinicId)
     .not('script_id', 'is', null)
@@ -232,6 +234,9 @@ export async function loadPosts(
     const cat = Array.isArray(r.clinic_categories)
       ? r.clinic_categories[0]
       : r.clinic_categories
+    const rawLen = (s as { length_target?: string | null } | null | undefined)?.length_target
+    const length_target =
+      rawLen === 'short' || rawLen === 'long' ? rawLen : null
     return {
       slide_set_id: r.id,
       script_id: r.script_id,
@@ -241,6 +246,9 @@ export async function loadPosts(
       slide_count: Array.isArray(r.slides) ? (r.slides as unknown[]).length : 0,
       status: (r.status ?? 'rendered') as SlideSetStatus,
       created_at: r.created_at ?? nowIso,
+      length_target,
+      pair_id:
+        (s as { pair_id?: string | null } | null | undefined)?.pair_id ?? null,
       category: cat ? { id: cat.id, name: cat.name, emoji: cat.emoji } : null,
     }
   })

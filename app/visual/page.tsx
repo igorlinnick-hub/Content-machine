@@ -5,6 +5,7 @@ import { loadPosts } from '@/lib/visual/store'
 import { loadPlan } from '@/lib/posts/plan'
 import { ensureDefaultCategories } from '@/lib/posts/categories'
 import { loadPostReferences } from '@/lib/posts/references'
+import { loadScriptTemplates } from '@/lib/posts/templates'
 import { resolveAccess } from '@/lib/auth/session'
 import { PostsWorkspace } from './components/PostsWorkspace'
 import { RoleBadge } from '@/app/components/RoleBadge'
@@ -26,12 +27,13 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const clinicId = searchParams.clinicId ?? clinics[0].id
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
-  const [posts, plan, categories, fewShot, references] = await Promise.all([
+  const [posts, plan, categories, fewShot, references, templates] = await Promise.all([
     loadPosts(clinic.id, 50),
     loadPlan(clinic.id),
     ensureDefaultCategories(clinic.id),
     loadFewShotExamples(clinic.id),
     loadPostReferences(clinic.id).catch(() => []),
+    loadScriptTemplates(clinic.id, { activeOnly: false }).catch(() => []),
   ])
 
   return (
@@ -69,6 +71,15 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
           score: e.score,
         }))}
         references={references}
+        templates={templates.map((t) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          scaffold: t.scaffold,
+          length_bias: t.length_bias,
+          position: t.position,
+          active: t.active,
+        }))}
       />
     </main>
   )

@@ -988,14 +988,30 @@ app/api/posts/[slideSetId]/route.ts
 
 ---
 
-## 17. POSTS GENERATION — VERCEL FIX (создан 2026-05-07)
+## 17. POSTS GENERATION — VERCEL FIX + FORMAT-LIBRARY EXPANSION (обновлено 2026-05-07)
 
 Раздел существует чтобы любая будущая сессия могла поднять контекст без расспросов и сразу продолжить с шага, на котором остановились.
 
-### Что работает (подтверждено 2026-05-07)
+### Что сделано в этой сессии (2026-05-07, after-fix)
+
+1. **Puppeteer на Vercel — переключён.** `puppeteer ^24.42.0` (full) выехал в `devDependencies` для локалки. В runtime используется `puppeteer-core ^24.43.0` + `@sparticuz/chromium ^148.0.0`. `lib/visual/renderer.ts` детектит serverless по `process.env.VERCEL || AWS_LAMBDA_FUNCTION_NAME || NETLIFY` и подменяет launcher. `next.config.mjs` объявляет три пакета как `serverComponentsExternalPackages` чтобы webpack их не бандлил.
+2. **Format templates library.** Новая таблица `script_templates` (миграция `008_script_templates.sql`) — структурные шаблоны (system critique, patient story и т.д.), отдельно от few-shot (last — голос+тема). Поля: `name`, `description`, `scaffold`, `length_bias` (`short`/`long`/null). Endpoints: `/api/posts/templates` (GET/POST) и `/api/posts/templates/[templateId]` (PATCH/DELETE). UI: `app/visual/components/TemplatesEditor.tsx` подключён как новый details-блок в Posts Workspace. Writer теперь требует чтобы каждая variant ссылалась на template_name; SharedContext тащит активные templates и фильтрует по length_bias.
+3. **Long+Short pair generation.** Миграция `009_script_length_target.sql` добавляет `scripts.length_target` (`short`|`long`|null) и `scripts.pair_id`. `runWriter` принимает `lengthTarget` и подменяет beat-budget (short = 200-220 слов / ~90 c, long = 420-540 слов / ~2.5 мин). `runCritic` теперь параметризован тем же `lengthTarget` (не зашит на 200-220). `/api/posts/generate` принимает `length: 'short'|'long'|'both'`. При `'both'` — две генерации параллельно с общим `pair_id`; рендерим карусель только для short, long остаётся text-only. UI Posts Workspace: pill-picker `[Short | Long | Both]`.
+4. **Posts gallery filters.** `loadPosts` подтягивает `length_target` и `pair_id` из linked scripts. PostsWorkspace: чипы фильтра по категории (4 clinic_categories) и длине (`short`/`long`/all), счётчик `filtered / total`, в карточке поста — chip с `length_target` и название категории.
+5. **Per-slide AI fix chat.** Новый агент `lib/agents/slide-fixer.ts` правит ровно ОДИН слайд по инструкции врача. Endpoint `POST /api/posts/[slideSetId]/slide-refine` принимает `{ index, instruction }`, переписывает только этот слайд, ререндерит его в одиночку (single-slide render), сохраняет в БД, возвращает новый текст + preview + опциональный warning (если pretty-fixer override'нул инструкцию из-за hard rules). UI: `app/visual/components/SlideEditor.tsx` — на каждом слайде живёт preview сбоку + "✦ Ask AI to fix this slide" → inline chat-поле.
+6. **Smoke script** `scripts/smoke-render.mjs` для быстрой проверки puppeteer launch (`node scripts/smoke-render.mjs` локально или `--vercel` для serverless путя).
+
+### Pre-deploy чеклист (дополнение к §15)
+
+- Накатить миграции `008_script_templates.sql` и `009_script_length_target.sql` в Supabase SQL Editor.
+- Vercel env: ничего нового не добавилось.
+- Vercel function memory: рекомендуется поставить **1024 MB** на `/api/posts/generate` и `/api/posts/[slideSetId]/slide-refine` в Vercel dashboard (chromium прожорлив на cold start; default 1024 на Pro обычно ок).
+- На Hobby плане endpoint `/api/posts/generate` упрётся в 10-секундный лимит — `maxDuration = 300` работает только на Pro.
+
+### Что работает (подтверждено 2026-05-07, до правок этой сессии)
 
 - `/api/posts/generate` отдаёт **HTTP 200** на dev. На warm dev: `200 in 277653ms`. Возврат: 7 текстовых слайдов + 7 PNG-превью (`data:image/png;base64,…`), категория сматчилась («Medical Weight Loss» в smoke-тесте).
-- Изолированный smoke `puppeteer.launch + screenshot` (1080×1080) рендерит 3 слайда за ~1.7 c после прогрева. Скрипт удалён, файлы `/tmp/cm-slide-{1,2,3}.png` остались как артефакты теста.
+- Изолированный smoke `puppeteer.launch + screenshot` (1080×1080) рендерит 3 слайда за ~1.7 c после прогрева.
 - `npx tsc --noEmit` чистый.
 
 ### Что сломано / под подозрением

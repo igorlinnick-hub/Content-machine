@@ -1,13 +1,27 @@
-import type { SharedContext, WriterOutput, CriticOutput } from '@/types'
+import type {
+  SharedContext,
+  WriterOutput,
+  CriticOutput,
+  ScriptLengthTarget,
+} from '@/types'
 import { MODEL_CRITIC, callAgentJSON } from './base'
 
-const SYSTEM_PROMPT = `You are an editor for medical content. Evaluate scripts strictly — the doctor's reputation depends on it.
+const LENGTH_BANDS: Record<ScriptLengthTarget, { min: number; max: number; label: string }> = {
+  short: { min: 200, max: 220, label: '60-90s boost cut' },
+  long: { min: 420, max: 540, label: '2-3min organic' },
+}
+
+function buildSystemPrompt(target: ScriptLengthTarget): string {
+  const band = LENGTH_BANDS[target]
+  return `You are an editor for medical content. Evaluate scripts strictly — the doctor's reputation depends on it.
+
+The variants below were written for a ${band.label} (${target}). Their target length is ${band.min}-${band.max} words.
 
 For each variant, score five criteria on a 1-10 scale:
 - tone_match: fit with the clinic's declared tone and audience.
 - no_promises: absence of medical promises ("cure", "guaranteed", "100%", "always works", "fixes X").
 - hook_quality: how concrete and specific the hook is. Generic or abstract hooks score low.
-- length_ok: how close to 200-220 words the script is. Count the words yourself — do not trust the variant's self-reported count.
+- length_ok: how close to ${band.min}-${band.max} words the script is. Count the words yourself — do not trust the variant's self-reported count. ${band.min}-${band.max} → 9-10. Within ±10% → 7-8. Further out → progressively lower.
 - science_present: a specific scientific fact, mechanism, or study is present and credible.
 
 total_score = average of the five criteria, rounded to one decimal place.
@@ -33,6 +47,7 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
     }
   ]
 }`
+}
 
 function buildCriticBrief(ctx: SharedContext, variants: WriterOutput): string {
   const p = ctx.clinic_profile
@@ -63,12 +78,14 @@ Score all variants now. Return only the JSON object.`
 export interface RunCriticParams {
   context: SharedContext
   variants: WriterOutput
+  lengthTarget?: ScriptLengthTarget
 }
 
 export async function runCritic(params: RunCriticParams): Promise<CriticOutput> {
+  const target: ScriptLengthTarget = params.lengthTarget ?? 'short'
   return callAgentJSON<CriticOutput>({
     model: MODEL_CRITIC,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: buildSystemPrompt(target),
     userContent: buildCriticBrief(params.context, params.variants),
     maxTokens: 8192,
     effort: 'medium',

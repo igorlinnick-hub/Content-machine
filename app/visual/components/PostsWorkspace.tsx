@@ -8,6 +8,8 @@ import { CategoriesEditor } from './CategoriesEditor'
 import { ContentPlan } from './ContentPlan'
 import { FewShotEditor } from './FewShotEditor'
 import { PostReferencesEditor } from './PostReferencesEditor'
+import { TemplatesEditor, type TemplateItem } from './TemplatesEditor'
+import { SlideEditor } from './SlideEditor'
 
 interface PlanTopic {
   id: string
@@ -52,6 +54,7 @@ interface Props {
   categories: Category[]
   fewShot: FewShotItem[]
   references: ReferenceItem[]
+  templates: TemplateItem[]
 }
 
 interface PostDetail {
@@ -65,7 +68,7 @@ interface PostDetail {
 }
 
 interface GenerateResponse {
-  slide_set_id: string
+  slide_set_id: string | null
   script_id: string
   topic: string
   hook: string
@@ -73,7 +76,11 @@ interface GenerateResponse {
   slides: string[]
   previews: string[]
   category: { id: string; name: string; emoji: string | null } | null
+  pair_id: string | null
+  length_target: 'short' | 'long'
 }
+
+type LengthChoice = 'short' | 'long' | 'both'
 
 export function PostsWorkspace({
   clinicId,
@@ -82,6 +89,7 @@ export function PostsWorkspace({
   categories,
   fewShot,
   references,
+  templates,
 }: Props) {
   const router = useRouter()
   const [posts, setPosts] = useState<PostListItem[]>(initialPosts)
@@ -97,8 +105,19 @@ export function PostsWorkspace({
 
   // Generation panel state
   const [topic, setTopic] = useState('')
+  const [length, setLength] = useState<LengthChoice>('short')
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
+
+  // Gallery filters
+  const [filterCategoryId, setFilterCategoryId] = useState<string | 'all'>('all')
+  const [filterLength, setFilterLength] = useState<'all' | 'short' | 'long'>('all')
+
+  const filteredPosts = posts.filter((p) => {
+    if (filterCategoryId !== 'all' && p.category?.id !== filterCategoryId) return false
+    if (filterLength !== 'all' && p.length_target !== filterLength) return false
+    return true
+  })
 
   useEffect(() => {
     if (!selectedId) {
@@ -139,6 +158,7 @@ export function PostsWorkspace({
         body: JSON.stringify({
           clinicId,
           topic: topic.trim() || undefined,
+          length,
         }),
       })
       const data = await res.json()
@@ -146,31 +166,36 @@ export function PostsWorkspace({
       const fresh = data as GenerateResponse
 
       // Inject into local list immediately so user sees it without round-trip.
-      const newItem: PostListItem = {
-        slide_set_id: fresh.slide_set_id,
-        script_id: fresh.script_id,
-        topic: fresh.topic,
-        hook: fresh.hook,
-        script: fresh.script,
-        slide_count: fresh.slides.length,
-        status: 'rendered',
-        created_at: new Date().toISOString(),
-        category: fresh.category,
+      // If only short was rendered (long is text-only), we still get a slide_set_id.
+      if (fresh.slide_set_id) {
+        const newItem: PostListItem = {
+          slide_set_id: fresh.slide_set_id,
+          script_id: fresh.script_id,
+          topic: fresh.topic,
+          hook: fresh.hook,
+          script: fresh.script,
+          slide_count: fresh.slides.length,
+          status: 'rendered',
+          created_at: new Date().toISOString(),
+          length_target: fresh.length_target,
+          pair_id: fresh.pair_id,
+          category: fresh.category,
+        }
+        setPosts((prev) => [newItem, ...prev])
+        setSelectedId(fresh.slide_set_id)
+        // Skip the GET fetch — we already have everything.
+        setDetail({
+          slide_set_id: fresh.slide_set_id,
+          topic: fresh.topic,
+          hook: fresh.hook,
+          script: fresh.script,
+          slides: fresh.slides,
+          previews: fresh.previews,
+          created_at: newItem.created_at,
+        })
+        setDrafts(fresh.slides.slice())
+        setLoading(false)
       }
-      setPosts((prev) => [newItem, ...prev])
-      setSelectedId(fresh.slide_set_id)
-      // Skip the GET fetch — we already have everything.
-      setDetail({
-        slide_set_id: fresh.slide_set_id,
-        topic: fresh.topic,
-        hook: fresh.hook,
-        script: fresh.script,
-        slides: fresh.slides,
-        previews: fresh.previews,
-        created_at: newItem.created_at,
-      })
-      setDrafts(fresh.slides.slice())
-      setLoading(false)
       setTopic('')
       router.refresh()
     } catch (e) {
@@ -245,6 +270,7 @@ export function PostsWorkspace({
           </p>
         </header>
         <ContentPlan clinicId={clinicId} initialTopics={plan} />
+        <TemplatesEditor clinicId={clinicId} initialTemplates={templates} />
         <FewShotEditor clinicId={clinicId} initialExamples={fewShot} />
         <PostReferencesEditor
           clinicId={clinicId}
@@ -278,11 +304,37 @@ export function PostsWorkspace({
             disabled={generating}
             className="cm-btn cm-btn-primary text-sm"
           >
-            {generating ? 'Generating… (~30s)' : 'Generate new script'}
+            {generating ? 'Generating…' : 'Generate'}
           </button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wider text-sky-700">
+            Length
+          </span>
+          {(
+            [
+              { id: 'short', label: 'Short — 60-90s boost' },
+              { id: 'long', label: 'Long — 2-3min organic' },
+              { id: 'both', label: 'Both (paired)' },
+            ] as Array<{ id: LengthChoice; label: string }>
+          ).map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              disabled={generating}
+              onClick={() => setLength(opt.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                length === opt.id
+                  ? 'border-sky-500 bg-sky-500 text-white'
+                  : 'border-sky-200 bg-white text-sky-700 hover:border-sky-400'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
         <p className="mt-2 text-xs text-neutral-600">
-          Runs writer → critic → splitter → renderer. Writer drafts 3 variants, critic picks the highest-scoring one, slides are auto-split and rendered as PNGs.
+          Writer drafts 3 variants per length using your format templates, critic picks the highest, the short version becomes a carousel. Long version stays text-only — render it later from the post page.
         </p>
         {genError && (
           <p className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -291,21 +343,73 @@ export function PostsWorkspace({
         )}
       </section>
 
-      <div className="grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
-          <header className="border-b border-neutral-200 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-              Posts
-            </p>
-            <p className="text-xs text-neutral-500">{posts.length} total</p>
+          <header className="flex flex-col gap-2 border-b border-neutral-200 px-4 py-3">
+            <div className="flex items-baseline justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
+                Posts
+              </p>
+              <p className="text-xs text-neutral-500">
+                {filteredPosts.length} / {posts.length}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => setFilterCategoryId('all')}
+                className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
+                  filterCategoryId === 'all'
+                    ? 'border-sky-500 bg-sky-500 text-white'
+                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-sky-300'
+                }`}
+              >
+                All
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c.id ?? c.slug}
+                  type="button"
+                  onClick={() => c.id && setFilterCategoryId(c.id)}
+                  disabled={!c.id}
+                  className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
+                    filterCategoryId === c.id
+                      ? 'border-sky-500 bg-sky-500 text-white'
+                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-sky-300'
+                  }`}
+                  title={c.name}
+                >
+                  {c.emoji ? `${c.emoji} ` : ''}
+                  {c.name}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {(['all', 'short', 'long'] as const).map((opt) => (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => setFilterLength(opt)}
+                  className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
+                    filterLength === opt
+                      ? 'border-sky-500 bg-sky-500 text-white'
+                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-sky-300'
+                  }`}
+                >
+                  {opt === 'all' ? 'Any length' : opt === 'short' ? 'Short' : 'Long'}
+                </button>
+              ))}
+            </div>
           </header>
-          {posts.length === 0 ? (
+          {filteredPosts.length === 0 ? (
             <p className="p-4 text-sm text-neutral-500">
-              No posts yet. Generate one above.
+              {posts.length === 0
+                ? 'No posts yet. Generate one above.'
+                : 'No posts match the current filters.'}
             </p>
           ) : (
             <ul className="flex-1 overflow-y-auto">
-              {posts.map((p) => {
+              {filteredPosts.map((p) => {
                 const active = p.slide_set_id === selectedId
                 return (
                   <li key={p.slide_set_id}>
@@ -316,14 +420,22 @@ export function PostsWorkspace({
                         active ? 'bg-sky-50' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <p
-                        className={`line-clamp-2 text-sm font-medium ${
-                          active ? 'text-sky-900' : 'text-neutral-900'
-                        }`}
-                      >
-                        {p.topic ?? 'Untitled'}
-                      </p>
+                      <div className="flex items-start gap-2">
+                        <p
+                          className={`line-clamp-2 flex-1 text-sm font-medium ${
+                            active ? 'text-sky-900' : 'text-neutral-900'
+                          }`}
+                        >
+                          {p.topic ?? 'Untitled'}
+                        </p>
+                        {p.length_target && (
+                          <span className="shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-600">
+                            {p.length_target}
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-0.5 text-xs text-neutral-500">
+                        {p.category?.name ? `${p.category.name} · ` : ''}
                         {formatDate(p.created_at)} · {p.slide_count} slides
                       </p>
                     </button>
@@ -390,66 +502,44 @@ export function PostsWorkspace({
                 </p>
               )}
 
-              <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-                <div className="flex flex-col gap-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                    Slides — edit text
+              <div className="flex flex-col gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">
+                  Slides — edit text or ask AI to fix any single slide
+                </p>
+                <ul className="flex flex-col gap-3">
+                  {drafts.map((text, i) => (
+                    <SlideEditor
+                      key={i}
+                      slideSetId={detail.slide_set_id}
+                      index={i}
+                      text={text}
+                      preview={detail.previews[i] ?? null}
+                      onTextChange={(next) => {
+                        const arr = drafts.slice()
+                        arr[i] = next
+                        setDrafts(arr)
+                      }}
+                      onAIFix={({ text: nextText, preview }) => {
+                        const arr = drafts.slice()
+                        arr[i] = nextText
+                        setDrafts(arr)
+                        setDetail((d) => {
+                          if (!d) return d
+                          const slides = d.slides.slice()
+                          slides[i] = nextText
+                          const previews = d.previews.slice()
+                          previews[i] = preview
+                          return { ...d, slides, previews }
+                        })
+                      }}
+                    />
+                  ))}
+                </ul>
+                {dirty && (
+                  <p className="text-xs text-amber-700">
+                    Manual edits — click <em>Save &amp; re-render</em> to commit them. AI fixes save immediately.
                   </p>
-                  <ul className="flex flex-col gap-3">
-                    {drafts.map((text, i) => (
-                      <li key={i} className="cm-card p-3">
-                        <div className="mb-2 flex items-center justify-between text-xs text-neutral-500">
-                          <span className="font-semibold uppercase tracking-wider">
-                            Slide {i + 1}
-                          </span>
-                          <span>{text.length} chars</span>
-                        </div>
-                        <textarea
-                          value={text}
-                          onChange={(e) => {
-                            const next = drafts.slice()
-                            next[i] = e.target.value
-                            setDrafts(next)
-                          }}
-                          rows={3}
-                          className="cm-input resize-none text-sm"
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                  {dirty && (
-                    <p className="text-xs text-amber-700">
-                      Unsaved changes — click <em>Save &amp; re-render</em> to update previews.
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                    Preview
-                  </p>
-                  {detail.previews.length === 0 ? (
-                    <p className="text-sm text-neutral-500">No previews yet.</p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-3">
-                      {detail.previews.map((src, i) => (
-                        <figure
-                          key={i}
-                          className="overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm"
-                        >
-                          <img
-                            src={src}
-                            alt={`Slide ${i + 1}`}
-                            className="aspect-square w-full object-cover"
-                          />
-                          <figcaption className="border-t border-neutral-100 px-2 py-1.5 text-[11px] text-neutral-500">
-                            Slide {i + 1}
-                          </figcaption>
-                        </figure>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             </>
           )}

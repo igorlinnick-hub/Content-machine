@@ -1,14 +1,38 @@
+import type { Browser } from 'puppeteer-core'
 import type { VisualStyle } from '@/types'
 import { buildSlideHTML } from './templates'
 
-// Dynamic import so the Next bundler does not include puppeteer in the
-// client bundle or the Edge runtime. This module is server-only.
-async function launchBrowser() {
-  const puppeteer = (await import('puppeteer')).default
-  return puppeteer.launch({
+// Detect serverless / Lambda-style environments. Vercel sets both
+// VERCEL=1 and AWS_LAMBDA_FUNCTION_NAME at runtime; the latter is
+// the canonical "we're inside Lambda" signal that matches what
+// @sparticuz/chromium expects.
+function isServerless(): boolean {
+  return Boolean(
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.VERCEL ||
+      process.env.NETLIFY
+  )
+}
+
+async function launchBrowser(): Promise<Browser> {
+  if (isServerless()) {
+    const chromium = (await import('@sparticuz/chromium')).default
+    const puppeteer = await import('puppeteer-core')
+    const executablePath = await chromium.executablePath()
+    return puppeteer.launch({
+      args: chromium.args,
+      executablePath,
+      headless: true,
+    }) as unknown as Browser
+  }
+
+  // Local / dev: full puppeteer is in devDependencies. Importing it
+  // dynamically keeps it out of the production bundle.
+  const puppeteer = await import('puppeteer')
+  return puppeteer.default.launch({
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
     headless: true,
-  })
+  }) as unknown as Browser
 }
 
 export interface RenderSlideInput {

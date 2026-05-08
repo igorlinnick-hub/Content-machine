@@ -42,3 +42,4 @@ supabase/.branches/
 # google service account keys — never commit
 jobflow-*.json
 *-service-account*.json
+.claude/

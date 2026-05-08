@@ -76,6 +76,16 @@ export interface ScriptExample {
   score: number | null
 }
 
+export type ScriptLengthTarget = 'short' | 'long'
+
+export interface ScriptFormatTemplate {
+  id: string
+  name: string
+  description: string | null
+  scaffold: string
+  length_bias: ScriptLengthTarget | null
+}
+
 export interface DiffRule {
   id: string
   rule: string
@@ -110,6 +120,7 @@ export interface SharedContext {
   trend_signals: TrendSignal[]
   content_memory: ContentItem[]
   few_shot_library: ScriptExample[]
+  format_templates: ScriptFormatTemplate[]
   diff_rules: DiffRule[]
   style_template: VisualStyle
   recent_picks: ScriptFeedbackEntry[]
@@ -142,6 +153,7 @@ export interface ScriptVariant {
   script: string
   word_count: number
   estimated_seconds: number
+  template_name?: string | null
 }
 
 export interface WriterOutput {

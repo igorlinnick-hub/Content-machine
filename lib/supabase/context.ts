@@ -5,6 +5,8 @@ import type {
   TrendSignal,
   ContentItem,
   ScriptExample,
+  ScriptFormatTemplate,
+  ScriptLengthTarget,
   DiffRule,
   VisualStyle,
   Tone,
@@ -35,6 +37,7 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     trendsRes,
     contentRes,
     fewShotRes,
+    formatTemplatesRes,
     diffRulesRes,
     slideSetRes,
     feedbackRes,
@@ -65,6 +68,13 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
       .eq('active', true)
       .order('score', { ascending: false, nullsFirst: false })
       .limit(10),
+    supabase
+      .from('script_templates')
+      .select('id, name, description, scaffold, length_bias')
+      .eq('clinic_id', clinicId)
+      .eq('active', true)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: false }),
     supabase
       .from('diff_rules')
       .select('*')
@@ -140,6 +150,16 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     score: r.score,
   }))
 
+  const format_templates: ScriptFormatTemplate[] = (formatTemplatesRes.data ?? []).map(
+    (r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      scaffold: r.scaffold,
+      length_bias: r.length_bias as ScriptLengthTarget | null,
+    })
+  )
+
   const diff_rules: DiffRule[] = (diffRulesRes.data ?? []).map((r) => ({
     id: r.id,
     rule: r.rule,
@@ -188,6 +208,7 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     trend_signals,
     content_memory,
     few_shot_library,
+    format_templates,
     diff_rules,
     style_template,
     recent_picks,
@@ -436,6 +457,8 @@ export interface ScoredVariant {
   word_count: number
   critic_score: number
   approved: boolean
+  length_target?: ScriptLengthTarget | null
+  pair_id?: string | null
 }
 
 export async function saveScripts(
@@ -453,6 +476,8 @@ export async function saveScripts(
     word_count: v.word_count,
     critic_score: v.critic_score,
     approved: v.approved,
+    length_target: v.length_target ?? null,
+    pair_id: v.pair_id ?? null,
   }))
   const { data, error } = await supabase.from('scripts').insert(rows).select('id, variant_id')
   if (error) throw error
