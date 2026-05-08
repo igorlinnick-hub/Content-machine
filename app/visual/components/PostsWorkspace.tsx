@@ -4,57 +4,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
-import { CategoriesEditor } from './CategoriesEditor'
-import { ContentPlan } from './ContentPlan'
-import { FewShotEditor } from './FewShotEditor'
-import { PostReferencesEditor } from './PostReferencesEditor'
-import { TemplatesEditor, type TemplateItem } from './TemplatesEditor'
 import { SlideEditor } from './SlideEditor'
-
-interface PlanTopic {
-  id: string
-  topic: string
-  position: number
-  status: 'pending' | 'done' | 'skipped'
-  last_script_id: string | null
-}
-
-interface Category {
-  id?: string
-  slug: string
-  name: string
-  emoji: string | null
-  triggers: string[]
-  drive_folder_id: string | null
-  cta_template: string | null
-}
-
-interface FewShotItem {
-  id: string
-  script_text: string
-  why_good: string | null
-  topic: string | null
-  score: number | null
-}
-
-interface ReferenceItem {
-  id: string
-  image_url: string
-  label: string | null
-  mode: 'photo' | 'clean' | null
-  role: 'cover' | 'body' | 'cta' | 'full_post' | null
-  category_slug: string | null
-  notes: string | null
-}
 
 interface Props {
   clinicId: string
   posts: PostListItem[]
-  plan: PlanTopic[]
-  categories: Category[]
-  fewShot: FewShotItem[]
-  references: ReferenceItem[]
-  templates: TemplateItem[]
 }
 
 interface PostDetail {
@@ -80,17 +34,7 @@ interface GenerateResponse {
   length_target: 'short' | 'long'
 }
 
-type LengthChoice = 'short' | 'long' | 'both'
-
-export function PostsWorkspace({
-  clinicId,
-  posts: initialPosts,
-  plan,
-  categories,
-  fewShot,
-  references,
-  templates,
-}: Props) {
+export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
   const router = useRouter()
   const [posts, setPosts] = useState<PostListItem[]>(initialPosts)
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -103,21 +47,10 @@ export function PostsWorkspace({
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Generation panel state
   const [topic, setTopic] = useState('')
-  const [length, setLength] = useState<LengthChoice>('short')
+  const [note, setNote] = useState('')
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
-
-  // Gallery filters
-  const [filterCategoryId, setFilterCategoryId] = useState<string | 'all'>('all')
-  const [filterLength, setFilterLength] = useState<'all' | 'short' | 'long'>('all')
-
-  const filteredPosts = posts.filter((p) => {
-    if (filterCategoryId !== 'all' && p.category?.id !== filterCategoryId) return false
-    if (filterLength !== 'all' && p.length_target !== filterLength) return false
-    return true
-  })
 
   useEffect(() => {
     if (!selectedId) {
@@ -149,6 +82,10 @@ export function PostsWorkspace({
   }, [selectedId])
 
   async function generate() {
+    if (!topic.trim()) {
+      setGenError('Topic required')
+      return
+    }
     setGenerating(true)
     setGenError(null)
     try {
@@ -157,16 +94,14 @@ export function PostsWorkspace({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           clinicId,
-          topic: topic.trim() || undefined,
-          length,
+          topic: topic.trim(),
+          note: note.trim() || undefined,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
       const fresh = data as GenerateResponse
 
-      // Inject into local list immediately so user sees it without round-trip.
-      // If only short was rendered (long is text-only), we still get a slide_set_id.
       if (fresh.slide_set_id) {
         const newItem: PostListItem = {
           slide_set_id: fresh.slide_set_id,
@@ -183,7 +118,6 @@ export function PostsWorkspace({
         }
         setPosts((prev) => [newItem, ...prev])
         setSelectedId(fresh.slide_set_id)
-        // Skip the GET fetch — we already have everything.
         setDetail({
           slide_set_id: fresh.slide_set_id,
           topic: fresh.topic,
@@ -197,6 +131,7 @@ export function PostsWorkspace({
         setLoading(false)
       }
       setTopic('')
+      setNote('')
       router.refresh()
     } catch (e) {
       setGenError(e instanceof Error ? e.message : 'failed to generate')
@@ -259,157 +194,64 @@ export function PostsWorkspace({
 
   return (
     <div className="flex flex-col gap-5">
-      <section className="flex flex-col gap-3">
-        <header>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-            Library & plan
-          </p>
-          <p className="mt-1 text-sm text-neutral-600">
-            Topics drive what to make. Golden scripts and posts teach the AI how
-            it should sound and look. Categories route a topic to its photo folder + CTA.
-          </p>
-        </header>
-        <ContentPlan clinicId={clinicId} initialTopics={plan} />
-        <TemplatesEditor clinicId={clinicId} initialTemplates={templates} />
-        <FewShotEditor clinicId={clinicId} initialExamples={fewShot} />
-        <PostReferencesEditor
-          clinicId={clinicId}
-          initialReferences={references}
-          categorySlugs={categories.map((c) => ({ slug: c.slug, name: c.name }))}
-        />
-        <CategoriesEditor clinicId={clinicId} initialCategories={categories} />
-      </section>
-
       <section className="rounded-2xl border border-sky-200 bg-sky-50 p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex flex-1 flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
-              Generate new post
-            </span>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="Topic (e.g. ketamine for treatment-resistant depression). Leave blank to let the team pick from your pillars."
-              className="cm-input text-sm"
-              disabled={generating}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !generating) generate()
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={generate}
-            disabled={generating}
-            className="cm-btn cm-btn-primary text-sm"
-          >
-            {generating ? 'Generating…' : 'Generate'}
-          </button>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wider text-sky-700">
-            Length
-          </span>
-          {(
-            [
-              { id: 'short', label: 'Short — 60-90s boost' },
-              { id: 'long', label: 'Long — 2-3min organic' },
-              { id: 'both', label: 'Both (paired)' },
-            ] as Array<{ id: LengthChoice; label: string }>
-          ).map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              disabled={generating}
-              onClick={() => setLength(opt.id)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-                length === opt.id
-                  ? 'border-sky-500 bg-sky-500 text-white'
-                  : 'border-sky-200 bg-white text-sky-700 hover:border-sky-400'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-neutral-600">
-          Writer drafts 3 variants per length using your format templates, critic picks the highest, the short version becomes a carousel. Long version stays text-only — render it later from the post page.
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
+          New post
         </p>
-        {genError && (
-          <p className="mt-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {genError}
-          </p>
-        )}
+        <div className="mt-3 flex flex-col gap-3">
+          <input
+            type="text"
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            placeholder="Topic — e.g. ketamine for treatment-resistant depression"
+            className="cm-input text-sm"
+            disabled={generating}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !generating && (e.metaKey || e.ctrlKey)) generate()
+            }}
+          />
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional starting note — paste any rough thoughts, a key fact, the angle you want. Leave blank to let the team pick."
+            rows={3}
+            className="cm-input resize-none text-sm"
+            disabled={generating}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-neutral-600">
+              Writer + critic + slide splitter run on the backend. ~3-5 min for a finished carousel.
+            </p>
+            <button
+              type="button"
+              onClick={generate}
+              disabled={generating || !topic.trim()}
+              className="cm-btn cm-btn-primary text-sm"
+            >
+              {generating ? 'Generating…' : 'Generate'}
+            </button>
+          </div>
+          {genError && (
+            <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {genError}
+            </p>
+          )}
+        </div>
       </section>
 
-      <div className="grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
-          <header className="flex flex-col gap-2 border-b border-neutral-200 px-4 py-3">
-            <div className="flex items-baseline justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-                Posts
-              </p>
-              <p className="text-xs text-neutral-500">
-                {filteredPosts.length} / {posts.length}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              <button
-                type="button"
-                onClick={() => setFilterCategoryId('all')}
-                className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
-                  filterCategoryId === 'all'
-                    ? 'border-sky-500 bg-sky-500 text-white'
-                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-sky-300'
-                }`}
-              >
-                All
-              </button>
-              {categories.map((c) => (
-                <button
-                  key={c.id ?? c.slug}
-                  type="button"
-                  onClick={() => c.id && setFilterCategoryId(c.id)}
-                  disabled={!c.id}
-                  className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
-                    filterCategoryId === c.id
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-sky-300'
-                  }`}
-                  title={c.name}
-                >
-                  {c.emoji ? `${c.emoji} ` : ''}
-                  {c.name}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-1">
-              {(['all', 'short', 'long'] as const).map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => setFilterLength(opt)}
-                  className={`rounded-full border px-2 py-0.5 text-[11px] font-medium transition ${
-                    filterLength === opt
-                      ? 'border-sky-500 bg-sky-500 text-white'
-                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-sky-300'
-                  }`}
-                >
-                  {opt === 'all' ? 'Any length' : opt === 'short' ? 'Short' : 'Long'}
-                </button>
-              ))}
-            </div>
-          </header>
-          {filteredPosts.length === 0 ? (
-            <p className="p-4 text-sm text-neutral-500">
-              {posts.length === 0
-                ? 'No posts yet. Generate one above.'
-                : 'No posts match the current filters.'}
+          <header className="border-b border-neutral-200 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
+              Recent posts
             </p>
+            <p className="text-xs text-neutral-500">{posts.length} total</p>
+          </header>
+          {posts.length === 0 ? (
+            <p className="p-4 text-sm text-neutral-500">No posts yet.</p>
           ) : (
             <ul className="flex-1 overflow-y-auto">
-              {filteredPosts.map((p) => {
+              {posts.map((p) => {
                 const active = p.slide_set_id === selectedId
                 return (
                   <li key={p.slide_set_id}>
@@ -420,22 +262,14 @@ export function PostsWorkspace({
                         active ? 'bg-sky-50' : 'hover:bg-neutral-50'
                       }`}
                     >
-                      <div className="flex items-start gap-2">
-                        <p
-                          className={`line-clamp-2 flex-1 text-sm font-medium ${
-                            active ? 'text-sky-900' : 'text-neutral-900'
-                          }`}
-                        >
-                          {p.topic ?? 'Untitled'}
-                        </p>
-                        {p.length_target && (
-                          <span className="shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-600">
-                            {p.length_target}
-                          </span>
-                        )}
-                      </div>
+                      <p
+                        className={`line-clamp-2 text-sm font-medium ${
+                          active ? 'text-sky-900' : 'text-neutral-900'
+                        }`}
+                      >
+                        {p.topic ?? 'Untitled'}
+                      </p>
                       <p className="mt-0.5 text-xs text-neutral-500">
-                        {p.category?.name ? `${p.category.name} · ` : ''}
                         {formatDate(p.created_at)} · {p.slide_count} slides
                       </p>
                     </button>
@@ -449,7 +283,7 @@ export function PostsWorkspace({
         <section className="flex min-w-0 flex-col gap-5">
           {!selectedId ? (
             <div className="cm-card flex flex-1 items-center justify-center p-8 text-sm text-neutral-500">
-              Pick a post on the left to edit and download.
+              Generate a post above — it will open here.
             </div>
           ) : loading ? (
             <div className="cm-card flex flex-1 items-center justify-center p-8 text-sm text-neutral-500">
@@ -471,19 +305,21 @@ export function PostsWorkspace({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={save}
-                    disabled={!dirty || saving}
-                    className="cm-btn cm-btn-primary text-sm"
-                  >
-                    {saving ? 'Saving…' : 'Save & re-render'}
-                  </button>
+                  {dirty && (
+                    <button
+                      type="button"
+                      onClick={save}
+                      disabled={saving}
+                      className="cm-btn cm-btn-primary text-sm"
+                    >
+                      {saving ? 'Saving…' : 'Save & re-render'}
+                    </button>
+                  )}
                   <a
                     href={`/api/visual/download?slideSetId=${detail.slide_set_id}`}
-                    className="cm-btn cm-btn-ghost text-sm"
+                    className="cm-btn cm-btn-primary text-sm"
                   >
-                    Download ZIP
+                    Download
                   </a>
                   <button
                     type="button"
@@ -502,45 +338,35 @@ export function PostsWorkspace({
                 </p>
               )}
 
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">
-                  Slides — edit text or ask AI to fix any single slide
-                </p>
-                <ul className="flex flex-col gap-3">
-                  {drafts.map((text, i) => (
-                    <SlideEditor
-                      key={i}
-                      slideSetId={detail.slide_set_id}
-                      index={i}
-                      text={text}
-                      preview={detail.previews[i] ?? null}
-                      onTextChange={(next) => {
-                        const arr = drafts.slice()
-                        arr[i] = next
-                        setDrafts(arr)
-                      }}
-                      onAIFix={({ text: nextText, preview }) => {
-                        const arr = drafts.slice()
-                        arr[i] = nextText
-                        setDrafts(arr)
-                        setDetail((d) => {
-                          if (!d) return d
-                          const slides = d.slides.slice()
-                          slides[i] = nextText
-                          const previews = d.previews.slice()
-                          previews[i] = preview
-                          return { ...d, slides, previews }
-                        })
-                      }}
-                    />
-                  ))}
-                </ul>
-                {dirty && (
-                  <p className="text-xs text-amber-700">
-                    Manual edits — click <em>Save &amp; re-render</em> to commit them. AI fixes save immediately.
-                  </p>
-                )}
-              </div>
+              <ul className="flex flex-col gap-3">
+                {drafts.map((text, i) => (
+                  <SlideEditor
+                    key={i}
+                    slideSetId={detail.slide_set_id}
+                    index={i}
+                    text={text}
+                    preview={detail.previews[i] ?? null}
+                    onTextChange={(next) => {
+                      const arr = drafts.slice()
+                      arr[i] = next
+                      setDrafts(arr)
+                    }}
+                    onAIFix={({ text: nextText, preview }) => {
+                      const arr = drafts.slice()
+                      arr[i] = nextText
+                      setDrafts(arr)
+                      setDetail((d) => {
+                        if (!d) return d
+                        const slides = d.slides.slice()
+                        slides[i] = nextText
+                        const previews = d.previews.slice()
+                        previews[i] = preview
+                        return { ...d, slides, previews }
+                      })
+                    }}
+                  />
+                ))}
+              </ul>
             </>
           )}
         </section>

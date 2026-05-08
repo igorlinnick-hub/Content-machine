@@ -14,6 +14,7 @@ import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
 import { getPhotosFromFolder } from '@/lib/google/drive'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
 import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
+import { ensureDefaultScriptTemplates } from '@/lib/posts/templates'
 import type { ScriptLengthTarget, SharedContext, VisualStyle } from '@/types'
 
 export const runtime = 'nodejs'
@@ -27,6 +28,7 @@ interface Body {
   topic?: string
   photoFolderId?: string
   length?: LengthRequest
+  note?: string
 }
 
 interface GenerateOneResult {
@@ -57,15 +59,22 @@ async function generateOne(params: {
   style: VisualStyle
   categories: Awaited<ReturnType<typeof ensureDefaultCategories>>
   topicText: string
+  note?: string | null
   ctaHint: string | null
   length: ScriptLengthTarget
   pairId: string | null
   renderSlidesForThis: boolean
   preMatchedFolderId: string | null
 }): Promise<GenerateOneResult> {
+  // If the user pasted a starting note, fold it into the topic hint so the
+  // writer treats it as additional steering, not a separate concept.
+  const topicHintWithNote = params.note?.trim()
+    ? `${params.topicText}\n\nDoctor's starting note (use as steer, do not quote verbatim):\n${params.note.trim()}`
+    : params.topicText
+
   const writerOut = await runWriter({
     context: params.context,
-    topicHint: params.topicText,
+    topicHint: topicHintWithNote,
     ctaHint: params.ctaHint,
     variantCount: 3,
     lengthTarget: params.length,
@@ -219,6 +228,9 @@ export async function POST(req: Request) {
       topicText = freeTopic!
     }
 
+    // Seed default templates first so loadSharedContext picks them up.
+    await ensureDefaultScriptTemplates(clinicId)
+
     const [context, categories, style] = await Promise.all([
       loadSharedContext(clinicId),
       ensureDefaultCategories(clinicId),
@@ -250,6 +262,8 @@ export async function POST(req: Request) {
       lengthReq === 'both' ? ['short', 'long'] : [lengthReq]
     const pairId = lengths.length > 1 ? randomUUID() : null
 
+    const noteText = body.note?.trim() ? body.note.trim() : null
+
     const results = await Promise.all(
       lengths.map((len) =>
         generateOne({
@@ -258,6 +272,7 @@ export async function POST(req: Request) {
           style,
           categories,
           topicText,
+          note: noteText,
           ctaHint,
           length: len,
           pairId,
