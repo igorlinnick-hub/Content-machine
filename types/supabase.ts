@@ -598,6 +598,71 @@ export type Database = {
           },
         ]
       }
+      video_sets: {
+        Row: {
+          id: string
+          clinic_id: string
+          script_id: string | null
+          prompt: string
+          replicate_prediction_id: string | null
+          replicate_model: string | null
+          storage_path: string | null
+          public_url: string | null
+          params: Json | null
+          duration_sec: number | null
+          aspect_ratio: string | null
+          resolution: string | null
+          category_id: string | null
+          status: string
+          error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          script_id?: string | null
+          prompt: string
+          replicate_prediction_id?: string | null
+          replicate_model?: string | null
+          storage_path?: string | null
+          public_url?: string | null
+          params?: Json | null
+          duration_sec?: number | null
+          aspect_ratio?: string | null
+          resolution?: string | null
+          category_id?: string | null
+          status?: string
+          error?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          script_id?: string | null
+          prompt?: string
+          replicate_prediction_id?: string | null
+          replicate_model?: string | null
+          storage_path?: string | null
+          public_url?: string | null
+          params?: Json | null
+          duration_sec?: number | null
+          aspect_ratio?: string | null
+          resolution?: string | null
+          category_id?: string | null
+          status?: string
+          error?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_sets_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       script_templates: {
         Row: {
           id: string
