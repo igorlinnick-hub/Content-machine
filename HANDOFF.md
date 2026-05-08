@@ -1057,3 +1057,80 @@ app/api/posts/[slideSetId]/route.ts
 > Продолжаем работу над `/api/posts/generate` (см. HANDOFF §17). Цель — стабильная PNG-генерация на Vercel. Локально подтвердил 200 OK + 7 PNG за ~277c. Подозрение — puppeteer не находит Chromium в serverless. Иду по плану §17 шаг 1.
 
 *Раздел создан: 2026-05-07*
+
+---
+
+## 18. TELEGRAM TEAM + VIDEO PIPELINE + COST OPTIMISATION (создан 2026-05-08)
+
+Большой раунд изменений. Любая будущая сессия должна сначала прочитать §17 (puppeteer fix), потом эту §18 и **только** потом трогать что-то новое.
+
+### Что сделано в этой сессии (хронологически)
+
+1. **Diagnostic layer** — `/api/diag?clinicId=…` (admin only). Возвращает env presence, Supabase ping, Drive per-category status (folder ok / photo count / first-photo data-URL ok). Использовать всегда **до** ковыряния в Vercel logs.
+2. **Drive photos на review-путях** — фото подгружались только в момент `/api/posts/generate`. На просмотре, save & re-render, slide-refine, download — все рендерили с `photoUrl: null` → navy fallback. Создан `lib/visual/photos.ts loadPhotoUrlsForSlideSet()` и подключён во всех 4 путях. Drive auth требует SA env vars в Vercel — добавил `GOOGLE_SERVICE_ACCOUNT_EMAIL`, `GOOGLE_PRIVATE_KEY`, `GOOGLE_DRIVE_FOLDER_ID` (раньше там не было ни одной).
+3. **Categories ↔ Drive folders** — все 4 категории получили `drive_folder_id` через SQL: mental_health → Ketamin pics, pain_joint → Neuropathy pics, wellness_vitality + weight_loss → Lifestyle. Recursive walker позволяет потом перенести фото в категорийные папки без правки кода.
+4. **Cost optimisation (~70-85% cut)**:
+   - `callAgentJSON` поддерживает `cacheSystem: true` → system prompt с `cache_control: ephemeral`
+   - Включён на writer / critic / splitter / slide-fixer / analyst / video-prompter / router-agent
+   - Выключен на research + diff (cron, TTL не попадает)
+   - splitter / slide-fixer / analyst / diff / video-prompter / router-agent перенесены на **Haiku 4.5** (`claude-haiku-4-5-20251001`)
+   - Writer + critic остались на Sonnet 4.6 / Opus 4.7
+   - **Важно:** Haiku не поддерживает `thinking: adaptive` — `callAgentJSON` сама стрипает этот параметр для моделей с `haiku` в id
+5. **Video pipeline** — новая вкладка `/visual?tab=videos` в workspace
+   - `lib/replicate/client.ts` — REST wrapper для Replicate
+   - `lib/agents/video-prompter.ts` — Haiku генерит Seedance prompt (использует grammar 15 Seedance-скилов в `~/.claude/skills/`)
+   - `lib/videos/store.ts` — DB + Storage helpers
+   - Migration 010 (накатили): table `video_sets` + bucket `clinic-videos`
+   - User подключил карту `*3697` в Replicate, token в Vercel env `REPLICATE_API_TOKEN`
+   - **Стоимость: pay-as-you-go.** ~$0.05/сек lite, ~$0.10/сек pro. Default `bytedance/seedance-2-0-lite`, 5 сек, 9:16, 720p.
+   - **Higgsfield не используется** — пользователь явно отказался от subscription
+6. **Telegram team layer** — два бота, conversational LLM router
+   - **`@contenmachinebot`** (id `8602999392`) — content production. Webhook ЖИВЁТ ВНУТРИ Content Machine на `/api/telegram/webhook`. v0. Admin chat id `469658442` (Igor).
+   - **`@hawaiiwellnessclinicbot`** (id `8584854971`) — HWC ops. Webhook **НЕ ЗАРЕГИСТРИРОВАН** (отложено пользователем).
+   - Personas в `lib/team/personas.ts` (Marek/Tilda/Ren/Iris/Vex/Ops для content). Ops team (Dax/Nova/Pia/Cal/Quill) задокументирована в `~/Code/team-router/README.md`, но **код не написан**.
+   - Router в `lib/team/router-agent.ts` — Haiku 4.5, читает свободный текст, выбирает агента, пишет ответ от его лица. **БЕЗ slash-команд** — пользователь явно отверг CLI-стиль.
+   - Telegram env vars в Vercel: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_IDS`, `TELEGRAM_WEBHOOK_SECRET`
+   - Webhook secret сгенерирован openssl, хранится в `~/Code/team-router/secrets.md` (gitignored) и в Vercel env
+7. **Standalone team-router scaffold** — `~/Code/team-router/` (отдельный git repo, ещё не задеплоен). Cloudflare Worker `wrangler.toml`, README + ARCHITECTURE.md описывают двух-bot дизайн, persona-stub в `src/agents/_personas.ts` зеркалит то что в Content Machine. Миграция v0 → standalone CF Worker — следующая сессия.
+
+### Skills + MCP (user-wide)
+
+Установлены 21 скил в `~/.claude/skills/`:
+- 15 Seedance video prompt skills (`seedance-cinematic`, `seedance-3d-cgi`, …)
+- 6 Anthropic official: `frontend-design`, `canvas-design`, `theme-factory`, `web-artifacts-builder`, `claude-api`, `skill-creator`
+
+Playwright MCP установлен user-scope: `claude mcp add --scope user playwright -- npx -y @playwright/mcp@latest`. Chromium browser binary скачан (~165MB).
+
+**Активируются на старте новой сессии**, не в текущей.
+
+### Известные TODO для следующей сессии
+
+| # | Задача | ETA |
+|---|---|---|
+| 1 | Реальные handoff'ы content-bot agents — Marek → /api/posts/generate, Tilda → /api/posts/[id], Ren → /api/videos/generate, Iris → Sonar API, Ops → /api/diag, Vex → billing readers | 1-2 ч |
+| 2 | Перенос content-bot logic из `app/api/telegram/webhook` в standalone `~/Code/team-router/` CF Worker | 1 ч |
+| 3 | Активация ops-bot (`@hawaiiwellnessclinicbot`) — Dax, Nova, Pia, Cal, Quill agents, Meta Ads / Google Calendar / EHR API подключения | 3-5 ч |
+| 4 | Step instrumentation в `/api/posts/generate` — `step('writer', …)` / `step('splitter', …)` оборачивающий каждый этап, ошибки тегаются именем step'а | 30 мин |
+| 5 | Conversation history в Telegram bot — Supabase tables `tg_messages`, `tg_sessions` для контекста между сообщениями | 1 ч |
+
+### Что менять НЕ нужно
+
+- **Slash-команды** — пользователь явно отверг. Только `/start`, `/help` оставлены (Telegram-конвенция).
+- **Higgsfield subscription** — отказались, видео через Replicate. Не возвращаться к Higgsfield API без явной просьбы.
+- **Computer Max $200/мес** — рассмотрели и отвергли.
+- **Покупка GPU-компьютера** — рассмотрели, математика не сходится для текущего объёма (≥1000 видео/мес для окупаемости).
+- **Дублирование команд между двумя ботами** — Vex (billing) единственный shared. Остальные bot-scoped.
+
+### Pre-deploy чеклист (для новой сессии)
+
+- HANDOFF.md §15-18 прочитан
+- `npx tsc --noEmit` чисто
+- `/api/diag?clinicId=…` зелёный по всем subsystem
+- Если меняешь Anthropic-модели — проверь что Haiku не получит `thinking:adaptive`
+- Если меняешь Drive — проверь что photoUrls возвращаются как data URLs, не webContentLink
+
+### Стартовый промпт для следующей сессии
+
+> Возвращаюсь в Content Machine. Прочитай HANDOFF §15-18 и memory entries. Текущее состояние: telegram bot @contenmachinebot v0 живёт внутри Content Machine, conversational router на Haiku работает. Следующий приоритет — реальные handoff'ы (Marek → /api/posts/generate и т.д.) или активация ops-bot @hawaiiwellnessclinicbot. Скилы должны быть активны (21 шт user-wide) — используй `claude-api` для Agent SDK кода.
+
+*Раздел создан: 2026-05-08*
