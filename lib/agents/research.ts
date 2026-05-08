@@ -47,6 +47,8 @@ Medical restrictions (never contradict these): ${
 
 Do research now. Return only the JSON.`
 
+  // No cacheSystem here — research runs weekly via cron, the 5-min cache
+  // TTL would never hit. Pay the cache-write penalty for nothing.
   const output = await callAgentJSON<ResearchOutput>({
     model: MODEL_DEFAULT,
     systemPrompt: SYSTEM_PROMPT,

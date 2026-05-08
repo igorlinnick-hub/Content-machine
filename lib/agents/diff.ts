@@ -1,5 +1,5 @@
 import type { DiffOutput } from '@/types'
-import { MODEL_DEFAULT, callAgentJSON } from './base'
+import { MODEL_HAIKU, callAgentJSON } from './base'
 
 const SYSTEM_PROMPT = `You analyze how a human editor improves AI-written regenerative-medicine scripts.
 
@@ -49,11 +49,12 @@ ${params.final}
 
 Analyze the edit patterns now. Return only the JSON.`
 
+  // No cacheSystem — diff runs weekly via cron, cache TTL (5 min) won't
+  // hit. Just use Haiku for the cost saving.
   return callAgentJSON<DiffOutput>({
-    model: MODEL_DEFAULT,
+    model: MODEL_HAIKU,
     systemPrompt: SYSTEM_PROMPT,
     userContent,
     maxTokens: 8192,
-    effort: 'medium',
   })
 }

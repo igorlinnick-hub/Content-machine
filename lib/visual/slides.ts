@@ -1,41 +1,47 @@
-import { MODEL_DEFAULT, callAgentJSON } from '@/lib/agents/base'
+import { MODEL_HAIKU, callAgentJSON } from '@/lib/agents/base'
 import type { TypedSlide } from '@/types'
 
 // Visual module owns its own Claude call (does not import writer.ts) — only
-// shares the base client. Splitter now produces TYPED slides matching the
-// HWC reference layout system: cover / body / cta.
-const SYSTEM_PROMPT = `You convert a 90-second video script into an Instagram carousel of 5-6 typed slides.
+// shares the base client. Splitter produces TYPED slides matching the HWC
+// reference layout system: cover / body / cta. Runs on Haiku — narrow,
+// well-scoped task where the smaller model performs the same and costs
+// roughly 1/12 of Sonnet on input.
+const SYSTEM_PROMPT = `You convert a 90-second video script into an Instagram carousel of 5 or 6 typed slides.
 
-Slide kinds:
-- "cover" — exactly ONE, always slide 1. White-bg headline slide.
-  - chip: short eyebrow tag in ALL CAPS (the topic category as one word, e.g. "MYTHS", "DIAGNOSIS", "TREATMENT", "WEIGHT", "RECOVERY"). No emoji.
-  - text: 2-4 word ALL CAPS headline that names the topic (e.g. "KETAMINE THERAPY", "STEM CELLS", "GLP-1 REALITY CHECK").
-  - subtext: ONE short sentence (max 12 words) framing the post — what the carousel reveals or argues.
-- "body" — 3-4 of these between cover and CTA. Each carries one beat.
-  - chip: short tag (e.g. "Myth 1", "The Science", "What This Means", "Step 2"). Title case, max 4 words.
-  - subtext: a single sentence in italics — the claim or quote being addressed (max 14 words). Optional.
-  - text: the body card content. ALL CAPS. 2-4 sentences. The actual idea or rebuttal.
-- "cta" — exactly ONE, always the last slide.
-  - chip: punchy headline ALL CAPS (e.g. "STILL HAVE QUESTIONS?", "READY TO START?").
-  - subtext: ONE sentence connecting to the audience (max 14 words) — what the team is here for.
-  - text: ALL CAPS action line ending with a clear call (e.g. "BOOK A CONSULTATION — LINK IN BIO.").
+Slide kinds and required fields:
 
-Total: 5 or 6 slides. Cover + 3 or 4 bodies + cta.
+"cover" — EXACTLY ONE. Always slide 1. White-bg headline slide.
+  • chip — REQUIRED. ALL CAPS eyebrow tag, 1 to 3 words. Names the topic category. Examples: "MYTHS", "DIAGNOSIS", "STEM CELLS", "WEIGHT LOSS", "MENTAL HEALTH", "RECOVERY", "PEPTIDES".
+  • text — REQUIRED. ALL CAPS headline, 2 to 4 words, the topic itself. Examples: "KETAMINE THERAPY", "STEM CELL TRUTH", "GLP-1 REALITY CHECK".
+  • subtext — REQUIRED. ONE sentence, max 12 words. Frames what the carousel reveals or argues.
+
+"body" — 3 OR 4 of these between cover and CTA. Each one carries ONE beat from the script.
+  • chip — REQUIRED. Title Case tag, max 4 words. Examples: "Myth 1", "The Science", "What This Means", "Step 2", "The Reality", "How It Works".
+  • subtext — REQUIRED. ONE short sentence, max 14 words. The claim being addressed, the question, or the quote. Reads like a quote or sub-claim.
+  • text — REQUIRED. ALL CAPS body, 2 to 4 sentences. The actual idea, evidence, or rebuttal.
+
+"cta" — EXACTLY ONE. Always the last slide.
+  • chip — REQUIRED. ALL CAPS headline. Examples: "STILL HAVE QUESTIONS?", "READY TO START?", "WANT THE NEXT STEP?".
+  • subtext — REQUIRED. ONE sentence, max 14 words. Connects to the audience. Example: "SO DOES EVERYONE — THAT'S WHAT WE'RE HERE FOR."
+  • text — REQUIRED. ALL CAPS action line ending with a clear call. Example: "BOOK A CONSULTATION — LINK IN BIO."
+
+Counts: 5 or 6 total. Cover + 3 bodies + CTA = 5. Cover + 4 bodies + CTA = 6.
 
 Hard rules:
+- ALL THREE FIELDS (chip / text / subtext) ARE REQUIRED on EVERY slide. Never return null or empty.
 - Do not invent facts not present in the script. Compress and re-frame.
-- No emoji. No hashtags. No markdown. ALL CAPS only where specified above.
+- No emoji. No hashtags. No markdown.
+- ALL CAPS where specified above (cover chip + headline, body text, CTA chip + text). Title Case for body chip. Sentence case OK for cover subtext, body subtext, CTA subtext.
 - Keep each visible string short — slides must read in under 3 seconds.
-- "subtext" is optional on body slides only. Always present on cover and cta.
 
-Respond with ONLY valid JSON, no markdown fences:
+Respond with ONLY valid JSON, no markdown fences, no commentary:
 {
   "slides": [
-    { "kind": "cover", "chip": "...", "text": "...", "subtext": "..." },
-    { "kind": "body",  "chip": "...", "text": "...", "subtext": "..." },
-    { "kind": "body",  "chip": "...", "text": "..." },
-    { "kind": "body",  "chip": "...", "text": "..." },
-    { "kind": "cta",   "chip": "...", "text": "...", "subtext": "..." }
+    { "kind": "cover", "chip": "MYTHS", "text": "KETAMINE THERAPY", "subtext": "Cover everything you've heard about ketamine therapy is probably wrong." },
+    { "kind": "body",  "chip": "Myth 1", "subtext": "It's just a party drug.", "text": "KETAMINE HAS BEEN USED AS A CONTROLLED ANESTHETIC IN CLINICAL SETTINGS SINCE 1970..." },
+    { "kind": "body",  "chip": "Myth 2", "subtext": "It only treats severe depression.", "text": "..." },
+    { "kind": "body",  "chip": "Myth 3", "subtext": "The effects do not last.", "text": "..." },
+    { "kind": "cta",   "chip": "STILL HAVE QUESTIONS?", "subtext": "So does everyone — that's what we're here for.", "text": "BOOK A CONSULTATION — LINK IN BIO." }
   ]
 }`
 
@@ -49,11 +55,11 @@ export async function splitScriptToSlides(
   if (!script.trim()) throw new Error('splitScriptToSlides: script is empty')
 
   const out = await callAgentJSON<{ slides: Array<Partial<TypedSlide>> }>({
-    model: MODEL_DEFAULT,
+    model: MODEL_HAIKU,
     systemPrompt: SYSTEM_PROMPT,
-    userContent: `Script:\n\n${script}\n\nSplit into typed slides now. Return only the JSON.`,
+    userContent: `Script:\n\n${script}\n\nSplit into typed slides now. Every slide must have chip + text + subtext. Return only the JSON.`,
     maxTokens: 4096,
-    effort: 'low',
+    cacheSystem: true,
   })
 
   const slides = (out.slides ?? [])

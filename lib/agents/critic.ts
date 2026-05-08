@@ -89,5 +89,6 @@ export async function runCritic(params: RunCriticParams): Promise<CriticOutput> 
     userContent: buildCriticBrief(params.context, params.variants),
     maxTokens: 8192,
     effort: 'medium',
+    cacheSystem: true,
   })
 }

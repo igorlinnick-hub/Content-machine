@@ -1,8 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { ToolUnion, WebSearchTool20260209 } from '@anthropic-ai/sdk/resources/messages'
+import type {
+  ToolUnion,
+  WebSearchTool20260209,
+  TextBlockParam,
+} from '@anthropic-ai/sdk/resources/messages'
 
 export const MODEL_DEFAULT = 'claude-sonnet-4-6'
 export const MODEL_CRITIC = 'claude-opus-4-7'
+// Haiku 4.5 — cheap + fast model used for narrow, high-volume tasks like
+// splitting scripts into slides, refining a single slide, and weekly diff
+// extraction. ~12× cheaper than Sonnet on input tokens with comparable
+// quality on these well-scoped jobs.
+export const MODEL_HAIKU = 'claude-haiku-4-5-20251001'
 
 export const WEB_SEARCH_TOOL: WebSearchTool20260209 = {
   type: 'web_search_20260209',
@@ -30,16 +39,34 @@ export interface CallAgentOptions {
   maxTokens?: number
   tools?: ToolUnion[]
   effort?: Effort
+  // When true, the system prompt is marked cache_control:ephemeral so
+  // Anthropic's prompt cache reuses it across calls within a 5-minute
+  // window. Set on stable system prompts (writer, critic). Skip for
+  // prompts that vary per call.
+  cacheSystem?: boolean
 }
 
 export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
   const client = getAnthropic()
   const model = opts.model ?? MODEL_DEFAULT
 
+  // System prompt: send as a single cacheable text block when requested
+  // (saves ~70% on repeated input tokens for hot paths). Plain string
+  // otherwise so we don't pay the cache-write overhead on one-shot calls.
+  const systemPayload: string | TextBlockParam[] = opts.cacheSystem
+    ? [
+        {
+          type: 'text',
+          text: opts.systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ]
+    : opts.systemPrompt
+
   const stream = client.messages.stream({
     model,
     max_tokens: opts.maxTokens ?? 4096,
-    system: opts.systemPrompt,
+    system: systemPayload,
     messages: [{ role: 'user', content: opts.userContent }],
     thinking: { type: 'adaptive' },
     ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),

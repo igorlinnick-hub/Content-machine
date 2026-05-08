@@ -1,5 +1,5 @@
 import type { AnalystOutput, Insight, InsightType } from '@/types'
-import { MODEL_DEFAULT, callAgentJSON } from './base'
+import { MODEL_HAIKU, callAgentJSON } from './base'
 import { saveInsights } from '@/lib/supabase/context'
 
 const SYSTEM_PROMPT = `You are a content analyst for a regenerative medicine clinic.
@@ -36,11 +36,11 @@ export interface RunAnalystResult {
 
 export async function runAnalyst(params: RunAnalystParams): Promise<RunAnalystResult> {
   const output = await callAgentJSON<AnalystOutput>({
-    model: MODEL_DEFAULT,
+    model: MODEL_HAIKU,
     systemPrompt: SYSTEM_PROMPT,
     userContent: `Doctor's raw notes:\n\n${params.rawText}`,
     maxTokens: 4096,
-    effort: 'low',
+    cacheSystem: true,
   })
 
   const persist = params.persist ?? true

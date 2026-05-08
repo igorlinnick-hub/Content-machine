@@ -285,5 +285,6 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     userContent,
     maxTokens: 16384,
     effort: 'low',
+    cacheSystem: true,
   })
 }

@@ -1,4 +1,4 @@
-import { MODEL_DEFAULT, callAgentJSON } from './base'
+import { MODEL_HAIKU, callAgentJSON } from './base'
 import type { TypedSlide, SlideKind } from '@/types'
 
 const SYSTEM_PROMPT = `You revise ONE slide of a typed Instagram carousel for a regenerative-medicine clinic.
@@ -87,11 +87,11 @@ Return only the JSON object.`
     subtext?: string | null
     warning?: string | null
   }>({
-    model: MODEL_DEFAULT,
+    model: MODEL_HAIKU,
     systemPrompt: SYSTEM_PROMPT,
     userContent,
     maxTokens: 1024,
-    effort: 'low',
+    cacheSystem: true,
   })
 
   const text = (out.text ?? '').trim()
