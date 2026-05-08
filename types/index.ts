@@ -112,6 +112,29 @@ export interface VisualStyle {
   }
   logo: { url: string; position: string; size: number }
   padding: number
+  // HWC-style brand tokens. Used by the typed-slide renderer for cover /
+  // body / cta layouts. Optional so legacy slide_sets without brand keep
+  // working — renderer falls back to plain text + photo bg.
+  brand?: {
+    primary: string       // navy — card backgrounds, headlines on white
+    accent: string        // sky — chips, gradient highlight, hover
+    surface: string       // white — cover bg
+    surface_text: string  // dark — text on white
+    card_text: string     // white — text on navy cards
+  }
+}
+
+export type SlideKind = 'cover' | 'body' | 'cta'
+
+// Typed slide payload that the splitter agent produces. Renderer dispatches
+// to a different layout for each kind. Backward compat: legacy `string[]`
+// slides are coerced to `[{kind:'cover'}, {kind:'body'}*, {kind:'cta'}]`
+// by position.
+export interface TypedSlide {
+  kind: SlideKind
+  text: string                 // primary content (body card on body, headline on cover, action line on cta)
+  chip?: string | null         // top eyebrow / chip ("MYTHS", "Myth 1", category name)
+  subtext?: string | null      // secondary line — subhead under cover headline, or smaller line on cta
 }
 
 export interface SharedContext {

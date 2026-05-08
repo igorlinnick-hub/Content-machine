@@ -60,7 +60,7 @@ export async function POST(
     })
 
     const updatedSlides = slideSet.slides.slice()
-    updatedSlides[index] = fix.slide_text
+    updatedSlides[index] = fix.slide
 
     const supabase = createServerClient()
     const { error: updateError } = await supabase
@@ -69,9 +69,9 @@ export async function POST(
       .eq('id', params.slideSetId)
     if (updateError) throw updateError
 
-    // Re-render only the affected slide to keep latency low.
+    // Re-render only the affected slide.
     const buffer = await renderSlide({
-      text: fix.slide_text,
+      slide: fix.slide,
       photoUrl: null,
       style: slideSet.style_template,
       slideIndex: index,
@@ -81,7 +81,7 @@ export async function POST(
 
     return NextResponse.json({
       index,
-      slide_text: fix.slide_text,
+      slide: fix.slide,
       preview,
       warning: fix.warning,
       slides: updatedSlides,

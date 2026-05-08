@@ -1,20 +1,63 @@
 import { createServerClient } from '@/lib/supabase/server'
-import type { VisualStyle, SlideSetStatus } from '@/types'
+import type { VisualStyle, SlideSetStatus, TypedSlide } from '@/types'
 import type { Json } from '@/types/supabase'
+
+// Coerce a JSONB value from slide_sets.slides into a TypedSlide[]. Supports
+// both legacy string[] storage (older slide_sets) and the new structured form.
+export function readSlidesJson(raw: unknown): TypedSlide[] {
+  if (!Array.isArray(raw)) return []
+  const out: TypedSlide[] = []
+  raw.forEach((item, i) => {
+    if (typeof item === 'string') {
+      const total = (raw as unknown[]).length
+      const kind: TypedSlide['kind'] =
+        i === 0 ? 'cover' : i === total - 1 ? 'cta' : 'body'
+      out.push({ kind, text: item })
+      return
+    }
+    if (item && typeof item === 'object') {
+      const o = item as Record<string, unknown>
+      const text = typeof o.text === 'string' ? o.text : ''
+      if (!text) return
+      const kindRaw = o.kind
+      const kind: TypedSlide['kind'] =
+        kindRaw === 'cover' || kindRaw === 'cta' || kindRaw === 'body'
+          ? kindRaw
+          : 'body'
+      out.push({
+        kind,
+        text,
+        chip: typeof o.chip === 'string' ? o.chip : null,
+        subtext: typeof o.subtext === 'string' ? o.subtext : null,
+      })
+    }
+  })
+  return out
+}
 
 function toJson<T>(value: T): Json {
   return JSON.parse(JSON.stringify(value)) as Json
 }
 
 export const DEFAULT_VISUAL_STYLE: VisualStyle = {
-  canvas: { width: 1080, height: 1080 },
-  background: { type: 'color', overlay_opacity: 0 },
+  // 4:5 portrait — Instagram post, matches HWC reference layout.
+  canvas: { width: 1080, height: 1350 },
+  // Photo backgrounds preferred; renderer falls back to brand surface
+  // when no photo is provided for body/cta slides.
+  background: { type: 'photo', overlay_opacity: 0 },
   text: {
-    primary: { font: 'Inter', size: 64, color: '#0a0a0a', position: 'center' },
-    secondary: { font: 'Inter', size: 32, color: '#525252' },
+    primary: { font: 'Inter', size: 72, color: '#ffffff', position: 'center' },
+    secondary: { font: 'Inter', size: 32, color: '#1e3a8a' },
   },
-  logo: { url: '', position: 'bottom-right', size: 80 },
-  padding: 80,
+  logo: { url: '', position: 'bottom-right', size: 96 },
+  padding: 64,
+  brand: {
+    primary: '#1e3a8a',       // HWC navy — card bg, cover headline
+    accent: '#3b82f6',        // sky-blue — radial gradient on cover, chips
+    surface: '#ffffff',       // cover bg
+    surface_text: '#1e3a8a',  // dark navy text on white cover
+    card_text: '#ffffff',     // white text on navy cards
+  },
 }
 
 export async function loadStyleTemplate(clinicId: string): Promise<VisualStyle> {
@@ -71,7 +114,7 @@ export interface SlideSetRecord {
   id: string
   clinic_id: string
   script_id: string | null
-  slides: string[]
+  slides: TypedSlide[]
   style_template: VisualStyle
   drive_folder_id: string | null
   status: SlideSetStatus
@@ -112,7 +155,7 @@ export async function loadScriptForRender(
 export async function createSlideSet(params: {
   clinicId: string
   scriptId: string
-  slides: string[]
+  slides: TypedSlide[]
   styleTemplate: VisualStyle
   driveFolderId?: string | null
   categoryId?: string | null
@@ -149,9 +192,7 @@ export async function loadSlideSet(slideSetId: string): Promise<SlideSetRecord> 
     )
   }
 
-  const slides = Array.isArray(data.slides)
-    ? (data.slides as unknown[]).filter((x): x is string => typeof x === 'string')
-    : []
+  const slides = readSlidesJson(data.slides)
 
   return {
     id: data.id,

@@ -1,5 +1,5 @@
 import type { Browser } from 'puppeteer-core'
-import type { VisualStyle } from '@/types'
+import type { VisualStyle, TypedSlide } from '@/types'
 import { buildSlideHTML } from './templates'
 
 // Detect serverless / Lambda-style environments. Vercel sets both
@@ -36,7 +36,10 @@ async function launchBrowser(): Promise<Browser> {
 }
 
 export interface RenderSlideInput {
-  text: string
+  // Either a plain string (legacy) or a typed slide. Renderer dispatches
+  // to cover/body/cta layouts based on TypedSlide.kind. Strings get a
+  // positional fallback (handled inside buildSlideHTML / coerceSlides).
+  slide: TypedSlide | string
   photoUrl: string | null
   style: VisualStyle
   slideIndex?: number
@@ -52,7 +55,7 @@ export async function renderSlide(input: RenderSlideInput): Promise<Buffer> {
       height: input.style.canvas.height,
       deviceScaleFactor: 1,
     })
-    const html = buildSlideHTML(input.text, input.photoUrl, input.style, {
+    const html = buildSlideHTML(input.slide, input.photoUrl, input.style, {
       slideIndex: input.slideIndex,
       slideTotal: input.slideTotal,
     })
@@ -64,9 +67,10 @@ export async function renderSlide(input: RenderSlideInput): Promise<Buffer> {
   }
 }
 
-// Render multiple slides sharing a single browser process.
+// Render multiple slides sharing a single browser process. Each entry
+// carries the slide payload (string or typed) and an optional photo URL.
 export async function renderSlides(
-  slides: Array<{ text: string; photoUrl: string | null }>,
+  slides: Array<{ slide: TypedSlide | string; photoUrl: string | null }>,
   style: VisualStyle
 ): Promise<Buffer[]> {
   if (slides.length === 0) return []
@@ -81,7 +85,7 @@ export async function renderSlides(
     const out: Buffer[] = []
     for (let i = 0; i < slides.length; i += 1) {
       const s = slides[i]
-      const html = buildSlideHTML(s.text, s.photoUrl, style, {
+      const html = buildSlideHTML(s.slide, s.photoUrl, style, {
         slideIndex: i,
         slideTotal: slides.length,
       })

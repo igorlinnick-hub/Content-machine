@@ -15,7 +15,12 @@ import { getPhotosFromFolder } from '@/lib/google/drive'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
 import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
 import { ensureDefaultScriptTemplates } from '@/lib/posts/templates'
-import type { ScriptLengthTarget, SharedContext, VisualStyle } from '@/types'
+import type {
+  ScriptLengthTarget,
+  SharedContext,
+  VisualStyle,
+  TypedSlide,
+} from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -41,7 +46,7 @@ interface GenerateOneResult {
   word_count: number
   estimated_seconds: number
   template_name: string | null
-  slides: string[]
+  slides: TypedSlide[]
   previews: string[]
   slide_set_id: string | null
   category: { id: string; slug: string; name: string; emoji: string | null } | null
@@ -124,7 +129,7 @@ async function generateOne(params: {
   const folderId =
     params.preMatchedFolderId || matchedCategory?.drive_folder_id || null
 
-  let slides: string[] = []
+  let slides: TypedSlide[] = []
   let previews: string[] = []
   let slideSetId: string | null = null
 
@@ -132,13 +137,17 @@ async function generateOne(params: {
     const split = await splitScriptToSlides(winner.script)
     slides = split.slides
 
+    // Cover always renders without a photo (white bg + sky gradient).
+    // Body and CTA can use photos.
     let photoUrls: (string | null)[] = slides.map(() => null)
     if (folderId && params.style.background.type === 'photo') {
       try {
         const photos = await getPhotosFromFolder(folderId)
         if (photos.length > 0) {
-          photoUrls = slides.map(
-            (_, i) => photos[i % photos.length]?.webContentLink ?? null
+          photoUrls = slides.map((s, i) =>
+            s.kind === 'cover'
+              ? null
+              : photos[i % photos.length]?.webContentLink ?? null
           )
         }
       } catch {
@@ -147,7 +156,7 @@ async function generateOne(params: {
     }
 
     const buffers = await renderSlides(
-      slides.map((text, i) => ({ text, photoUrl: photoUrls[i] })),
+      slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] })),
       params.style
     )
     previews = buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`)

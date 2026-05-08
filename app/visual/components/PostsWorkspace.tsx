@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
-import { SlideEditor } from './SlideEditor'
+import { SlideEditor, type UISlide } from './SlideEditor'
 
 interface Props {
   clinicId: string
@@ -16,7 +16,7 @@ interface PostDetail {
   topic: string | null
   hook: string | null
   script: string | null
-  slides: string[]
+  slides: UISlide[]
   previews: string[]
   created_at: string
 }
@@ -27,7 +27,7 @@ interface GenerateResponse {
   topic: string
   hook: string
   script: string
-  slides: string[]
+  slides: UISlide[]
   previews: string[]
   category: { id: string; name: string; emoji: string | null } | null
   pair_id: string | null
@@ -41,7 +41,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
     initialPosts[0]?.slide_set_id ?? null
   )
   const [detail, setDetail] = useState<PostDetail | null>(null)
-  const [drafts, setDrafts] = useState<string[]>([])
+  const [drafts, setDrafts] = useState<UISlide[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -157,7 +157,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           ? { ...d, slides: data.slides ?? d.slides, previews: data.previews ?? d.previews }
           : d
       )
-      setDrafts((data.slides as string[]).slice())
+      setDrafts((data.slides as UISlide[]).slice())
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to save')
     } finally {
@@ -190,7 +190,16 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
   const dirty =
     detail !== null &&
     (drafts.length !== detail.slides.length ||
-      drafts.some((s, i) => s !== detail.slides[i]))
+      drafts.some((s, i) => {
+        const o = detail.slides[i]
+        return (
+          !o ||
+          s.kind !== o.kind ||
+          s.text !== o.text ||
+          (s.chip ?? null) !== (o.chip ?? null) ||
+          (s.subtext ?? null) !== (o.subtext ?? null)
+        )
+      }))
 
   return (
     <div className="flex flex-col gap-5">
@@ -339,26 +348,26 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
               )}
 
               <ul className="flex flex-col gap-3">
-                {drafts.map((text, i) => (
+                {drafts.map((slide, i) => (
                   <SlideEditor
                     key={i}
                     slideSetId={detail.slide_set_id}
                     index={i}
-                    text={text}
+                    slide={slide}
                     preview={detail.previews[i] ?? null}
-                    onTextChange={(next) => {
+                    onSlideChange={(next) => {
                       const arr = drafts.slice()
                       arr[i] = next
                       setDrafts(arr)
                     }}
-                    onAIFix={({ text: nextText, preview }) => {
+                    onAIFix={({ slide: nextSlide, preview }) => {
                       const arr = drafts.slice()
-                      arr[i] = nextText
+                      arr[i] = nextSlide
                       setDrafts(arr)
                       setDetail((d) => {
                         if (!d) return d
                         const slides = d.slides.slice()
-                        slides[i] = nextText
+                        slides[i] = nextSlide
                         const previews = d.previews.slice()
                         previews[i] = preview
                         return { ...d, slides, previews }

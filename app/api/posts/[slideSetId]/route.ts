@@ -5,9 +5,11 @@ import {
   deletePost,
   loadSlideSet,
   loadScriptForRender,
+  readSlidesJson,
 } from '@/lib/visual/store'
 import { renderSlides } from '@/lib/visual/renderer'
 import type { Json } from '@/types/supabase'
+import type { TypedSlide } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -45,7 +47,7 @@ export async function GET(
 
     const buffers = slideSet.slides.length
       ? await renderSlides(
-          slideSet.slides.map((text) => ({ text, photoUrl: null })),
+          slideSet.slides.map((s) => ({ slide: s, photoUrl: null })),
           slideSet.style_template
         )
       : []
@@ -91,21 +93,20 @@ export async function PUT(
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }
 
-  if (!Array.isArray(body.slides)) {
-    return NextResponse.json(
-      { error: 'slides must be an array of strings' },
-      { status: 400 }
-    )
-  }
-  const slides = body.slides
-    .map((s) => (typeof s === 'string' ? s.trim() : ''))
-    .filter((s) => s.length > 0)
-  if (slides.length === 0) {
+  // Support both legacy string[] (from textarea edits) and TypedSlide[] (full
+  // structure) on PUT. Strings get coerced to typed by position.
+  const incoming = readSlidesJson(body.slides)
+  if (incoming.length === 0) {
     return NextResponse.json(
       { error: 'at least one non-empty slide is required' },
       { status: 400 }
     )
   }
+  const slides: TypedSlide[] = incoming.map((s, i, arr) => {
+    if (i === 0) return { ...s, kind: 'cover' }
+    if (i === arr.length - 1) return { ...s, kind: 'cta' }
+    return { ...s, kind: 'body' }
+  })
 
   try {
     const slideSet = await loadSlideSet(params.slideSetId)
@@ -118,7 +119,7 @@ export async function PUT(
     if (updateError) throw updateError
 
     const buffers = await renderSlides(
-      slides.map((text) => ({ text, photoUrl: null })),
+      slides.map((s) => ({ slide: s, photoUrl: null })),
       slideSet.style_template
     )
     const previews = buffers.map(

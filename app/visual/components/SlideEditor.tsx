@@ -3,32 +3,40 @@
 
 import { useState } from 'react'
 
+export type SlideKind = 'cover' | 'body' | 'cta'
+
+export interface UISlide {
+  kind: SlideKind
+  text: string
+  chip?: string | null
+  subtext?: string | null
+}
+
 interface Props {
   slideSetId: string
   index: number
-  text: string
+  slide: UISlide
   preview: string | null
-  onTextChange: (next: string) => void
-  // Called after a successful AI fix so the parent can update both the
-  // working draft and the rendered preview at this index.
-  onAIFix: (next: { text: string; preview: string }) => void
+  onSlideChange: (next: UISlide) => void
+  // Called after a successful AI fix.
+  onAIFix: (next: { slide: UISlide; preview: string }) => void
 }
 
 interface FixResponse {
   index: number
-  slide_text: string
+  slide: UISlide
   preview: string
   warning: string | null
-  slides: string[]
+  slides: UISlide[]
   error?: string
 }
 
 export function SlideEditor({
   slideSetId,
   index,
-  text,
+  slide,
   preview,
-  onTextChange,
+  onSlideChange,
   onAIFix,
 }: Props) {
   const [chatOpen, setChatOpen] = useState(false)
@@ -51,7 +59,7 @@ export function SlideEditor({
       const data = (await res.json()) as FixResponse
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
       setWarning(data.warning)
-      onAIFix({ text: data.slide_text, preview: data.preview })
+      onAIFix({ slide: data.slide, preview: data.preview })
       setInstruction('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to apply fix')
@@ -60,27 +68,76 @@ export function SlideEditor({
     }
   }
 
+  const kindLabel =
+    slide.kind === 'cover' ? 'Cover' : slide.kind === 'cta' ? 'CTA' : 'Body'
+  const totalChars =
+    (slide.chip?.length ?? 0) + (slide.subtext?.length ?? 0) + slide.text.length
+
   return (
     <li className="cm-card overflow-hidden p-3">
       <div className="mb-2 flex items-center justify-between text-xs text-neutral-500">
         <span className="font-semibold uppercase tracking-wider">
-          Slide {index + 1}
+          Slide {index + 1} · {kindLabel}
         </span>
-        <span>{text.length} chars</span>
+        <span>{totalChars} chars</span>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_140px]">
-        <textarea
-          value={text}
-          onChange={(e) => onTextChange(e.target.value)}
-          rows={3}
-          className="cm-input resize-none text-sm"
-        />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px]">
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+              {slide.kind === 'cover'
+                ? 'Eyebrow / chip'
+                : slide.kind === 'cta'
+                ? 'Headline'
+                : 'Chip'}
+            </span>
+            <input
+              type="text"
+              value={slide.chip ?? ''}
+              onChange={(e) =>
+                onSlideChange({ ...slide, chip: e.target.value || null })
+              }
+              className="cm-input text-sm"
+            />
+          </label>
+          {(slide.kind === 'cover' || slide.kind === 'cta' || slide.subtext !== null) && (
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+                {slide.kind === 'cover' ? 'Subhead' : 'Subtext'}
+              </span>
+              <input
+                type="text"
+                value={slide.subtext ?? ''}
+                onChange={(e) =>
+                  onSlideChange({ ...slide, subtext: e.target.value || null })
+                }
+                className="cm-input text-sm"
+              />
+            </label>
+          )}
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
+              {slide.kind === 'cover'
+                ? 'Headline'
+                : slide.kind === 'cta'
+                ? 'Action line'
+                : 'Body'}
+            </span>
+            <textarea
+              value={slide.text}
+              onChange={(e) => onSlideChange({ ...slide, text: e.target.value })}
+              rows={slide.kind === 'body' ? 3 : 2}
+              className="cm-input resize-none text-sm"
+            />
+          </label>
+        </div>
         {preview && (
           <figure className="overflow-hidden rounded-md border border-neutral-200 bg-white">
             <img
               src={preview}
               alt={`Slide ${index + 1}`}
-              className="aspect-square w-full object-cover"
+              className="w-full object-cover"
+              style={{ aspectRatio: '4/5' }}
             />
           </figure>
         )}

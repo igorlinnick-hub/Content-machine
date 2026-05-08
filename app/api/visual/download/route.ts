@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     }
 
     const buffers = await renderSlides(
-      slideSet.slides.map((text) => ({ text, photoUrl: null })),
+      slideSet.slides.map((s) => ({ slide: s, photoUrl: null })),
       slideSet.style_template
     )
 

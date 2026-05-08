@@ -57,8 +57,10 @@ export async function POST(req: Request) {
       try {
         const photos = await getPhotosFromFolder(body.photoFolderId)
         if (photos.length > 0) {
-          photoUrls = slides.map(
-            (_, i) => photos[i % photos.length]?.webContentLink ?? null
+          photoUrls = slides.map((s, i) =>
+            s.kind === 'cover'
+              ? null
+              : photos[i % photos.length]?.webContentLink ?? null
           )
         }
       } catch {
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
     }
 
     const buffers = await renderSlides(
-      slides.map((text, i) => ({ text, photoUrl: photoUrls[i] })),
+      slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] })),
       style
     )
 
