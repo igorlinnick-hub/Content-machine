@@ -7,6 +7,8 @@ export interface AgentPersona {
   name: string
   emoji: string
   role: string
+  // Trigger words are now soft hints — the LLM router does the real
+  // routing. Kept for fallback / debug only.
   triggers: string[]
   personality: string
 }
@@ -74,31 +76,16 @@ export const TEAM: AgentPersona[] = [
   },
 ]
 
+// Legacy keyword fallback — kept only for any tooling that still
+// imports it. The live webhook routes via lib/team/router-agent.ts
+// (LLM router on Haiku).
 export function pickAgentByKeyword(text: string): AgentPersona | null {
   const lower = text.trim().toLowerCase()
-  // Direct mention beats keyword.
   for (const a of TEAM) {
-    if (lower.startsWith(`/${a.key}`) || lower.startsWith(`@${a.key}`)) return a
+    if (lower.includes(a.name.toLowerCase())) return a
   }
   for (const a of TEAM) {
     if (a.triggers.some((t) => lower.includes(t))) return a
   }
   return null
-}
-
-export function teamHelpText(): string {
-  return [
-    'Hey 👋 I am the team router.',
-    '',
-    'Address an agent by name:',
-    '',
-    ...TEAM.map((a) => `${a.emoji} *${a.name}* — ${a.role}`),
-    '',
-    'Examples:',
-    '/marek post on TMS for women 35-55',
-    '/ren ketamine mechanism, 5s vertical',
-    '/iris latest TRD studies 2026',
-    '/vex how much did we spend last week',
-    '/ops status',
-  ].join('\n')
 }
