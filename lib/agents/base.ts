@@ -63,12 +63,17 @@ export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
       ]
     : opts.systemPrompt
 
+  // Adaptive thinking is supported on Sonnet/Opus only. Haiku 4.5
+  // rejects the parameter with `invalid_request_error: adaptive thinking
+  // is not supported on this model`. Keep it on for the heavyweights,
+  // skip on Haiku.
+  const supportsAdaptive = !model.includes('haiku')
   const stream = client.messages.stream({
     model,
     max_tokens: opts.maxTokens ?? 4096,
     system: systemPayload,
     messages: [{ role: 'user', content: opts.userContent }],
-    thinking: { type: 'adaptive' },
+    ...(supportsAdaptive ? { thinking: { type: 'adaptive' } } : {}),
     ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
     ...(opts.tools && opts.tools.length > 0 ? { tools: opts.tools } : {}),
   })
