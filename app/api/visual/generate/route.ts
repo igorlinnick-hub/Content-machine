@@ -6,7 +6,7 @@ import {
   loadScriptForRender,
   loadStyleTemplate,
 } from '@/lib/visual/store'
-import { getPhotosFromFolder } from '@/lib/google/drive'
+import { getPhotosFromFolder, getPhotoDataUrl } from '@/lib/google/drive'
 import { resolveAccess } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
@@ -57,10 +57,11 @@ export async function POST(req: Request) {
       try {
         const photos = await getPhotosFromFolder(body.photoFolderId)
         if (photos.length > 0) {
-          photoUrls = slides.map((s, i) =>
-            s.kind === 'cover'
-              ? null
-              : photos[i % photos.length]?.webContentLink ?? null
+          const ids = slides.map((s, i) =>
+            s.kind === 'cover' ? null : photos[i % photos.length]?.id ?? null
+          )
+          photoUrls = await Promise.all(
+            ids.map((id) => (id ? getPhotoDataUrl(id) : Promise.resolve(null)))
           )
         }
       } catch {

@@ -11,7 +11,7 @@ import { runCritic } from '@/lib/agents/critic'
 import { splitScriptToSlides } from '@/lib/visual/slides'
 import { renderSlides } from '@/lib/visual/renderer'
 import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
-import { getPhotosFromFolder } from '@/lib/google/drive'
+import { getPhotosFromFolder, getPhotoDataUrl } from '@/lib/google/drive'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
 import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
 import { ensureDefaultScriptTemplates } from '@/lib/posts/templates'
@@ -138,17 +138,21 @@ async function generateOne(params: {
     slides = split.slides
 
     // Cover always renders without a photo (white bg + sky gradient).
-    // Body and CTA can use photos.
+    // Body and CTA can use photos. Drive returns webContentLink which is
+    // not loadable by puppeteer without auth — we fetch bytes server-side
+    // and pass as base64 data URLs the headless browser can resolve.
     let photoUrls: (string | null)[] = slides.map(() => null)
     if (folderId && params.style.background.type === 'photo') {
       try {
         const photos = await getPhotosFromFolder(folderId)
         if (photos.length > 0) {
-          photoUrls = slides.map((s, i) =>
-            s.kind === 'cover'
-              ? null
-              : photos[i % photos.length]?.webContentLink ?? null
+          const photoIds = slides.map((s, i) =>
+            s.kind === 'cover' ? null : photos[i % photos.length]?.id ?? null
           )
+          const fetched = await Promise.all(
+            photoIds.map((id) => (id ? getPhotoDataUrl(id) : Promise.resolve(null)))
+          )
+          photoUrls = fetched
         }
       } catch {
         photoUrls = slides.map(() => null)
