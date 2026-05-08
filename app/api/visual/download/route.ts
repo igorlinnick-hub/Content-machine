@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import archiver from 'archiver'
 import { loadSlideSet, markSlideSetStatus } from '@/lib/visual/store'
 import { renderSlides } from '@/lib/visual/renderer'
+import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
 import { resolveAccess } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
@@ -34,8 +35,13 @@ export async function GET(req: Request) {
       )
     }
 
+    const photoUrls = await loadPhotoUrlsForSlideSet(
+      slideSet.id,
+      slideSet.slides,
+      slideSet.style_template
+    )
     const buffers = await renderSlides(
-      slideSet.slides.map((s) => ({ slide: s, photoUrl: null })),
+      slideSet.slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] ?? null })),
       slideSet.style_template
     )
 

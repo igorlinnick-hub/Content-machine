@@ -4,6 +4,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { loadSlideSet, loadScriptForRender } from '@/lib/visual/store'
 import { fixSlide } from '@/lib/agents/slide-fixer'
 import { renderSlide } from '@/lib/visual/renderer'
+import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
 import type { Json } from '@/types/supabase'
 
 export const runtime = 'nodejs'
@@ -69,10 +70,16 @@ export async function POST(
       .eq('id', params.slideSetId)
     if (updateError) throw updateError
 
-    // Re-render only the affected slide.
+    // Re-render only the affected slide. Pull the photo URL aligned to
+    // its position so the navy fallback is not used.
+    const photoUrls = await loadPhotoUrlsForSlideSet(
+      params.slideSetId,
+      updatedSlides,
+      slideSet.style_template
+    )
     const buffer = await renderSlide({
       slide: fix.slide,
-      photoUrl: null,
+      photoUrl: photoUrls[index] ?? null,
       style: slideSet.style_template,
       slideIndex: index,
       slideTotal: updatedSlides.length,

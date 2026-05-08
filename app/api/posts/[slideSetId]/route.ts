@@ -8,6 +8,7 @@ import {
   readSlidesJson,
 } from '@/lib/visual/store'
 import { renderSlides } from '@/lib/visual/renderer'
+import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
 import type { Json } from '@/types/supabase'
 import type { TypedSlide } from '@/types'
 
@@ -45,9 +46,14 @@ export async function GET(
       ? await loadScriptForRender(slideSet.script_id)
       : null
 
+    const photoUrls = await loadPhotoUrlsForSlideSet(
+      slideSet.id,
+      slideSet.slides,
+      slideSet.style_template
+    )
     const buffers = slideSet.slides.length
       ? await renderSlides(
-          slideSet.slides.map((s) => ({ slide: s, photoUrl: null })),
+          slideSet.slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] ?? null })),
           slideSet.style_template
         )
       : []
@@ -118,8 +124,13 @@ export async function PUT(
       .eq('id', params.slideSetId)
     if (updateError) throw updateError
 
+    const photoUrls = await loadPhotoUrlsForSlideSet(
+      params.slideSetId,
+      slides,
+      slideSet.style_template
+    )
     const buffers = await renderSlides(
-      slides.map((s) => ({ slide: s, photoUrl: null })),
+      slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] ?? null })),
       slideSet.style_template
     )
     const previews = buffers.map(
