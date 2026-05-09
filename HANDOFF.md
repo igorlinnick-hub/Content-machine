@@ -1134,3 +1134,39 @@ Playwright MCP установлен user-scope: `claude mcp add --scope user pla
 > Возвращаюсь в Content Machine. Прочитай HANDOFF §15-18 и memory entries. Текущее состояние: telegram bot @contenmachinebot v0 живёт внутри Content Machine, conversational router на Haiku работает. Следующий приоритет — реальные handoff'ы (Marek → /api/posts/generate и т.д.) или активация ops-bot @hawaiiwellnessclinicbot. Скилы должны быть активны (21 шт user-wide) — используй `claude-api` для Agent SDK кода.
 
 *Раздел создан: 2026-05-08*
+
+### Late-day decisions (2026-05-08, end of session)
+
+**Storage strategy fixed:**
+- Google Drive = primary cloud for videos + Premiere `.prproj` files
+- Local hard disk = manual cold backup (user moves files himself when Drive nears full)
+- Supabase = small assets only (slide PNGs, post references). Not video archive.
+- Telegram notification when Drive ≥ 90% full → Vex or Ops pings user
+- AI-generated B-roll → Drive too, in per-clip subfolder
+
+**Replicate video gen on hold:**
+- $20 prepaid in user's account
+- User wants to test in Replicate's playground first (`replicate.com/bytedance/seedance-2-0-lite`) — see what Seedance actually produces before committing API integration
+- Ren agent stays as v0 ack until user picks specific use cases
+- Don't push video gen integration until user explicitly asks
+
+**Team autonomy reframed:**
+- User pushed back on "team can't fix anything, only Claude Code can"
+- Honest split: agents OWN behaviour (prompts, preferences, few-shot, diff_rules) stored in DB, self-update via Telegram feedback
+- Claude Code OWNS structure (new agents, new APIs, bug fixes, deploys)
+- When wiring real handoffs: store every preference / rule / learning in DB, NOT code
+
+**Doctor video upload pipeline (planned for next session):**
+- New tab `/clips` in Content Machine
+- Doctor uploads iPhone recording
+- Whisper transcribes ($0.006/min, OPENAI_API_KEY needed — not yet in env)
+- Detect silences/fillers from transcript → ffmpeg cuts
+- Auto-captions overlay from same transcript
+- Export cleaned mp4 → Drive + downloadable in app
+- 90% automated; 10% edge cases need Premiere (user has Premiere already, AutoEdit plugin trial recommended for talking-head cleanup)
+
+**Next session order (re-confirmed end-of-day):**
+1. Confirm Drive photos work on a NEW post (not the old `1568ae3c-...` slide_set — that one has no category linkage)
+2. Wire real handoffs in Telegram bot — Marek calls /api/posts/generate, Tilda calls /api/posts/[id], Ops calls /api/diag, etc
+3. Build `/clips` doctor video cleanup pipeline (if priority shifts up)
+4. Long-form video stitching (~/Code/video-editor ffmpeg pipeline) — only after user confirms playground tests look good
