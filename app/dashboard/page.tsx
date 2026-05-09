@@ -9,6 +9,7 @@ import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { QuickNote } from './components/QuickNote'
+import { PWAInstallCard } from './components/PWAInstallCard'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 
@@ -239,6 +240,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         >
           <RecentScripts scripts={recent} />
         </Section>
+
+        <PWAInstallCard />
 
         <footer className="pt-2 text-center text-xs text-neutral-400">
           Content Machine · regen-med

@@ -484,6 +484,22 @@ export async function saveScripts(
   return (data ?? []).map((r) => ({ id: r.id, variant_id: r.variant_id ?? '' }))
 }
 
+export async function updateScriptCaptions(params: {
+  scriptId: string
+  shortCaption: string
+  longCaption: string
+}): Promise<void> {
+  const supabase = createServerClient()
+  const { error } = await supabase
+    .from('scripts')
+    .update({
+      short_caption: params.shortCaption,
+      long_caption: params.longCaption,
+    })
+    .eq('id', params.scriptId)
+  if (error) throw error
+}
+
 export async function saveScriptFeedback(params: {
   clinicId: string
   entries: Array<{ scriptId: string; action: FeedbackAction }>

@@ -4,10 +4,12 @@ import { resolveAccess } from '@/lib/auth/session'
 import {
   loadSharedContext,
   saveScripts,
+  updateScriptCaptions,
   type ScoredVariant,
 } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
+import { runCaptioner } from '@/lib/agents/captioner'
 import { splitScriptToSlides } from '@/lib/visual/slides'
 import { renderSlides } from '@/lib/visual/renderer'
 import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
@@ -49,6 +51,8 @@ interface GenerateOneResult {
   slides: TypedSlide[]
   previews: string[]
   slide_set_id: string | null
+  short_caption: string | null
+  long_caption: string | null
   category: { id: string; slug: string; name: string; emoji: string | null } | null
 }
 
@@ -121,6 +125,31 @@ async function generateOne(params: {
     throw new Error('failed to save winner script')
   }
 
+  // Caption — runs only on the winner. Cheap (Haiku) + small. Errors
+  // here don't block the slide pipeline; we just leave captions null
+  // and the operator can re-trigger from the bot if needed.
+  let shortCaption: string | null = null
+  let longCaption: string | null = null
+  try {
+    const captions = await runCaptioner({
+      topic: winner.topic,
+      hook: winner.hook,
+      script: winner.script,
+      clinic: params.context.clinic_profile,
+    })
+    shortCaption = captions.short_caption?.trim() || null
+    longCaption = captions.long_caption?.trim() || null
+    if (shortCaption && longCaption) {
+      await updateScriptCaptions({
+        scriptId: winnerSaved.id,
+        shortCaption,
+        longCaption,
+      })
+    }
+  } catch {
+    // Caption failure is recoverable — keep going.
+  }
+
   const finalMatch = matchCategory(
     `${winner.topic} ${winner.script.slice(0, 400)}`,
     params.categories
@@ -190,6 +219,8 @@ async function generateOne(params: {
     slides,
     previews,
     slide_set_id: slideSetId,
+    short_caption: shortCaption,
+    long_caption: longCaption,
     category: matchedCategory
       ? {
           id: matchedCategory.id,

@@ -444,11 +444,15 @@ export type Database = {
           topic: string | null
           variant_id: string | null
           word_count: number | null
+          short_caption: string | null
+          long_caption: string | null
         }
         Insert: {
           approved?: boolean | null
           clinic_id?: string | null
           created_at?: string | null
+          short_caption?: string | null
+          long_caption?: string | null
           critic_score?: number | null
           full_script: string
           google_doc_id?: string | null
@@ -476,6 +480,8 @@ export type Database = {
           topic?: string | null
           variant_id?: string | null
           word_count?: number | null
+          short_caption?: string | null
+          long_caption?: string | null
         }
         Relationships: [
           {
@@ -656,6 +662,191 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "video_sets_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_prompts: {
+        Row: {
+          id: string
+          clinic_id: string
+          agent_key: string
+          system_prompt: string
+          version: number
+          active: boolean
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          agent_key: string
+          system_prompt: string
+          version?: number
+          active?: boolean
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          agent_key?: string
+          system_prompt?: string
+          version?: number
+          active?: boolean
+          updated_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_prompts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_preferences: {
+        Row: {
+          id: string
+          clinic_id: string
+          agent_key: string
+          prefs: Json
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          agent_key: string
+          prefs?: Json
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          agent_key?: string
+          prefs?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_preferences_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_learnings: {
+        Row: {
+          id: string
+          clinic_id: string
+          agent_key: string
+          user_message: string
+          agent_action: string | null
+          feedback_kind: string
+          rule: string | null
+          active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          agent_key: string
+          user_message: string
+          agent_action?: string | null
+          feedback_kind: string
+          rule?: string | null
+          active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          agent_key?: string
+          user_message?: string
+          agent_action?: string | null
+          feedback_kind?: string
+          rule?: string | null
+          active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_learnings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clips: {
+        Row: {
+          id: string
+          clinic_id: string
+          drive_inbox_file_id: string
+          drive_inbox_file_name: string
+          drive_clip_folder_id: string | null
+          status: string
+          duration_in_sec: number | null
+          duration_out_sec: number | null
+          cuts_filler_count: number | null
+          cuts_silence_count: number | null
+          cleaned_file_id: string | null
+          transcript_txt_file_id: string | null
+          transcript_srt_file_id: string | null
+          triggered_chat_id: string | null
+          error: string | null
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          drive_inbox_file_id: string
+          drive_inbox_file_name: string
+          drive_clip_folder_id?: string | null
+          status?: string
+          duration_in_sec?: number | null
+          duration_out_sec?: number | null
+          cuts_filler_count?: number | null
+          cuts_silence_count?: number | null
+          cleaned_file_id?: string | null
+          transcript_txt_file_id?: string | null
+          transcript_srt_file_id?: string | null
+          triggered_chat_id?: string | null
+          error?: string | null
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          drive_inbox_file_id?: string
+          drive_inbox_file_name?: string
+          drive_clip_folder_id?: string | null
+          status?: string
+          duration_in_sec?: number | null
+          duration_out_sec?: number | null
+          cuts_filler_count?: number | null
+          cuts_silence_count?: number | null
+          cleaned_file_id?: string | null
+          transcript_txt_file_id?: string | null
+          transcript_srt_file_id?: string | null
+          triggered_chat_id?: string | null
+          error?: string | null
+          created_at?: string
+          completed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clips_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"

@@ -1170,3 +1170,306 @@ Playwright MCP установлен user-scope: `claude mcp add --scope user pla
 2. Wire real handoffs in Telegram bot — Marek calls /api/posts/generate, Tilda calls /api/posts/[id], Ops calls /api/diag, etc
 3. Build `/clips` doctor video cleanup pipeline (if priority shifts up)
 4. Long-form video stitching (~/Code/video-editor ffmpeg pipeline) — only after user confirms playground tests look good
+
+## 19. TELEGRAM TEAM v1 — BRIEFING + REAL HANDOFFS + SELF-EVOLUTION (создан 2026-05-09)
+
+Закрыли разрыв «агенты ничего не знают о проекте». В этом раунде команда получила реальный брифинг из DB на каждый ход, реальные руки на 4 из 6 агентов, и таблицы для self-evolution через Telegram-фидбек.
+
+### Что сделано
+
+1. **Migration 011** (`011_agent_self_evolution.sql`) — три таблицы per-clinic, per-agent:
+   - `agent_prompts` — версионируемый override system-prompt'а агента (active=true → используется в брифе)
+   - `agent_preferences` — JSONB префы (`marek.default_length=short`, `ren.paused=true`, etc)
+   - `agent_learnings` — timestamped фидбек, `feedback_kind in (positive|negative|correction|rule)`, `rule` — durable текст правила
+   - RLS как у `video_sets` — `app.clinic_id` setting
+   - **Накатить в Supabase SQL Editor вручную после деплоя.**
+2. **`lib/team/agent-store.ts`** — load/upsert функции для трёх новых таблиц + `Json` cast для `prefs` (иначе тайпы supabase ругаются).
+3. **`lib/team/brief.ts`** — `loadTeamBrief(clinicId)` собирает в одном `Promise.all`: clinic_profile, categories+drive_folders, recent_picks, diff_rules, style_template, latest slide_set, pending plan topics, per-agent {prompt_override, prefs, learnings}. `formatBriefForRouter()` рендерит в стабильный markdown — стабильность важна для prompt-cache hit.
+4. **`lib/team/personas.ts`** — расширен интерфейс `AgentPersona.tools: AgentTool[]`. Каждый tool: `{id, description, enabled}`. Ren.generate_video помечен enabled=false (paused per §18 addendum).
+5. **`lib/team/router-agent.ts`** — v1: возвращает `{agent, intent, params, ack}`. System prompt = base + brief, оба в одном cacheable text-блоке (`cacheSystem:true`). Router валидирует intent против tools агента — если LLM галлюцинирует tool которого у агента нет / disabled, intent downgrade'ится в `chat`.
+6. **Real handoffs (`lib/team/handoffs/`):**
+   - `marek.ts` — `runMarekGeneratePost` зовёт `runWriter → runCritic → splitScriptToSlides → getPhotosFromFolder → renderSlides → createSlideSet` напрямую (без HTTP-хопа), потом `tgSendMediaGroup` с 7 PNG + caption=topic+hook + ссылка на /posts/[id]
+   - `ops.ts` — `runOpsDiag` повторяет логику /api/diag и форматит в Telegram-friendly текст с 🟢/🔴
+   - `iris.ts` — `runIrisResearch` зовёт Perplexity Sonar если `PERPLEXITY_API_KEY` set, иначе ack «not configured»
+   - `vex.ts` — `runVexBilling` — пока v0: репортит env-presence + ссылки на дашборды (Anthropic/Replicate/Vercel/OpenAI). Реальные billing readers — следующий пасс
+   - `tilda.ts` — `runTildaReRender` берёт latest slide_set (или указанный id), пере-загружает фото, пере-рендерит, постит album
+   - `ren.ts` — отдельного файла нет, dispatcher шлёт ack в случае generate_video (disabled tool)
+   - `index.ts` — `dispatchHandoff()` switchboard на intent → handoff
+7. **`lib/team/telegram.ts`** — `tgSend / tgChatAction / tgSendMediaGroup / tgSendPhoto` хелперы. Album использует multipart FormData с `attach://photo_N` references.
+8. **Двухроутный async-паттерн на Vercel:**
+   - `/api/telegram/webhook` (maxDuration=30s) — secret check, brief load, router call, ack send, fire-and-forget POST в `/api/telegram/dispatch`, return 200
+   - `/api/telegram/dispatch` (maxDuration=300s) — secret check (header `x-internal-dispatch-secret`), `dispatchHandoff()`, post results back через Telegram
+   - Next.js 14.2 — нет `after()` API, поэтому split на два роута. Когда поднимем Next 15 — можно слить.
+9. **agent_learnings auto-capture** — webhook эвристикой ловит short-form feedback в новом сообщении (`/^(rule:|always |never |stop |don'?t |fix:|actually,?\s)/i`, 👍/👎, и т.д.) и пишет в `agent_learnings` под последнего агента которого выбрал router. Brief'ы в следующих ходах подсасывают эти rules.
+10. **Tools-интроспекция через GET /api/telegram/webhook** — теперь возвращает `team[].tools` (id list) для дебага что роутер видит.
+11. **Seed script** `scripts/seed-agent-defaults.mjs` — idempotent, пишет дефолтные `agent_preferences` для clinic. Запуск: `node --env-file=.env.local scripts/seed-agent-defaults.mjs --clinicId=<HWC_uuid>`. Запускается опционально — без него brief just не emit'ит «## per-agent overrides» секцию.
+
+### Env-переменные для Vercel (новые)
+
+| Var | Зачем |
+|---|---|
+| `TELEGRAM_DEFAULT_CLINIC_ID` | UUID клиники (HWC). Webhook пользует для clinic resolution. Без неё webhook отвечает «not set» и handoff не запускается. |
+| `NEXT_PUBLIC_APP_URL` | Уже было — теперь используется ещё и для review-link в Marek's caption + dispatch URL fallback. |
+| `PERPLEXITY_API_KEY` | Опционально, Iris fallback'ит без него. |
+
+### Tool list (что реально работает)
+
+- **Marek:** `generate_post` ✅ (writer→critic→render→sendMediaGroup), `refine_script` ⚠️ ack-only (TODO в next pass)
+- **Tilda:** `re_render_slides` ✅ (latest или by id), `change_style` ⚠️ ack-only (style edits TODO)
+- **Ren:** `generate_video` ❌ disabled (paused per §18 addendum)
+- **Iris:** `web_research` ✅ если `PERPLEXITY_API_KEY` set, иначе ack
+- **Vex:** `billing_report` ✅ env-presence + dashboard links (real readers TODO)
+- **Ops:** `diag` ✅ env + Supabase + Drive per-category checks
+
+### Pre-deploy чеклист
+
+- [ ] Накатить migration 011 в Supabase SQL Editor
+- [ ] Добавить `TELEGRAM_DEFAULT_CLINIC_ID` в Vercel env (production + preview)
+- [ ] (Опционально) `node --env-file=.env.local scripts/seed-agent-defaults.mjs --clinicId=<HWC>`
+- [ ] `npx tsc --noEmit` чисто (✅ на момент создания §19)
+- [ ] Re-deploy webhook URL не нужен — путь тот же, secret тот же
+
+### Smoke test в Telegram (после деплоя)
+
+1. `/help` — видно команду без изменений
+2. «Marek, draft a short post on TMS for treatment-resistant depression» — должен прийти ack от Marek + через 60-180с album из 7 слайдов с caption + ссылка на /posts/[id]
+3. «Ops, run diag» — green/red отчёт по env / Supabase / Drive
+4. «no, the hook was generic» — auto-capture как `feedback_kind='negative'` под marek (видно в `agent_learnings` SQL)
+5. «rule: never start a hook with "Did you know"» — auto-capture как `feedback_kind='rule'`. В следующем `generate_post` brief включит это правило.
+
+### Что НЕ делалось в этом раунде
+
+- Реальные billing readers (Anthropic Usage API + Replicate billing) — Vex пока v0
+- Refine path для Marek — ack-only
+- Style editing для Tilda — ack-only
+- Запись `agent_action` (что именно сделал handoff) в `agent_learnings` — пока null'ы. Полезно для аудита, но не блокер.
+- Standalone CF Worker миграция (`~/Code/team-router/`) — content-bot всё ещё внутри Content Machine. Перенос остаётся в TODO §18.
+
+### Стартовый промпт для следующей сессии
+
+> Возвращаюсь в Content Machine. Прочитай HANDOFF §15-19 и memory entries. Telegram team теперь живёт с briefing layer + 4 рабочими handoff'ами + agent_learnings auto-capture. Migration 011 накачена. Следующие приоритеты: (a) refine_script для Marek + change_style для Tilda; (b) реальные billing readers для Vex; (c) перенос content-bot в standalone CF Worker; (d) ops-bot активация.
+
+*Раздел создан: 2026-05-09*
+
+## 20. /CLIPS PIPELINE — DOCTOR VIDEO CLEANUP (создан 2026-05-09)
+
+Pax — новая персона, owner doctor video clip cleanup pipeline. Полный авто-пайплайн: Whisper транскриб → ffmpeg silence/filler cuts → captions burn-in → Drive upload. Триггер из Telegram, всё через Drive (без Telegram-аплоадов чтобы не упереться в 50MB лимит).
+
+### Архитектура
+
+```
+[Doctor uploads .mp4/.mov to Drive Clips/Inbox/]
+        ↓
+[Telegram: «Pax, process inbox» (или похожее)]
+        ↓
+[router → intent: clip_clean → handoffs/pax → fetch /api/clips/process]
+        ↓
+[/api/clips/process (max 300s on Vercel Pro):]
+  1. listInboxClips() — Drive API list
+  2. for each new file:
+     a. download to /tmp
+     b. ffmpeg extract audio mono mp3 64kbps
+     c. Whisper transcribe (verbose_json + segment timestamps)
+     d. plan cuts: drop pure-filler segments + collapse > 0.6s gaps
+     e. ffmpeg apply cuts (concat filter) → cut.mp4
+     f. build .srt with REMAPPED timestamps (post-cut timeline)
+     g. ffmpeg burn captions → final.mp4
+     h. createClipFolder under Cleaned/ + upload cleaned.mp4 + transcript.txt + transcript.srt
+     i. moveFileToFolder → original out of Inbox into per-clip folder
+     j. clips table row → status=cleaned
+        ↓
+[Pax sends Telegram message per clip with duration delta + Drive folder link]
+```
+
+### Файлы
+
+| Файл | Что |
+|---|---|
+| `supabase/migrations/012_clips.sql` | `clips` таблица — clinic_id, drive_inbox_file_id, drive_clip_folder_id, status, durations, cut counts, artifact ids, RLS |
+| `types/supabase.ts` | + clips Row/Insert/Update |
+| `lib/google/drive.ts` | scope расширен `drive.readonly → drive` (full); + `getDriveClient()` экспорт |
+| `lib/clips/drive.ts` | `listInboxClips / downloadDriveFileToBuffer / createClipFolder / uploadFileToFolder / moveFileToFolder / clipFolderUrl` |
+| `lib/clips/whisper.ts` | OpenAI Whisper API wrapper (verbose_json + segment granularity) |
+| `lib/clips/cuts.ts` | `planCuts(segments, totalDuration)` — strict filler regex (`um/uh/ah/er/hmm`), `MIN_SILENCE_SEC=0.6`, returns keep[] |
+| `lib/clips/srt.ts` | `buildSrt(intervals)` — remapped timestamps for post-cut timeline |
+| `lib/clips/ffmpeg.ts` | `extractAudioMp3 / applyCuts / burnCaptions` — spawn `@ffmpeg-installer/ffmpeg` |
+| `lib/clips/store.ts` | `upsertPendingClip / markClipProcessing / markClipCleaned / markClipFailed / loadRecentClips` |
+| `lib/clips/pipeline.ts` | `processClip(params)` — оркестратор всех шагов с /tmp cleanup в finally |
+| `lib/team/personas.ts` | + Pax persona (✂️) с tools `clip_clean`, `clip_status` |
+| `lib/team/handoffs/pax.ts` | Telegram-friendly wrapper, **fetch'ит `/api/clips/process`** (НЕ импортит pipeline directly — иначе ffmpeg утянет в dispatch bundle) |
+| `lib/team/handoffs/index.ts` | + cases `clip_clean`, `clip_status` |
+| `app/api/clips/process/route.ts` | maxDuration=300, secret-gated, листает Inbox или принимает `inboxFileId`, возвращает results[] |
+| `package.json` | + `@ffmpeg-installer/ffmpeg ^1.1.0` (~50MB binary, fits Vercel function size) |
+
+### Drive folder layout (создаёт оператор вручную, ids в env)
+
+```
+HWC root /
+└── Clips /
+    ├── Inbox /          ← GOOGLE_DRIVE_CLIPS_INBOX_ID — doctor drops files here
+    └── Cleaned /         ← GOOGLE_DRIVE_CLIPS_CLEANED_ID — pipeline creates per-clip subfolders
+        └── 2026-05-09_TMS_intro / (auto-created)
+            ├── raw.mov              (moved from Inbox)
+            ├── cleaned.mp4          (after cuts + captions)
+            ├── transcript.txt       (Whisper full text)
+            └── transcript.srt       (remapped timestamps)
+```
+
+### Env-переменные (новые)
+
+| Var | Зачем |
+|---|---|
+| `OPENAI_API_KEY` | Whisper API ($0.006/min audio) |
+| `GOOGLE_DRIVE_CLIPS_INBOX_ID` | Drive folder id для drop'ов от доктора |
+| `GOOGLE_DRIVE_CLIPS_CLEANED_ID` | Drive folder id где pipeline создаёт per-clip папки |
+
+### Bundle split (важно)
+
+Pax handoff в `/api/telegram/dispatch` НЕ импортит `lib/clips/pipeline` напрямую — фетчит `/api/clips/process` по HTTP. Иначе бандл dispatch'а потянет ffmpeg (50MB) поверх chromium (165MB) который уже там за счёт Marek-handoff → renderSlides — упрёмся в 250MB Vercel функции. Тот же паттерн, что webhook→dispatch.
+
+### Vercel constraints
+
+- Function maxDuration = 300s. Хватает на 5-10 мин клип. Длиннее — Whisper chunking + background не реализованы, fallback = error от Pax.
+- /tmp = 512MB. Pipeline удаляет промежуточные файлы (`raw.mp4 → audio.mp3 → cut.mp4 → final.mp4`) сразу после использования. Peak ~400MB на 5-мин 1080p клипе.
+- Whisper API limit = 25MB на файл. Audio extract @ 64kbps mono = ~30KB/sec → клип <50 мин. Безопасно.
+
+### Pre-deploy чеклист
+
+- [ ] Накатить migration 012 в Supabase SQL Editor
+- [ ] Создать Drive папки `Clips/Inbox/` и `Clips/Cleaned/`, расшарить с SA email
+- [ ] Vercel env: `OPENAI_API_KEY`, `GOOGLE_DRIVE_CLIPS_INBOX_ID`, `GOOGLE_DRIVE_CLIPS_CLEANED_ID`
+- [ ] `npm install` локально (✅ ffmpeg-installer добавлен)
+- [ ] Push → Vercel deploy
+- [ ] `npx tsc --noEmit` чисто (✅ на момент создания §20)
+
+### Smoke test
+
+1. Доктор кидает `.mov` в `Clips/Inbox/`
+2. В Telegram: «Pax, обработай инбокс»
+3. Ack от Pax — «found 1 clip, processing…»
+4. Через 2-4 мин — message с durations + Drive folder link
+5. В Drive folder: `cleaned.mp4` (с captions), `transcript.txt`, `transcript.srt`, `raw.mov` (moved out of Inbox)
+6. SQL: `select * from clips where clinic_id=...` — row со status='cleaned'
+
+### Конфигурация cuts (lib/clips/cuts.ts)
+
+- `STRICT_FILLER_REGEX` — только pure-filler сегменты (`um/uh/ah/er/hmm` и phonetic вариации). Сознательно консервативно — не режет «you know», «like», «I mean» (контекст-зависимые).
+- `MIN_SILENCE_SEC = 0.6` — gaps больше этого считаются silence.
+- `COMPRESSED_GAP_SEC = 0.15` — оставляем micro-pause после cut чтобы не звучало как jump-cut.
+
+Если хочется агрессивнее резать — оператор пишет в Telegram «rule: also cut "you know"» → сохранится в `agent_learnings`, в следующей сессии Claude Code переносит правило в код (или подцепляем agent_prompts override).
+
+### Captions style (lib/clips/ffmpeg.ts:burnCaptions)
+
+Reels/Shorts-friendly: Arial 22pt, white text, black box с alpha, bottom-centered (MarginV=60). libass `force_style` параметры. Подкручивается одной строкой если оператор скажет «captions крупнее» / «другой шрифт».
+
+### Что НЕ сделано
+
+- Cron poll для Inbox (сейчас только manual trigger через Telegram). Можно добавить Vercel cron `*/30 * * * *` с тем же `/api/clips/process` endpoint.
+- Whisper chunking для клипов >25MB audio (сейчас error)
+- Длинные клипы (>10 мин) — упрутся в Vercel 300s. Решение: вынести в Modal / Cloud Run / батч-обработка.
+- Auto-detect language — сейчас Whisper определяет сам, но если язык не EN, captions всё равно generated. Тестировать на не-EN клипах перед production.
+- Вырезка repetitions / restart («Let me start over», «Sorry, again») — не реализовано. Текущие cuts только filler/silence.
+
+### Стартовый промпт для следующей сессии
+
+> Возвращаюсь в Content Machine. Прочитай HANDOFF §15-20 и memory entries. /clips pipeline (Pax) деплоен. Migration 012 накатена. Следующие приоритеты: (a) cron poll для Inbox; (b) Whisper chunking для длинных клипов; (c) repetition cuts (LLM pass на segments чтобы дропать «let me start over» части); (d) Marek refine_script + Tilda change_style; (e) перенос content-bot в standalone CF Worker.
+
+*Раздел создан: 2026-05-09*
+
+## 21. CAPTIONS + TTL + VERIFY + REFINE + 1-HOP DELEGATION (создан 2026-05-09)
+
+Раунд который превратил Telegram-команду из «дублирует лендинг» в «meta-слой для фиксов и самопроверки».
+
+### Что сделано
+
+1. **Caption generation alongside script** (Migration 013)
+   - `scripts.short_caption` + `scripts.long_caption` (TEXT)
+   - `lib/agents/captioner.ts` — Haiku 4.5, `cacheSystem:true`, runs ONLY on winner
+   - Wired в `/api/posts/generate` + `lib/team/handoffs/marek.ts` (gen + refine paths)
+   - Возвращается в `GenerateOneResult.short_caption / long_caption`
+   - Telegram-message Marek-а теперь включает `*Short caption*` блок
+   - Errors recoverable — если captioner упал, slide pipeline идёт дальше
+
+2. **doctor_notes TTL** (Vercel cron)
+   - `app/api/cron/cleanup-doctor-notes/route.ts` — DELETE WHERE created_at < now() - 3 days
+   - `vercel.json` cron `0 3 * * *` daily
+   - Auth: `CRON_SECRET` (Bearer) или `x-internal-dispatch-secret` для manual trigger
+   - Аналитик уже извлекает signal в insights/few_shot_library/diff_rules — raw notes больше не нужны после 3 дней
+
+3. **Verify tools** (`lib/team/handoffs/verify.ts`)
+   - `verify_post` (Marek) — load slide_set + script → re-run critic → check diff_rules substring violations → 🟢/🟡/🔴 report
+   - `verify_clip` (Pax) — load latest clip → check duration_ratio (over-cut <0.4 / under-cut >0.95), transcript presence, status flag
+   - `verify_render` (Tilda) — re-render head+tail of slide_set → check buffer sizes (1KB-5MB band) → flag drift
+
+4. **refine_post handoff** (`lib/team/handoffs/marek.ts:runMarekRefinePost`)
+   - By slide_set_id (или latest) + note → loads existing script → `runWriter({refineFrom, variantCount:1})` → critic → captioner → split + photos + render → new slide_set (старый стоит для сравнения) → posts album с критик-оценкой и review-ссылкой
+   - Inherits `drive_folder_id` + `category_id` от родительского slide_set
+
+5. **Inter-agent delegation 1-hop** (`lib/team/handoffs/types.ts`)
+   - `HandoffResult = void | DelegateRequest` — handoff может вернуть `{ delegate: { agentKey, intent, params, reason } }`
+   - Dispatcher: `runOne()` отрабатывает основной handoff, если возвращает delegate — постит «↳ {agent} called in: {reason}» и запускает второй handoff. **Один уровень глубины** (если B тоже возвращает delegate — игнор).
+   - Сценарии работают:
+     - `verify_post` score < 6 → delegate Marek `refine_post`
+     - `verify_post` ≥2 diff_rule violations → delegate Marek `refine_post`
+     - `verify_clip` failed status with Drive error → delegate Ops `diag`
+     - `verify_render` abnormal sizes → delegate Ops `diag`
+
+6. **Personas обновлены** — добавлены tools: `refine_post`, `verify_post`, `verify_render`, `verify_clip`, `daily_check`. `refine_script` → переименован в `refine_post` (alias оставлен в dispatcher для backwards compat).
+
+7. **Router-agent.ts** — обновлены Tool param schemas в system prompt (новые intents задокументированы).
+
+### Файлы (этот раунд)
+
+| Файл | Что |
+|---|---|
+| `supabase/migrations/013_script_captions.sql` | + `short_caption`/`long_caption` columns на scripts |
+| `types/supabase.ts` | + caption fields в Row/Insert/Update scripts |
+| `lib/agents/captioner.ts` | новый Haiku агент |
+| `lib/supabase/context.ts` | + `updateScriptCaptions()` |
+| `app/api/posts/generate/route.ts` | wire captioner после critic, return captions |
+| `app/api/cron/cleanup-doctor-notes/route.ts` | новый cron route |
+| `vercel.json` | + cron entry |
+| `lib/team/handoffs/types.ts` | новый — `HandoffResult`/`DelegateRequest` |
+| `lib/team/handoffs/verify.ts` | новый — 3 verify функции с auto-delegate |
+| `lib/team/handoffs/marek.ts` | + `runMarekRefinePost` (~190 строк) + caption integration в gen path |
+| `lib/team/handoffs/index.ts` | refactor: `runOne()` + `dispatchHandoff()` обертка с 1-hop |
+| `lib/team/personas.ts` | + 5 new tools |
+| `lib/team/router-agent.ts` | обновлены Tool param schemas |
+
+### Env-переменные (новые)
+
+| Var | Зачем |
+|---|---|
+| `CRON_SECRET` | Vercel автоматом аттачит `Authorization: Bearer ${CRON_SECRET}` к крон-запросам. Если set — cleanup-doctor-notes требует его. |
+
+### Pre-deploy чеклист
+
+- [ ] Накатить migration 013 в Supabase SQL Editor
+- [ ] Vercel env: `CRON_SECRET` (любая random строка)
+- [ ] Re-deploy → Vercel сам зарегистрит cron-расписание из `vercel.json`
+- [ ] `npx tsc --noEmit` чисто (✅)
+
+### Smoke test
+
+1. **Caption test:** в лендинге сгенерь пост → проверь `select short_caption, long_caption from scripts where id=...` — должны быть заполнены
+2. **TTL test:** вручную POST в `/api/cron/cleanup-doctor-notes` (с `Authorization: Bearer ...`) → ответ `{ok: true, deleted: N}`
+3. **verify_post:** в Telegram «Marek, verify the last post» → должен прийти 🟢/🟡/🔴 report с критик-оценкой и feedback
+4. **verify_post degradation → refine:** если найден существующий пост со score < 6 (или с явными diff_rules violations) — Marek сам шлёт «↳ Marek called in: verify flagged …» и запускает refine
+5. **verify_clip:** «Pax, check the last clip» → durations + ratio + status report
+6. **refine_post:** «Marek, refine the last post — hook is too generic» → ack + 60-180с → новый album с уточнённым скриптом + caption
+7. **delegation:** искусственно — поломать GOOGLE_PRIVATE_KEY → сделать verify_render → должен прилететь delegate в Ops diag
+
+### Что НЕ сделано
+
+- **Daily Ops digest** — `daily_check` сейчас alias к `diag`, но не запущен по крон расписанию. Нужно: добавить cron `0 9 * * *` → POST в новый `/api/cron/daily-ops` который зовёт `runOpsDiag` для дефолтной clinic + шлёт в admin TG чат если что-то красное.
+- **agent_action capture** в `agent_learnings` — пока null'ы. Нужно: после каждого handoff писать «Marek refined slide_set X with note Y» в `agent_action` чтобы история была audit-able.
+- **Multi-hop delegation** — текущий cap 1. Если понадобится A → B → C — снимать ограничение с counter-based depth.
+- **`change_style` real impl** — пока ack-only. Нужен update of `slide_sets.style_template` + сохранение в `agent_preferences[tilda]`.
+- **Captioner auto-rerun на refined posts** — works (refine path вызывает captioner). Но если operator скажет «just regenerate the caption» (script ok) — отдельного intent нет. Tool `regenerate_caption` следующим раундом.
+
+### Стартовый промпт для следующей сессии
+
+> Возвращаюсь в Content Machine. Прочитай HANDOFF §15-21 и memory entries. Caption generation, doctor_notes TTL, verify tools, refine_post, 1-hop delegation — деплоены. Migration 013 накачена. Следующие приоритеты: (a) daily Ops digest cron; (b) agent_action capture в learnings; (c) change_style real impl; (d) regenerate_caption tool; (e) перенос content-bot в standalone CF Worker.
+
+*Раздел создан: 2026-05-09*

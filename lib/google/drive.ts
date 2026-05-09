@@ -1,7 +1,12 @@
 import { google } from 'googleapis'
 import type { drive_v3 } from 'googleapis'
 
-const SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
+// Full Drive scope so the SA can also write — needed for the /clips
+// pipeline (creating per-clip subfolders, uploading cleaned mp4 +
+// .srt + transcript, moving the original out of Inbox). Photos
+// pipeline only reads, but we lift the scope at the auth client
+// level so we don't need two clients.
+const SCOPES = ['https://www.googleapis.com/auth/drive']
 
 export interface Photo {
   id: string
@@ -78,6 +83,12 @@ export async function getPhotosFromFolder(folderId: string): Promise<Photo[]> {
 
   const nested = await Promise.all(subfolders.map((id) => listPhotosIn(id)))
   return [...direct, ...nested.flat()]
+}
+
+// Internal: expose the underlying Drive client so other modules
+// (clips pipeline) can do non-photo operations without re-auth.
+export function getDriveClient(): drive_v3.Drive {
+  return driveClient()
 }
 
 // Fetch a Drive image as a base64 data URL via the SA. Works for files

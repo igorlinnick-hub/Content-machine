@@ -7,6 +7,10 @@
     {
       "path": "/api/agents/diff",
       "schedule": "0 22 * * 0"
+    },
+    {
+      "path": "/api/cron/cleanup-doctor-notes",
+      "schedule": "0 3 * * *"
     }
   ]
 }

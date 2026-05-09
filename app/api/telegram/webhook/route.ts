@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
 import { TEAM } from '@/lib/team/personas'
 import { routeAndReply } from '@/lib/team/router-agent'
+import { loadTeamBrief } from '@/lib/team/brief'
+import { tgChatAction, tgSend } from '@/lib/team/telegram'
+import { saveAgentLearning } from '@/lib/team/agent-store'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Telegram requires fast 200 (within 30s). For long agent work we
-// return 200 first and run async.
+// Webhook MUST return 200 within 30s or Telegram retries. Real
+// handoffs (Marek's full pipeline ~2-4 min) run in /api/telegram/dispatch.
 export const maxDuration = 30
 
 interface TgUpdate {
@@ -16,35 +19,6 @@ interface TgUpdate {
     from?: { id: number; username?: string; first_name?: string }
     text?: string
   }
-}
-
-async function tgSend(
-  chatId: number,
-  text: string,
-  opts: { parseMode?: 'Markdown' | 'HTML' } = {}
-) {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  if (!token) return
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: opts.parseMode ?? 'Markdown',
-      disable_web_page_preview: true,
-    }),
-  }).catch(() => {})
-}
-
-async function tgChatAction(chatId: number, action: 'typing') {
-  const token = process.env.TELEGRAM_BOT_TOKEN
-  if (!token) return
-  await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, action }),
-  }).catch(() => {})
 }
 
 function adminChatIds(): Set<string> {
@@ -72,6 +46,42 @@ function teamIntroText(): string {
   ].join('\n')
 }
 
+function dispatchUrl(req: Request): string | null {
+  const fromEnv = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
+  if (fromEnv) return `${fromEnv}/api/telegram/dispatch`
+  // Fall back to the request's own host header. This works on
+  // Vercel where the function calls itself by hostname.
+  const host = req.headers.get('host')
+  if (!host) return null
+  const proto = host.includes('localhost') ? 'http' : 'https'
+  return `${proto}://${host}/api/telegram/dispatch`
+}
+
+// Heuristic: short messages starting with "no", "actually", "fix",
+// "rule", "👍", "👎", "wrong", "better" are very likely feedback
+// on the last turn, not new requests. We tag them as learnings so
+// future briefs reflect the operator's correction.
+function looksLikeFeedback(
+  text: string
+): { kind: 'positive' | 'negative' | 'rule'; rule: string } | null {
+  const t = text.trim().toLowerCase()
+  if (t.length === 0) return null
+  if (/^👍|^\+1\b|^nice\b|^great\b|^perfect\b/.test(t)) {
+    return { kind: 'positive', rule: text.trim() }
+  }
+  if (/^👎|^-1\b|^no[, ]|^bad\b|^wrong\b|^awful\b/.test(t)) {
+    return { kind: 'negative', rule: text.trim() }
+  }
+  if (
+    /^(rule:|always |never |stop |don'?t |from now on|going forward|fix:|actually,?\s)/i.test(
+      text.trim()
+    )
+  ) {
+    return { kind: 'rule', rule: text.trim() }
+  }
+  return null
+}
+
 export async function POST(req: Request) {
   if (!checkSecret(req)) {
     return NextResponse.json({ error: 'invalid secret' }, { status: 401 })
@@ -92,14 +102,11 @@ export async function POST(req: Request) {
   const userName =
     msg.from?.first_name ?? msg.from?.username ?? `user_${msg.from?.id ?? '?'}`
 
-  // Hard-coded onboarding so a fresh /start gets immediate context
-  // without spending a Haiku call.
   if (text === '/start' || text === '/help') {
     await tgSend(chatId, teamIntroText())
     return NextResponse.json({ ok: true })
   }
 
-  // Admin gate. Non-admins see who they are so they can ask for access.
   const admins = adminChatIds()
   if (admins.size > 0 && !admins.has(String(chatId))) {
     await tgSend(
@@ -109,29 +116,103 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   }
 
-  // "typing…" indicator while the router thinks.
+  const clinicId = process.env.TELEGRAM_DEFAULT_CLINIC_ID
+  if (!clinicId) {
+    await tgSend(
+      chatId,
+      `_(TELEGRAM_DEFAULT_CLINIC_ID not set — ping admin to wire the clinic id)_`
+    )
+    return NextResponse.json({ ok: true })
+  }
+
   await tgChatAction(chatId, 'typing')
 
+  let brief
   try {
-    const { agent, reply } = await routeAndReply({
+    brief = await loadTeamBrief(clinicId)
+  } catch (e) {
+    const m = e instanceof Error ? e.message : 'brief load failed'
+    await tgSend(chatId, `_(brief error: ${m})_`)
+    return NextResponse.json({ ok: true })
+  }
+
+  let decision
+  try {
+    decision = await routeAndReply({
       userMessage: text,
       userName,
       botSurface: 'content',
+      brief,
     })
-    await tgSend(chatId, `${agent.emoji} *${agent.name}*\n\n${reply}`)
   } catch (e) {
-    const msgText = e instanceof Error ? e.message : 'router failed'
-    await tgSend(chatId, `_(router error: ${msgText})_`)
+    const m = e instanceof Error ? e.message : 'router failed'
+    await tgSend(chatId, `_(router error: ${m})_`)
+    return NextResponse.json({ ok: true })
   }
+
+  // Capture short-form feedback as agent_learnings so the next brief
+  // surfaces the rule. We tag it against the agent the router just
+  // picked — when the operator says "no, that hook was generic",
+  // the router still picks marek (since marek was last), which is
+  // exactly who the rule should apply to.
+  const fb = looksLikeFeedback(text)
+  if (fb) {
+    await saveAgentLearning({
+      clinicId,
+      agentKey: decision.agent.key,
+      userMessage: text,
+      feedbackKind: fb.kind,
+      rule: fb.kind === 'rule' ? fb.rule : null,
+    }).catch(() => {})
+  }
+
+  // Send ack first — operator sees the agent's voice immediately
+  // even when the real work runs for minutes in dispatch.
+  await tgSend(chatId, `${decision.agent.emoji} *${decision.agent.name}*\n\n${decision.ack}`)
+
+  if (decision.intent === 'chat') {
+    return NextResponse.json({ ok: true })
+  }
+
+  // Fire-and-forget dispatch. Don't await — webhook must return 200
+  // fast. The fetch call queues; Node keeps it alive long enough
+  // for the request to land in the dispatch handler.
+  const url = dispatchUrl(req)
+  if (!url) {
+    await tgSend(chatId, `_(dispatch URL unavailable)_`)
+    return NextResponse.json({ ok: true })
+  }
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET ?? ''
+  void fetch(url, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-internal-dispatch-secret': secret,
+    },
+    body: JSON.stringify({
+      clinicId,
+      chatId,
+      agentKey: decision.agent.key,
+      intent: decision.intent,
+      params: decision.params,
+      userMessage: text,
+      userName,
+    }),
+  }).catch(() => {})
+
   return NextResponse.json({ ok: true })
 }
 
-// Health probe for setting up webhook from a browser.
 export async function GET() {
   return NextResponse.json({
     ok: true,
     has_token: !!process.env.TELEGRAM_BOT_TOKEN,
+    has_clinic: !!process.env.TELEGRAM_DEFAULT_CLINIC_ID,
     admin_count: adminChatIds().size,
-    team: TEAM.map((a) => ({ name: a.name, role: a.role })),
+    team: TEAM.map((a) => ({
+      name: a.name,
+      role: a.role,
+      tools: a.tools.map((t) => t.id),
+    })),
   })
 }
