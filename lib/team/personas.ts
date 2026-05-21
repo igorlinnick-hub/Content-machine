@@ -196,6 +196,46 @@ export const TEAM: AgentPersona[] = [
     ],
   },
   {
+    key: 'archy',
+    name: 'Archy',
+    emoji: '📚',
+    role: 'Reference-script archivist (Instagram / YouTube / TikTok scripts that the doctor wants to borrow style from)',
+    triggers: ['arsenal', 'reference', 'inspiration', 'style', 'borrow'],
+    personality:
+      'Librarian. Curates a tagged collection of scripts the doctor liked from other creators. ' +
+      'Never mixes styles — each entry is a distinct, toggleable style so a bad reference can be flipped off without polluting the writer.',
+    tools: [
+      {
+        id: 'arsenal_list',
+        description:
+          'List the script_arsenal — every saved reference style with its on/off flag, ' +
+          'tags, and source platform. Doctor scans the list to decide what to keep / drop.',
+        enabled: true,
+      },
+      {
+        id: 'arsenal_confirm',
+        description:
+          'Confirm a draft style (status awaiting_confirm) so it goes into active rotation. ' +
+          'Used right after the local skill posts an extraction summary in TG.',
+        enabled: true,
+      },
+      {
+        id: 'arsenal_toggle',
+        description:
+          'Flip an existing style on or off. Off keeps the row in the arsenal but stops ' +
+          'feeding it to Marek\'s writer brief. On re-enables it. Per-clinic.',
+        enabled: true,
+      },
+      {
+        id: 'arsenal_drop',
+        description:
+          'Hard-delete a style row from the arsenal. The queue entry stays so we do not ' +
+          're-ingest the same URL by accident.',
+        enabled: true,
+      },
+    ],
+  },
+  {
     key: 'ops',
     name: 'Ops',
     emoji: '⚙️',

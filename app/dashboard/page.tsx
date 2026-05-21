@@ -8,7 +8,6 @@ import { DailyWidgets } from './components/DailyWidgets'
 import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
-import { QuickNote } from './components/QuickNote'
 import { PWAInstallCard } from './components/PWAInstallCard'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
@@ -141,6 +140,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             )}
             {showAdminTools && (
               <Link
+                href={`/arsenal?clinicId=${clinicId}`}
+                className="cm-btn cm-btn-ghost text-sm"
+              >
+                Arsenal →
+              </Link>
+            )}
+            {showAdminTools && (
+              <Link
                 href={`/settings?clinicId=${clinicId}`}
                 className="cm-btn cm-btn-ghost text-sm"
               >
@@ -230,7 +237,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         >
           <div className="flex flex-col gap-5">
             <DailyWidgets clinicId={clinicId} questions={questions} />
-            <QuickNote clinicId={clinicId} />
           </div>
         </Section>
 

@@ -69,6 +69,10 @@ Tool param schemas (only fill if intent matches; otherwise return {} ):
 - clip_clean: {}
 - clip_status: {}
 - verify_clip: {}
+- arsenal_list: {}
+- arsenal_confirm: { "label": string }   // the style_label from the draft message
+- arsenal_toggle: { "label": string, "active": boolean }   // active=true → on, false → off
+- arsenal_drop: { "label": string }
 
 If params are ambiguous (e.g. "make a post" with no topic), set intent="chat" and ask ONE clarifying question in ack_text instead of guessing the topic.
 

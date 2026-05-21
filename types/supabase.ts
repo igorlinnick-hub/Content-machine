@@ -936,6 +936,146 @@ export type Database = {
           },
         ]
       }
+      video_ingest_queue: {
+        Row: {
+          id: string
+          clinic_id: string
+          source_url: string
+          source_platform: string
+          requested_by_chat_id: string | null
+          requested_by_name: string | null
+          status: string
+          arsenal_id: string | null
+          error: string | null
+          created_at: string
+          processed_at: string | null
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          source_url: string
+          source_platform?: string
+          requested_by_chat_id?: string | null
+          requested_by_name?: string | null
+          status?: string
+          arsenal_id?: string | null
+          error?: string | null
+          created_at?: string
+          processed_at?: string | null
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          source_url?: string
+          source_platform?: string
+          requested_by_chat_id?: string | null
+          requested_by_name?: string | null
+          status?: string
+          arsenal_id?: string | null
+          error?: string | null
+          created_at?: string
+          processed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_ingest_queue_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      script_arsenal: {
+        Row: {
+          id: string
+          clinic_id: string
+          queue_id: string | null
+          source_url: string | null
+          source_platform: string | null
+          style_label: string
+          style_description: string | null
+          title: string | null
+          full_transcript: string | null
+          hooks: Json
+          structure: Json
+          pains: Json
+          tags: string[]
+          is_active: boolean
+          confirmed_at: string | null
+          created_at: string
+          visual_notes: Json
+          video_storage_path: string | null
+          thumbnail_storage_path: string | null
+          pending_refine_note: string | null
+          refined_at: string | null
+          refine_history: Json
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          queue_id?: string | null
+          source_url?: string | null
+          source_platform?: string | null
+          style_label: string
+          style_description?: string | null
+          title?: string | null
+          full_transcript?: string | null
+          hooks?: Json
+          structure?: Json
+          pains?: Json
+          tags?: string[]
+          is_active?: boolean
+          confirmed_at?: string | null
+          created_at?: string
+          visual_notes?: Json
+          video_storage_path?: string | null
+          thumbnail_storage_path?: string | null
+          pending_refine_note?: string | null
+          refined_at?: string | null
+          refine_history?: Json
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          queue_id?: string | null
+          source_url?: string | null
+          source_platform?: string | null
+          style_label?: string
+          style_description?: string | null
+          title?: string | null
+          full_transcript?: string | null
+          hooks?: Json
+          structure?: Json
+          pains?: Json
+          tags?: string[]
+          is_active?: boolean
+          confirmed_at?: string | null
+          created_at?: string
+          visual_notes?: Json
+          video_storage_path?: string | null
+          thumbnail_storage_path?: string | null
+          pending_refine_note?: string | null
+          refined_at?: string | null
+          refine_history?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "script_arsenal_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "script_arsenal_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "video_ingest_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

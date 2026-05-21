@@ -6,6 +6,12 @@ import { runVexBilling } from './vex'
 import { runTildaReRender } from './tilda'
 import { runPaxClipClean, runPaxClipStatus } from './pax'
 import {
+  runArchyConfirm,
+  runArchyDrop,
+  runArchyList,
+  runArchyToggle,
+} from './archy'
+import {
   runVerifyClip,
   runVerifyPost,
   runVerifyRender,
@@ -123,6 +129,28 @@ async function runOne(params: DispatchParams): Promise<HandoffResult> {
         ? String(toolParams.slide_set_id)
         : undefined
       return await runVerifyRender(withClinic, { slide_set_id })
+    }
+    case 'arsenal_list': {
+      await runArchyList(withClinic)
+      return
+    }
+    case 'arsenal_confirm': {
+      const label = String(toolParams.label ?? '').trim()
+      await runArchyConfirm(withClinic, { label })
+      return
+    }
+    case 'arsenal_toggle': {
+      const label = String(toolParams.label ?? '').trim()
+      // Router emits explicit boolean; default to true ("on") when
+      // ambiguous so an accidental empty param doesn't disable a style.
+      const active = toolParams.active === false ? false : true
+      await runArchyToggle(withClinic, { label, active })
+      return
+    }
+    case 'arsenal_drop': {
+      const label = String(toolParams.label ?? '').trim()
+      await runArchyDrop(withClinic, { label })
+      return
     }
     default: {
       await tgSend(

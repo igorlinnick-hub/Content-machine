@@ -4,6 +4,7 @@ import { routeAndReply } from '@/lib/team/router-agent'
 import { loadTeamBrief } from '@/lib/team/brief'
 import { tgChatAction, tgSend } from '@/lib/team/telegram'
 import { saveAgentLearning } from '@/lib/team/agent-store'
+import { detectIngestUrl, enqueueIngest } from '@/lib/arsenal/store'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -122,6 +123,50 @@ export async function POST(req: Request) {
       chatId,
       `_(TELEGRAM_DEFAULT_CLINIC_ID not set — ping admin to wire the clinic id)_`
     )
+    return NextResponse.json({ ok: true })
+  }
+
+  // Reference-video ingest: doctor drops an IG/YT/TikTok link in chat
+  // and Archy (the archivist) queues it for offline extraction by the
+  // local Claude Code skill `script-arsenal-ingest`. The skill polls
+  // /api/arsenal/queue, runs yt-dlp + audio analysis on Igor's machine
+  // (so we don't pay Replicate per video), then POSTs structured hooks
+  // + structure + pains back to /api/arsenal/draft. Doctor confirms in
+  // TG → row flips is_active=true → Writer sees it in the brief.
+  const ingest = detectIngestUrl(text)
+  if (ingest) {
+    try {
+      const { reused, row } = await enqueueIngest({
+        clinicId,
+        sourceUrl: ingest.url,
+        platform: ingest.platform,
+        requestedByChatId: String(chatId),
+        requestedByName: userName,
+      })
+      const status = row.status
+      let ack: string
+      if (reused && status === 'completed') {
+        ack =
+          '📚 *Archy*\n\nЭта ссылка уже в арсенале. Напиши *"arsenal list"* чтобы увидеть, или *"arsenal off <label>"* чтобы выключить.'
+      } else if (reused && status === 'awaiting_confirm') {
+        ack =
+          '📚 *Archy*\n\nЭта ссылка уже разобрана и ждёт твоего подтверждения. Напиши *"arsenal confirm <label>"* или *"arsenal drop <label>"*.'
+      } else if (reused) {
+        ack = `📚 *Archy*\n\nЭта ссылка уже в очереди (статус: ${status}). Не дублирую.`
+      } else {
+        ack = [
+          '📚 *Archy*',
+          '',
+          `Принял ссылку (${ingest.platform}). Поставил в очередь.`,
+          '',
+          'Локальный скилл подхватит — извлечёт структуру / хуки / боли и пришлёт выжимку. Подтвердишь — стиль попадёт в арсенал Marek\'а.',
+        ].join('\n')
+      }
+      await tgSend(chatId, ack)
+    } catch (e) {
+      const m = e instanceof Error ? e.message : 'enqueue failed'
+      await tgSend(chatId, `📚 *Archy*\n\n_(не смог поставить в очередь: ${m})_`)
+    }
     return NextResponse.json({ ok: true })
   }
 

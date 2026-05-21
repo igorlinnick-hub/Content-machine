@@ -3,6 +3,7 @@ import { loadCategories, type Category } from '@/lib/posts/categories'
 import { loadPlan, type PlanTopic } from '@/lib/posts/plan'
 import { loadStyleTemplate } from '@/lib/visual/store'
 import { createServerClient } from '@/lib/supabase/server'
+import { loadArsenal, type ArsenalRow } from '@/lib/arsenal/store'
 import {
   loadAgentLearnings,
   loadAgentPreferences,
@@ -53,6 +54,10 @@ export interface TeamBrief {
   style_template: VisualStyle
   latest_slide_set: LatestSlideSet | null
   pending_plan_topics: PlanTopic[]
+  // Active script_arsenal entries (is_active=true). Each row is a
+  // distinct, doctor-curated style ingested from an external video —
+  // Writer reads these as style references, not as templates to copy.
+  arsenal: ArsenalRow[]
   // Per-agent slice keyed by persona.key.
   agents: Record<string, AgentBriefSlice>
   // The clinic uuid — handy for handoffs that need to call into
@@ -152,6 +157,7 @@ export async function loadTeamBrief(clinicId: string): Promise<TeamBrief> {
     promptRows,
     prefRows,
     learningRows,
+    arsenal,
   ] = await Promise.all([
     loadClinicProfile(clinicId),
     loadCategories(clinicId),
@@ -163,6 +169,7 @@ export async function loadTeamBrief(clinicId: string): Promise<TeamBrief> {
     loadAgentPrompts(clinicId),
     loadAgentPreferences(clinicId),
     loadAgentLearnings(clinicId, 8),
+    loadArsenal(clinicId, { onlyActive: true, limit: 6 }),
   ])
 
   const promptByAgent = new Map(promptRows.map((r) => [r.agent_key, r.system_prompt]))
@@ -196,6 +203,7 @@ export async function loadTeamBrief(clinicId: string): Promise<TeamBrief> {
     style_template: style,
     latest_slide_set: latestSlideSet,
     pending_plan_topics,
+    arsenal,
     agents,
     clinic_id: clinicId,
   }
@@ -243,6 +251,43 @@ export function formatBriefForRouter(brief: TeamBrief): string {
       lines.push(`- "${p.topic ?? 'untitled'}" — hook: "${p.hook ?? ''}"`)
     }
     lines.push('')
+  }
+
+  if (brief.arsenal.length) {
+    lines.push(
+      `# Script arsenal (doctor-curated reference styles — borrow STRUCTURE / HOOK PATTERNS, do NOT copy text)`
+    )
+    lines.push(
+      `Each style is independent. Pick ONE style per post — never mix two arsenal styles in the same script.`
+    )
+    lines.push('')
+    for (const a of brief.arsenal) {
+      lines.push(`## Style: ${a.style_label}`)
+      if (a.style_description) lines.push(a.style_description)
+      const hooks = Array.isArray(a.hooks) ? a.hooks : []
+      if (hooks.length) {
+        lines.push(`Hook patterns:`)
+        for (const h of hooks.slice(0, 4)) {
+          lines.push(`- "${h.text}"`)
+        }
+      }
+      const beats = a.structure?.beats ?? []
+      if (beats.length) {
+        lines.push(`Beat sequence:`)
+        for (const b of beats) {
+          lines.push(`- ${b.name}: ${b.text}`)
+        }
+      }
+      if (a.structure?.notes) {
+        lines.push(`Notes: ${a.structure.notes}`)
+      }
+      const pains = Array.isArray(a.pains) ? a.pains : []
+      if (pains.length) {
+        lines.push(`Patient pains mentioned: ${pains.slice(0, 5).join(' · ')}`)
+      }
+      if (a.tags.length) lines.push(`Tags: ${a.tags.join(', ')}`)
+      lines.push('')
+    }
   }
 
   lines.push(`# Current state`)
