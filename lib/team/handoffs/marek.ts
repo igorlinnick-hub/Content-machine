@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { runCaptioner } from '@/lib/agents/captioner'
+import { guardDisabledHandoff } from '@/lib/agents/disabled'
 import { splitScriptToSlides } from '@/lib/visual/slides'
 import { renderSlides } from '@/lib/visual/renderer'
 import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
@@ -40,6 +41,7 @@ export async function runMarekGeneratePost(
   params: MarekGeneratePostParams,
   ctx: MarekHandoffContext
 ): Promise<void> {
+  if (await guardDisabledHandoff(ctx, 'Post generation')) return
   const length: ScriptLengthTarget = params.length ?? 'short'
   const topic = params.topic.trim()
   if (!topic) {
@@ -265,6 +267,7 @@ export async function runMarekRefinePost(
   params: MarekRefinePostParams,
   ctx: MarekHandoffContext
 ): Promise<void> {
+  if (await guardDisabledHandoff(ctx, 'Post refinement')) return
   const note = params.note.trim()
   if (!note) {
     await tgSend(

@@ -10,6 +10,7 @@ import {
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { runCaptioner } from '@/lib/agents/captioner'
+import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { splitScriptToSlides } from '@/lib/visual/slides'
 import { renderSlides } from '@/lib/visual/renderer'
 import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
@@ -237,6 +238,9 @@ export async function POST(req: Request) {
   if (!access || access.role !== 'admin') {
     return NextResponse.json({ error: 'admin access required' }, { status: 403 })
   }
+
+  const off = await disabledHttpResponse()
+  if (off) return off
 
   let body: Body
   try {

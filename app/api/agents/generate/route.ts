@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
+import { disabledHttpResponse } from '@/lib/agents/disabled'
 import type { CriticOutput } from '@/types'
 
 export const runtime = 'nodejs'
@@ -13,6 +14,8 @@ interface GeneratePostBody {
 }
 
 export async function POST(req: Request) {
+  const off = await disabledHttpResponse()
+  if (off) return off
   let body: GeneratePostBody
   try {
     body = (await req.json()) as GeneratePostBody

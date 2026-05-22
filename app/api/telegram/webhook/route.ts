@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { TEAM } from '@/lib/team/personas'
-import { routeAndReply } from '@/lib/team/router-agent'
+import { routeAndReply, type RouterDecision } from '@/lib/team/router-agent'
+import { routeRegex } from '@/lib/team/router-regex'
 import { loadTeamBrief } from '@/lib/team/brief'
 import { tgChatAction, tgSend } from '@/lib/team/telegram'
 import { saveAgentLearning } from '@/lib/team/agent-store'
 import { detectIngestUrl, enqueueIngest } from '@/lib/arsenal/store'
+import { llmAgentsEnabled } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -172,27 +174,34 @@ export async function POST(req: Request) {
 
   await tgChatAction(chatId, 'typing')
 
-  let brief
-  try {
-    brief = await loadTeamBrief(clinicId)
-  } catch (e) {
-    const m = e instanceof Error ? e.message : 'brief load failed'
-    await tgSend(chatId, `_(brief error: ${m})_`)
-    return NextResponse.json({ ok: true })
-  }
-
-  let decision
-  try {
-    decision = await routeAndReply({
-      userMessage: text,
-      userName,
-      botSurface: 'content',
-      brief,
-    })
-  } catch (e) {
-    const m = e instanceof Error ? e.message : 'router failed'
-    await tgSend(chatId, `_(router error: ${m})_`)
-    return NextResponse.json({ ok: true })
+  // Two router paths: subscription-only (regex, no LLM, no brief) when
+  // ENABLE_LLM_AGENTS is off, full LLM router otherwise. Identical
+  // RouterDecision shape downstream, so the dispatch/learning code
+  // below doesn't need to know which one fired.
+  let decision: RouterDecision
+  if (llmAgentsEnabled()) {
+    let brief
+    try {
+      brief = await loadTeamBrief(clinicId)
+    } catch (e) {
+      const m = e instanceof Error ? e.message : 'brief load failed'
+      await tgSend(chatId, `_(brief error: ${m})_`)
+      return NextResponse.json({ ok: true })
+    }
+    try {
+      decision = await routeAndReply({
+        userMessage: text,
+        userName,
+        botSurface: 'content',
+        brief,
+      })
+    } catch (e) {
+      const m = e instanceof Error ? e.message : 'router failed'
+      await tgSend(chatId, `_(router error: ${m})_`)
+      return NextResponse.json({ ok: true })
+    }
+  } else {
+    decision = routeRegex(text)
   }
 
   // Capture short-form feedback as agent_learnings so the next brief

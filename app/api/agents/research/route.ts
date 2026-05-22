@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { runResearch } from '@/lib/agents/research'
 import { loadClinicList, loadClinicProfile } from '@/lib/supabase/context'
 import { checkCronAuth } from '@/lib/cron/auth'
+import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -13,6 +14,9 @@ interface ResearchBody {
 export async function POST(req: Request) {
   const unauth = checkCronAuth(req)
   if (unauth) return unauth
+
+  const off = await disabledHttpResponse()
+  if (off) return off
 
   let body: ResearchBody = {}
   try {

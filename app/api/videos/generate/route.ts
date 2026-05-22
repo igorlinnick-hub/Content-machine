@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { runVideoPrompter } from '@/lib/agents/video-prompter'
+import { disabledHttpResponse } from '@/lib/agents/disabled'
 import {
   generateSeedanceVideo,
   MODEL_SEEDANCE_LITE,
@@ -37,6 +38,11 @@ export async function POST(req: Request) {
   if (!access || access.role !== 'admin') {
     return NextResponse.json({ error: 'admin access required' }, { status: 403 })
   }
+
+  // Replicate Seedance is pay-per-use; gate under the same flag so
+  // accidentally hitting this route can't surprise-charge.
+  const off = await disabledHttpResponse()
+  if (off) return off
 
   let body: Body
   try {

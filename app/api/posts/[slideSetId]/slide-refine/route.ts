@@ -3,6 +3,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
 import { loadSlideSet, loadScriptForRender } from '@/lib/visual/store'
 import { fixSlide } from '@/lib/agents/slide-fixer'
+import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { renderSlide } from '@/lib/visual/renderer'
 import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
 import type { Json } from '@/types/supabase'
@@ -23,6 +24,9 @@ export async function POST(
   if (!access || access.role !== 'admin') {
     return NextResponse.json({ error: 'admin access required' }, { status: 403 })
   }
+
+  const off = await disabledHttpResponse()
+  if (off) return off
 
   let body: Body
   try {

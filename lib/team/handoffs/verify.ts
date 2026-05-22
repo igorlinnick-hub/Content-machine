@@ -3,6 +3,7 @@ import { loadSlideSet } from '@/lib/visual/store'
 import { renderSlides } from '@/lib/visual/renderer'
 import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
 import { runCritic } from '@/lib/agents/critic'
+import { guardDisabledHandoff } from '@/lib/agents/disabled'
 import { loadSharedContext } from '@/lib/supabase/context'
 import { loadRecentClips } from '@/lib/clips/store'
 import type { WriterOutput } from '@/types'
@@ -55,6 +56,7 @@ export async function runVerifyPost(
   ctx: VerifyHandoffContext,
   params: { slide_set_id?: string }
 ): Promise<HandoffResult> {
+  if (await guardDisabledHandoff(ctx, 'Verify (re-run critic)')) return
   const row = await loadLatestOrById(ctx.clinicId, params.slide_set_id)
   if (!row) {
     await tgSend(

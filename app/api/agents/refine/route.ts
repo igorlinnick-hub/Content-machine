@@ -6,6 +6,7 @@ import {
 } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
+import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { createServerClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -18,6 +19,8 @@ interface RefinePostBody {
 }
 
 export async function POST(req: Request) {
+  const off = await disabledHttpResponse()
+  if (off) return off
   let body: RefinePostBody
   try {
     body = (await req.json()) as RefinePostBody

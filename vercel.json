@@ -1,9 +1,6 @@
 {
+  "//": "Research cron temporarily removed — /api/agents/research requires Anthropic API which is gated behind ENABLE_LLM_AGENTS. The route still 503s if hit, but no point burning a cron slot on a guaranteed-fail call until the flag flips back on. Add it back here when re-enabling.",
   "crons": [
-    {
-      "path": "/api/agents/research",
-      "schedule": "0 9 * * 1"
-    },
     {
       "path": "/api/agents/diff",
       "schedule": "0 22 * * 0"

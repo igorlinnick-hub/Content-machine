@@ -45,24 +45,21 @@ export const TEAM: AgentPersona[] = [
         id: 'generate_post',
         description:
           'Draft a new post + carousel from a topic. Runs writer → critic → ' +
-          'splitter → renderer and posts the 7-slide preview back to chat.',
-        enabled: true,
+          'splitter → renderer and posts the 7-slide preview back to chat. ' +
+          'PAUSED: uses Anthropic API. Flip ENABLE_LLM_AGENTS=true + top up credits to enable.',
+        enabled: false,
       },
       {
         id: 'refine_post',
         description:
-          'Refine an existing post (by slide_set_id, or latest if not specified) ' +
-          'with the operator\'s correction note. Keeps topic, runs writer.refineFrom + ' +
-          'critic + new slide_set + new captions, posts updated album.',
-        enabled: true,
+          'Refine an existing post with operator note. PAUSED: same reason as generate_post.',
+        enabled: false,
       },
       {
         id: 'verify_post',
         description:
-          'Re-run critic on an existing post (by slide_set_id, or latest if not ' +
-          'specified). Reports total_score, approved/rejected, feedback, and ' +
-          'diff_rules violations. Auto-delegates to refine_post if score < 6.',
-        enabled: true,
+          'Re-run critic on an existing post. PAUSED: uses Opus API.',
+        enabled: false,
       },
     ],
   },
@@ -132,9 +129,9 @@ export const TEAM: AgentPersona[] = [
       {
         id: 'web_research',
         description:
-          'Run a Perplexity Sonar search and post a citation-backed summary. ' +
-          'Falls back to ack if PERPLEXITY_API_KEY not set.',
-        enabled: true,
+          'Perplexity Sonar search with citations. PAUSED: pay-per-use API. ' +
+          'Flip ENABLE_LLM_AGENTS=true + add PERPLEXITY_API_KEY to enable.',
+        enabled: false,
       },
     ],
   },
@@ -172,25 +169,21 @@ export const TEAM: AgentPersona[] = [
       {
         id: 'clip_clean',
         description:
-          'Process new mp4/mov files in the Drive Clips/Inbox folder: extract audio, ' +
-          'Whisper-transcribe, cut filler words + silences, burn captions, upload ' +
-          'cleaned mp4 + .srt + .txt to Drive Cleaned/<date_topic>/. Moves the ' +
-          'original out of Inbox when done.',
-        enabled: true,
+          'Whisper-transcribe + ffmpeg cleanup of Drive Inbox videos. ' +
+          'PAUSED: uses OpenAI Whisper API (~$0.02/min). ' +
+          'Flip ENABLE_LLM_AGENTS=true + add OPENAI_API_KEY to enable.',
+        enabled: false,
       },
       {
         id: 'clip_status',
         description:
-          'List the last 10 clips with status (pending/processing/cleaned/failed) ' +
-          'and Drive folder links.',
+          'List the last 10 clips with status (DB-only, no API). Safe to call.',
         enabled: true,
       },
       {
         id: 'verify_clip',
         description:
-          'Sanity-check the most recently processed clip — duration ratio (over-cut / ' +
-          'under-cut), transcript presence, status flag. Auto-delegates to Ops diag ' +
-          'if the failure looks like a Drive issue.',
+          'Sanity-check most-recent clip — duration ratio, transcript presence (DB-only, no API).',
         enabled: true,
       },
     ],

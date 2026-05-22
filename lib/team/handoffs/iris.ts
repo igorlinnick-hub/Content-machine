@@ -1,4 +1,5 @@
 import { tgSend } from '../telegram'
+import { guardDisabledHandoff } from '@/lib/agents/disabled'
 
 // Iris's web research handoff. Calls Perplexity Sonar if the key is
 // set; otherwise acknowledges and asks the operator to add the key
@@ -20,6 +21,10 @@ export async function runIrisResearch(
   params: IrisResearchParams,
   ctx: IrisHandoffContext
 ): Promise<void> {
+  // Perplexity is a separately-billed paid API. Gate it behind the
+  // same flag as Anthropic so "subscription-only mode" really means
+  // zero pay-per-use across the board.
+  if (await guardDisabledHandoff(ctx, 'Web research')) return
   const query = params.query.trim()
   if (!query) {
     await tgSend(

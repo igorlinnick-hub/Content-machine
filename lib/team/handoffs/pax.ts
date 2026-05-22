@@ -1,6 +1,7 @@
 import { listInboxClips, clipFolderUrl } from '@/lib/clips/drive'
 import { loadRecentClips } from '@/lib/clips/store'
 import { tgChatAction, tgSend } from '../telegram'
+import { guardDisabledHandoff } from '@/lib/agents/disabled'
 
 // Pax — clip cleanup. Two tools:
 //   clip_clean  — process new files in the Drive Inbox folder
@@ -51,6 +52,9 @@ function fmtDuration(sec: number | null | undefined): string {
 }
 
 export async function runPaxClipClean(ctx: PaxHandoffContext): Promise<void> {
+  // OpenAI Whisper API is pay-per-use (~$0.02/min). Gate behind the
+  // same kill-switch as Anthropic so subscription-only mode is total.
+  if (await guardDisabledHandoff(ctx, 'Clip cleanup (Whisper)')) return
   let inbox
   try {
     inbox = await listInboxClips()

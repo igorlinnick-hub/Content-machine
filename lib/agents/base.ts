@@ -4,6 +4,7 @@ import type {
   WebSearchTool20260209,
   TextBlockParam,
 } from '@anthropic-ai/sdk/resources/messages'
+import { LLMAgentsDisabledError, llmAgentsEnabled } from './disabled'
 
 export const MODEL_DEFAULT = 'claude-sonnet-4-6'
 export const MODEL_CRITIC = 'claude-opus-4-7'
@@ -47,6 +48,15 @@ export interface CallAgentOptions {
 }
 
 export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
+  // Global kill switch. Every agent (writer/critic/captioner/etc.)
+  // funnels through here, so this single check disables them all and
+  // guarantees no Anthropic API call leaves the process when the flag
+  // is off. Fail-safe default: only the literal string 'true' enables.
+  if (!llmAgentsEnabled()) {
+    throw new LLMAgentsDisabledError(
+      `LLM agents are disabled (ENABLE_LLM_AGENTS != 'true'). Refusing to call model=${opts.model ?? MODEL_DEFAULT}.`
+    )
+  }
   const client = getAnthropic()
   const model = opts.model ?? MODEL_DEFAULT
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { runAnalyst } from '@/lib/agents/analyst'
+import { llmAgentsEnabled } from '@/lib/agents/disabled'
 import { saveDoctorNote, markNoteProcessed } from '@/lib/supabase/context'
 import type { NoteSource } from '@/types'
 
@@ -34,6 +35,18 @@ export async function POST(req: Request) {
       rawText,
       source: body.source ?? 'widget',
     })
+
+    // Subscription-only mode: save the raw note but skip the analyst
+    // pass — the row sits in doctor_notes with processed=false, ready
+    // to be picked up once ENABLE_LLM_AGENTS flips on. No data lost.
+    if (!llmAgentsEnabled()) {
+      return NextResponse.json({
+        noteId: note.id,
+        insights_saved: 0,
+        analyst: null,
+        deferred: 'LLM_AGENTS_DISABLED',
+      })
+    }
 
     const { output, insights } = await runAnalyst({ clinicId, rawText, persist: true })
     await markNoteProcessed(note.id)

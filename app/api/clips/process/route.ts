@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { listInboxClips } from '@/lib/clips/drive'
 import { processClip } from '@/lib/clips/pipeline'
+import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -28,6 +29,12 @@ export async function POST(req: Request) {
   if (!checkSecret(req)) {
     return NextResponse.json({ error: 'invalid secret' }, { status: 401 })
   }
+
+  // OpenAI Whisper is pay-per-use; same flag as Anthropic so the
+  // subscription-only mode is total.
+  const off = await disabledHttpResponse()
+  if (off) return off
+
   let body: Body
   try {
     body = (await req.json()) as Body
