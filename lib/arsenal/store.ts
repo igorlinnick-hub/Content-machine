@@ -23,6 +23,13 @@ export type IngestStatus =
   | 'failed'
   | 'skipped'
 
+// 'ingest_only' = legacy plain-link flow (just style extraction).
+// 'template_for_clinic' = doctor sent URL + free-form question
+// ("опиши структуру и как это может быть для наших темплейтов"),
+// the skill additionally writes a clinic-tailored proposal that
+// can be mirrored into script_templates.
+export type IngestIntent = 'ingest_only' | 'template_for_clinic'
+
 // Loose shapes for the JSON columns. The extractor (local skill) is
 // authoritative — we keep these wide so a future schema tweak doesn't
 // require a migration.
@@ -92,6 +99,12 @@ export interface ArsenalRow {
   pending_refine_note: string | null
   refined_at: string | null
   refine_history: ArsenalRefineEntry[]
+  // Clinic-tailored template scaffold the skill produced when the
+  // source queue row had intent='template_for_clinic'. Plain text,
+  // same shape as script_templates.scaffold so it can be mirrored
+  // straight in. Null when the source intent was plain ingest.
+  clinic_template_proposal: string | null
+  clinic_template_note: string | null
 }
 
 export interface QueueRow {
@@ -106,6 +119,8 @@ export interface QueueRow {
   error: string | null
   created_at: string
   processed_at: string | null
+  intent: string
+  user_context: string | null
 }
 
 const PLATFORM_PATTERNS: Array<{ host: RegExp; platform: IngestPlatform }> = [
@@ -147,7 +162,9 @@ export async function enqueueIngest(params: {
   platform: IngestPlatform
   requestedByChatId?: string | null
   requestedByName?: string | null
-}): Promise<{ row: QueueRow; reused: boolean }> {
+  intent?: IngestIntent
+  userContext?: string | null
+}): Promise<{ row: QueueRow; reused: boolean; upgraded: boolean }> {
   const supabase = createServerClient()
   // Use upsert on (clinic_id, source_url) so a doctor pasting the same
   // link twice doesn't create duplicate work. If the previous row is
@@ -161,7 +178,32 @@ export async function enqueueIngest(params: {
     .maybeSingle()
 
   if (existing) {
-    return { row: existing as QueueRow, reused: true }
+    // Upgrade path: doctor first pasted the URL alone (intent=
+    // ingest_only) and is now adding context. As long as the row
+    // hasn't been claimed yet we can switch the intent so the
+    // skill picks up the richer flow.
+    const wantsTemplate = params.intent === 'template_for_clinic'
+    const isUpgradable =
+      wantsTemplate &&
+      existing.status === 'pending' &&
+      (existing.intent !== 'template_for_clinic' || !existing.user_context)
+    if (isUpgradable) {
+      const { data: updated } = await supabase
+        .from('video_ingest_queue')
+        .update({
+          intent: 'template_for_clinic',
+          user_context: params.userContext ?? existing.user_context ?? null,
+        })
+        .eq('id', existing.id)
+        .select('*')
+        .single()
+      return {
+        row: (updated ?? existing) as QueueRow,
+        reused: true,
+        upgraded: true,
+      }
+    }
+    return { row: existing as QueueRow, reused: true, upgraded: false }
   }
 
   const { data, error } = await supabase
@@ -173,13 +215,55 @@ export async function enqueueIngest(params: {
       requested_by_chat_id: params.requestedByChatId ?? null,
       requested_by_name: params.requestedByName ?? null,
       status: 'pending',
+      intent: params.intent ?? 'ingest_only',
+      user_context: params.userContext ?? null,
     })
     .select('*')
     .single()
   if (error || !data) {
     throw new Error(`enqueueIngest failed: ${error?.message ?? 'unknown'}`)
   }
-  return { row: data as QueueRow, reused: false }
+  return { row: data as QueueRow, reused: false, upgraded: false }
+}
+
+// Used by the webhook's "follow-up question" path: the doctor first
+// pasted a URL (queue row created with intent='ingest_only'), then
+// in the next message asked "what's the structure / how does it
+// fit our templates". If that question lands within a few minutes
+// and BEFORE the skill claims the row, we retro-attach it as
+// user_context + flip intent to template_for_clinic. Returns the
+// updated row or null if nothing eligible.
+export async function attachFollowupContext(params: {
+  clinicId: string
+  chatId: string
+  userContext: string
+  withinMinutes?: number
+}): Promise<QueueRow | null> {
+  const supabase = createServerClient()
+  const cutoff = new Date(
+    Date.now() - (params.withinMinutes ?? 10) * 60_000
+  ).toISOString()
+  const { data: candidate } = await supabase
+    .from('video_ingest_queue')
+    .select('*')
+    .eq('clinic_id', params.clinicId)
+    .eq('requested_by_chat_id', params.chatId)
+    .eq('status', 'pending')
+    .gte('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!candidate) return null
+  const { data: updated } = await supabase
+    .from('video_ingest_queue')
+    .update({
+      intent: 'template_for_clinic',
+      user_context: params.userContext,
+    })
+    .eq('id', candidate.id)
+    .select('*')
+    .maybeSingle()
+  return (updated as QueueRow | null) ?? (candidate as QueueRow)
 }
 
 export async function loadPendingIngests(limit = 10): Promise<QueueRow[]> {
@@ -253,6 +337,8 @@ export async function createArsenalDraft(params: {
   tags?: string[]
   sourceUrl?: string | null
   sourcePlatform?: string | null
+  clinicTemplateProposal?: string | null
+  clinicTemplateNote?: string | null
 }): Promise<ArsenalRow> {
   const supabase = createServerClient()
   const { data, error } = await supabase
@@ -271,6 +357,8 @@ export async function createArsenalDraft(params: {
       pains: (params.pains ?? []) as unknown as Json,
       tags: params.tags ?? [],
       is_active: false,
+      clinic_template_proposal: params.clinicTemplateProposal ?? null,
+      clinic_template_note: params.clinicTemplateNote ?? null,
     })
     .select('*')
     .single()

@@ -17,6 +17,14 @@ function bracketed(label: string, body: string | null | undefined): string {
 }
 
 export function arsenalToScaffold(arsenal: ArsenalRow): string {
+  // When the source queue row had intent='template_for_clinic', the
+  // skill already wrote a clinic-tailored scaffold — use that verbatim
+  // so the Templates tab shows the *applied* version (with the
+  // clinic's niche / services baked in) rather than a generic beat
+  // list derived from the foreign source video.
+  const proposal = arsenal.clinic_template_proposal?.trim() ?? ''
+  if (proposal) return proposal
+
   const beats = arsenal.structure?.beats ?? []
   if (beats.length === 0) {
     // Fall back to a minimal hook+CTA shape so an in-progress arsenal
@@ -41,13 +49,16 @@ export async function saveArsenalAsTemplate(
   const name = `arsenal:${arsenal.style_label}`.slice(0, 80)
   // Compose a description so the operator scanning the Templates tab
   // recognises which arsenal row produced it. The arsenal entry can
-  // be later toggled / renamed independently.
+  // be later toggled / renamed independently. When the row carries a
+  // clinic-template note, surface that first since it explains the
+  // mapping the skill made.
   const description = [
+    arsenal.clinic_template_note ?? '',
     arsenal.style_description ?? '',
     arsenal.source_url ? `(from ${arsenal.source_platform ?? '?'} ${arsenal.source_url})` : '',
   ]
     .filter(Boolean)
-    .join(' ')
+    .join(' · ')
   return insertScriptTemplate(arsenal.clinic_id, {
     name,
     description: description || null,

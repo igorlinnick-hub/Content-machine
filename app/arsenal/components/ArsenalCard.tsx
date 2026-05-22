@@ -98,6 +98,9 @@ export function ArsenalCard({ row, clinicId, onPatch, onDrop }: ArsenalCardProps
   const refineHistory: ArsenalRefineEntry[] = Array.isArray(row.refine_history)
     ? row.refine_history
     : []
+  const proposal = row.clinic_template_proposal?.trim() ?? ''
+  const proposalNote = row.clinic_template_note?.trim() ?? ''
+  const hasProposal = proposal.length > 0
 
   const statusChip = row.is_active
     ? { text: 'active', cls: 'bg-emerald-100 text-emerald-700' }
@@ -148,6 +151,7 @@ export function ArsenalCard({ row, clinicId, onPatch, onDrop }: ArsenalCardProps
             {' · '}
             {beats.length} beat{beats.length === 1 ? '' : 's'}
             {hasVisual ? ' · visual ✓' : ''}
+            {hasProposal ? ' · 🧱 clinic template' : ''}
             {refineHistory.length > 0 ? ` · ${refineHistory.length} refines` : ''}
           </p>
         </div>
@@ -250,6 +254,26 @@ export function ArsenalCard({ row, clinicId, onPatch, onDrop }: ArsenalCardProps
                       <Storyboard frames={visual.storyboard} />
                     )}
                   </div>
+                </section>
+              )}
+
+              {hasProposal && (
+                <section className="rounded-md border border-violet-200 bg-violet-50/60 p-3">
+                  <h4 className="flex items-center gap-1 text-xs font-semibold uppercase text-violet-700">
+                    🧱 Clinic template proposal
+                  </h4>
+                  {proposalNote && (
+                    <p className="mt-1 text-xs italic text-violet-700/80">
+                      {proposalNote}
+                    </p>
+                  )}
+                  <pre className="mt-2 whitespace-pre-wrap rounded border border-violet-200 bg-white p-2 font-mono text-[12px] text-neutral-800">
+                    {proposal}
+                  </pre>
+                  <p className="mt-2 text-[11px] text-neutral-500">
+                    Confirm or click <em>Re-save as template</em> below to mirror
+                    this scaffold into the Templates tab.
+                  </p>
                 </section>
               )}
 

@@ -949,6 +949,8 @@ export type Database = {
           error: string | null
           created_at: string
           processed_at: string | null
+          intent: string
+          user_context: string | null
         }
         Insert: {
           id?: string
@@ -962,6 +964,8 @@ export type Database = {
           error?: string | null
           created_at?: string
           processed_at?: string | null
+          intent?: string
+          user_context?: string | null
         }
         Update: {
           id?: string
@@ -975,6 +979,8 @@ export type Database = {
           error?: string | null
           created_at?: string
           processed_at?: string | null
+          intent?: string
+          user_context?: string | null
         }
         Relationships: [
           {
@@ -1010,6 +1016,8 @@ export type Database = {
           pending_refine_note: string | null
           refined_at: string | null
           refine_history: Json
+          clinic_template_proposal: string | null
+          clinic_template_note: string | null
         }
         Insert: {
           id?: string
@@ -1034,6 +1042,8 @@ export type Database = {
           pending_refine_note?: string | null
           refined_at?: string | null
           refine_history?: Json
+          clinic_template_proposal?: string | null
+          clinic_template_note?: string | null
         }
         Update: {
           id?: string
@@ -1058,6 +1068,8 @@ export type Database = {
           pending_refine_note?: string | null
           refined_at?: string | null
           refine_history?: Json
+          clinic_template_proposal?: string | null
+          clinic_template_note?: string | null
         }
         Relationships: [
           {

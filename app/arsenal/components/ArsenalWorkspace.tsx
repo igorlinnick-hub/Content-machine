@@ -81,12 +81,26 @@ export function ArsenalWorkspace({
             {queue.map((q) => (
               <li
                 key={q.id}
-                className="flex items-center justify-between gap-3 rounded border border-neutral-200 bg-white px-3 py-2"
+                className="flex flex-col gap-1 rounded border border-neutral-200 bg-white px-3 py-2"
               >
-                <span className="truncate text-neutral-700">
-                  {queueIcon(q.status)} {shortUrl(q.source_url)}
-                </span>
-                <span className="text-xs text-neutral-500">{q.status}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="truncate text-neutral-700">
+                    {queueIcon(q.status)} {shortUrl(q.source_url)}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {q.intent === 'template_for_clinic' && (
+                      <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+                        🧱 clinic template
+                      </span>
+                    )}
+                    <span className="text-xs text-neutral-500">{q.status}</span>
+                  </div>
+                </div>
+                {q.user_context && (
+                  <p className="truncate text-xs italic text-neutral-500">
+                    “{q.user_context}”
+                  </p>
+                )}
               </li>
             ))}
           </ul>

@@ -5,7 +5,11 @@ import { routeRegex } from '@/lib/team/router-regex'
 import { loadTeamBrief } from '@/lib/team/brief'
 import { tgChatAction, tgSend } from '@/lib/team/telegram'
 import { saveAgentLearning } from '@/lib/team/agent-store'
-import { detectIngestUrl, enqueueIngest } from '@/lib/arsenal/store'
+import {
+  attachFollowupContext,
+  detectIngestUrl,
+  enqueueIngest,
+} from '@/lib/arsenal/store'
 import { llmAgentsEnabled } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
@@ -58,6 +62,31 @@ function dispatchUrl(req: Request): string | null {
   if (!host) return null
   const proto = host.includes('localhost') ? 'http' : 'https'
   return `${proto}://${host}/api/telegram/dispatch`
+}
+
+// Strips http(s) URLs from free-form text and returns what's left
+// after collapsing whitespace. We use it to recover the doctor's
+// "question" portion of a link-plus-question message ("URL Опиши
+// его структуру и как это может быть для наших темплейтов").
+function extractUserContext(text: string): string {
+  return text
+    .replace(/https?:\/\/[^\s)]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Heuristic: does this URL-less message look like a follow-up
+// question about the most recently dropped reference video? We
+// retro-attach it to the latest pending queue row so the skill
+// generates a clinic-tailored template proposal instead of a
+// plain style extraction. Cyrillic + English triggers — short
+// declarative greetings ("hi", "ok") do NOT match.
+function looksLikeArsenalFollowup(text: string): boolean {
+  const t = text.trim().toLowerCase()
+  if (t.length < 8) return false
+  return /\b(структур|опиши|опишите|разбер|пример|применит|темплейт|шаблон|тем[пп]лат|структуру|про что|для нашей клиники|для клиники|как это будет|как это может|how (could|can|would|does)|structure|template|breakdown|fit (this|our))/i.test(
+    t
+  )
 }
 
 // Heuristic: short messages starting with "no", "actually", "fix",
@@ -137,17 +166,33 @@ export async function POST(req: Request) {
   // TG → row flips is_active=true → Writer sees it in the brief.
   const ingest = detectIngestUrl(text)
   if (ingest) {
+    // Doctor may have pasted the URL alone OR alongside a free-form
+    // question ("URL опиши структуру и как это может быть для наших
+    // темплейтов"). When extra text is present, tag the queue row
+    // intent='template_for_clinic' so the local skill generates a
+    // clinic-tailored proposal in addition to the plain extraction.
+    const userContext = extractUserContext(text)
+    const wantsTemplate = userContext.length >= 8
+    const intent = wantsTemplate ? 'template_for_clinic' : 'ingest_only'
     try {
-      const { reused, row } = await enqueueIngest({
+      const { reused, upgraded, row } = await enqueueIngest({
         clinicId,
         sourceUrl: ingest.url,
         platform: ingest.platform,
         requestedByChatId: String(chatId),
         requestedByName: userName,
+        intent,
+        userContext: wantsTemplate ? userContext : null,
       })
       const status = row.status
       let ack: string
-      if (reused && status === 'completed') {
+      if (upgraded) {
+        ack = [
+          '📚 *Archy*',
+          '',
+          'Принял твой вопрос — подтянул его к этой ссылке. Скилл сгенерит не только разбор структуры, а ещё и черновик темплейта под нашу клинику.',
+        ].join('\n')
+      } else if (reused && status === 'completed') {
         ack =
           '📚 *Archy*\n\nЭта ссылка уже в арсенале. Напиши *"arsenal list"* чтобы увидеть, или *"arsenal off <label>"* чтобы выключить.'
       } else if (reused && status === 'awaiting_confirm') {
@@ -155,6 +200,14 @@ export async function POST(req: Request) {
           '📚 *Archy*\n\nЭта ссылка уже разобрана и ждёт твоего подтверждения. Напиши *"arsenal confirm <label>"* или *"arsenal drop <label>"*.'
       } else if (reused) {
         ack = `📚 *Archy*\n\nЭта ссылка уже в очереди (статус: ${status}). Не дублирую.`
+      } else if (wantsTemplate) {
+        ack = [
+          '📚 *Archy*',
+          '',
+          `Принял ссылку (${ingest.platform}) + вопрос. Поставил в очередь под темплейт для нашей клиники.`,
+          '',
+          'Скилл подхватит — разберёт структуру / хуки и сразу предложит, как из этого собрать шаблон под нашу нишу. Подтвердишь — упадёт в Templates на вебапе.',
+        ].join('\n')
       } else {
         ack = [
           '📚 *Archy*',
@@ -162,6 +215,8 @@ export async function POST(req: Request) {
           `Принял ссылку (${ingest.platform}). Поставил в очередь.`,
           '',
           'Локальный скилл подхватит — извлечёт структуру / хуки / боли и пришлёт выжимку. Подтвердишь — стиль попадёт в арсенал Marek\'а.',
+          '',
+          '_Можешь дописать следующим сообщением вопрос («опиши структуру + как это в темплейт нашей клиники») — подтяну к этой же ссылке._',
         ].join('\n')
       }
       await tgSend(chatId, ack)
@@ -170,6 +225,32 @@ export async function POST(req: Request) {
       await tgSend(chatId, `📚 *Archy*\n\n_(не смог поставить в очередь: ${m})_`)
     }
     return NextResponse.json({ ok: true })
+  }
+
+  // Follow-up question without a URL ("опиши его структуру и как
+  // это может быть для наших темплейтов"). If the doctor dropped a
+  // link in the last ~10 minutes and the skill hasn't claimed it
+  // yet, retro-attach this text as user_context and flip the intent
+  // to template_for_clinic. Avoids the LLM-router round-trip entirely
+  // when the kill switch is on (or when API credits are gone).
+  if (looksLikeArsenalFollowup(text)) {
+    const attached = await attachFollowupContext({
+      clinicId,
+      chatId: String(chatId),
+      userContext: text,
+      withinMinutes: 10,
+    })
+    if (attached) {
+      await tgSend(
+        chatId,
+        [
+          '📚 *Archy*',
+          '',
+          'Принял — подтянул вопрос к последней ссылке. Скилл сгенерит разбор + черновик темплейта под нашу клинику.',
+        ].join('\n')
+      )
+      return NextResponse.json({ ok: true })
+    }
   }
 
   await tgChatAction(chatId, 'typing')

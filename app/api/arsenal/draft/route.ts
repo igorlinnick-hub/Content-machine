@@ -48,6 +48,12 @@ interface DraftBody {
   visual_notes?: ArsenalVisualNotes
   video_storage_path?: string | null
   thumbnail_storage_path?: string | null
+  // Clinic-tailored template proposal — skill writes this when the
+  // queue row's intent was 'template_for_clinic'. Plain text scaffold
+  // (bracketed beats) that can be mirrored straight into
+  // script_templates.scaffold on confirm.
+  clinic_template_proposal?: string | null
+  clinic_template_note?: string | null
 }
 
 function fmtHooks(hooks: ArsenalHook[] | undefined): string {
@@ -98,6 +104,8 @@ export async function POST(req: Request) {
       tags: body.tags ?? [],
       sourceUrl: body.source_url ?? null,
       sourcePlatform: body.source_platform ?? null,
+      clinicTemplateProposal: body.clinic_template_proposal ?? null,
+      clinicTemplateNote: body.clinic_template_note ?? null,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'
@@ -125,6 +133,20 @@ export async function POST(req: Request) {
   // Ping the doctor with the extraction summary. Fire-and-forget —
   // the skill doesn't block on TG delivery.
   if (body.notify_chat_id) {
+    const proposalBlock =
+      body.clinic_template_proposal && body.clinic_template_proposal.trim()
+        ? [
+            '',
+            '*Темплейт под нашу клинику* 🧱',
+            body.clinic_template_note ? `_${body.clinic_template_note}_` : '',
+            '```',
+            body.clinic_template_proposal.trim().slice(0, 900),
+            '```',
+            'Сохраню в Templates на вебапе при подтверждении.',
+          ]
+            .filter((line) => line !== '')
+            .join('\n')
+        : ''
     const text = [
       `📚 *Archy* — стиль *\`${row.style_label}\`* готов к подтверждению`,
       '',
@@ -139,6 +161,7 @@ export async function POST(req: Request) {
       body.pains && body.pains.length
         ? `*Боли:* ${body.pains.slice(0, 5).join(', ')}`
         : '',
+      proposalBlock,
       '',
       `Сохранить → *"arsenal confirm ${row.style_label}"*`,
       `Удалить → *"arsenal drop ${row.style_label}"*`,
