@@ -1,17 +1,31 @@
 import { spawn } from 'node:child_process'
-import ffmpegInstaller from '@ffmpeg-installer/ffmpeg'
 import type { KeepInterval } from './cuts'
 
 // All ffmpeg invocations the /clips pipeline needs. We run the
 // static binary via child_process.spawn — works on Vercel functions
 // (the binary is bundled by @ffmpeg-installer/ffmpeg). Output is
 // streamed to /tmp; we never load full mp4s into memory.
+//
+// IMPORTANT: ffmpeg-installer is lazy-required (not top-level
+// import) because it dynamically resolves a platform-specific
+// sub-package at runtime. Pulling it in at module-load time makes
+// Next.js's build-time "collecting page data" step crash when the
+// build host's OS sub-package isn't installed — and the /clips
+// route is gated by ENABLE_LLM_AGENTS anyway, so the binary is
+// only ever needed at request time.
 
-const FFMPEG_PATH: string = (ffmpegInstaller as { path: string }).path
+let _ffmpegPath: string | null = null
+function ffmpegPath(): string {
+  if (_ffmpegPath) return _ffmpegPath
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const installer = require('@ffmpeg-installer/ffmpeg') as { path: string }
+  _ffmpegPath = installer.path
+  return _ffmpegPath
+}
 
 function runFfmpeg(args: string[]): Promise<void> {
   return new Promise<void>((resolve, reject) => {
-    const proc = spawn(FFMPEG_PATH, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    const proc = spawn(ffmpegPath(), args, { stdio: ['ignore', 'pipe', 'pipe'] })
     let stderr = ''
     proc.stderr.on('data', (chunk: Buffer) => {
       // Keep last ~4kb so error messages survive long encodes

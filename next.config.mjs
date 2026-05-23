@@ -13,6 +13,14 @@ const nextConfig = {
       'puppeteer-core',
       '@sparticuz/chromium',
       'puppeteer',
+      // ffmpeg-installer dynamically requires a platform-specific
+      // package (linux-x64/darwin-arm64/…). Webpack mangles that
+      // expression and Next's build-time "collecting page data"
+      // step tries to resolve it eagerly, which fails when the
+      // installer's per-platform sub-package isn't picked up by
+      // npm's optionalDependencies on the current OS. External =
+      // skip bundling, resolve at runtime from node_modules.
+      '@ffmpeg-installer/ffmpeg',
     ],
   },
 };
