@@ -13,6 +13,12 @@ export type IngestPlatform =
   | 'youtube'
   | 'tiktok'
   | 'twitter'
+  // Doctor dropped an mp4 into the /arsenal admin UI directly.
+  // source_url stores the public URL of the file in the
+  // arsenal-videos Supabase Storage bucket (already uploaded by
+  // the browser via a signed-URL flow). The skill skips yt-dlp
+  // for this platform and downloads straight from Storage.
+  | 'browser_upload'
   | 'unknown'
 
 export type IngestStatus =

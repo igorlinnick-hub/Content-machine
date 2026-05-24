@@ -13,6 +13,11 @@ export const dynamic = 'force-dynamic'
 interface Body {
   clinicId?: string
   url?: string
+  // Free-form question/brief — same role as the TG link+question
+  // path. When present (≥8 chars), the queue row is tagged
+  // intent='template_for_clinic' and the skill additionally writes
+  // a clinic-tailored template proposal.
+  userContext?: string
 }
 
 export async function POST(req: Request) {
@@ -44,15 +49,19 @@ export async function POST(req: Request) {
       { status: 400 }
     )
   }
+  const userContext = body.userContext?.trim()
+  const wantsTemplate = !!userContext && userContext.length >= 8
   try {
-    const { row, reused } = await enqueueIngest({
+    const { row, reused, upgraded } = await enqueueIngest({
       clinicId,
       sourceUrl: detected.url,
       platform: detected.platform,
       requestedByChatId: null,
       requestedByName: 'admin:web',
+      intent: wantsTemplate ? 'template_for_clinic' : 'ingest_only',
+      userContext: wantsTemplate ? userContext : null,
     })
-    return NextResponse.json({ ok: true, queue: row, reused })
+    return NextResponse.json({ ok: true, queue: row, reused, upgraded })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })

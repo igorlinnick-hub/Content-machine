@@ -1,19 +1,27 @@
 import { NextResponse } from 'next/server'
 import { createUploadTargets } from '@/lib/arsenal/storage'
+import { resolveAccess } from '@/lib/auth/session'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Skill GETs this to obtain Supabase signed-upload URLs for the mp4 +
-// thumbnail. It PUTs both blobs directly to Storage (so Vercel never
-// sees the video bytes — keeps the function payload + Vercel cold-
-// start time tractable) and then references the paths when POSTing
-// /api/arsenal/draft.
+// Issues short-lived signed-upload URLs against the arsenal-videos
+// bucket so the caller can PUT the mp4 + thumbnail directly to
+// Storage (avoids passing huge bytes through this Vercel function).
 //
-// We need an arsenal_id to namespace the path; for the first ingest
-// (where no arsenal row exists yet) the skill passes a queue_id
-// instead — we use it as the path hint and the actual arsenal row
-// inherits the same path when /api/arsenal/draft is called.
+// Two auth paths:
+//   1. Local Claude Code skill — uses x-internal-dispatch-secret
+//      header (same shared secret as the TG webhook).
+//   2. Admin browser — uses the Supabase session cookie. Lets the
+//      /arsenal admin UI offer drag-and-drop video upload without
+//      knowing the secret.
+//
+// We need an arsenal_id to namespace the path. The skill knows it
+// after /api/arsenal/draft creates the row. The browser path
+// doesn't have an arsenal_id yet so we accept a queue_id (or a
+// freshly-minted 'upload_<rand>' hint) instead — the same path is
+// later persisted onto the script_arsenal row when /api/arsenal/draft
+// is called by the skill.
 
 function checkSecret(req: Request): boolean {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET
@@ -21,9 +29,15 @@ function checkSecret(req: Request): boolean {
   return req.headers.get('x-internal-dispatch-secret') === expected
 }
 
+async function authorize(req: Request): Promise<boolean> {
+  if (checkSecret(req)) return true
+  const access = await resolveAccess()
+  return Boolean(access && access.role === 'admin')
+}
+
 export async function GET(req: Request) {
-  if (!checkSecret(req)) {
-    return NextResponse.json({ error: 'invalid secret' }, { status: 401 })
+  if (!(await authorize(req))) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
   const url = new URL(req.url)
   const clinicId = url.searchParams.get('clinic_id')

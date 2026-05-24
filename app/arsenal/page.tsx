@@ -7,7 +7,7 @@ import { loadScriptTemplates } from '@/lib/posts/templates'
 import { resolveAccess } from '@/lib/auth/session'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { ArsenalWorkspace } from './components/ArsenalWorkspace'
-import { TemplatesWorkspace } from './components/TemplatesWorkspace'
+import { TemplatesCanvas } from './components/TemplatesCanvas'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,8 +47,27 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
     thumbnail_url: publicUrl(a.thumbnail_storage_path),
   }))
 
+  // Templates link back to arsenal via the "arsenal:<style_label>"
+  // naming convention used by saveArsenalAsTemplate. Map label → row
+  // here so the canvas can show the source video preview alongside the
+  // template's scaffold without an extra round-trip.
+  const arsenalByLabel = new Map(decorated.map((a) => [a.style_label, a]))
+  const templatesWithSource = templates.map((t) => {
+    const labelMatch = t.name.startsWith('arsenal:')
+      ? t.name.slice('arsenal:'.length)
+      : null
+    const source = labelMatch ? arsenalByLabel.get(labelMatch) ?? null : null
+    return {
+      template: t,
+      source_arsenal_id: source?.id ?? null,
+      source_video_url: source?.video_url ?? null,
+      source_thumbnail_url: source?.thumbnail_url ?? null,
+      source_style_description: source?.style_description ?? null,
+    }
+  })
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">
+    <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">
       <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet-500">
@@ -102,7 +121,10 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
       </nav>
 
       {tab === 'templates' ? (
-        <TemplatesWorkspace clinicId={clinic.id} initialTemplates={templates} />
+        <TemplatesCanvas
+          clinicId={clinic.id}
+          initialTemplates={templatesWithSource}
+        />
       ) : (
         <ArsenalWorkspace
           clinicId={clinic.id}
