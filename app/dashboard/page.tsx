@@ -115,9 +115,26 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {showAdminTools && clinics.length > 1 && (
-              <nav className="flex flex-wrap gap-1.5">
+          {/* Compact top-right: role badge only. The clinic switcher and
+              section nav live in their own rows below the headline so
+              "WHICH clinic" and "WHERE to go" stop competing for the
+              same eye-line. */}
+          <RoleBadge
+            role={access.role}
+            doctorName={isDoctor ? doctorDisplayName : null}
+          />
+        </header>
+
+        {/* Admin secondary nav — clinic switcher (one row) + section
+            jumps (separate row). Doctors don't see this; they're
+            pinned to their one clinic. */}
+        {showAdminTools && (
+          <nav className="flex flex-col gap-3 -mt-4 border-b border-neutral-200 pb-5">
+            {clinics.length > 1 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  Clinic
+                </span>
                 {clinics.map((c) => (
                   <Link
                     key={c.id}
@@ -131,35 +148,36 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                     {c.name}
                   </Link>
                 ))}
-              </nav>
+              </div>
             )}
-            {showAdminTools && (
-              <Link href={`/visual?clinicId=${clinicId}`} className="cm-btn cm-btn-ghost text-sm">
-                Visual posts →
-              </Link>
-            )}
-            {showAdminTools && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                Go to
+              </span>
+              <span className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-800">
+                📝 Posts
+              </span>
               <Link
                 href={`/arsenal?clinicId=${clinicId}`}
-                className="cm-btn cm-btn-ghost text-sm"
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
               >
-                Arsenal →
+                🧱 Library
               </Link>
-            )}
-            {showAdminTools && (
               <Link
-                href={`/settings?clinicId=${clinicId}`}
-                className="cm-btn cm-btn-ghost text-sm"
+                href={`/visual?clinicId=${clinicId}`}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
               >
-                Settings
+                🎨 Visual posts
               </Link>
-            )}
-            <RoleBadge
-              role={access.role}
-              doctorName={isDoctor ? doctorDisplayName : null}
-            />
-          </div>
-        </header>
+              <Link
+                href={`/clinics?clinicId=${clinicId}`}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
+              >
+                ⚙ Clinics
+              </Link>
+            </div>
+          </nav>
+        )}
 
         <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm sm:p-7">
           <div>
@@ -177,33 +195,50 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </section>
 
         {showAdminTools && (
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Link
+              href={`/arsenal?clinicId=${clinicId}`}
+              className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-500">
+                🧱 Library
+              </p>
+              <h3 className="text-base font-semibold text-neutral-900">
+                Reference arsenal + templates →
+              </h3>
+              <p className="text-sm text-neutral-600">
+                Drop a video, get a clinic-tailored template. Edit scaffolds the
+                writer borrows from.
+              </p>
+            </Link>
             <Link
               href={`/visual?clinicId=${clinicId}`}
               className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
             >
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-                Posts workspace
+                🎨 Visual posts
               </p>
               <h3 className="text-base font-semibold text-neutral-900">
-                Visual posts, topics & golden references →
+                Rendered slides, topics & references →
               </h3>
               <p className="text-sm text-neutral-600">
-                Topics list, golden scripts, golden post references (PNG), categories, slide editor.
+                Topics list, golden scripts, golden post references (PNG),
+                categories, slide editor.
               </p>
             </Link>
             <Link
-              href={`/settings?clinicId=${clinicId}`}
+              href={`/clinics?clinicId=${clinicId}`}
               className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
             >
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-                Settings
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-500">
+                ⚙ Clinics
               </p>
               <h3 className="text-base font-semibold text-neutral-900">
-                Brand & doctor access →
+                Profile, brand & install links →
               </h3>
               <p className="text-sm text-neutral-600">
-                Clinic logo (appears on every slide) and the install link you send to a doctor.
+                Edit who the writer thinks this clinic is. Logo on every slide.
+                Onboard a new clinic.
               </p>
             </Link>
           </section>
