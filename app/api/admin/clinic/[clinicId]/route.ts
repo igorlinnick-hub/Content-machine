@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
+import type { Database } from '@/types/supabase'
+
+type ClinicUpdate = Database['public']['Tables']['clinics']['Update']
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -47,7 +50,7 @@ export async function PATCH(req: Request, { params }: Ctx) {
   } catch {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }
-  const patch: Record<string, unknown> = {}
+  const patch: ClinicUpdate = {}
   if (body.name !== undefined) patch.name = body.name.trim()
   if (body.doctor_name !== undefined)
     patch.doctor_name = body.doctor_name?.trim() || null
