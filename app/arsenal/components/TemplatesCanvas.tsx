@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { ScriptTemplate } from '@/lib/posts/templates'
 import { TemplateNode } from './TemplateNode'
+import { NewTemplateForm } from './NewTemplateForm'
 
 export interface TemplateWithSource {
   template: ScriptTemplate
@@ -67,8 +68,21 @@ export function TemplatesCanvas({
   const active = items.filter((i) => i.template.active)
   const off = items.filter((i) => !i.template.active)
 
+  function addOne(template: ScriptTemplate): void {
+    setItems((cur) => [
+      {
+        template,
+        source_arsenal_id: null,
+        source_video_url: null,
+        source_thumbnail_url: null,
+        source_style_description: null,
+      },
+      ...cur,
+    ])
+  }
+
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {/* Intro */}
       <p className="rounded border border-violet-200 bg-violet-50/60 p-3 text-xs text-violet-700">
         These are the structural scaffolds <strong>Marek (Writer)</strong> picks
@@ -77,6 +91,10 @@ export function TemplatesCanvas({
         see the pattern they teach. Toggle off what should stop influencing
         Writer; that decision applies on the next generation immediately.
       </p>
+
+      {/* Manual template creator — third path next to seed defaults +
+          arsenal-derived. Inline form above the grid. */}
+      <NewTemplateForm clinicId={clinicId} onCreated={addOne} />
 
       {/* Active templates grid */}
       <section className="flex flex-col gap-3">
