@@ -155,7 +155,13 @@ function ScriptModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        // Flexbox modal: explicit height (not max-h) so the inner
+        // scroll body has a definite frame to fill — otherwise the
+        // <pre> with long scripts pushes the modal past viewport and
+        // items-center centers the now-off-screen modal so only its
+        // footer is visible. Capped at 90svh (small-viewport units)
+        // for mobile Safari address-bar quirks.
+        className="flex h-[90svh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -204,7 +210,7 @@ function ScriptModal({
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
           {script.hook && (
             <p className="mb-4 text-sm italic text-neutral-600">
               {script.hook}
