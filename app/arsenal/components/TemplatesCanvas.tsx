@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import type { ScriptTemplate } from '@/lib/posts/templates'
 import { TemplateNode } from './TemplateNode'
-import { BotChain } from './BotChain'
 
 export interface TemplateWithSource {
   template: ScriptTemplate
@@ -107,14 +106,12 @@ export function TemplatesCanvas({
                 onDelete={() =>
                   void remove(it.template.id, it.template.name)
                 }
+                onPatch={(patch) => patchOne(it.template.id, patch)}
               />
             ))}
           </div>
         )}
       </section>
-
-      {/* Bot chain visualisation */}
-      <BotChain activeCount={active.length} />
 
       {/* Off templates */}
       {off.length > 0 && (
@@ -138,6 +135,7 @@ export function TemplatesCanvas({
                 onDelete={() =>
                   void remove(it.template.id, it.template.name)
                 }
+                onPatch={(patch) => patchOne(it.template.id, patch)}
               />
             ))}
           </div>
