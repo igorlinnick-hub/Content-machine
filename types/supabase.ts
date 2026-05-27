@@ -446,6 +446,7 @@ export type Database = {
           word_count: number | null
           short_caption: string | null
           long_caption: string | null
+          template_used: string | null
         }
         Insert: {
           approved?: boolean | null
@@ -464,6 +465,7 @@ export type Database = {
           topic?: string | null
           variant_id?: string | null
           word_count?: number | null
+          template_used?: string | null
         }
         Update: {
           approved?: boolean | null
@@ -482,6 +484,7 @@ export type Database = {
           word_count?: number | null
           short_caption?: string | null
           long_caption?: string | null
+          template_used?: string | null
         }
         Relationships: [
           {
