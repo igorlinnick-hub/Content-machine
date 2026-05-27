@@ -1,11 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import dynamic from 'next/dynamic'
-
-// Dynamic import — qrcode is ~30KB, only load if the user expands
-// the "scan from another device" option.
-const QRBlock = dynamic(() => import('./QRBlock'), { ssr: false })
 
 type Platform = 'ios' | 'android' | 'desktop' | 'unknown'
 
@@ -47,15 +42,12 @@ interface BeforeInstallPromptEvent extends Event {
 export function PWAInstallCard() {
   const [platform, setPlatform] = useState<Platform>('unknown')
   const [installed, setInstalled] = useState(true) // assume installed until checked
-  const [showQr, setShowQr] = useState(false)
   const [androidPrompt, setAndroidPrompt] =
     useState<BeforeInstallPromptEvent | null>(null)
-  const [currentUrl, setCurrentUrl] = useState('')
 
   useEffect(() => {
     setPlatform(detectPlatform())
     setInstalled(isStandalone())
-    setCurrentUrl(window.location.origin + window.location.pathname)
 
     const handler = (e: Event) => {
       e.preventDefault()
@@ -137,19 +129,23 @@ export function PWAInstallCard() {
       )}
 
       {platform === 'desktop' && (
-        <div className="mt-4 flex flex-col gap-3">
+        <div className="mt-4 flex flex-col gap-2">
           <p className="text-sm text-neutral-700">
-            You&apos;re on a computer. Scan this QR with your phone&apos;s
-            camera to open the app there, then add it to your home screen.
+            You&apos;re on a computer. To put this on a phone you need a{' '}
+            <strong>doctor install link</strong> — that link carries the
+            login, so the phone opens straight into the dashboard with no
+            password.
           </p>
-          <button
-            type="button"
-            onClick={() => setShowQr(!showQr)}
-            className="cm-btn cm-btn-ghost self-start text-xs"
+          <a
+            href="/clinics"
+            className="cm-btn cm-btn-primary self-start text-xs"
           >
-            {showQr ? 'Hide QR' : 'Show QR'}
-          </button>
-          {showQr && currentUrl && <QRBlock url={currentUrl} />}
+            Open Clinics → grab install QR →
+          </a>
+          <p className="text-[11px] text-neutral-500">
+            Plain URL QR (without a token) lands on the login screen — the
+            phone has no way to log in, that&apos;s why nothing happens.
+          </p>
         </div>
       )}
 

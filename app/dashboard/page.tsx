@@ -270,35 +270,21 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             <ScriptGenerator clinicId={clinicId} />
 
-            {/* Templates Writer will use — visible right next to the
-                Generate button so you know what's feeding it. Click any
-                chip to jump to /arsenal where you can edit / toggle. */}
+            {/* Subtle context line — count + jump-to-Library. The
+                actual scaffolds live in /arsenal; surfacing them all
+                here was visual noise. */}
             {activeTemplates.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 border-t border-sky-200 pt-3 text-[11px]">
-                <span className="font-semibold uppercase tracking-wide text-sky-700">
-                  Writer uses {activeTemplates.length} active template
-                  {activeTemplates.length === 1 ? '' : 's'}:
+              <div className="flex items-center justify-between gap-2 border-t border-sky-200 pt-3 text-[11px] text-sky-700">
+                <span>
+                  Writer uses{' '}
+                  <strong>{activeTemplates.length} template
+                  {activeTemplates.length === 1 ? '' : 's'}</strong>
                 </span>
-                {activeTemplates.slice(0, 8).map((t) => (
-                  <Link
-                    key={t.id}
-                    href={`/arsenal?clinicId=${clinicId}`}
-                    className="rounded-full bg-white px-2 py-0.5 font-medium text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-50"
-                    title={t.description ?? t.name}
-                  >
-                    🧱 {t.name.replace(/^arsenal:/, '')}
-                  </Link>
-                ))}
-                {activeTemplates.length > 8 && (
-                  <span className="text-neutral-500">
-                    +{activeTemplates.length - 8} more
-                  </span>
-                )}
                 <Link
                   href={`/arsenal?clinicId=${clinicId}`}
-                  className="ml-auto text-violet-700 hover:underline"
+                  className="font-medium text-violet-700 hover:underline"
                 >
-                  Edit in Library →
+                  Manage in Library →
                 </Link>
               </div>
             )}
