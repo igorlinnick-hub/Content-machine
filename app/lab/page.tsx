@@ -57,7 +57,7 @@ export default async function LabPage({ searchParams }: LabPageProps) {
         </div>
       </header>
 
-      <ImageLab clinicId={clinic.id} clinicName={clinic.name} />
+      <ImageLab clinicId={clinic.id} clinicName={clinic.name} compact={false} />
     </main>
   )
 }

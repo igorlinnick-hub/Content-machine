@@ -13,6 +13,7 @@ import { PWAInstallCard } from './components/PWAInstallCard'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
+import { ImageLab } from '@/app/lab/components/ImageLab'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,11 +21,11 @@ interface DashboardPageProps {
   searchParams: {
     clinicId?: string
     cm_bootstrap?: string
-    tab?: 'generate' | 'recent' | 'input'
+    tab?: DashTab
   }
 }
 
-type DashTab = 'generate' | 'recent' | 'input'
+type DashTab = 'generate' | 'recent' | 'input' | 'image'
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const access = await resolveAccess()
@@ -68,12 +69,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     loadScriptTemplates(clinicId, { activeOnly: true }),
   ])
 
-  const tab: DashTab =
-    searchParams.tab === 'recent'
-      ? 'recent'
-      : searchParams.tab === 'input'
-        ? 'input'
-        : 'generate'
+  const validTabs: DashTab[] = ['generate', 'recent', 'input', 'image']
+  const tab: DashTab = validTabs.includes(searchParams.tab as DashTab)
+    ? (searchParams.tab as DashTab)
+    : 'generate'
 
   const services = clinicRow.services ?? []
   const pillars = clinicRow.content_pillars ?? []
@@ -199,12 +198,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 🎨 Visual posts
               </Link>
               <Link
-                href={`/lab?clinicId=${clinicId}`}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
-              >
-                🧪 Image Lab
-              </Link>
-              <Link
                 href={`/clinics?clinicId=${clinicId}`}
                 className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
               >
@@ -231,6 +224,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             label="💡 Today's input"
             href={`/dashboard?clinicId=${clinicId}&tab=input`}
             active={tab === 'input'}
+          />
+          <DashTabLink
+            label="🎨 Image"
+            href={`/dashboard?clinicId=${clinicId}&tab=image`}
+            active={tab === 'image'}
           />
         </nav>
 
@@ -322,6 +320,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             subtitle="Three quick prompts — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
           >
             <DailyWidgets clinicId={clinicId} questions={questions} />
+          </Section>
+        )}
+
+        {tab === 'image' && (
+          <Section
+            title="🎨 Image"
+            subtitle="Generate a slide-sized image for the post. Default 4:5 portrait, matches the slide template. Click any result to download."
+          >
+            <ImageLab clinicId={clinicId} compact />
           </Section>
         )}
 
