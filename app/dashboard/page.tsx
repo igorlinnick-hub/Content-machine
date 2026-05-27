@@ -16,8 +16,14 @@ import { RoleBadge } from '@/app/components/RoleBadge'
 export const dynamic = 'force-dynamic'
 
 interface DashboardPageProps {
-  searchParams: { clinicId?: string; cm_bootstrap?: string }
+  searchParams: {
+    clinicId?: string
+    cm_bootstrap?: string
+    tab?: 'generate' | 'recent' | 'input'
+  }
 }
+
+type DashTab = 'generate' | 'recent' | 'input'
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const access = await resolveAccess()
@@ -57,9 +63,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const questions = getDailyQuestions()
   const [recent, activeTemplates] = await Promise.all([
-    loadRecentScripts(clinicId, 5),
+    loadRecentScripts(clinicId, 15),
     loadScriptTemplates(clinicId, { activeOnly: true }),
   ])
+
+  const tab: DashTab =
+    searchParams.tab === 'recent'
+      ? 'recent'
+      : searchParams.tab === 'input'
+        ? 'input'
+        : 'generate'
 
   const services = clinicRow.services ?? []
   const pillars = clinicRow.content_pillars ?? []
@@ -189,55 +202,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </nav>
         )}
 
-        <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm sm:p-7">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
-              Main workspace
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold text-neutral-900">
-              Generate scripts
-            </h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Leave the topic blank to let your team pick from your pillars, or type a specific topic. Three variants every time.
-            </p>
-          </div>
-          <ScriptGenerator clinicId={clinicId} />
+        {/* Main tab bar — Generate / Recent / Today's input. Three
+            distinct jobs, one click each, no scrolling competition. */}
+        <nav className="flex flex-wrap items-center gap-1.5 border-b border-neutral-200 pb-2">
+          <DashTabLink
+            label="📝 Generate"
+            href={`/dashboard?clinicId=${clinicId}&tab=generate`}
+            active={tab === 'generate'}
+          />
+          <DashTabLink
+            label={`📚 Recent (${recent.length})`}
+            href={`/dashboard?clinicId=${clinicId}&tab=recent`}
+            active={tab === 'recent'}
+          />
+          <DashTabLink
+            label="💡 Today's input"
+            href={`/dashboard?clinicId=${clinicId}&tab=input`}
+            active={tab === 'input'}
+          />
+        </nav>
 
-          {/* Templates Writer will use — visible right next to the
-              Generate button so you know what's feeding it. Click any
-              chip to jump to /arsenal where you can edit / toggle. */}
-          {activeTemplates.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 border-t border-sky-200 pt-3 text-[11px]">
-              <span className="font-semibold uppercase tracking-wide text-sky-700">
-                Writer uses {activeTemplates.length} active template
-                {activeTemplates.length === 1 ? '' : 's'}:
-              </span>
-              {activeTemplates.slice(0, 8).map((t) => (
-                <Link
-                  key={t.id}
-                  href={`/arsenal?clinicId=${clinicId}`}
-                  className="rounded-full bg-white px-2 py-0.5 font-medium text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-50"
-                  title={t.description ?? t.name}
-                >
-                  🧱 {t.name.replace(/^arsenal:/, '')}
-                </Link>
-              ))}
-              {activeTemplates.length > 8 && (
-                <span className="text-neutral-500">
-                  +{activeTemplates.length - 8} more
-                </span>
-              )}
-              <Link
-                href={`/arsenal?clinicId=${clinicId}`}
-                className="ml-auto text-violet-700 hover:underline"
-              >
-                Edit in Library →
-              </Link>
-            </div>
-          )}
-        </section>
-
-        {isDoctor && profileIncomplete && (
+        {isDoctor && profileIncomplete && tab === 'generate' && (
           <Link
             href="/onboarding"
             className="cm-card flex items-center justify-between gap-4 p-5 transition hover:border-sky-300 hover:shadow-md"
@@ -259,21 +244,74 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         )}
 
-        {/* Recent scripts — moved RIGHT BELOW Generate so the operator
-            sees what was made before scrolling past anything else. */}
-        <Section
-          title="Recent scripts"
-          subtitle="Your last 5 saved scripts. Tap any to read, copy, or post."
-        >
-          <RecentScripts scripts={recent} />
-        </Section>
+        {tab === 'generate' && (
+          <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm sm:p-7">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
+                Main workspace
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold text-neutral-900">
+                Generate scripts
+              </h2>
+              <p className="mt-1 text-sm text-neutral-600">
+                Leave the topic blank to let your team pick from your pillars,
+                or type a specific topic. Three variants every time.
+              </p>
+            </div>
+            <ScriptGenerator clinicId={clinicId} />
 
-        <Section
-          title="Today's input"
-          subtitle="Three quick prompts — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
-        >
-          <DailyWidgets clinicId={clinicId} questions={questions} />
-        </Section>
+            {/* Templates Writer will use — visible right next to the
+                Generate button so you know what's feeding it. Click any
+                chip to jump to /arsenal where you can edit / toggle. */}
+            {activeTemplates.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 border-t border-sky-200 pt-3 text-[11px]">
+                <span className="font-semibold uppercase tracking-wide text-sky-700">
+                  Writer uses {activeTemplates.length} active template
+                  {activeTemplates.length === 1 ? '' : 's'}:
+                </span>
+                {activeTemplates.slice(0, 8).map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/arsenal?clinicId=${clinicId}`}
+                    className="rounded-full bg-white px-2 py-0.5 font-medium text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-50"
+                    title={t.description ?? t.name}
+                  >
+                    🧱 {t.name.replace(/^arsenal:/, '')}
+                  </Link>
+                ))}
+                {activeTemplates.length > 8 && (
+                  <span className="text-neutral-500">
+                    +{activeTemplates.length - 8} more
+                  </span>
+                )}
+                <Link
+                  href={`/arsenal?clinicId=${clinicId}`}
+                  className="ml-auto text-violet-700 hover:underline"
+                >
+                  Edit in Library →
+                </Link>
+              </div>
+            )}
+          </section>
+        )}
+
+        {tab === 'recent' && (
+          <Section
+            title="Recent scripts"
+            subtitle="Every script Writer has saved for this clinic. Tap any to read, copy, or post."
+          >
+            <RecentScripts scripts={recent} />
+          </Section>
+        )}
+
+        {tab === 'input' && (
+          <Section
+            title="Today's input"
+            subtitle="Three quick prompts — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
+          >
+            <DailyWidgets clinicId={clinicId} questions={questions} />
+          </Section>
+        )}
 
         <PWAInstallCard />
 
@@ -302,5 +340,28 @@ function Section({
       </div>
       <div>{children}</div>
     </section>
+  )
+}
+
+function DashTabLink({
+  label,
+  href,
+  active,
+}: {
+  label: string
+  href: string
+  active: boolean
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+        active
+          ? 'bg-sky-500 text-white shadow-sm'
+          : 'text-neutral-700 hover:bg-neutral-100'
+      }`}
+    >
+      {label}
+    </Link>
   )
 }
