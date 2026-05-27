@@ -170,6 +170,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 🎨 Visual posts
               </Link>
               <Link
+                href={`/lab?clinicId=${clinicId}`}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
+              >
+                🧪 Image Lab
+              </Link>
+              <Link
                 href={`/clinics?clinicId=${clinicId}`}
                 className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
               >

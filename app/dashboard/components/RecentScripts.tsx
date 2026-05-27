@@ -102,6 +102,15 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
                 </p>
               )}
 
+              {s.template_used && (
+                <p
+                  className="self-start truncate rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700"
+                  title={`Made with template: ${s.template_used}`}
+                >
+                  🧱 {s.template_used}
+                </p>
+              )}
+
               <footer className="flex items-center justify-between gap-2 pt-1">
                 <p className="text-xs text-neutral-500">
                   {formatDate(s.created_at)} · {s.word_count ?? '?'} words
@@ -188,6 +197,14 @@ function ScriptModal({
               <span className="text-xs text-neutral-500">
                 {formatDate(script.created_at)} · {script.word_count ?? '?'} words
               </span>
+              {script.template_used && (
+                <span
+                  className="inline-flex items-center rounded-md bg-violet-50 px-1.5 py-0.5 text-[11px] font-medium text-violet-700"
+                  title="Format template Writer picked for this script"
+                >
+                  🧱 {script.template_used}
+                </span>
+              )}
             </div>
             <h2 className="mt-1.5 text-xl font-semibold leading-snug text-neutral-900">
               {script.topic ?? 'Untitled'}

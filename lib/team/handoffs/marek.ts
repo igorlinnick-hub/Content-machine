@@ -108,6 +108,7 @@ export async function runMarekGeneratePost(
         approved: s?.approved ?? false,
         length_target: length,
         pair_id: null,
+        template_used: v.template_name ?? null,
       }
     })
     const saved = await saveScripts(ctx.clinicId, variants)
@@ -351,6 +352,7 @@ export async function runMarekRefinePost(
         approved: score?.approved ?? false,
         length_target: length,
         pair_id: null,
+        template_used: winner.template_name ?? null,
       },
     ]
     const saved = await saveScripts(ctx.clinicId, variants)

@@ -113,6 +113,7 @@ export async function POST(req: Request) {
         word_count: newVariant.word_count,
         critic_score: newScore?.total_score ?? 0,
         approved: newScore?.approved ?? false,
+        template_used: newVariant.template_name ?? null,
       },
     ])
 

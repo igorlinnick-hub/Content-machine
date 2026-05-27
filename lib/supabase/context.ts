@@ -309,6 +309,7 @@ export interface RecentScript {
   critic_score: number | null
   approved: boolean | null
   created_at: string
+  template_used: string | null
 }
 
 export async function loadRecentScripts(
@@ -319,7 +320,7 @@ export async function loadRecentScripts(
   const { data, error } = await supabase
     .from('scripts')
     .select(
-      'id, variant_id, topic, hook, full_script, word_count, critic_score, approved, created_at'
+      'id, variant_id, topic, hook, full_script, word_count, critic_score, approved, created_at, template_used'
     )
     .eq('clinic_id', clinicId)
     .order('created_at', { ascending: false })
@@ -336,6 +337,7 @@ export async function loadRecentScripts(
     critic_score: r.critic_score,
     approved: r.approved,
     created_at: r.created_at ?? nowIso,
+    template_used: (r as { template_used?: string | null }).template_used ?? null,
   }))
 }
 
@@ -459,6 +461,11 @@ export interface ScoredVariant {
   approved: boolean
   length_target?: ScriptLengthTarget | null
   pair_id?: string | null
+  // Which format-template scaffold Writer chose for this variant.
+  // Writer emits template_name in its JSON output; we persist it so
+  // the dashboard can show "made with: punchy-question-hook" on every
+  // recent script card.
+  template_used?: string | null
 }
 
 export async function saveScripts(
@@ -478,6 +485,7 @@ export async function saveScripts(
     approved: v.approved,
     length_target: v.length_target ?? null,
     pair_id: v.pair_id ?? null,
+    template_used: v.template_used ?? null,
   }))
   const { data, error } = await supabase.from('scripts').insert(rows).select('id, variant_id')
   if (error) throw error

@@ -118,6 +118,7 @@ async function generateOne(params: {
       approved: s?.approved ?? false,
       length_target: params.length,
       pair_id: params.pairId,
+      template_used: v.template_name ?? null,
     }
   })
   const saved = await saveScripts(params.clinicId, variants)
