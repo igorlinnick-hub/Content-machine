@@ -12,6 +12,7 @@ import { TokenBootstrap } from './components/TokenBootstrap'
 import { PWAInstallCard } from './components/PWAInstallCard'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
+import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
 
 export const dynamic = 'force-dynamic'
 
@@ -94,8 +95,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const profileIncomplete = services.length === 0 || pillars.length === 0
 
+  const isAdminPreview =
+    access.role === 'doctor' &&
+    'adminPreview' in access &&
+    access.adminPreview === true
+
   return (
     <main className="min-h-screen bg-white">
+      {isAdminPreview && (
+        <AdminPreviewBanner
+          clinicName={clinicName}
+          doctorName={doctorDisplayName}
+        />
+      )}
       <TokenBootstrap />
       <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10 cm-fade-in">
         <header className="flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:flex-row sm:items-start sm:justify-between">

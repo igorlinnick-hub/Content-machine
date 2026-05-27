@@ -7,6 +7,7 @@ import { BrandCard } from '@/app/dashboard/components/BrandCard'
 import { InstallLinkCard } from '@/app/dashboard/components/InstallLinkCard'
 import { ClinicProfileEditor } from './components/ClinicProfileEditor'
 import { ClinicSwitcher } from './components/ClinicSwitcher'
+import { ViewAsButton } from './components/ViewAsButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,7 +98,9 @@ export default async function ClinicsPage({ searchParams }: ClinicsPageProps) {
       <ClinicSwitcher clinics={clinics} selectedId={selected.id} />
 
       {/* Per-clinic quick-jump strip — admins live in /dashboard or
-          /arsenal so make jumps one click away. */}
+          /arsenal so make jumps one click away. ViewAsButton lets the
+          admin see the dashboard the way this clinic's doctor sees
+          it (cookie-based override, exit via banner). */}
       <nav className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-medium text-neutral-600">
           {selected.name} →
@@ -120,6 +123,8 @@ export default async function ClinicsPage({ searchParams }: ClinicsPageProps) {
         >
           🎨 Visual posts
         </Link>
+        <span className="text-neutral-300">·</span>
+        <ViewAsButton clinicId={selected.id} clinicName={selected.name} />
       </nav>
 
       <section className="flex flex-col gap-3">
