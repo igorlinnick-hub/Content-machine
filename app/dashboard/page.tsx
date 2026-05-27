@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { loadClinicList, loadRecentScripts } from '@/lib/supabase/context'
+import { loadScriptTemplates } from '@/lib/posts/templates'
 import { getDailyQuestions } from '@/lib/widgets/questions'
 import { resolveAccess } from '@/lib/auth/session'
 import { DailyWidgets } from './components/DailyWidgets'
@@ -55,7 +56,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const questions = getDailyQuestions()
-  const recent = await loadRecentScripts(clinicId, 5)
+  const [recent, activeTemplates] = await Promise.all([
+    loadRecentScripts(clinicId, 5),
+    loadScriptTemplates(clinicId, { activeOnly: true }),
+  ])
 
   const services = clinicRow.services ?? []
   const pillars = clinicRow.content_pillars ?? []
@@ -198,57 +202,40 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </p>
           </div>
           <ScriptGenerator clinicId={clinicId} />
-        </section>
 
-        {showAdminTools && (
-          <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Link
-              href={`/arsenal?clinicId=${clinicId}`}
-              className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-500">
-                🧱 Library
-              </p>
-              <h3 className="text-base font-semibold text-neutral-900">
-                Reference arsenal + templates →
-              </h3>
-              <p className="text-sm text-neutral-600">
-                Drop a video, get a clinic-tailored template. Edit scaffolds the
-                writer borrows from.
-              </p>
-            </Link>
-            <Link
-              href={`/visual?clinicId=${clinicId}`}
-              className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-                🎨 Visual posts
-              </p>
-              <h3 className="text-base font-semibold text-neutral-900">
-                Rendered slides, topics & references →
-              </h3>
-              <p className="text-sm text-neutral-600">
-                Topics list, golden scripts, golden post references (PNG),
-                categories, slide editor.
-              </p>
-            </Link>
-            <Link
-              href={`/clinics?clinicId=${clinicId}`}
-              className="cm-card flex flex-col gap-1 p-5 transition hover:border-sky-300 hover:shadow-md"
-            >
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-500">
-                ⚙ Clinics
-              </p>
-              <h3 className="text-base font-semibold text-neutral-900">
-                Profile, brand & install links →
-              </h3>
-              <p className="text-sm text-neutral-600">
-                Edit who the writer thinks this clinic is. Logo on every slide.
-                Onboard a new clinic.
-              </p>
-            </Link>
-          </section>
-        )}
+          {/* Templates Writer will use — visible right next to the
+              Generate button so you know what's feeding it. Click any
+              chip to jump to /arsenal where you can edit / toggle. */}
+          {activeTemplates.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-t border-sky-200 pt-3 text-[11px]">
+              <span className="font-semibold uppercase tracking-wide text-sky-700">
+                Writer uses {activeTemplates.length} active template
+                {activeTemplates.length === 1 ? '' : 's'}:
+              </span>
+              {activeTemplates.slice(0, 8).map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/arsenal?clinicId=${clinicId}`}
+                  className="rounded-full bg-white px-2 py-0.5 font-medium text-violet-700 ring-1 ring-violet-200 transition hover:bg-violet-50"
+                  title={t.description ?? t.name}
+                >
+                  🧱 {t.name.replace(/^arsenal:/, '')}
+                </Link>
+              ))}
+              {activeTemplates.length > 8 && (
+                <span className="text-neutral-500">
+                  +{activeTemplates.length - 8} more
+                </span>
+              )}
+              <Link
+                href={`/arsenal?clinicId=${clinicId}`}
+                className="ml-auto text-violet-700 hover:underline"
+              >
+                Edit in Library →
+              </Link>
+            </div>
+          )}
+        </section>
 
         {isDoctor && profileIncomplete && (
           <Link
@@ -272,20 +259,20 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         )}
 
+        {/* Recent scripts — moved RIGHT BELOW Generate so the operator
+            sees what was made before scrolling past anything else. */}
         <Section
-          title="Today's input"
-          subtitle="Three quick prompts plus an open note — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
+          title="Recent scripts"
+          subtitle="Your last 5 saved scripts. Tap any to read, copy, or post."
         >
-          <div className="flex flex-col gap-5">
-            <DailyWidgets clinicId={clinicId} questions={questions} />
-          </div>
+          <RecentScripts scripts={recent} />
         </Section>
 
         <Section
-          title="Recent scripts"
-          subtitle="Your last 5 saved scripts. Tap any to copy or post."
+          title="Today's input"
+          subtitle="Three quick prompts — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
         >
-          <RecentScripts scripts={recent} />
+          <DailyWidgets clinicId={clinicId} questions={questions} />
         </Section>
 
         <PWAInstallCard />
