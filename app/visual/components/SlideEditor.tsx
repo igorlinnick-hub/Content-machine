@@ -20,6 +20,11 @@ interface Props {
   onSlideChange: (next: UISlide) => void
   // Called after a successful AI fix.
   onAIFix: (next: { slide: UISlide; preview: string }) => void
+  // Opens the PhotoPicker modal in the parent. Only fired for body/cta
+  // slides — the classic cover layout doesn't render a photo. Parent
+  // owns the modal lifecycle (knows the drive folder + current
+  // override map).
+  onChangePhoto?: () => void
 }
 
 interface FixResponse {
@@ -38,6 +43,7 @@ export function SlideEditor({
   preview,
   onSlideChange,
   onAIFix,
+  onChangePhoto,
 }: Props) {
   const [chatOpen, setChatOpen] = useState(false)
   const [instruction, setInstruction] = useState('')
@@ -143,14 +149,25 @@ export function SlideEditor({
         )}
       </div>
 
-      <div className="mt-2 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setChatOpen((v) => !v)}
-          className="text-[11px] font-medium text-sky-700 hover:text-sky-900"
-        >
-          {chatOpen ? 'Close AI fix' : '✦ Ask AI to fix this slide'}
-        </button>
+      <div className="mt-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setChatOpen((v) => !v)}
+            className="text-[11px] font-medium text-sky-700 hover:text-sky-900"
+          >
+            {chatOpen ? 'Close AI fix' : '✦ Ask AI to fix this slide'}
+          </button>
+          {onChangePhoto && slide.kind !== 'cover' && (
+            <button
+              type="button"
+              onClick={onChangePhoto}
+              className="text-[11px] font-medium text-emerald-700 hover:text-emerald-900"
+            >
+              📷 Change photo
+            </button>
+          )}
+        </div>
         {warning && (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
             {warning}

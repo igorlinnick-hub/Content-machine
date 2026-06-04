@@ -507,6 +507,7 @@ export type Database = {
           status: string | null
           style_template: Json | null
           category_id: string | null
+          photo_overrides: Json | null
         }
         Insert: {
           clinic_id?: string | null
@@ -518,6 +519,7 @@ export type Database = {
           status?: string | null
           style_template?: Json | null
           category_id?: string | null
+          photo_overrides?: Json | null
         }
         Update: {
           clinic_id?: string | null
@@ -529,6 +531,7 @@ export type Database = {
           status?: string | null
           style_template?: Json | null
           category_id?: string | null
+          photo_overrides?: Json | null
         }
         Relationships: [
           {
@@ -1087,6 +1090,50 @@ export type Database = {
             columns: ["queue_id"]
             isOneToOne: false
             referencedRelation: "video_ingest_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_index: {
+        Row: {
+          id: string
+          clinic_id: string
+          drive_folder_id: string
+          drive_file_id: string
+          file_name: string | null
+          description: string
+          tags: string[]
+          description_model: string
+          indexed_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          drive_folder_id: string
+          drive_file_id: string
+          file_name?: string | null
+          description: string
+          tags?: string[]
+          description_model: string
+          indexed_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          drive_folder_id?: string
+          drive_file_id?: string
+          file_name?: string | null
+          description?: string
+          tags?: string[]
+          description_model?: string
+          indexed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_index_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
         ]

@@ -37,6 +37,7 @@ interface Body {
   photoFolderId?: string
   length?: LengthRequest
   note?: string
+  template_variant?: 'classic' | 'wave'
 }
 
 interface GenerateOneResult {
@@ -280,11 +281,19 @@ export async function POST(req: Request) {
     // Seed default templates first so loadSharedContext picks them up.
     await ensureDefaultScriptTemplates(clinicId)
 
-    const [context, categories, style] = await Promise.all([
+    const [context, categories, baseStyle] = await Promise.all([
       loadSharedContext(clinicId),
       ensureDefaultCategories(clinicId),
       loadStyleTemplate(clinicId),
     ])
+
+    // Apply per-request template variant override (default classic).
+    // Lets the team pick the visual family at generate time without
+    // mutating the clinic-wide style template.
+    const style: VisualStyle =
+      body.template_variant === 'wave' || body.template_variant === 'classic'
+        ? { ...baseStyle, template_variant: body.template_variant }
+        : baseStyle
 
     const preMatch = matchCategory(topicText, categories)
     const ctaHint =

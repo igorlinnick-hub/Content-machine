@@ -104,6 +104,93 @@ export async function callAgentJSON<T>(opts: CallAgentOptions): Promise<T> {
   return parseJSONBlock<T>(text)
 }
 
+// Vision variant of callAgentJSON. Accepts one or more images alongside
+// the user text and routes them as `image` content blocks. Same JSON
+// parsing contract as the text-only flow. Same kill-switch.
+//
+// Image input takes raw bytes + media type — the helper handles base64
+// encoding so callers can stream straight from Drive/fetch without
+// worrying about the wire format. Pass the SDK media_type explicitly
+// ('image/jpeg' or 'image/png') so we don't ship a guess to the API.
+export interface VisionImageInput {
+  data: Buffer | Uint8Array  // raw bytes
+  mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+}
+
+export interface CallAgentVisionOptions {
+  model?: string
+  systemPrompt: string
+  userText: string
+  images: VisionImageInput[]
+  maxTokens?: number
+  cacheSystem?: boolean
+}
+
+export async function callAgentVisionJSON<T>(
+  opts: CallAgentVisionOptions
+): Promise<T> {
+  if (!llmAgentsEnabled()) {
+    throw new LLMAgentsDisabledError(
+      `LLM agents are disabled (ENABLE_LLM_AGENTS != 'true'). Refusing to call vision model=${opts.model ?? MODEL_HAIKU}.`
+    )
+  }
+  if (opts.images.length === 0) {
+    throw new Error('callAgentVisionJSON: at least one image is required')
+  }
+
+  const client = getAnthropic()
+  const model = opts.model ?? MODEL_HAIKU
+
+  const systemPayload: string | TextBlockParam[] = opts.cacheSystem
+    ? [
+        {
+          type: 'text',
+          text: opts.systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ]
+    : opts.systemPrompt
+
+  const imageBlocks = opts.images.map((img) => ({
+    type: 'image' as const,
+    source: {
+      type: 'base64' as const,
+      media_type: img.mediaType,
+      data: Buffer.from(img.data).toString('base64'),
+    },
+  }))
+
+  const supportsAdaptive = !model.includes('haiku')
+  const stream = client.messages.stream({
+    model,
+    max_tokens: opts.maxTokens ?? 1024,
+    system: systemPayload,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          ...imageBlocks,
+          { type: 'text' as const, text: opts.userText },
+        ],
+      },
+    ],
+    ...(supportsAdaptive ? { thinking: { type: 'adaptive' } } : {}),
+  })
+
+  const final = await stream.finalMessage()
+  const textBlocks = final.content.flatMap((b) =>
+    b.type === 'text' ? [b.text] : []
+  )
+  const text = textBlocks.length > 0 ? textBlocks[textBlocks.length - 1] : ''
+  if (!text) {
+    const types = final.content.map((b) => b.type).join(',')
+    throw new Error(
+      `callAgentVisionJSON: no text block returned. stop_reason=${final.stop_reason} block_types=[${types}]`
+    )
+  }
+  return parseJSONBlock<T>(text)
+}
+
 function parseJSONBlock<T>(raw: string): T {
   let s = raw.trim()
   const fence = s.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/)

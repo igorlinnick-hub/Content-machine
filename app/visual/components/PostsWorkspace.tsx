@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
 import { SlideEditor, type UISlide } from './SlideEditor'
+import { PhotoPicker } from './PhotoPicker'
 
 interface Props {
   clinicId: string
@@ -19,7 +20,15 @@ interface PostDetail {
   slides: UISlide[]
   previews: string[]
   created_at: string
+  // Effective Drive folder used by the renderer for body/cta photos.
+  // Null when neither slide_set nor category has one — PhotoPicker
+  // disables the re-index button in that case.
+  drive_folder_id: string | null
+  // Per-slide-index override map. Populated by PhotoPicker.
+  photo_overrides: Record<string, string | null>
 }
+
+type StyleVariant = 'classic' | 'wave'
 
 interface GenerateResponse {
   slide_set_id: string | null
@@ -49,8 +58,15 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
 
   const [topic, setTopic] = useState('')
   const [note, setNote] = useState('')
+  const [styleVariant, setStyleVariant] = useState<StyleVariant>('classic')
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
+
+  // PhotoPicker modal state — null = closed; otherwise the index of the
+  // slide whose photo is being changed.
+  const [photoPickerForIndex, setPhotoPickerForIndex] = useState<number | null>(
+    null
+  )
 
   useEffect(() => {
     if (!selectedId) {
@@ -96,6 +112,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           clinicId,
           topic: topic.trim(),
           note: note.trim() || undefined,
+          template_variant: styleVariant,
         }),
       })
       const data = await res.json()
@@ -126,6 +143,8 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           slides: fresh.slides,
           previews: fresh.previews,
           created_at: newItem.created_at,
+          drive_folder_id: null, // hydrated on next GET
+          photo_overrides: {},
         })
         setDrafts(fresh.slides.slice())
         setLoading(false)
@@ -162,6 +181,21 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
       setError(e instanceof Error ? e.message : 'failed to save')
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Re-fetch post detail. Called by PhotoPicker after a successful
+  // pick so previews + photo_overrides are fresh on screen.
+  async function reloadDetail() {
+    if (!selectedId) return
+    try {
+      const res = await fetch(`/api/posts/${selectedId}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+      setDetail(data as PostDetail)
+      setDrafts(((data as PostDetail).slides ?? []).slice())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'failed to refresh')
     }
   }
 
@@ -231,14 +265,32 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
             <p className="text-xs text-neutral-600">
               Writer + critic + slide splitter run on the backend. ~3-5 min for a finished carousel.
             </p>
-            <button
-              type="button"
-              onClick={generate}
-              disabled={generating || !topic.trim()}
-              className="cm-btn cm-btn-primary text-sm"
-            >
-              {generating ? 'Generating…' : 'Generate'}
-            </button>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-neutral-700">
+                <span className="font-medium uppercase tracking-wider text-neutral-500">
+                  Style
+                </span>
+                <select
+                  value={styleVariant}
+                  onChange={(e) =>
+                    setStyleVariant(e.target.value as StyleVariant)
+                  }
+                  disabled={generating}
+                  className="cm-input text-xs"
+                >
+                  <option value="classic">Classic (TMS)</option>
+                  <option value="wave">Wave (ED)</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={generate}
+                disabled={generating || !topic.trim()}
+                className="cm-btn cm-btn-primary text-sm"
+              >
+                {generating ? 'Generating…' : 'Generate'}
+              </button>
+            </div>
           </div>
           {genError && (
             <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -373,6 +425,11 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
                         return { ...d, slides, previews }
                       })
                     }}
+                    onChangePhoto={
+                      slide.kind === 'cover'
+                        ? undefined
+                        : () => setPhotoPickerForIndex(i)
+                    }
                   />
                 ))}
               </ul>
@@ -380,6 +437,20 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           )}
         </section>
       </div>
+
+      {detail && photoPickerForIndex !== null && (
+        <PhotoPicker
+          clinicId={clinicId}
+          slideSetId={detail.slide_set_id}
+          slideIndex={photoPickerForIndex}
+          driveFolderId={detail.drive_folder_id}
+          currentFileId={
+            detail.photo_overrides?.[String(photoPickerForIndex)] ?? null
+          }
+          onClose={() => setPhotoPickerForIndex(null)}
+          onPicked={reloadDetail}
+        />
+      )}
     </div>
   )
 }

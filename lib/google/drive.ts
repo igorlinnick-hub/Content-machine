@@ -91,11 +91,13 @@ export function getDriveClient(): drive_v3.Drive {
   return driveClient()
 }
 
-// Fetch a Drive image as a base64 data URL via the SA. Works for files
-// shared with the SA regardless of public-link sharing — bytes flow
-// through our server. Used by the renderer when it needs an image URL
-// puppeteer can resolve without Drive auth (which it can't).
-export async function getPhotoDataUrl(fileId: string): Promise<string | null> {
+// Fetch a Drive image as raw bytes + mime type. Used by the vision
+// photo indexer (needs un-base64'd bytes for the Anthropic SDK) and as
+// the underlying primitive of getPhotoDataUrl. Returns null on any
+// Drive error — keeps callers simple.
+export async function getPhotoBytes(
+  fileId: string
+): Promise<{ data: Buffer; mimeType: string } | null> {
   try {
     const drive = driveClient()
     const meta = await drive.files.get({
@@ -108,9 +110,18 @@ export async function getPhotoDataUrl(fileId: string): Promise<string | null> {
       { fileId, alt: 'media', supportsAllDrives: true },
       { responseType: 'arraybuffer' }
     )
-    const buf = Buffer.from(res.data as ArrayBuffer)
-    return `data:${mime};base64,${buf.toString('base64')}`
+    return { data: Buffer.from(res.data as ArrayBuffer), mimeType: mime }
   } catch {
     return null
   }
+}
+
+// Fetch a Drive image as a base64 data URL via the SA. Works for files
+// shared with the SA regardless of public-link sharing — bytes flow
+// through our server. Used by the renderer when it needs an image URL
+// puppeteer can resolve without Drive auth (which it can't).
+export async function getPhotoDataUrl(fileId: string): Promise<string | null> {
+  const bytes = await getPhotoBytes(fileId)
+  if (!bytes) return null
+  return `data:${bytes.mimeType};base64,${bytes.data.toString('base64')}`
 }
