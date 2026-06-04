@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface Pick {
   drive_file_id: string
@@ -77,6 +77,10 @@ export function PhotoPicker({
   } | null>(null)
   const [indexMsg, setIndexMsg] = useState<string | null>(null)
   const [picking, setPicking] = useState<string | null>(null)
+  // Cancel signal is a ref because the index loop captures it across
+  // awaits. Using state caused the loop to read a stale `false` until
+  // the next render; ref reads the live value at every iteration.
+  const cancelRef = useRef(false)
   const [cancelRequested, setCancelRequested] = useState(false)
 
   async function loadRecommendations() {
@@ -113,12 +117,14 @@ export function PhotoPicker({
   async function reindex() {
     if (!driveFolderId) return
     setIndexing(true)
+    cancelRef.current = false
     setCancelRequested(false)
     setIndexMsg(null)
     setIndexProgress(null)
 
     let totalIndexedThisRun = 0
     let total: number | null = null
+    let safetyHit = false
     let safety = 30 // hard cap on loop iterations (max ~240 photos / run)
 
     try {
@@ -155,20 +161,28 @@ export function PhotoPicker({
         if ((data.remaining ?? 0) === 0 || data.indexed === 0) {
           break
         }
-        // Cooperative cancel between batches.
-        if (cancelRequested) break
+        // Cooperative cancel between batches (ref so we read the live
+        // value, not the closure capture from invocation time).
+        if (cancelRef.current) break
+        if (safety === 0) safetyHit = true
       }
       const t = total ?? 0
-      setIndexMsg(
-        cancelRequested
-          ? `Cancelled · ${totalIndexedThisRun} indexed this run`
-          : `Indexed ${totalIndexedThisRun} new / ${t} total`
-      )
+      const cancelled = cancelRef.current
+      if (cancelled) {
+        setIndexMsg(`Cancelled · ${totalIndexedThisRun} indexed this run`)
+      } else if (safetyHit) {
+        setIndexMsg(
+          `Indexed ${totalIndexedThisRun} of ${t} this run. Folder is large — click ↻ Re-index again to continue.`
+        )
+      } else {
+        setIndexMsg(`Indexed ${totalIndexedThisRun} new / ${t} total`)
+      }
       await loadRecommendations()
     } catch (e) {
       setIndexMsg(e instanceof Error ? e.message : 'index failed')
     } finally {
       setIndexing(false)
+      cancelRef.current = false
       setCancelRequested(false)
     }
   }
@@ -221,7 +235,10 @@ export function PhotoPicker({
             {indexing ? (
               <button
                 type="button"
-                onClick={() => setCancelRequested(true)}
+                onClick={() => {
+                  cancelRef.current = true
+                  setCancelRequested(true)
+                }}
                 disabled={cancelRequested}
                 className="cm-btn cm-btn-ghost text-xs"
               >

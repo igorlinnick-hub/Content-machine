@@ -2,11 +2,16 @@ import { NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { createServerClient } from '@/lib/supabase/server'
-import { listPhotoIndexForFolder } from '@/lib/visual/photo-index-store'
+import {
+  listPhotoIndexForFolder,
+  getPhotoOverrides,
+} from '@/lib/visual/photo-index-store'
 import {
   runPhotoMatcher,
   type PhotoCandidate,
 } from '@/lib/agents/photo-matcher'
+import { resolveEffectiveFolderId } from '@/lib/visual/folder'
+import { getPhotosFromFolder } from '@/lib/google/drive'
 import type { TypedSlide } from '@/types'
 
 export const runtime = 'nodejs'
@@ -50,12 +55,10 @@ export async function POST(req: Request) {
   const supabase = createServerClient()
   const { data: row, error } = await supabase
     .from('slide_sets')
-    .select(
-      'clinic_id, drive_folder_id, category_id, slides, clinic_categories ( drive_folder_id )'
-    )
+    .select('clinic_id, slides')
     .eq('id', slideSetId)
     .maybeSingle()
-  if (error || !row) {
+  if (error || !row || !row.clinic_id) {
     return NextResponse.json({ error: 'slide_set not found' }, { status: 404 })
   }
 
@@ -68,14 +71,8 @@ export async function POST(req: Request) {
   }
   const slide = slides[slideIndex]
 
-  const cat = Array.isArray(row.clinic_categories)
-    ? row.clinic_categories[0]
-    : row.clinic_categories
-  const folderId =
-    row.drive_folder_id ??
-    (cat as { drive_folder_id?: string | null } | null | undefined)?.drive_folder_id ??
-    null
-  if (!folderId || !row.clinic_id) {
+  const folderId = await resolveEffectiveFolderId(slideSetId)
+  if (!folderId) {
     return NextResponse.json(
       { error: 'no drive folder linked to this slide_set' },
       { status: 400 }
@@ -112,6 +109,31 @@ export async function POST(req: Request) {
     tags: r.tags,
   }))
 
+  // Build the exclude list: every drive_file_id assigned to OTHER body/
+  // cta slides in this post — both explicit overrides AND the auto-cycle
+  // default for slides that don't have an override yet. Cover slides
+  // never carry photos in the classic template, so they contribute
+  // nothing. Effect: matcher never suggests a photo already in use,
+  // operator never sees duplicates across the carousel.
+  const overrides = await getPhotoOverrides(slideSetId)
+  const driveList = await getPhotosFromFolder(folderId).catch(() => [])
+  const driveCount = driveList.length
+  const exclude = new Set<string>()
+  for (let i = 0; i < slides.length; i += 1) {
+    if (i === slideIndex) continue
+    const s = slides[i]
+    if (s.kind === 'cover') continue
+    const ov = overrides[String(i)]
+    if (ov) {
+      exclude.add(ov)
+      continue
+    }
+    if (driveCount > 0) {
+      const auto = driveList[i % driveCount]?.id
+      if (auto) exclude.add(auto)
+    }
+  }
+
   // Cover slides do not carry photos in the classic template — but we
   // still let the matcher run so a future cover layout that uses photos
   // doesn't need a new endpoint.
@@ -125,6 +147,7 @@ export async function POST(req: Request) {
     postContext: null,
     candidates,
     topN: Math.max(1, Math.min(body.topN ?? 5, 10)),
+    excludeFileIds: Array.from(exclude),
   })
 
   return NextResponse.json({

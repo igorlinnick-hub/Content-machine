@@ -12,8 +12,9 @@ import { MODEL_HAIKU, callAgentJSON } from './base'
 const SYSTEM_PROMPT = `You are a photo curator for an Instagram-style social post. You receive:
 - ONE slide context (a chip / headline + body text)
 - A catalog of available photos (drive_file_id + 1-2 sentence description)
+- An "already_used" list of drive_file_id strings already assigned to OTHER slides in the same post — NEVER include any of these in your picks (the team wants visual variety across the carousel).
 
-Rank the photos by how well they fit the slide. Bias toward:
+Rank the remaining photos by how well they fit the slide. Bias toward:
 - subject match (a slide about "magnetic stimulation" should prefer photos that show TMS equipment, scalp coils, brain models — not unrelated stock)
 - mood match (a "still have questions" CTA should prefer warmer / face-to-face photos)
 - specificity (a slide that names a body part or procedure prefers a photo that shows it concretely)
@@ -21,7 +22,7 @@ Rank the photos by how well they fit the slide. Bias toward:
 Avoid:
 - generic stock when a specific match exists
 - photos that visually contradict the slide claim
-- repeating one photo across multiple slides (caller will dedupe — your job is single-slide ranking)
+- anything whose drive_file_id appears in already_used
 
 Respond with ONLY valid JSON, no markdown fences, no commentary:
 {
@@ -31,7 +32,7 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
   ]
 }
 
-If no photo in the catalog meaningfully fits, return picks: [].`
+If no photo in the catalog meaningfully fits (or every fit is already used), return picks: [].`
 
 export interface PhotoCandidate {
   drive_file_id: string
@@ -54,6 +55,10 @@ export interface MatchPhotoToSlideInput {
   candidates: PhotoCandidate[]
   // How many picks to return. Defaults to 5.
   topN?: number
+  // Drive file IDs already assigned to OTHER slides in the same post.
+  // Matcher excludes them so the carousel doesn't dup photos. Hard
+  // filter on top of the LLM's bias — defence-in-depth.
+  excludeFileIds?: string[]
 }
 
 export interface MatchPick {
@@ -75,10 +80,23 @@ export async function runPhotoMatcher(
     return { picks: [], model: MODEL_HAIKU }
   }
 
+  // Hard filter exclusions before we ever hit the LLM — protects against
+  // a model that ignores the system-prompt rule. Soft filter (system
+  // prompt) covers semantic dup ("close-up of the same room"); hard
+  // filter covers exact dup ("same drive_file_id").
+  const excluded = new Set(input.excludeFileIds ?? [])
+  const filtered = input.candidates.filter(
+    (c) => !excluded.has(c.drive_file_id)
+  )
+  if (filtered.length === 0) {
+    return { picks: [], model: MODEL_HAIKU }
+  }
+
   // Trim catalog to a reasonable upper bound. Past ~50 photos the prompt
-  // grows linearly and the matcher gets distracted; pre-rank fallback
-  // can sort by tag overlap before we get here.
-  const catalog = input.candidates.slice(0, 50).map((c) => ({
+  // grows linearly and the matcher gets distracted; tier-2 (see
+  // memory/project_photo_scale_strategy) introduces tag-overlap pre-rank
+  // when folders cross this threshold.
+  const catalog = filtered.slice(0, 50).map((c) => ({
     drive_file_id: c.drive_file_id,
     description: c.description,
     tags: (c.tags ?? []).slice(0, 6),
@@ -89,6 +107,7 @@ export async function runPhotoMatcher(
     post_context: input.postContext ?? null,
     top_n: topN,
     catalog,
+    already_used: input.excludeFileIds ?? [],
   }
 
   const raw = await callAgentJSON<{ picks: MatchPick[] }>({
@@ -106,7 +125,8 @@ export async function runPhotoMatcher(
             !!p &&
             typeof p.drive_file_id === 'string' &&
             typeof p.score === 'number' &&
-            typeof p.reason === 'string'
+            typeof p.reason === 'string' &&
+            !excluded.has(p.drive_file_id)
         )
         .slice(0, topN)
     : []
