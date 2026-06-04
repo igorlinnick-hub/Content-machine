@@ -30,6 +30,7 @@ export function coerceSlides(
 // Public API. Builds a self-contained HTML document for one slide based on
 // its kind. Photo URL is optional — body/cta fall back to brand-coloured
 // surface, cover always uses the white surface with sky gradient.
+// Variant is taken from `style.template_variant` (default 'classic').
 export function buildSlideHTML(
   slide: TypedSlide | string,
   photoUrl: string | null,
@@ -40,6 +41,20 @@ export function buildSlideHTML(
     typeof slide === 'string'
       ? coerceSlides([slide])[0]
       : slide
+
+  const variant = style.template_variant ?? 'classic'
+
+  if (variant === 'wave') {
+    switch (typed.kind) {
+      case 'cover':
+        return buildCoverWaveHTML(typed, style, opts)
+      case 'cta':
+        return buildCtaWaveHTML(typed, photoUrl, style, opts)
+      case 'body':
+      default:
+        return buildBodyWaveHTML(typed, photoUrl, style, opts)
+    }
+  }
 
   switch (typed.kind) {
     case 'cover':
@@ -192,20 +207,24 @@ function buildBodyHTML(
   .top-card {
     position: absolute;
     top: ${padding}px;
-    left: ${padding}px; right: ${padding}px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: 70%;
     background: ${escapeCss(brand.primary)};
     border-radius: 20px;
-    padding: 32px 40px;
+    padding: 24px 48px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    text-align: center;
   }
   .chip {
-    font-size: 22px;
+    font-size: 28px;
     font-weight: 700;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: ${escapeCss(brand.card_text)};
-    margin-bottom: 12px;
-    opacity: 0.9;
+    margin-bottom: 0;
+    opacity: 1;
+    white-space: nowrap;
   }
   .chip-quote {
     font-size: 30px;
@@ -351,6 +370,262 @@ function buildCtaHTML(
     <div class="cta-action">${escapeHtml(action)}</div>
   </div>
   ${logoEl}
+</body></html>`
+}
+
+// ─── WAVE VARIANT ────────────────────────────────────────────────────────
+// Mirrors the ED-style Canva reference (DAHK2poX3PY):
+//   cover  — solid brand bg, white wave graphic on left, mixed-case
+//            left-aligned headline + sub.
+//   body   — full-photo bg, white wave-shaped card at top covering the
+//            top third with the chip + body text in navy.
+//   cta    — same wave card pinned to the bottom carrying the action.
+
+const WAVE_SVG = (color: string, opacity = 1) =>
+  // A soft asymmetric wave used as a decorative left-edge graphic on
+  // the cover and as the top edge of body/cta cards. 1080px wide,
+  // 280px tall — sized via CSS, so the path itself is normalized.
+  `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1080 280' preserveAspectRatio='none'>
+    <path fill='${color}' fill-opacity='${opacity}' d='M0,280 L0,80 C220,0 460,180 720,90 C880,30 1000,80 1080,40 L1080,280 Z'/>
+  </svg>`
+
+function buildCoverWaveHTML(
+  slide: TypedSlide,
+  style: VisualStyle,
+  _opts: { slideIndex?: number; slideTotal?: number }
+): string {
+  const { canvas, padding } = style
+  const brand = brandOf(style)
+  const font = style.text.primary.font
+
+  // Mixed-case for wave variant (intentionally — matches Canva ref).
+  const eyebrow = (slide.chip ?? '').trim()
+  const headline = slide.text.trim()
+  const subhead = (slide.subtext ?? '').trim()
+
+  // White semi-transparent wave anchored to the left edge.
+  const waveSvg = WAVE_SVG(escapeCss(brand.surface), 0.18)
+  const waveDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(waveSvg)}`
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8" /><style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: ${canvas.width}px; height: ${canvas.height}px; }
+  body {
+    position: relative;
+    width: ${canvas.width}px; height: ${canvas.height}px;
+    font-family: ${escapeCss(font)}, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, ${escapeCss(brand.primary)} 0%, ${escapeCss(brand.accent)} 100%);
+    color: ${escapeCss(brand.card_text)};
+    overflow: hidden;
+  }
+  .wave-left {
+    position: absolute;
+    left: -10%;
+    top: 25%;
+    width: 70%;
+    height: 50%;
+    background: url("${waveDataUri}") center/contain no-repeat;
+    transform: rotate(-12deg);
+    opacity: 0.7;
+  }
+  .frame {
+    position: absolute; inset: 0;
+    padding: ${padding + 16}px ${padding + 24}px;
+    display: flex; flex-direction: column;
+    align-items: flex-start; justify-content: center;
+    text-align: left;
+  }
+  .eyebrow {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: ${escapeCss(brand.card_text)};
+    margin-bottom: 24px;
+    opacity: 0.85;
+  }
+  .headline {
+    font-size: 88px;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: ${escapeCss(brand.card_text)};
+    max-width: 90%;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .subhead {
+    margin-top: 32px;
+    font-size: 32px;
+    font-weight: 400;
+    line-height: 1.35;
+    color: ${escapeCss(brand.card_text)};
+    max-width: 80%;
+    opacity: 0.9;
+    white-space: pre-wrap;
+  }
+</style></head><body>
+  <div class="wave-left"></div>
+  <div class="frame">
+    ${eyebrow ? `<div class="eyebrow">${escapeHtml(eyebrow)}</div>` : ''}
+    <div class="headline">${escapeHtml(headline)}</div>
+    ${subhead ? `<div class="subhead">${escapeHtml(subhead)}</div>` : ''}
+  </div>
+</body></html>`
+}
+
+function buildBodyWaveHTML(
+  slide: TypedSlide,
+  photoUrl: string | null,
+  style: VisualStyle,
+  _opts: { slideIndex?: number; slideTotal?: number }
+): string {
+  const { canvas, padding } = style
+  const brand = brandOf(style)
+  const font = style.text.primary.font
+  const bgCss = photoUrl
+    ? `background: url('${escapeCss(photoUrl)}') center/cover no-repeat ${escapeCss(brand.primary)};`
+    : `background: ${escapeCss(brand.primary)};`
+
+  const chip = (slide.chip ?? '').trim()
+  const body = slide.text.trim()
+
+  // Wave card pinned to the lower half; opaque brand colour for legibility.
+  const waveSvg = WAVE_SVG(escapeCss(brand.primary), 1)
+  const waveDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(waveSvg)}`
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8" /><style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: ${canvas.width}px; height: ${canvas.height}px; }
+  body {
+    position: relative;
+    width: ${canvas.width}px; height: ${canvas.height}px;
+    font-family: ${escapeCss(font)}, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    color: ${escapeCss(brand.card_text)};
+    overflow: hidden;
+    ${bgCss}
+  }
+  .wave-top {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 0;
+    height: 52%;
+    background: url("${waveDataUri}") top center/100% 100% no-repeat;
+  }
+  .card-body {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 42%;
+    background: ${escapeCss(brand.primary)};
+    padding: 24px ${padding}px ${padding}px;
+    display: flex; flex-direction: column;
+    justify-content: flex-start;
+  }
+  .chip {
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: ${escapeCss(brand.card_text)};
+    margin-bottom: 20px;
+  }
+  .body {
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.45;
+    color: ${escapeCss(brand.card_text)};
+    white-space: pre-wrap;
+    opacity: 0.95;
+  }
+</style></head><body>
+  <div class="wave-top"></div>
+  <div class="card-body">
+    ${chip ? `<div class="chip">${escapeHtml(chip)}</div>` : ''}
+    <div class="body">${escapeHtml(body)}</div>
+  </div>
+</body></html>`
+}
+
+function buildCtaWaveHTML(
+  slide: TypedSlide,
+  photoUrl: string | null,
+  style: VisualStyle,
+  _opts: { slideIndex?: number; slideTotal?: number }
+): string {
+  const { canvas, padding } = style
+  const brand = brandOf(style)
+  const font = style.text.primary.font
+  const bgCss = photoUrl
+    ? `background: url('${escapeCss(photoUrl)}') center/cover no-repeat ${escapeCss(brand.primary)};`
+    : `background: ${escapeCss(brand.primary)};`
+
+  const headline = (slide.chip ?? '').trim()
+  const middle = (slide.subtext ?? '').trim()
+  const action = slide.text.trim()
+
+  const waveSvg = WAVE_SVG(escapeCss(brand.primary), 1)
+  const waveDataUri = `data:image/svg+xml;utf8,${encodeURIComponent(waveSvg)}`
+
+  return `<!doctype html>
+<html><head><meta charset="utf-8" /><style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: ${canvas.width}px; height: ${canvas.height}px; }
+  body {
+    position: relative;
+    width: ${canvas.width}px; height: ${canvas.height}px;
+    font-family: ${escapeCss(font)}, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    color: ${escapeCss(brand.card_text)};
+    overflow: hidden;
+    ${bgCss}
+  }
+  .wave-top {
+    position: absolute;
+    left: 0; right: 0;
+    bottom: 0;
+    height: 58%;
+    background: url("${waveDataUri}") top center/100% 100% no-repeat;
+  }
+  .card-cta {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 48%;
+    background: ${escapeCss(brand.primary)};
+    padding: 32px ${padding}px ${padding}px;
+    display: flex; flex-direction: column;
+    align-items: flex-start; justify-content: flex-start;
+  }
+  .cta-headline {
+    font-size: 44px;
+    font-weight: 700;
+    line-height: 1.15;
+    color: ${escapeCss(brand.card_text)};
+    margin-bottom: 18px;
+  }
+  .cta-middle {
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1.4;
+    opacity: 0.9;
+    margin-bottom: 28px;
+    white-space: pre-wrap;
+  }
+  .cta-action {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: ${escapeCss(brand.card_text)};
+    line-height: 1.3;
+    white-space: pre-wrap;
+  }
+</style></head><body>
+  <div class="wave-top"></div>
+  <div class="card-cta">
+    ${headline ? `<div class="cta-headline">${escapeHtml(headline)}</div>` : ''}
+    ${middle ? `<div class="cta-middle">${escapeHtml(middle)}</div>` : ''}
+    <div class="cta-action">${escapeHtml(action)}</div>
+  </div>
 </body></html>`
 }
 

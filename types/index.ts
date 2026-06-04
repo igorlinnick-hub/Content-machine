@@ -122,6 +122,11 @@ export interface VisualStyle {
     surface_text: string  // dark — text on white
     card_text: string     // white — text on navy cards
   }
+  // Visual variant of the template family. 'classic' (HWC navy + rounded
+  // rectangle cards, uppercase) is the default. 'wave' mirrors the ED
+  // Canva reference — solid brand bg cover with mixed-case left-aligned
+  // headline + curved/wave-shaped card overlay on body/cta slides.
+  template_variant?: 'classic' | 'wave'
 }
 
 export type SlideKind = 'cover' | 'body' | 'cta'
