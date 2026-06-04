@@ -20,7 +20,23 @@ interface RecommendResponse {
   picks: Pick[]
   candidates: Candidate[]
   reason?: string
+  error?: string | null
 }
+
+interface IndexResponse {
+  indexed: number
+  skipped: number
+  total: number
+  remaining?: number
+  reason?: string
+  error?: string | null
+  errors?: { drive_file_id: string; error: string }[]
+}
+
+// One slow vision call per photo; batch size mirrors the route default.
+// Keeps each round-trip ~25-30 s on Haiku Vision and lets the UI update
+// progress between calls.
+const INDEX_BATCH = 8
 
 interface Props {
   clinicId: string
@@ -55,8 +71,13 @@ export function PhotoPicker({
   const [candidates, setCandidates] = useState<Candidate[]>([])
   const [reason, setReason] = useState<string | null>(null)
   const [indexing, setIndexing] = useState(false)
+  const [indexProgress, setIndexProgress] = useState<{
+    processed: number
+    total: number
+  } | null>(null)
   const [indexMsg, setIndexMsg] = useState<string | null>(null)
   const [picking, setPicking] = useState<string | null>(null)
+  const [cancelRequested, setCancelRequested] = useState(false)
 
   async function loadRecommendations() {
     setLoading(true)
@@ -84,34 +105,71 @@ export function PhotoPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slideSetId, slideIndex])
 
+  // Loop the index endpoint in small batches so we can show live
+  // progress and the operator can cancel mid-run. Each call indexes
+  // up to INDEX_BATCH photos and reports `remaining` so we know when
+  // to stop. Migration-missing reason short-circuits the loop with a
+  // clear message.
   async function reindex() {
     if (!driveFolderId) return
     setIndexing(true)
+    setCancelRequested(false)
     setIndexMsg(null)
+    setIndexProgress(null)
+
+    let totalIndexedThisRun = 0
+    let total: number | null = null
+    let safety = 30 // hard cap on loop iterations (max ~240 photos / run)
+
     try {
-      const res = await fetch('/api/visual/photo-index', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clinicId, driveFolderId, limit: 20 }),
-      })
-      const data = (await res.json()) as {
-        indexed: number
-        skipped: number
-        total: number
-        remaining?: number
-        error?: string
+      while (safety > 0) {
+        safety -= 1
+        const res = await fetch('/api/visual/photo-index', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            clinicId,
+            driveFolderId,
+            limit: INDEX_BATCH,
+          }),
+        })
+        const data = (await res.json()) as IndexResponse
+        if (!res.ok) {
+          throw new Error(data?.error ?? `HTTP ${res.status}`)
+        }
+        if (data.reason === 'migration_019_required') {
+          setReason('migration_019_required')
+          setIndexMsg(
+            'Migration 019 is missing — apply supabase/migrations/019_photo_index_and_overrides.sql first.'
+          )
+          break
+        }
+        totalIndexedThisRun += data.indexed
+        total = data.total
+        const processed = Math.max(
+          0,
+          (data.total ?? 0) - (data.remaining ?? 0)
+        )
+        setIndexProgress({ processed, total: data.total })
+
+        if ((data.remaining ?? 0) === 0 || data.indexed === 0) {
+          break
+        }
+        // Cooperative cancel between batches.
+        if (cancelRequested) break
       }
-      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+      const t = total ?? 0
       setIndexMsg(
-        `Indexed ${data.indexed} new / ${data.total} total${
-          data.remaining ? ` · ${data.remaining} remaining` : ''
-        }`
+        cancelRequested
+          ? `Cancelled · ${totalIndexedThisRun} indexed this run`
+          : `Indexed ${totalIndexedThisRun} new / ${t} total`
       )
       await loadRecommendations()
     } catch (e) {
       setIndexMsg(e instanceof Error ? e.message : 'index failed')
     } finally {
       setIndexing(false)
+      setCancelRequested(false)
     }
   }
 
@@ -160,19 +218,30 @@ export function PhotoPicker({
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={reindex}
-              disabled={indexing || !driveFolderId}
-              className="cm-btn cm-btn-ghost text-xs"
-              title={
-                driveFolderId
-                  ? 'Describe newly-added photos in the Drive folder'
-                  : 'No Drive folder linked'
-              }
-            >
-              {indexing ? 'Indexing…' : '↻ Re-index folder'}
-            </button>
+            {indexing ? (
+              <button
+                type="button"
+                onClick={() => setCancelRequested(true)}
+                disabled={cancelRequested}
+                className="cm-btn cm-btn-ghost text-xs"
+              >
+                {cancelRequested ? 'Cancelling…' : '⨯ Cancel'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={reindex}
+                disabled={!driveFolderId}
+                className="cm-btn cm-btn-ghost text-xs"
+                title={
+                  driveFolderId
+                    ? 'Describe newly-added photos in the Drive folder'
+                    : 'No Drive folder linked'
+                }
+              >
+                ↻ Re-index folder
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -184,7 +253,29 @@ export function PhotoPicker({
         </div>
 
         <div className="space-y-5 px-5 py-4">
-          {indexMsg && (
+          {indexing && indexProgress && indexProgress.total > 0 && (
+            <div className="rounded border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+              <div className="mb-1 flex items-center justify-between">
+                <span>
+                  Indexing photos — {indexProgress.processed} / {indexProgress.total}
+                </span>
+                <span className="text-sky-500">
+                  {Math.round((indexProgress.processed / indexProgress.total) * 100)}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded bg-sky-100">
+                <div
+                  className="h-full bg-sky-500 transition-all"
+                  style={{
+                    width: `${
+                      (indexProgress.processed / indexProgress.total) * 100
+                    }%`,
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {indexMsg && !indexing && (
             <p className="rounded border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs text-sky-800">
               {indexMsg}
             </p>
@@ -208,6 +299,19 @@ export function PhotoPicker({
                 Click <strong>↻ Re-index folder</strong> above to describe the
                 photos in this clinic&apos;s Drive folder. After that you&apos;ll
                 see smart recommendations per slide.
+              </p>
+            </div>
+          )}
+
+          {!loading && reason === 'migration_019_required' && (
+            <div className="rounded border border-red-200 bg-red-50 px-3 py-3 text-sm text-red-800">
+              <p className="mb-1 font-medium">Migration 019 not applied yet</p>
+              <p className="text-xs">
+                Open Supabase SQL Editor and run
+                <code className="mx-1 rounded bg-red-100 px-1 py-0.5">
+                  supabase/migrations/019_photo_index_and_overrides.sql
+                </code>
+                . After that, close this modal and try again.
               </p>
             </div>
           )}

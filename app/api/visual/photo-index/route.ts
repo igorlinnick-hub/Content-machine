@@ -19,7 +19,9 @@ interface Body {
   // Force re-index even if a row already exists. Default false — we
   // skip indexed files to keep cost predictable on repeat clicks.
   force?: boolean
-  // Hard cap on how many photos this single call indexes. Default 20.
+  // Hard cap on how many photos this single call indexes. Default 8.
+  // Small batches let the UI show progress between calls — caller is
+  // expected to loop until response.remaining === 0.
   limit?: number
 }
 
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
       { status: 400 }
     )
   }
-  const limit = Math.max(1, Math.min(body.limit ?? 20, 30))
+  const limit = Math.max(1, Math.min(body.limit ?? 8, 20))
 
   let allPhotos
   try {
@@ -69,9 +71,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ indexed: 0, skipped: 0, total: 0 })
   }
 
-  const alreadyIndexed = body.force
-    ? new Set<string>()
-    : await listIndexedFileIds(clinicId, driveFolderId)
+  let alreadyIndexed: Set<string>
+  try {
+    alreadyIndexed = body.force
+      ? new Set<string>()
+      : await listIndexedFileIds(clinicId, driveFolderId)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'photo_index unavailable'
+    const tableMissing = /does not exist|relation .* does not exist/i.test(msg)
+    return NextResponse.json(
+      {
+        indexed: 0,
+        skipped: 0,
+        total: allPhotos.length,
+        reason: tableMissing ? 'migration_019_required' : 'photo_index_error',
+        error: tableMissing ? null : msg,
+      },
+      { status: tableMissing ? 200 : 500 }
+    )
+  }
 
   const todo = allPhotos
     .filter((p) => !alreadyIndexed.has(p.id))

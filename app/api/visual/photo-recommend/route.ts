@@ -82,7 +82,22 @@ export async function POST(req: Request) {
     )
   }
 
-  const indexed = await listPhotoIndexForFolder(row.clinic_id, folderId)
+  // photo_index lookup can throw if migration 019 hasn't been applied
+  // yet — translate to a friendly reason so the PhotoPicker UI can
+  // tell the operator what to do instead of showing a raw 500.
+  let indexed
+  try {
+    indexed = await listPhotoIndexForFolder(row.clinic_id, folderId)
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'photo_index unavailable'
+    const tableMissing = /does not exist|relation .* does not exist/i.test(msg)
+    return NextResponse.json({
+      picks: [],
+      candidates: [],
+      reason: tableMissing ? 'migration_019_required' : 'photo_index_error',
+      error: tableMissing ? null : msg,
+    })
+  }
   if (indexed.length === 0) {
     return NextResponse.json({
       picks: [],

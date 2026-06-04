@@ -10,6 +10,7 @@ import {
 import { renderSlides } from '@/lib/visual/renderer'
 import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
 import { getPhotoOverrides } from '@/lib/visual/photo-index-store'
+import { resolveEffectiveFolderId } from '@/lib/visual/folder'
 import type { Json } from '@/types/supabase'
 import type { TypedSlide } from '@/types'
 
@@ -62,28 +63,10 @@ export async function GET(
       (b) => `data:image/png;base64,${b.toString('base64')}`
     )
 
-    // Resolve effective Drive folder for the PhotoPicker. Mirrors the
-    // priority used by photos.ts (slide_set.drive_folder_id wins, then
-    // category fallback) so the UI can re-index / browse the same
-    // folder that the renderer is pulling from.
-    let effectiveFolderId: string | null = slideSet.drive_folder_id ?? null
-    if (!effectiveFolderId) {
-      const supabase = createServerClient()
-      const { data: catRow } = await supabase
-        .from('slide_sets')
-        .select('clinic_categories ( drive_folder_id )')
-        .eq('id', slideSet.id)
-        .maybeSingle()
-      const cat = catRow
-        ? Array.isArray(catRow.clinic_categories)
-          ? catRow.clinic_categories[0]
-          : catRow.clinic_categories
-        : null
-      effectiveFolderId =
-        (cat as { drive_folder_id?: string | null } | null | undefined)
-          ?.drive_folder_id ?? null
-    }
-
+    // Effective Drive folder for the PhotoPicker. Same priority as the
+    // photo renderer (slide_set wins, category fallback) so the UI is
+    // re-indexing the same folder the renderer is reading from.
+    const effectiveFolderId = await resolveEffectiveFolderId(slideSet.id)
     const photoOverrides = await getPhotoOverrides(slideSet.id)
 
     return NextResponse.json({

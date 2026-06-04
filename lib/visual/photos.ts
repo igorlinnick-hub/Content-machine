@@ -1,7 +1,7 @@
 import type { TypedSlide, VisualStyle } from '@/types'
-import { createServerClient } from '@/lib/supabase/server'
 import { getPhotosFromFolder, getPhotoDataUrl } from '@/lib/google/drive'
 import { getPhotoOverrides } from './photo-index-store'
+import { resolveEffectiveFolderId } from './folder'
 
 // Look up the Drive folder linked to a slide_set's category and resolve
 // photo URLs (as base64 data URLs the headless browser can render) per
@@ -21,21 +21,7 @@ export async function loadPhotoUrlsForSlideSet(
   if (slides.length === 0) return []
   if (style.background.type !== 'photo') return slides.map(() => null)
 
-  const supabase = createServerClient()
-  const { data, error } = await supabase
-    .from('slide_sets')
-    .select('drive_folder_id, category_id, clinic_categories ( drive_folder_id )')
-    .eq('id', slideSetId)
-    .maybeSingle()
-  if (error || !data) return slides.map(() => null)
-
-  const cat = Array.isArray(data.clinic_categories)
-    ? data.clinic_categories[0]
-    : data.clinic_categories
-  const folderId =
-    data.drive_folder_id ??
-    (cat as { drive_folder_id?: string | null } | null | undefined)?.drive_folder_id ??
-    null
+  const folderId = await resolveEffectiveFolderId(slideSetId)
   if (!folderId) return slides.map(() => null)
 
   const overrides = await getPhotoOverrides(slideSetId)
