@@ -116,7 +116,19 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+      if (!res.ok) {
+        // Kill-switch on — show the human "batch day" message instead
+        // of the bare LLM_AGENTS_DISABLED token. Anything else falls
+        // through to the original error string.
+        if (
+          res.status === 503 &&
+          (data?.error === 'LLM_AGENTS_DISABLED' ||
+            data?.ok === false)
+        ) {
+          throw new Error('LLM_AGENTS_DISABLED')
+        }
+        throw new Error(data?.error ?? `HTTP ${res.status}`)
+      }
       const fresh = data as GenerateResponse
 
       if (fresh.slide_set_id) {
@@ -292,10 +304,28 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
               </button>
             </div>
           </div>
-          {genError && (
-            <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {genError}
-            </p>
+          {genError === 'LLM_AGENTS_DISABLED' ? (
+            <div className="rounded border border-sky-200 bg-sky-50 px-3 py-3 text-xs text-sky-800">
+              <p className="mb-1 font-semibold">
+                Post generation is on subscription-pause
+              </p>
+              <p className="text-[11px] leading-relaxed">
+                The web app is running in subscription-only mode — daily work
+                (arsenal, manual photo picks, editing) stays free. New
+                carousels generate on <strong>batch day</strong> when{' '}
+                <code className="rounded bg-sky-100 px-1">
+                  ENABLE_LLM_AGENTS=true
+                </code>{' '}
+                is flipped in Vercel env vars. For urgent posts use the arsenal
+                flow in Telegram.
+              </p>
+            </div>
+          ) : (
+            genError && (
+              <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {genError}
+              </p>
+            )
           )}
         </div>
       </section>

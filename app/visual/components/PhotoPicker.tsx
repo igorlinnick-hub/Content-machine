@@ -248,12 +248,14 @@ export function PhotoPicker({
               <button
                 type="button"
                 onClick={reindex}
-                disabled={!driveFolderId}
+                disabled={!driveFolderId || reason === 'llm_disabled'}
                 className="cm-btn cm-btn-ghost text-xs"
                 title={
-                  driveFolderId
-                    ? 'Describe newly-added photos in the Drive folder'
-                    : 'No Drive folder linked'
+                  reason === 'llm_disabled'
+                    ? 'AI indexing is paused (subscription mode). Enable on batch day to refresh descriptions.'
+                    : driveFolderId
+                      ? 'Describe newly-added photos in the Drive folder'
+                      : 'No Drive folder linked'
                 }
               >
                 ↻ Re-index folder
@@ -311,11 +313,22 @@ export function PhotoPicker({
 
           {!loading && reason === 'no_photos_indexed' && (
             <div className="rounded border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-800">
-              <p className="mb-1 font-medium">No photos indexed yet</p>
+              <p className="mb-1 font-medium">Pick a photo manually</p>
               <p className="text-xs">
-                Click <strong>↻ Re-index folder</strong> above to describe the
-                photos in this clinic&apos;s Drive folder. After that you&apos;ll
-                see smart recommendations per slide.
+                All photos from this clinic&apos;s Drive folder are shown
+                below. Click <strong>↻ Re-index folder</strong> to add AI
+                recommendations for this and future slides.
+              </p>
+            </div>
+          )}
+
+          {!loading && reason === 'llm_disabled' && (
+            <div className="rounded border border-sky-200 bg-sky-50 px-3 py-3 text-sm text-sky-800">
+              <p className="mb-1 font-medium">AI suggestions paused</p>
+              <p className="text-xs">
+                Manual photo pick is fully available — all Drive photos are
+                shown below. AI recommendations + indexing turn on automatically
+                on batch day when <code className="rounded bg-sky-100 px-1">ENABLE_LLM_AGENTS=true</code>.
               </p>
             </div>
           )}

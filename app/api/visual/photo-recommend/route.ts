@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
-import { disabledHttpResponse } from '@/lib/agents/disabled'
+import { llmAgentsEnabled } from '@/lib/agents/disabled'
 import { createServerClient } from '@/lib/supabase/server'
 import {
   listPhotoIndexForFolder,
@@ -33,8 +33,11 @@ export async function POST(req: Request) {
   if (!access || access.role !== 'admin') {
     return NextResponse.json({ error: 'admin access required' }, { status: 403 })
   }
-  const off = await disabledHttpResponse()
-  if (off) return off
+  // Subscription mode (kill-switch on): the route stays usable — we
+  // skip the AI matcher call but still hand back the raw Drive folder
+  // contents so the team can pick photos manually. Frontend keys off
+  // reason: 'llm_disabled' to show the right banner.
+  const aiOn = llmAgentsEnabled()
 
   let body: Body
   try {
@@ -79,31 +82,75 @@ export async function POST(req: Request) {
     )
   }
 
-  // photo_index lookup can throw if migration 019 hasn't been applied
-  // yet — translate to a friendly reason so the PhotoPicker UI can
-  // tell the operator what to do instead of showing a raw 500.
-  let indexed
+  // Always grab the raw Drive list — it's the subscription-mode
+  // fallback AND the source for the exclude-list auto-cycle. Fail
+  // soft: a Drive hiccup shouldn't 500 the picker.
+  const driveList = await getPhotosFromFolder(folderId).catch(() => [])
+
+  // photo_index lookup can throw if migration 019 hasn't been applied.
+  // Translate to a friendly reason instead of a raw 500.
+  let indexed: Awaited<ReturnType<typeof listPhotoIndexForFolder>> = []
+  let indexErrorReason: string | null = null
   try {
     indexed = await listPhotoIndexForFolder(row.clinic_id, folderId)
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'photo_index unavailable'
     const tableMissing = /does not exist|relation .* does not exist/i.test(msg)
-    return NextResponse.json({
-      picks: [],
-      candidates: [],
-      reason: tableMissing ? 'migration_019_required' : 'photo_index_error',
-      error: tableMissing ? null : msg,
-    })
+    indexErrorReason = tableMissing
+      ? 'migration_019_required'
+      : 'photo_index_error'
   }
-  if (indexed.length === 0) {
+
+  // Build the candidate list the UI will render in the grid. Priority:
+  //   1. photo_index rows (have AI descriptions) — preferred
+  //   2. raw Drive photos (no description, just thumbnails) — fallback
+  // so the picker is useful in subscription-only mode and even before
+  // anyone has hit Re-index.
+  type Candidate = {
+    drive_file_id: string
+    file_name: string | null
+    description: string
+    tags: string[]
+  }
+
+  const gridCandidates: Candidate[] =
+    indexed.length > 0
+      ? indexed.map((r) => ({
+          drive_file_id: r.drive_file_id,
+          file_name: r.file_name,
+          description: r.description,
+          tags: r.tags,
+        }))
+      : driveList.map((p) => ({
+          drive_file_id: p.id,
+          file_name: p.name,
+          description: '',
+          tags: [],
+        }))
+
+  // Reason taxonomy for the frontend banner.
+  //   migration_019_required → red, "run the SQL"
+  //   llm_disabled            → blue, "AI on pause, pick manually"
+  //   no_photos_indexed       → amber, "Re-index folder to get suggestions"
+  //   null                    → no banner (happy path)
+  let reason: string | null = indexErrorReason
+  if (!reason && !aiOn) reason = 'llm_disabled'
+  if (!reason && indexed.length === 0 && driveList.length > 0) {
+    reason = 'no_photos_indexed'
+  }
+
+  // Skip the matcher in subscription mode, when index is empty, or
+  // when there are simply no photos in the folder. Either of those
+  // returns the empty-picks shape and the UI degrades to the grid.
+  if (!aiOn || indexed.length === 0) {
     return NextResponse.json({
       picks: [],
-      candidates: [],
-      reason: 'no_photos_indexed',
+      candidates: gridCandidates,
+      reason,
     })
   }
 
-  const candidates: PhotoCandidate[] = indexed.map((r) => ({
+  const matcherCandidates: PhotoCandidate[] = indexed.map((r) => ({
     drive_file_id: r.drive_file_id,
     description: r.description,
     tags: r.tags,
@@ -111,12 +158,9 @@ export async function POST(req: Request) {
 
   // Build the exclude list: every drive_file_id assigned to OTHER body/
   // cta slides in this post — both explicit overrides AND the auto-cycle
-  // default for slides that don't have an override yet. Cover slides
-  // never carry photos in the classic template, so they contribute
-  // nothing. Effect: matcher never suggests a photo already in use,
+  // default. Effect: matcher never suggests a photo already in use,
   // operator never sees duplicates across the carousel.
   const overrides = await getPhotoOverrides(slideSetId)
-  const driveList = await getPhotosFromFolder(folderId).catch(() => [])
   const driveCount = driveList.length
   const exclude = new Set<string>()
   for (let i = 0; i < slides.length; i += 1) {
@@ -134,9 +178,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Cover slides do not carry photos in the classic template — but we
-  // still let the matcher run so a future cover layout that uses photos
-  // doesn't need a new endpoint.
   const matcher = await runPhotoMatcher({
     slide: {
       kind: slide.kind,
@@ -145,19 +186,15 @@ export async function POST(req: Request) {
       subtext: slide.subtext ?? null,
     },
     postContext: null,
-    candidates,
+    candidates: matcherCandidates,
     topN: Math.max(1, Math.min(body.topN ?? 5, 10)),
     excludeFileIds: Array.from(exclude),
   })
 
   return NextResponse.json({
     picks: matcher.picks,
-    candidates: indexed.map((r) => ({
-      drive_file_id: r.drive_file_id,
-      file_name: r.file_name,
-      description: r.description,
-      tags: r.tags,
-    })),
+    candidates: gridCandidates,
+    reason,
   })
 }
 
