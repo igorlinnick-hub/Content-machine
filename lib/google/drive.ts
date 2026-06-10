@@ -1,5 +1,6 @@
 import { google } from 'googleapis'
 import type { drive_v3 } from 'googleapis'
+import { Readable } from 'node:stream'
 
 // Full Drive scope so the SA can also write — needed for the /clips
 // pipeline (creating per-clip subfolders, uploading cleaned mp4 +

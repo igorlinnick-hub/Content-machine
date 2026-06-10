@@ -13,7 +13,9 @@ import type {
   InsightType,
   ScriptFeedbackEntry,
   FeedbackAction,
+  RoleBlock,
 } from '@/types'
+import type { Json } from '@/types/supabase'
 import { createServerClient } from './server'
 
 const DEFAULT_VISUAL_STYLE: VisualStyle = {
@@ -466,6 +468,11 @@ export interface ScoredVariant {
   // the dashboard can show "made with: punchy-question-hook" on every
   // recent script card.
   template_used?: string | null
+  // Studio: speaker breakdown (who says what) + the format template
+  // this idea was generated for. Both nullable — monologue scripts
+  // leave them unset.
+  role_blocks?: RoleBlock[] | null
+  format_template_id?: string | null
 }
 
 export async function saveScripts(
@@ -486,6 +493,8 @@ export async function saveScripts(
     length_target: v.length_target ?? null,
     pair_id: v.pair_id ?? null,
     template_used: v.template_used ?? null,
+    role_blocks: (v.role_blocks ?? null) as unknown as Json,
+    format_template_id: v.format_template_id ?? null,
   }))
   const { data, error } = await supabase.from('scripts').insert(rows).select('id, variant_id')
   if (error) throw error

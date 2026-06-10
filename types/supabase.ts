@@ -447,6 +447,8 @@ export type Database = {
           short_caption: string | null
           long_caption: string | null
           template_used: string | null
+          role_blocks: Json | null
+          format_template_id: string | null
         }
         Insert: {
           approved?: boolean | null
@@ -466,6 +468,8 @@ export type Database = {
           variant_id?: string | null
           word_count?: number | null
           template_used?: string | null
+          role_blocks?: Json | null
+          format_template_id?: string | null
         }
         Update: {
           approved?: boolean | null
@@ -485,6 +489,8 @@ export type Database = {
           short_caption?: string | null
           long_caption?: string | null
           template_used?: string | null
+          role_blocks?: Json | null
+          format_template_id?: string | null
         }
         Relationships: [
           {
@@ -957,6 +963,7 @@ export type Database = {
           processed_at: string | null
           intent: string
           user_context: string | null
+          discovered_via: string | null
         }
         Insert: {
           id?: string
@@ -972,6 +979,7 @@ export type Database = {
           processed_at?: string | null
           intent?: string
           user_context?: string | null
+          discovered_via?: string | null
         }
         Update: {
           id?: string
@@ -987,6 +995,7 @@ export type Database = {
           processed_at?: string | null
           intent?: string
           user_context?: string | null
+          discovered_via?: string | null
         }
         Relationships: [
           {
@@ -1024,6 +1033,8 @@ export type Database = {
           refine_history: Json
           clinic_template_proposal: string | null
           clinic_template_note: string | null
+          view_count: number | null
+          author_handle: string | null
         }
         Insert: {
           id?: string
@@ -1050,6 +1061,8 @@ export type Database = {
           refine_history?: Json
           clinic_template_proposal?: string | null
           clinic_template_note?: string | null
+          view_count?: number | null
+          author_handle?: string | null
         }
         Update: {
           id?: string
@@ -1076,6 +1089,8 @@ export type Database = {
           refine_history?: Json
           clinic_template_proposal?: string | null
           clinic_template_note?: string | null
+          view_count?: number | null
+          author_handle?: string | null
         }
         Relationships: [
           {
@@ -1090,6 +1105,85 @@ export type Database = {
             columns: ["queue_id"]
             isOneToOne: false
             referencedRelation: "video_ingest_queue"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_slots: {
+        Row: {
+          id: string
+          clinic_id: string
+          slot_index: number
+          arsenal_id: string | null
+          current_script_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          slot_index: number
+          arsenal_id?: string | null
+          current_script_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          slot_index?: number
+          arsenal_id?: string | null
+          current_script_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_slots_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trend_sources: {
+        Row: {
+          id: string
+          clinic_id: string
+          platform: string
+          kind: string
+          handle_or_hashtag: string
+          active: boolean
+          last_scanned_at: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          platform: string
+          kind: string
+          handle_or_hashtag: string
+          active?: boolean
+          last_scanned_at?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          platform?: string
+          kind?: string
+          handle_or_hashtag?: string
+          active?: boolean
+          last_scanned_at?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trend_sources_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
         ]

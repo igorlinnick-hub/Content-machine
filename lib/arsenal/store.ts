@@ -111,6 +111,12 @@ export interface ArsenalRow {
   // straight in. Null when the source intent was plain ingest.
   clinic_template_proposal: string | null
   clinic_template_note: string | null
+  // Reach + source account, captured by the ingest skill from the
+  // platform (yt-dlp view_count / uploader). Drive the Studio video
+  // pool ranking + the per-column account/views badge. Null for
+  // legacy rows / platforms where unavailable.
+  view_count: number | null
+  author_handle: string | null
 }
 
 export interface QueueRow {
@@ -127,6 +133,10 @@ export interface QueueRow {
   processed_at: string | null
   intent: string
   user_context: string | null
+  // Provenance: 'trend_scan:<source_id>' for cron-seeded rows, null for
+  // doctor-pasted / admin-uploaded ones. Lets the skill treat account /
+  // hashtag listing URLs (trend scan) differently from a single video.
+  discovered_via: string | null
 }
 
 const PLATFORM_PATTERNS: Array<{ host: RegExp; platform: IngestPlatform }> = [
@@ -170,6 +180,8 @@ export async function enqueueIngest(params: {
   requestedByName?: string | null
   intent?: IngestIntent
   userContext?: string | null
+  // Provenance tag for cron-seeded rows, e.g. 'trend_scan:<source_id>'.
+  discoveredVia?: string | null
 }): Promise<{ row: QueueRow; reused: boolean; upgraded: boolean }> {
   const supabase = createServerClient()
   // Use upsert on (clinic_id, source_url) so a doctor pasting the same
@@ -223,6 +235,7 @@ export async function enqueueIngest(params: {
       status: 'pending',
       intent: params.intent ?? 'ingest_only',
       user_context: params.userContext ?? null,
+      discovered_via: params.discoveredVia ?? null,
     })
     .select('*')
     .single()
@@ -345,6 +358,8 @@ export async function createArsenalDraft(params: {
   sourcePlatform?: string | null
   clinicTemplateProposal?: string | null
   clinicTemplateNote?: string | null
+  viewCount?: number | null
+  authorHandle?: string | null
 }): Promise<ArsenalRow> {
   const supabase = createServerClient()
   const { data, error } = await supabase
@@ -365,6 +380,8 @@ export async function createArsenalDraft(params: {
       is_active: false,
       clinic_template_proposal: params.clinicTemplateProposal ?? null,
       clinic_template_note: params.clinicTemplateNote ?? null,
+      view_count: params.viewCount ?? null,
+      author_handle: params.authorHandle ?? null,
     })
     .select('*')
     .single()

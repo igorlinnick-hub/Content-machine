@@ -174,6 +174,25 @@ export interface ResearchOutput {
   avoid_topics: string[]
 }
 
+// ——— Role-assigned scripts (Studio) ———
+// Who delivers a line on camera. Studio ideas come with a speaker
+// breakdown so the film team knows who says what.
+export type SpeakerRole = 'Doctor' | 'Assistant' | 'Patient' | 'Narrator'
+
+export interface RoleBlock {
+  speaker: SpeakerRole
+  text: string
+  direction?: string | null // stage direction, e.g. "holds up knee model"
+}
+
+// Optional per-format role spec. When present, the Writer emits
+// role_blocks using only the allowed speakers.
+export interface RolePlan {
+  speakers: SpeakerRole[]
+  guidance?: string | null
+  default_length?: ScriptLengthTarget | null
+}
+
 export interface ScriptVariant {
   id: string
   topic: string
@@ -182,6 +201,9 @@ export interface ScriptVariant {
   word_count: number
   estimated_seconds: number
   template_name?: string | null
+  // Speaker-labelled rendition of `script`. Present only when the
+  // Writer ran in role mode (Studio). NULL/absent = monologue.
+  role_blocks?: RoleBlock[] | null
 }
 
 export interface WriterOutput {

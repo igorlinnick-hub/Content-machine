@@ -2,8 +2,38 @@ import type {
   SharedContext,
   WriterOutput,
   ScriptLengthTarget,
+  RolePlan,
+  RoleBlock,
 } from '@/types'
+import type { ArsenalBeat } from '@/lib/arsenal/store'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
+
+// A single reference video pinned as THE format to use (Studio). When
+// present, the Writer drops the "pick one of N templates" choice and
+// must follow this exact scaffold, anchored to the reference video's
+// actual structure / transcript.
+export interface PinnedFormat {
+  templateName: string
+  scaffold: string
+  description?: string | null
+  // When set, the Writer also emits role_blocks using ONLY these speakers.
+  rolePlan?: RolePlan | null
+  reference?: {
+    styleDescription?: string | null
+    transcriptExcerpt?: string | null
+    beats?: ArsenalBeat[]
+    hookVisual?: string | null
+    brollPattern?: string | null
+  } | null
+}
+
+// Canonical full_script is the join of role_blocks, so the two can never
+// disagree (downstream caption/slide/critic all key off full_script).
+export function joinRoleBlocks(blocks: RoleBlock[]): string {
+  return blocks
+    .map((b) => `${b.speaker}: ${b.text}${b.direction ? ` (${b.direction})` : ''}`)
+    .join('\n\n')
+}
 
 interface LengthSpec {
   label: 'short' | 'long'
@@ -80,6 +110,22 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
   ]
 }`
 
+// Appended to the base system prompt only when a pinned format requests
+// role assignment (Studio). Adds role_blocks to the schema. The model
+// returns role_blocks; the server derives full_script by joining them.
+const SYSTEM_PROMPT_ROLES = `
+
+ROLE MODE (active for this request):
+This is a SHOOT BRIEF for a film team, not a solo monologue. In addition to the fields above, every variant MUST include a "role_blocks" array that breaks the script into who-says-what on camera. Use ONLY the allowed speakers listed in the FORMAT block. Each block is one spoken beat. Add a short "direction" only when a physical action matters (e.g. "holds up knee model"); otherwise omit it.
+
+The "script" field must be the plain spoken text of the blocks in order (no speaker labels). role_blocks carries the speaker breakdown.
+
+Each variant's JSON gains:
+  "role_blocks": [
+    { "speaker": "Doctor", "text": "...", "direction": "optional action" },
+    { "speaker": "Patient", "text": "..." }
+  ]`
+
 function buildLengthSpecBlock(target: ScriptLengthTarget): string {
   const spec = LENGTH_SPECS[target]
   return `LENGTH SPEC — TARGET: ${spec.label.toUpperCase()} (${
@@ -94,10 +140,46 @@ function buildLengthSpecBlock(target: ScriptLengthTarget): string {
   4. Call to action — ~${spec.ctaWords} words. One specific action.`
 }
 
+function buildPinnedFormatBlock(pf: PinnedFormat): string {
+  const lines: string[] = [
+    `FORMAT — you MUST follow this exact format (do not pick another). It is modelled on a real high-performing reference video.`,
+    `=== ${pf.templateName} ===`,
+  ]
+  if (pf.description) lines.push(pf.description)
+  lines.push(pf.scaffold)
+  const ref = pf.reference
+  if (ref) {
+    if (ref.styleDescription)
+      lines.push(`\nWhat makes the reference work: ${ref.styleDescription}`)
+    if (ref.beats && ref.beats.length)
+      lines.push(
+        `Reference beat structure:\n${ref.beats
+          .map((b) => `• ${b.name} — ${b.text.slice(0, 120)}`)
+          .join('\n')}`
+      )
+    if (ref.hookVisual) lines.push(`Reference hook visual: ${ref.hookVisual}`)
+    if (ref.brollPattern) lines.push(`Reference b-roll pattern: ${ref.brollPattern}`)
+    if (ref.transcriptExcerpt)
+      lines.push(
+        `Reference transcript (excerpt — match the energy/cadence, NOT the words):\n${ref.transcriptExcerpt.slice(0, 800)}`
+      )
+  }
+  if (pf.rolePlan && pf.rolePlan.speakers.length) {
+    lines.push(
+      `\nALLOWED SPEAKERS (role_blocks must use only these): ${pf.rolePlan.speakers.join(', ')}${
+        pf.rolePlan.guidance ? `\nRole guidance: ${pf.rolePlan.guidance}` : ''
+      }`
+    )
+  }
+  return lines.join('\n')
+}
+
 function buildContextBrief(
   ctx: SharedContext,
   target: ScriptLengthTarget,
-  feedback?: string
+  feedback?: string,
+  pinnedFormat?: PinnedFormat,
+  excludeHooks?: string[]
 ): string {
   const parts: string[] = []
 
@@ -128,22 +210,37 @@ function buildContextBrief(
     )
   }
 
-  // Format templates — bias toward those that match the requested length budget.
-  const matchingTemplates = ctx.format_templates.filter(
-    (t) => t.length_bias === null || t.length_bias === target
-  )
-  const templates = matchingTemplates.length > 0 ? matchingTemplates : ctx.format_templates
-  if (templates.length > 0) {
+  if (pinnedFormat) {
+    // Studio: one format pinned to a reference video. Skip the
+    // pick-one-of-N templates block entirely.
+    parts.push(buildPinnedFormatBlock(pinnedFormat))
+  } else {
+    // Format templates — bias toward those that match the requested length budget.
+    const matchingTemplates = ctx.format_templates.filter(
+      (t) => t.length_bias === null || t.length_bias === target
+    )
+    const templates = matchingTemplates.length > 0 ? matchingTemplates : ctx.format_templates
+    if (templates.length > 0) {
+      parts.push(
+        `FORMAT TEMPLATES — pick exactly one per variant. These are STRUCTURAL scaffolds (not topics or words). Different variants should pick different templates when more than one is provided. Each template tells you HOW to lay out the post.\n\n${templates
+          .slice(0, 6)
+          .map(
+            (t, idx) =>
+              `=== Template ${idx + 1}: ${t.name}${
+                t.length_bias ? ` [bias: ${t.length_bias}]` : ''
+              } ===${t.description ? `\n${t.description}` : ''}\n${t.scaffold}`
+          )
+          .join('\n\n')}`
+      )
+    }
+  }
+
+  if (excludeHooks && excludeHooks.length) {
     parts.push(
-      `FORMAT TEMPLATES — pick exactly one per variant. These are STRUCTURAL scaffolds (not topics or words). Different variants should pick different templates when more than one is provided. Each template tells you HOW to lay out the post.\n\n${templates
-        .slice(0, 6)
-        .map(
-          (t, idx) =>
-            `=== Template ${idx + 1}: ${t.name}${
-              t.length_bias ? ` [bias: ${t.length_bias}]` : ''
-            } ===${t.description ? `\n${t.description}` : ''}\n${t.scaffold}`
-        )
-        .join('\n\n')}`
+      `DO NOT REUSE THESE HOOKS / OPENINGS (the user asked for a fresh idea — diverge from them):\n${excludeHooks
+        .filter((h) => h && h.trim())
+        .map((h) => `- "${h.trim()}"`)
+        .join('\n')}`
     )
   }
 
@@ -252,12 +349,24 @@ export interface RunWriterParams {
     script: string
     note?: string
   }
+  // Studio: pin a single reference-video format and (optionally) ask for
+  // role-assigned output. Leaves the legacy template-choice path intact.
+  pinnedFormat?: PinnedFormat
+  // Studio "regenerate": hooks to diverge from on this pass.
+  excludeHooks?: string[]
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
   const target: ScriptLengthTarget = params.lengthTarget ?? 'short'
-  const brief = buildContextBrief(params.context, target, params.feedback)
+  const brief = buildContextBrief(
+    params.context,
+    target,
+    params.feedback,
+    params.pinnedFormat,
+    params.excludeHooks
+  )
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
+  const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)
 
   const topicSection = params.topicHint
     ? `\n\nTOPIC FROM THE CONTENT PLAN — write ALL variants on this exact topic. Pick distinct angles, hooks, or format templates, but the underlying topic is fixed:\n"${params.topicHint.trim()}"\n`
@@ -277,14 +386,34 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
       }\n\nKeep what worked, fix what was weak. Tighten the hook if it was generic. Sharpen the science block. Make the clinic-approach block more concrete. Keep the same length spec.`
     : ''
 
-  const userContent = `${brief}${topicSection}${ctaSection}${refineSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must follow the LENGTH SPEC and pick one FORMAT TEMPLATE (set template_name accordingly). Return only the JSON object.`
+  const formatInstruction = params.pinnedFormat
+    ? `follow the LENGTH SPEC and the single pinned FORMAT (set template_name to "${params.pinnedFormat.templateName}")${
+        roleMode ? ' and include role_blocks using only the allowed speakers' : ''
+      }`
+    : 'follow the LENGTH SPEC and pick one FORMAT TEMPLATE (set template_name accordingly)'
 
-  return callAgentJSON<WriterOutput>({
+  const userContent = `${brief}${topicSection}${ctaSection}${refineSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
+
+  const out = await callAgentJSON<WriterOutput>({
     model: MODEL_DEFAULT,
-    systemPrompt: SYSTEM_PROMPT_BASE,
+    systemPrompt: roleMode
+      ? SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_ROLES
+      : SYSTEM_PROMPT_BASE,
     userContent,
     maxTokens: 16384,
     effort: 'low',
     cacheSystem: true,
   })
+
+  // In role mode, make full_script (= variant.script) the canonical join
+  // of role_blocks so the two can never disagree downstream.
+  if (roleMode && out?.variants) {
+    for (const v of out.variants) {
+      if (v.role_blocks && v.role_blocks.length) {
+        v.script = joinRoleBlocks(v.role_blocks)
+      }
+    }
+  }
+
+  return out
 }

@@ -54,6 +54,10 @@ interface DraftBody {
   // script_templates.scaffold on confirm.
   clinic_template_proposal?: string | null
   clinic_template_note?: string | null
+  // Reach + source account from the platform (yt-dlp view_count /
+  // uploader). Feed the Studio video pool ranking + per-column badge.
+  view_count?: number | null
+  author_handle?: string | null
 }
 
 function fmtHooks(hooks: ArsenalHook[] | undefined): string {
@@ -106,6 +110,8 @@ export async function POST(req: Request) {
       sourcePlatform: body.source_platform ?? null,
       clinicTemplateProposal: body.clinic_template_proposal ?? null,
       clinicTemplateNote: body.clinic_template_note ?? null,
+      viewCount: body.view_count ?? null,
+      authorHandle: body.author_handle ?? null,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'
