@@ -6,6 +6,21 @@ AI-driven content generation system for HWC and multi-clinic via doctor install 
 
 5-agent pipeline: Analyst → Research → Writer → Critic → Diff (SharedContext object). Prompt caching cut API cost ~70-85%.
 
+## ⚖️ COMPLIANCE (BINDING — read before touching generation)
+
+Every script/post this machine generates is for a regulated medical clinic (FDA/FTC exposure —
+clinics have been sued for the exact wording we produce). **Generation must be compliant by
+construction, and nothing publishes without a compliance check.**
+
+- **Integration brief (how to wire it):** [docs/COMPLIANCE-INTEGRATION.md](docs/COMPLIANCE-INTEGRATION.md)
+- **Rules (source of truth, machine-readable):** [docs/compliance-ruleset.md](docs/compliance-ruleset.md) (v2.1) — read, don't paraphrase. Re-sync from My Bots `docs/projects/content-compliance.md` when it changes.
+- **Plain-language do/don't:** [docs/compliance-playbook.md](docs/compliance-playbook.md)
+
+Plan: **Layer A** — inject the rules into Writer + Critic system prompts (generate compliant).
+**Layer B** — a `lib/agents/compliance.ts` gate after Critic / before publish that grades each
+item (REMOVE/REWORD/REVIEW/PASS), blocks REMOVE/REWORD, never emits a bare PASS, never says
+"safe/compliant". Never auto-publish a REMOVE. Final sign-off = medical director + counsel.
+
 ## Crew system (you are a doer in Tier 1) — audited 2026-05-18
 
 This project is **linked** to the crew-template at `~/Documents/Code Projects/crew-template/`. The harvester ran `/audit "Content machine"` on 2026-05-18 and produced:

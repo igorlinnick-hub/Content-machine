@@ -116,6 +116,8 @@ export type Database = {
           last_script_id: string | null
           completed_at: string | null
           created_at: string
+          plan_handle: string | null
+          cycle_position: number | null
         }
         Insert: {
           id?: string
@@ -126,6 +128,8 @@ export type Database = {
           last_script_id?: string | null
           completed_at?: string | null
           created_at?: string
+          plan_handle?: string | null
+          cycle_position?: number | null
         }
         Update: {
           id?: string
@@ -136,6 +140,8 @@ export type Database = {
           last_script_id?: string | null
           completed_at?: string | null
           created_at?: string
+          plan_handle?: string | null
+          cycle_position?: number | null
         }
         Relationships: [
           {
@@ -514,6 +520,8 @@ export type Database = {
           style_template: Json | null
           category_id: string | null
           photo_overrides: Json | null
+          compliance: Json | null
+          plan_id: string | null
         }
         Insert: {
           clinic_id?: string | null
@@ -526,6 +534,8 @@ export type Database = {
           style_template?: Json | null
           category_id?: string | null
           photo_overrides?: Json | null
+          compliance?: Json | null
+          plan_id?: string | null
         }
         Update: {
           clinic_id?: string | null
@@ -538,6 +548,8 @@ export type Database = {
           style_template?: Json | null
           category_id?: string | null
           photo_overrides?: Json | null
+          compliance?: Json | null
+          plan_id?: string | null
         }
         Relationships: [
           {

@@ -18,11 +18,17 @@ import { getPhotosFromFolder, getPhotoDataUrl } from '@/lib/google/drive'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
 import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
 import { ensureDefaultScriptTemplates } from '@/lib/posts/templates'
+import {
+  runComplianceGate,
+  statusFromCompliance,
+  checkServiceToken,
+} from '@/lib/posts/pipeline'
 import type {
   ScriptLengthTarget,
   SharedContext,
   VisualStyle,
   TypedSlide,
+  ComplianceResult,
 } from '@/types'
 
 export const runtime = 'nodejs'
@@ -38,6 +44,10 @@ interface Body {
   length?: LengthRequest
   note?: string
   template_variant?: 'classic' | 'wave'
+  // HANDOFF-POSTS.md §22.5 — Canva-bot / cron path: pick a row from
+  // content_plan_topics by plan_handle (e.g. "POST 18"). When set,
+  // overrides topic/topicId.
+  planId?: string
 }
 
 interface GenerateOneResult {
@@ -76,6 +86,7 @@ async function generateOne(params: {
   pairId: string | null
   renderSlidesForThis: boolean
   preMatchedFolderId: string | null
+  planId?: string | null
 }): Promise<GenerateOneResult> {
   // If the user pasted a starting note, fold it into the topic hint so the
   // writer treats it as additional steering, not a separate concept.
@@ -89,6 +100,7 @@ async function generateOne(params: {
     ctaHint: params.ctaHint,
     variantCount: 3,
     lengthTarget: params.length,
+    postCarouselMode: true,
   })
   const criticOut = await runCritic({
     context: params.context,
@@ -161,6 +173,23 @@ async function generateOne(params: {
   const folderId =
     params.preMatchedFolderId || matchedCategory?.drive_folder_id || null
 
+  // Compliance gate runs on the winner BEFORE rendering. The verdict
+  // is stored on the slide_sets row alongside the rendered preview;
+  // status reflects the grade (ready_for_canva on PASS, blocked on
+  // REMOVE/REWORD, rendered on REVIEW for marketer review).
+  let compliance: ComplianceResult | null = null
+  try {
+    compliance = await runComplianceGate({
+      script: winner.script,
+      category: matchedCategory?.name ?? null,
+      topic: winner.topic,
+    })
+  } catch {
+    // Defensive — never block the pipeline if the gate misbehaves;
+    // mark for review instead so a human sees it.
+    compliance = null
+  }
+
   let slides: TypedSlide[] = []
   let previews: string[] = []
   let slideSetId: string | null = null
@@ -197,6 +226,10 @@ async function generateOne(params: {
     )
     previews = buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`)
 
+    const lifecycleStatus = compliance
+      ? statusFromCompliance(compliance)
+      : 'rendered'
+
     const slideSet = await createSlideSet({
       clinicId: params.clinicId,
       scriptId: winnerSaved.id,
@@ -204,9 +237,34 @@ async function generateOne(params: {
       styleTemplate: params.style,
       driveFolderId: folderId,
       categoryId: matchedCategory?.id ?? null,
-      status: 'rendered',
+      status: lifecycleStatus,
     })
     slideSetId = slideSet.id
+
+    // Persist compliance verdict + plan_id on the slide_set row.
+    // createSlideSet doesn't take these (legacy signature); patch them
+    // in a second UPDATE to avoid touching the shared helper.
+    if (compliance || params.planId) {
+      try {
+        const { createServerClient } = await import('@/lib/supabase/server')
+        const supabase = createServerClient()
+        const patch: Record<string, unknown> = {}
+        if (compliance) {
+          patch.compliance = JSON.parse(JSON.stringify(compliance))
+        }
+        if (params.planId) {
+          patch.plan_id = params.planId
+        }
+        await supabase
+          .from('slide_sets')
+          .update(patch as never)
+          .eq('id', slideSet.id)
+      } catch {
+        // Non-fatal — verdict missing in DB just means it's not surfaced
+        // in the UI yet. The grade still gates publish via in-memory
+        // status.
+      }
+    }
   }
 
   return {
@@ -236,9 +294,20 @@ async function generateOne(params: {
 }
 
 export async function POST(req: Request) {
-  const access = await resolveAccess()
-  if (!access || access.role !== 'admin') {
-    return NextResponse.json({ error: 'admin access required' }, { status: 403 })
+  // Two auth paths (HANDOFF-POSTS.md §22.2):
+  //   1. admin session — marketer in /visual UI
+  //   2. SERVICE_TOKEN header — Canva-bot trigger / cron entry
+  // The cron and Canva-bot paths both call this same route, just with
+  // different auth headers, so the pipeline behaviour is identical.
+  const isService = checkServiceToken(req)
+  if (!isService) {
+    const access = await resolveAccess()
+    if (!access || access.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'admin access required' },
+        { status: 403 }
+      )
+    }
   }
 
   const off = await disabledHttpResponse()
@@ -254,9 +323,10 @@ export async function POST(req: Request) {
   const clinicId = body.clinicId?.trim()
   const topicId = body.topicId?.trim()
   const freeTopic = body.topic?.trim()
-  if (!clinicId || (!topicId && !freeTopic)) {
+  const planHandle = body.planId?.trim()
+  if (!clinicId || (!topicId && !freeTopic && !planHandle)) {
     return NextResponse.json(
-      { error: 'clinicId and either topicId or topic required' },
+      { error: 'clinicId and one of topicId / topic / planId required' },
       { status: 400 }
     )
   }
@@ -274,6 +344,25 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'topic not found' }, { status: 404 })
       }
       topicText = planTopic.topic
+    } else if (planHandle) {
+      // Canva-bot / cron path — resolve plan_handle to topic via
+      // content_plan_topics. Service token already verified above.
+      const { createServerClient } = await import('@/lib/supabase/server')
+      const supabase = createServerClient()
+      const { data: row } = await supabase
+        .from('content_plan_topics')
+        .select('topic')
+        .eq('clinic_id', clinicId)
+        .eq('plan_handle', planHandle)
+        .maybeSingle()
+      const t = (row as { topic?: string | null } | null)?.topic
+      if (!t) {
+        return NextResponse.json(
+          { error: `plan_handle "${planHandle}" not found for clinic` },
+          { status: 404 }
+        )
+      }
+      topicText = t
     } else {
       topicText = freeTopic!
     }
@@ -338,6 +427,7 @@ export async function POST(req: Request) {
           // user can request slides for it later via /api/visual/generate.
           renderSlidesForThis: len === 'short',
           preMatchedFolderId: photoFolderRefs.folderId,
+          planId: body.planId ?? null,
         })
       )
     )

@@ -110,6 +110,66 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
   ]
 }`
 
+// Appended to the base system prompt for the POST CAROUSEL pipeline
+// (HANDOFF-POSTS.md §17.3 + §18). NOT used for video / arsenal flows.
+// Toggled via RunWriterParams.postCarouselMode.
+//
+// Locks the writer to:
+//   • the HWC content-plan structural arc (cover → mechanism → analogy
+//     → evidence → application → CTA stack)
+//   • compliance baseline from docs/content-plan-2026-06.md §4
+//   • mental-health-acute stripped template when the topic matches
+//     §18.1 triggers
+//   • Sources go to a separate metadata block, NEVER to the caption
+const SYSTEM_PROMPT_POSTS = `
+
+POST CAROUSEL MODE (active for this request):
+You are writing for Hawaii Wellness Clinic's Instagram carousel pipeline. Every variant MUST follow the universal structural arc below. This is non-negotiable — the editorial plan in docs/content-plan-2026-06.md §2 ships only carousels in this shape.
+
+SLIDE ARC (in order):
+  Slide 1   Cover                  — title (mixed case) + hook ending with "Swipe →"
+  Slide 2   Mechanism / Real cause — heading + intro + 3 bullets + close
+  Slide 3   Gap slide (optional)   — "why standard care misses this" — include WHEN the post explains an insurance / 15-min-visit / equipment-cost reason standard medicine skips the better option; SKIP for how-to / multi-pathway / acute topics
+  Slide 4   Think of it this way   — sticky analogy in plain prose, no bullets. e.g. "X is like Y — [the punchline]". SKIP for mental-health-acute topics (see below).
+  Slide 5   What the data shows    — bullets with sourced facts (FDA dates, trial names, %)
+  Slide 6   Who it's for           — bullets + close
+  Slide 7   Session / protocol     — optional
+  Slide 8   Why it's underused     — optional
+  Final     CTA stack              — Follow + Comment "<KEYWORD>" + Book
+
+CTA STACK FORMAT (always 3 lines unless mental-health-acute):
+  Follow → @hawaiiwellness for science-backed wellness, no hype.
+  Comment → "<KEYWORD>" and we'll <what we send>.
+  Book → tap the link in bio or DM us to start an evaluation.
+
+KEYWORD is a single ALL-CAPS word from the post topic — see lib/seeds/cta-keywords.ts for the deterministic 24-post map. If the topic matches a plan post, use that exact keyword.
+
+MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
+When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute ideation", "active ideation", "988", "lifeline", "crisis intervention" — switch to the stripped template:
+  • NO "Think of it this way" analogy slide
+  • CTA = Comment "<KEYWORD>" only + crisis line
+  • Caption MUST end with the 988 crisis line
+  • Tone stays clinical and supportive. NEVER "system failed you" / "you deserve better" framing.
+
+COMPLIANCE BASELINE (HARD — every variant must pass):
+  • NEVER claim a therapy "treats / cures / reverses / regenerates / restores" anything. Use "supports", "may help", "studies report", "pilot data shows".
+  • NEVER state "FDA-approved" or "FDA-cleared" unless literally true for that exact product. Verified dates in docs/content-plan-2026-06.md §4.2 — match those exactly:
+      TMS — depression 2008, OCD 2018, smoking 2020, anxious depression 2021 (NOT 2020)
+      Spravato — TRD Mar 2019, MDD-w-suicidal-ideation 2020, monotherapy Jan 2025
+      SELECT trial — 17,604 adults with ESTABLISHED cardiovascular disease (do not drop "established")
+      Retatrutide — investigational, NOT FDA-approved (Phase 2 NEJM 2023; Phase 3 TRIUMPH Dec 2025)
+      Peptides (BPC-157, TB-500, CJC-1295/Ipamorelin) — NOT FDA-approved
+      Exosomes — NEVER offer as a service (FDA: no approved exosome products)
+  • ALWAYS label evidence stage: "Phase 2", "pilot studies", "preclinical", "investigational, not FDA-approved".
+  • ALWAYS produce a sources array with each non-trivial factual claim cited. Sources go in a separate "sources" field — NEVER inside the script or caption.
+  • For Mental Health bucket captions, ALWAYS end the caption with: "If you or someone you know is struggling, call or text 988 — the Suicide & Crisis Lifeline."
+
+OUTPUT SHAPE (POST CAROUSEL):
+The "script" field of each variant is the full carousel rendered as readable text — cover line + each numbered slide + CTA stack. The compliance gate reads this; downstream the splitter parses it into the slide_sets row.
+
+Use the canonical examples in docs/content-plan-2026-06.md §5 (posts 01 Ketamine, 07 Painkillers, 11 Semaglutide, 18 ED) as gold-standard tone references when relevant — these are source-checked and pass compliance v2.1.
+`
+
 // Appended to the base system prompt only when a pinned format requests
 // role assignment (Studio). Adds role_blocks to the schema. The model
 // returns role_blocks; the server derives full_script by joining them.
@@ -354,6 +414,11 @@ export interface RunWriterParams {
   pinnedFormat?: PinnedFormat
   // Studio "regenerate": hooks to diverge from on this pass.
   excludeHooks?: string[]
+  // Post carousel pipeline (HANDOFF-POSTS.md §17.3 + §18). When true,
+  // appends the HWC content-plan structural template + compliance
+  // baseline + acute-trigger rules to the system prompt. Used by the
+  // shared lib/posts/pipeline.ts and the cron entry.
+  postCarouselMode?: boolean
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
@@ -394,11 +459,14 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
 
   const userContent = `${brief}${topicSection}${ctaSection}${refineSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
 
+  const systemPrompt =
+    SYSTEM_PROMPT_BASE +
+    (params.postCarouselMode ? SYSTEM_PROMPT_POSTS : '') +
+    (roleMode ? SYSTEM_PROMPT_ROLES : '')
+
   const out = await callAgentJSON<WriterOutput>({
     model: MODEL_DEFAULT,
-    systemPrompt: roleMode
-      ? SYSTEM_PROMPT_BASE + SYSTEM_PROMPT_ROLES
-      : SYSTEM_PROMPT_BASE,
+    systemPrompt,
     userContent,
     maxTokens: 16384,
     effort: 'low',
