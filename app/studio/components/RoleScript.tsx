@@ -5,6 +5,7 @@ import type { RoleBlock, SpeakerRole } from '@/types'
 // Per-speaker accent so the team can scan "who says what" at a glance.
 const SPEAKER_STYLE: Record<SpeakerRole, string> = {
   Doctor: 'bg-sky-100 text-sky-800',
+  Operator: 'bg-amber-100 text-amber-800',
   Patient: 'bg-emerald-100 text-emerald-800',
   Assistant: 'bg-violet-100 text-violet-800',
   Narrator: 'bg-neutral-200 text-neutral-700',
@@ -37,7 +38,9 @@ export function RoleScript({
           >
             {b.speaker}
           </span>
-          <p className="text-sm leading-relaxed text-neutral-800">{b.text}</p>
+          {b.text && b.text.trim() && (
+            <p className="text-sm leading-relaxed text-neutral-800">{b.text}</p>
+          )}
           {b.direction && (
             <p className="text-xs italic text-neutral-500">🎬 {b.direction}</p>
           )}

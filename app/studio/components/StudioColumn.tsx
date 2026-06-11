@@ -79,20 +79,15 @@ export function StudioColumn({
         </div>
       )}
 
-      {/* Change video */}
+      {/* Change video — pulls the next video from the clinic's base */}
       <button
         type="button"
         onClick={() => call('change-video')}
         disabled={busy !== null}
         className="cm-btn cm-btn-ghost w-full text-xs"
       >
-        {busy === 'video' ? 'Finding another…' : '🔄 Change video'}
+        {busy === 'video' ? 'Loading another…' : '🔄 Change video'}
       </button>
-      {column.below_threshold && (
-        <p className="-mt-2 text-[11px] text-amber-600">
-          Pool is thin — showing the best available below 200K views.
-        </p>
-      )}
 
       {/* Structure schema */}
       {column.schema_beats.length > 0 && (
@@ -123,10 +118,10 @@ export function StudioColumn({
         </details>
       )}
 
-      {/* Idea + roles */}
+      {/* Idea: steps + roles */}
       <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-sky-600">
-          Your idea — who says what
+          Your idea
         </p>
         {column.idea ? (
           <>
@@ -140,6 +135,25 @@ export function StudioColumn({
                 “{column.idea.hook}”
               </p>
             )}
+
+            {column.idea.steps && column.idea.steps.length > 0 && (
+              <div className="mb-3">
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                  What we&apos;ll film
+                </p>
+                <ol className="ml-4 list-decimal flex flex-col gap-1">
+                  {column.idea.steps.map((s, i) => (
+                    <li key={i} className="text-xs text-neutral-700">
+                      {s}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              Script — who says what
+            </p>
             <RoleScript
               roleBlocks={column.idea.role_blocks}
               fallbackScript={column.idea.script}
@@ -160,6 +174,20 @@ export function StudioColumn({
       >
         {busy === 'idea' ? 'Thinking…' : '✨ Regenerate idea'}
       </button>
+
+      {/* Basic filming rules — same every card, static */}
+      <div className="rounded-xl bg-neutral-50 p-3">
+        <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+          Filming basics
+        </p>
+        <ul className="flex flex-col gap-1 text-xs text-neutral-600">
+          <li>• Film inside the clinic</li>
+          <li>• Phone vertical (9:16), face the light</li>
+          <li>• Quiet room, talk close for clean audio</li>
+          <li>• One take, keep it under 60s</li>
+          <li>• Editor adds on-screen images &amp; captions after</li>
+        </ul>
+      </div>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
     </div>

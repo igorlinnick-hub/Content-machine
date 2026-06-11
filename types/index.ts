@@ -186,8 +186,9 @@ export interface ResearchOutput {
 
 // ——— Role-assigned scripts (Studio) ———
 // Who delivers a line on camera. Studio ideas come with a speaker
-// breakdown so the film team knows who says what.
-export type SpeakerRole = 'Doctor' | 'Assistant' | 'Patient' | 'Narrator'
+// breakdown so the film team knows who says what. Operator = the person
+// behind the camera (can give a spoken line or just an action/direction).
+export type SpeakerRole = 'Doctor' | 'Operator' | 'Patient' | 'Assistant' | 'Narrator'
 
 export interface RoleBlock {
   speaker: SpeakerRole
@@ -203,6 +204,14 @@ export interface RolePlan {
   default_length?: ScriptLengthTarget | null
 }
 
+// What gets stored in scripts.role_blocks for a Studio idea: the simple
+// "what we'll film" steps + the speaker-labelled script. Studio-only;
+// legacy rows store a bare RoleBlock[] (no steps) and stay readable.
+export interface StudioRolePayload {
+  steps: string[]
+  blocks: RoleBlock[]
+}
+
 export interface ScriptVariant {
   id: string
   topic: string
@@ -214,6 +223,9 @@ export interface ScriptVariant {
   // Speaker-labelled rendition of `script`. Present only when the
   // Writer ran in role mode (Studio). NULL/absent = monologue.
   role_blocks?: RoleBlock[] | null
+  // Simple, numbered "what we'll film" steps for non-actor clinic staff.
+  // Present only in Studio role mode.
+  summary_steps?: string[] | null
 }
 
 export interface WriterOutput {

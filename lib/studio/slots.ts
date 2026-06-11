@@ -7,7 +7,7 @@ import { arsenalToScaffold } from '@/lib/arsenal/template-bridge'
 import { publicUrl } from '@/lib/arsenal/storage'
 import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
 import { runWriter, type PinnedFormat } from '@/lib/agents/writer'
-import type { RoleBlock, RolePlan } from '@/types'
+import type { RoleBlock, RolePlan, StudioRolePayload } from '@/types'
 import type { Json } from '@/types/supabase'
 
 // Studio is a film board for the clinic team: a horizontal strip of
@@ -18,14 +18,14 @@ import type { Json } from '@/types/supabase'
 // video only changes when the user presses "Change video".
 
 export const STUDIO_DEFAULT_SLOTS = 3
-export const STUDIO_MIN_VIEWS = 200_000
 
-// Studio ideas are shoot briefs — break the script across on-camera
-// roles. Writer decides the distribution within these allowed speakers.
+// Studio ideas are shoot briefs filmed by the clinic's own staff INSIDE
+// the clinic. Doctor on camera; Operator is the person behind the camera
+// (a line or just an action). Patient only when the format needs one.
 const DEFAULT_ROLE_PLAN: RolePlan = {
-  speakers: ['Doctor', 'Patient', 'Assistant', 'Narrator'],
+  speakers: ['Doctor', 'Operator', 'Patient'],
   guidance:
-    'Assign lines to fit the format. The Doctor carries the medical authority; use Patient for relatable reactions/questions, Narrator for framing and the CTA, Assistant only when a second on-camera person genuinely helps. Not every speaker must appear.',
+    'Filmed inside the clinic by non-actor staff. Doctor carries the medical authority on camera; Operator (behind the camera) gives short cues or on-screen actions; Patient only when the format truly needs a second person. Keep it simple and doable. Not every speaker must appear.',
   default_length: 'short',
 }
 
@@ -34,6 +34,8 @@ export interface StudioIdea {
   topic: string
   hook: string
   script: string
+  // Simple "what we'll film" steps for non-actor staff.
+  steps: string[]
   role_blocks: RoleBlock[] | null
 }
 
@@ -48,9 +50,6 @@ export interface StudioColumn {
   schema_beats: { name: string; text: string }[]
   template_scaffold: string | null
   idea: StudioIdea | null
-  // Set when the pool had nothing at/above STUDIO_MIN_VIEWS and we fell
-  // back to the highest available video — surfaced as a subtle UI note.
-  below_threshold?: boolean
 }
 
 // ——— Idea generation (shared by seed / regenerate / change-video) ———
@@ -85,6 +84,11 @@ export async function generateIdeaForArsenal(
   const v = out.variants[0]
   if (!v) throw new Error('writer returned no variant for studio idea')
 
+  const steps = v.summary_steps ?? []
+  const blocks = v.role_blocks ?? []
+  // Studio packs steps + blocks together in the role_blocks jsonb column.
+  const payload: StudioRolePayload = { steps, blocks }
+
   const saved = await saveScripts(clinicId, [
     {
       variant_id: v.id,
@@ -96,7 +100,7 @@ export async function generateIdeaForArsenal(
       approved: false,
       length_target: 'short',
       template_used: pinnedFormat.templateName,
-      role_blocks: v.role_blocks ?? null,
+      role_blocks: payload,
       format_template_id: null,
     },
   ])
@@ -108,7 +112,8 @@ export async function generateIdeaForArsenal(
     topic: v.topic,
     hook: v.hook,
     script: v.script,
-    role_blocks: v.role_blocks ?? null,
+    steps,
+    role_blocks: blocks,
   }
 }
 
@@ -119,15 +124,14 @@ interface PoolRow {
   view_count: number | null
 }
 
-// Pick the next reference video for a column: prefer the highest-reach
-// active video at/above the threshold that isn't already on the board;
-// fall back to the highest available if the pool is thin. Returns the row
-// id + whether we dropped below the threshold.
+// Pick the next reference video for a column from the clinic's curated
+// base (the videos the team uploaded into the arsenal). No view-count
+// requirement — just the next active, playable video not already on the
+// board, ordered by reach when known. The pool is fully human-curated.
 export async function pickNextArsenal(
   clinicId: string,
-  opts: { exclude?: string[]; minViews?: number }
-): Promise<{ arsenalId: string; belowThreshold: boolean } | null> {
-  const minViews = opts.minViews ?? STUDIO_MIN_VIEWS
+  opts: { exclude?: string[] }
+): Promise<{ arsenalId: string } | null> {
   const exclude = new Set((opts.exclude ?? []).filter(Boolean))
   const supabase = createServerClient()
   // Only videos with a playable storage path qualify — Studio plays them inline.
@@ -141,11 +145,7 @@ export async function pickNextArsenal(
     .limit(60)
   const pool = ((data ?? []) as PoolRow[]).filter((r) => !exclude.has(r.id))
   if (pool.length === 0) return null
-
-  const aboveThreshold = pool.find((r) => (r.view_count ?? 0) >= minViews)
-  if (aboveThreshold) return { arsenalId: aboveThreshold.id, belowThreshold: false }
-  // Nothing meets the bar — take the highest available and flag it.
-  return { arsenalId: pool[0].id, belowThreshold: true }
+  return { arsenalId: pool[0].id }
 }
 
 // ——— Slot persistence ———
@@ -211,12 +211,25 @@ async function loadIdea(
     .eq('clinic_id', clinicId)
     .maybeSingle()
   if (!data) return null
+  // role_blocks holds either the new {steps, blocks} payload or a legacy
+  // bare RoleBlock[] (steps-less). Normalise both.
+  const raw = data.role_blocks as unknown
+  let steps: string[] = []
+  let blocks: RoleBlock[] | null = null
+  if (Array.isArray(raw)) {
+    blocks = raw as RoleBlock[]
+  } else if (raw && typeof raw === 'object') {
+    const p = raw as Partial<StudioRolePayload>
+    steps = Array.isArray(p.steps) ? p.steps : []
+    blocks = Array.isArray(p.blocks) ? p.blocks : null
+  }
   return {
     script_id: data.id,
     topic: data.topic ?? '',
     hook: data.hook ?? '',
     script: data.full_script,
-    role_blocks: (data.role_blocks as unknown as RoleBlock[] | null) ?? null,
+    steps,
+    role_blocks: blocks,
   }
 }
 
@@ -224,8 +237,7 @@ async function loadIdea(
 export async function hydrateColumn(
   clinicId: string,
   slot: SlotRow,
-  ideaOverride?: StudioIdea | null,
-  belowThreshold?: boolean
+  ideaOverride?: StudioIdea | null
 ): Promise<StudioColumn> {
   const arsenal = slot.arsenal_id
     ? await loadArsenalRow(slot.arsenal_id, clinicId)
@@ -248,7 +260,6 @@ export async function hydrateColumn(
     })),
     template_scaffold: arsenal ? arsenalToScaffold(arsenal) : null,
     idea,
-    below_threshold: belowThreshold,
   }
 }
 

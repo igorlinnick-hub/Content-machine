@@ -14,6 +14,7 @@ import type {
   ScriptFeedbackEntry,
   FeedbackAction,
   RoleBlock,
+  StudioRolePayload,
 } from '@/types'
 import type { Json } from '@/types/supabase'
 import { createServerClient } from './server'
@@ -470,8 +471,9 @@ export interface ScoredVariant {
   template_used?: string | null
   // Studio: speaker breakdown (who says what) + the format template
   // this idea was generated for. Both nullable — monologue scripts
-  // leave them unset.
-  role_blocks?: RoleBlock[] | null
+  // leave them unset. Studio stores a {steps, blocks} payload; legacy /
+  // other callers may pass a bare RoleBlock[].
+  role_blocks?: RoleBlock[] | StudioRolePayload | null
   format_template_id?: string | null
 }
 

@@ -176,14 +176,24 @@ Use the canonical examples in docs/content-plan-2026-06.md §5 (posts 01 Ketamin
 const SYSTEM_PROMPT_ROLES = `
 
 ROLE MODE (active for this request):
-This is a SHOOT BRIEF for a film team, not a solo monologue. In addition to the fields above, every variant MUST include a "role_blocks" array that breaks the script into who-says-what on camera. Use ONLY the allowed speakers listed in the FORMAT block. Each block is one spoken beat. Add a short "direction" only when a physical action matters (e.g. "holds up knee model"); otherwise omit it.
+This is a SHOOT BRIEF for the clinic's own staff — NOT professional actors — to film, not a solo monologue. Make it simple and doable.
 
-The "script" field must be the plain spoken text of the blocks in order (no speaker labels). role_blocks carries the speaker breakdown.
+SETTING (hard): everything is filmed INSIDE THE CLINIC (treatment room, hallway, reception, equipment). Never outdoors. Never reference a location the clinic doesn't have.
+ADAPT, don't copy: take the reference video's FORMAT (its structure / pacing / hook style) and rebuild it as something THIS clinic can actually shoot for ITS niche and services. Keep it concrete and easy.
+
+Every variant MUST add two fields:
+
+1. "summary_steps" — 3 to 5 short, plain-English steps telling the team WHAT to film, in order (e.g. "Doctor stands by the treatment table, phone vertical", "Name two options on screen, pick one with a one-line reason", "Do 4 rounds, end with the overall pick"). Simple enough for a non-actor to follow.
+
+2. "role_blocks" — the script broken into who-says-what on camera. Use ONLY the allowed speakers listed in the FORMAT block. Speakers: Doctor (on camera), Operator (the person behind the camera — a spoken line OR just a "direction" action like "drop two labelled images on screen"), Patient/Assistant only if the format truly needs a second person. Each block is one beat; add a short "direction" only when a physical action matters; otherwise omit it.
+
+The "script" field must be the plain spoken text of the blocks in order (no speaker labels). All output in ENGLISH.
 
 Each variant's JSON gains:
+  "summary_steps": ["...", "...", "..."],
   "role_blocks": [
     { "speaker": "Doctor", "text": "...", "direction": "optional action" },
-    { "speaker": "Patient", "text": "..." }
+    { "speaker": "Operator", "text": "", "direction": "drop two labelled images on screen" }
   ]`
 
 function buildLengthSpecBlock(target: ScriptLengthTarget): string {

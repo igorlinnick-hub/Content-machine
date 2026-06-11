@@ -8,15 +8,14 @@ import {
   pickNextArsenal,
   generateIdeaForArsenal,
   setSlotArsenal,
-  STUDIO_MIN_VIEWS,
 } from '@/lib/studio/slots'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
 // POST /api/studio/slots/<index>/change-video
-// Swaps this column to another high-reach video (>= STUDIO_MIN_VIEWS,
-// not already on the board) and regenerates schema + template + idea.
+// Swaps this column to the next video from the clinic's curated base
+// (not already on the board) and regenerates schema + template + idea.
 // Other columns are untouched. Doctor + admin.
 export async function POST(
   req: Request,
@@ -49,10 +48,7 @@ export async function POST(
   // Exclude every video currently on the board (this slot included).
   const exclude = slots.map((s) => s.arsenal_id).filter((id): id is string => Boolean(id))
 
-  const pick = await pickNextArsenal(clinicId, {
-    exclude,
-    minViews: STUDIO_MIN_VIEWS,
-  })
+  const pick = await pickNextArsenal(clinicId, { exclude })
   if (!pick)
     return NextResponse.json(
       { ok: false, error: 'no other videos in the pool yet' },
@@ -69,8 +65,7 @@ export async function POST(
     const column = await hydrateColumn(
       clinicId,
       { slot_index: slotIndex, arsenal_id: pick.arsenalId, current_script_id: idea.script_id },
-      idea,
-      pick.belowThreshold
+      idea
     )
     return NextResponse.json({ ok: true, column })
   } catch (e) {
