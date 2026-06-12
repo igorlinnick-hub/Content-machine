@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
-import { loadArsenalRow } from '@/lib/arsenal/store'
+import { loadStudioVideo } from '@/lib/studio/videos'
 import {
   loadSlotRows,
   hydrateColumn,
-  generateIdeaForArsenal,
+  generateIdeaForVideo,
   setSlotScript,
 } from '@/lib/studio/slots'
 
@@ -40,19 +40,19 @@ export async function POST(
     return NextResponse.json({ error: 'bad slot index' }, { status: 400 })
 
   const slot = (await loadSlotRows(clinicId)).find((s) => s.slot_index === slotIndex)
-  if (!slot || !slot.arsenal_id)
+  if (!slot || !slot.studio_video_id)
     return NextResponse.json({ error: 'slot has no video' }, { status: 404 })
 
-  const arsenal = await loadArsenalRow(slot.arsenal_id, clinicId)
-  if (!arsenal)
-    return NextResponse.json({ error: 'arsenal video not found' }, { status: 404 })
+  const video = await loadStudioVideo(slot.studio_video_id, clinicId)
+  if (!video)
+    return NextResponse.json({ error: 'studio video not found' }, { status: 404 })
 
   // Steer the new idea away from the current hook.
   const before = await hydrateColumn(clinicId, slot)
   const excludeHooks = before.idea?.hook ? [before.idea.hook] : []
 
   try {
-    const idea = await generateIdeaForArsenal(clinicId, arsenal, { excludeHooks })
+    const idea = await generateIdeaForVideo(clinicId, video, { excludeHooks })
     await setSlotScript(clinicId, slotIndex, idea.script_id)
     const column = await hydrateColumn(
       clinicId,

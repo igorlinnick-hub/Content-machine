@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
-import { loadArsenalRow } from '@/lib/arsenal/store'
+import { loadStudioVideo, pickNextStudioVideo } from '@/lib/studio/videos'
 import {
   loadSlotRows,
   hydrateColumn,
-  pickNextArsenal,
-  generateIdeaForArsenal,
-  setSlotArsenal,
+  generateIdeaForVideo,
+  setSlotVideo,
 } from '@/lib/studio/slots'
 
 export const runtime = 'nodejs'
@@ -46,25 +45,27 @@ export async function POST(
   if (!slot) return NextResponse.json({ error: 'slot not found' }, { status: 404 })
 
   // Exclude every video currently on the board (this slot included).
-  const exclude = slots.map((s) => s.arsenal_id).filter((id): id is string => Boolean(id))
+  const exclude = slots
+    .map((s) => s.studio_video_id)
+    .filter((id): id is string => Boolean(id))
 
-  const pick = await pickNextArsenal(clinicId, { exclude })
+  const pick = await pickNextStudioVideo(clinicId, { exclude })
   if (!pick)
     return NextResponse.json(
-      { ok: false, error: 'no other videos in the pool yet' },
+      { ok: false, error: 'no other videos in the base yet' },
       { status: 409 }
     )
 
-  const arsenal = await loadArsenalRow(pick.arsenalId, clinicId)
-  if (!arsenal)
-    return NextResponse.json({ error: 'arsenal video not found' }, { status: 404 })
+  const video = await loadStudioVideo(pick.videoId, clinicId)
+  if (!video)
+    return NextResponse.json({ error: 'studio video not found' }, { status: 404 })
 
   try {
-    const idea = await generateIdeaForArsenal(clinicId, arsenal)
-    await setSlotArsenal(clinicId, slotIndex, pick.arsenalId, idea.script_id)
+    const idea = await generateIdeaForVideo(clinicId, video)
+    await setSlotVideo(clinicId, slotIndex, pick.videoId, idea.script_id)
     const column = await hydrateColumn(
       clinicId,
-      { slot_index: slotIndex, arsenal_id: pick.arsenalId, current_script_id: idea.script_id },
+      { slot_index: slotIndex, studio_video_id: pick.videoId, current_script_id: idea.script_id },
       idea
     )
     return NextResponse.json({ ok: true, column })

@@ -1,21 +1,20 @@
 import { createServerClient } from '@/lib/supabase/server'
-import {
-  loadArsenalRow,
-  type ArsenalRow,
-} from '@/lib/arsenal/store'
-import { arsenalToScaffold } from '@/lib/arsenal/template-bridge'
 import { publicUrl } from '@/lib/arsenal/storage'
 import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
 import { runWriter, type PinnedFormat } from '@/lib/agents/writer'
+import {
+  loadStudioVideo,
+  pickNextStudioVideo,
+  studioScaffold,
+  type StudioVideo,
+} from '@/lib/studio/videos'
 import type { RoleBlock, RolePlan, StudioRolePayload } from '@/types'
-import type { Json } from '@/types/supabase'
 
 // Studio is a film board for the clinic team: a horizontal strip of
-// columns, each pinned to one high-performing reference video. From the
-// video we derive a structure schema + a template scaffold, and the
-// Writer generates a role-assigned shoot idea. State (which video + which
-// idea per column) lives in studio_slots so a reload is stable and the
-// video only changes when the user presses "Change video".
+// columns, each pinned to one reference video from the clinic's OWN
+// curated base (studio_videos — separate from the doctor-script arsenal).
+// State (which video + which idea per column) lives in studio_slots so a
+// reload is stable and the video only changes on "Change video".
 
 export const STUDIO_DEFAULT_SLOTS = 3
 
@@ -41,7 +40,7 @@ export interface StudioIdea {
 
 export interface StudioColumn {
   slot_index: number
-  arsenal_id: string | null
+  video_id: string | null
   account: string | null
   view_count: number | null
   video_url: string | null
@@ -54,23 +53,21 @@ export interface StudioColumn {
 
 // ——— Idea generation (shared by seed / regenerate / change-video) ———
 
-export async function generateIdeaForArsenal(
+export async function generateIdeaForVideo(
   clinicId: string,
-  arsenal: ArsenalRow,
+  video: StudioVideo,
   opts?: { excludeHooks?: string[] }
 ): Promise<StudioIdea> {
   const context = await loadSharedContext(clinicId)
   const pinnedFormat: PinnedFormat = {
-    templateName: `studio:${arsenal.style_label}`,
-    scaffold: arsenalToScaffold(arsenal),
-    description: arsenal.style_description,
+    templateName: `studio:${video.id.slice(0, 8)}`,
+    scaffold: studioScaffold(video),
+    description: video.style_description,
     rolePlan: DEFAULT_ROLE_PLAN,
     reference: {
-      styleDescription: arsenal.style_description,
-      transcriptExcerpt: arsenal.full_transcript,
-      beats: arsenal.structure?.beats,
-      hookVisual: arsenal.visual_notes?.hook_visual,
-      brollPattern: arsenal.visual_notes?.broll_pattern,
+      styleDescription: video.style_description,
+      transcriptExcerpt: video.caption,
+      beats: video.structure?.beats,
     },
   }
 
@@ -86,7 +83,6 @@ export async function generateIdeaForArsenal(
 
   const steps = v.summary_steps ?? []
   const blocks = v.role_blocks ?? []
-  // Studio packs steps + blocks together in the role_blocks jsonb column.
   const payload: StudioRolePayload = { steps, blocks }
 
   const saved = await saveScripts(clinicId, [
@@ -117,49 +113,18 @@ export async function generateIdeaForArsenal(
   }
 }
 
-// ——— Pool selection ———
-
-interface PoolRow {
-  id: string
-  view_count: number | null
-}
-
-// Pick the next reference video for a column from the clinic's curated
-// base (the videos the team uploaded into the arsenal). No view-count
-// requirement — just the next active, playable video not already on the
-// board, ordered by reach when known. The pool is fully human-curated.
-export async function pickNextArsenal(
-  clinicId: string,
-  opts: { exclude?: string[] }
-): Promise<{ arsenalId: string } | null> {
-  const exclude = new Set((opts.exclude ?? []).filter(Boolean))
-  const supabase = createServerClient()
-  // Only videos with a playable storage path qualify — Studio plays them inline.
-  const { data } = await supabase
-    .from('script_arsenal')
-    .select('id, view_count')
-    .eq('clinic_id', clinicId)
-    .eq('is_active', true)
-    .not('video_storage_path', 'is', null)
-    .order('view_count', { ascending: false, nullsFirst: false })
-    .limit(60)
-  const pool = ((data ?? []) as PoolRow[]).filter((r) => !exclude.has(r.id))
-  if (pool.length === 0) return null
-  return { arsenalId: pool[0].id }
-}
-
 // ——— Slot persistence ———
 
 interface SlotRow {
   slot_index: number
-  arsenal_id: string | null
+  studio_video_id: string | null
   current_script_id: string | null
 }
 
-export async function setSlotArsenal(
+export async function setSlotVideo(
   clinicId: string,
   slotIndex: number,
-  arsenalId: string | null,
+  videoId: string | null,
   scriptId: string | null
 ): Promise<void> {
   const supabase = createServerClient()
@@ -167,7 +132,7 @@ export async function setSlotArsenal(
     {
       clinic_id: clinicId,
       slot_index: slotIndex,
-      arsenal_id: arsenalId,
+      studio_video_id: videoId,
       current_script_id: scriptId,
       updated_at: new Date().toISOString(),
     },
@@ -192,7 +157,7 @@ export async function loadSlotRows(clinicId: string): Promise<SlotRow[]> {
   const supabase = createServerClient()
   const { data } = await supabase
     .from('studio_slots')
-    .select('slot_index, arsenal_id, current_script_id')
+    .select('slot_index, studio_video_id, current_script_id')
     .eq('clinic_id', clinicId)
     .order('slot_index', { ascending: true })
   return (data ?? []) as SlotRow[]
@@ -233,14 +198,14 @@ async function loadIdea(
   }
 }
 
-// Hydrate one column from its arsenal row + current idea.
+// Hydrate one column from its studio video + current idea.
 export async function hydrateColumn(
   clinicId: string,
   slot: SlotRow,
   ideaOverride?: StudioIdea | null
 ): Promise<StudioColumn> {
-  const arsenal = slot.arsenal_id
-    ? await loadArsenalRow(slot.arsenal_id, clinicId)
+  const video = slot.studio_video_id
+    ? await loadStudioVideo(slot.studio_video_id, clinicId)
     : null
   const idea =
     ideaOverride !== undefined
@@ -248,25 +213,25 @@ export async function hydrateColumn(
       : await loadIdea(clinicId, slot.current_script_id)
   return {
     slot_index: slot.slot_index,
-    arsenal_id: arsenal?.id ?? null,
-    account: arsenal?.author_handle ?? null,
-    view_count: arsenal?.view_count ?? null,
-    video_url: publicUrl(arsenal?.video_storage_path ?? null),
-    thumbnail_url: publicUrl(arsenal?.thumbnail_storage_path ?? null),
-    title: arsenal?.title ?? null,
-    schema_beats: (arsenal?.structure?.beats ?? []).map((b) => ({
+    video_id: video?.id ?? null,
+    account: video?.author_handle ?? null,
+    view_count: video?.view_count ?? null,
+    video_url: publicUrl(video?.video_storage_path ?? null),
+    thumbnail_url: publicUrl(video?.thumbnail_storage_path ?? null),
+    title: video?.title ?? null,
+    schema_beats: (video?.structure?.beats ?? []).map((b) => ({
       name: b.name,
       text: b.text,
     })),
-    template_scaffold: arsenal ? arsenalToScaffold(arsenal) : null,
+    template_scaffold: video ? studioScaffold(video) : null,
     idea,
   }
 }
 
 // ——— Seed + load ———
 
-// Create the initial board: pick the top-N reachable videos and generate
-// an idea for each. Idempotent-ish: only seeds when no slots exist.
+// Create the initial board: pick the first N videos from the base and
+// generate an idea for each. Only seeds when no slots exist yet.
 export async function seedStudioSlots(
   clinicId: string,
   count = STUDIO_DEFAULT_SLOTS
@@ -276,25 +241,20 @@ export async function seedStudioSlots(
 
   const used: string[] = []
   for (let i = 0; i < count; i++) {
-    const pick = await pickNextArsenal(clinicId, { exclude: used })
-    if (!pick) {
-      // Pool exhausted (or empty) — create a placeholder slot so the
-      // column renders an empty-state instead of vanishing.
-      await setSlotArsenal(clinicId, i, null, null)
-      continue
-    }
-    used.push(pick.arsenalId)
-    const arsenal = await loadArsenalRow(pick.arsenalId, clinicId)
+    const pick = await pickNextStudioVideo(clinicId, { exclude: used })
+    if (!pick) break // pool exhausted — fewer columns than count is fine
+    used.push(pick.videoId)
+    const video = await loadStudioVideo(pick.videoId, clinicId)
     let scriptId: string | null = null
-    if (arsenal) {
+    if (video) {
       try {
-        const idea = await generateIdeaForArsenal(clinicId, arsenal)
+        const idea = await generateIdeaForVideo(clinicId, video)
         scriptId = idea.script_id
       } catch {
-        scriptId = null // idea gen failed (e.g. kill switch) — column shows video only
+        scriptId = null // idea gen failed (e.g. kill switch) — show video only
       }
     }
-    await setSlotArsenal(clinicId, i, pick.arsenalId, scriptId)
+    await setSlotVideo(clinicId, i, pick.videoId, scriptId)
   }
 }
 

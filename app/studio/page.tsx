@@ -49,7 +49,7 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
     ? `https://drive.google.com/drive/folders/${inboxId}`
     : null
 
-  const hasPool = columns.some((c) => c.arsenal_id)
+  const hasPool = columns.some((c) => c.video_id)
 
   return (
     <main className="min-h-screen bg-white">
@@ -99,8 +99,8 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
               No reference videos yet
             </p>
             <p className="mx-auto mt-2 max-w-md text-sm text-neutral-600">
-              The board fills up once the marketing team adds a few
-              high-performing example videos in the Library. Check back soon.
+              The board fills up once a few reference reels are added to the
+              Studio base. Check back soon.
             </p>
           </div>
         ) : (

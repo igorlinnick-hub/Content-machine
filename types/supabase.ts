@@ -1126,7 +1126,7 @@ export type Database = {
           id: string
           clinic_id: string
           slot_index: number
-          arsenal_id: string | null
+          studio_video_id: string | null
           current_script_id: string | null
           updated_at: string
         }
@@ -1134,7 +1134,7 @@ export type Database = {
           id?: string
           clinic_id: string
           slot_index: number
-          arsenal_id?: string | null
+          studio_video_id?: string | null
           current_script_id?: string | null
           updated_at?: string
         }
@@ -1142,13 +1142,72 @@ export type Database = {
           id?: string
           clinic_id?: string
           slot_index?: number
-          arsenal_id?: string | null
+          studio_video_id?: string | null
           current_script_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "studio_slots_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_videos: {
+        Row: {
+          id: string
+          clinic_id: string
+          source_url: string | null
+          source_platform: string | null
+          author_handle: string | null
+          view_count: number | null
+          title: string | null
+          style_description: string | null
+          structure: Json
+          caption: string | null
+          video_storage_path: string | null
+          thumbnail_storage_path: string | null
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          source_url?: string | null
+          source_platform?: string | null
+          author_handle?: string | null
+          view_count?: number | null
+          title?: string | null
+          style_description?: string | null
+          structure?: Json
+          caption?: string | null
+          video_storage_path?: string | null
+          thumbnail_storage_path?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          source_url?: string | null
+          source_platform?: string | null
+          author_handle?: string | null
+          view_count?: number | null
+          title?: string | null
+          style_description?: string | null
+          structure?: Json
+          caption?: string | null
+          video_storage_path?: string | null
+          thumbnail_storage_path?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_videos_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"

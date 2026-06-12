@@ -169,7 +169,7 @@ export function StudioColumn({
       <button
         type="button"
         onClick={() => call('regenerate-idea')}
-        disabled={busy !== null || !column.arsenal_id}
+        disabled={busy !== null || !column.video_id}
         className="cm-btn cm-btn-primary w-full text-xs"
       >
         {busy === 'idea' ? 'Thinking…' : '✨ Regenerate idea'}
