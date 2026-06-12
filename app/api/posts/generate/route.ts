@@ -195,6 +195,32 @@ async function generateOne(params: {
   let previews: string[] = []
   let slideSetId: string | null = null
 
+  // Helper: second UPDATE pass after createSlideSet, to persist the
+  // compliance JSONB + plan_id. createSlideSet's legacy signature
+  // doesn't take them; rather than touching the shared helper we patch
+  // them here. Non-fatal — if it fails, the row still exists and the
+  // grade still gated publish via the in-memory status we wrote above.
+  async function patchComplianceAndPlan(targetSlideSetId: string) {
+    if (!compliance && !params.planId) return
+    try {
+      const { createServerClient } = await import('@/lib/supabase/server')
+      const supabase = createServerClient()
+      const patch: Record<string, unknown> = {}
+      if (compliance) {
+        patch.compliance = JSON.parse(JSON.stringify(compliance))
+      }
+      if (params.planId) {
+        patch.plan_id = params.planId
+      }
+      await supabase
+        .from('slide_sets')
+        .update(patch as never)
+        .eq('id', targetSlideSetId)
+    } catch {
+      // swallow — see comment above
+    }
+  }
+
   if (params.renderSlidesForThis) {
     // POST CAROUSEL mode (the live path used by /visual Generate + the
     // cron + the Canva-bot service trigger): produce PostPlan-shaped
@@ -231,7 +257,7 @@ async function generateOne(params: {
         ? statusFromCompliance(compliance)
         : 'needs_review'
 
-      const slideSet = await createSlideSet({
+      const slideSetRow = await createSlideSet({
         clinicId: params.clinicId,
         scriptId: winnerSaved.id,
         slides: planRow as unknown as TypedSlide[], // JSONB stores anything
@@ -240,7 +266,8 @@ async function generateOne(params: {
         categoryId: matchedCategory?.id ?? null,
         status: lifecycleStatus,
       })
-      slideSetId = slideSet.id
+      slideSetId = slideSetRow.id
+      await patchComplianceAndPlan(slideSetRow.id)
       postPlanOk = true
     } catch {
       // Fall through to legacy renderer below.
@@ -248,76 +275,56 @@ async function generateOne(params: {
     }
 
     if (!postPlanOk) {
-    const split = await splitScriptToSlides(winner.script)
-    slides = split.slides
+      const split = await splitScriptToSlides(winner.script)
+      slides = split.slides
 
-    // Cover always renders without a photo (white bg + sky gradient).
-    // Body and CTA can use photos. Drive returns webContentLink which is
-    // not loadable by puppeteer without auth — we fetch bytes server-side
-    // and pass as base64 data URLs the headless browser can resolve.
-    let photoUrls: (string | null)[] = slides.map(() => null)
-    if (folderId && params.style.background.type === 'photo') {
-      try {
-        const photos = await getPhotosFromFolder(folderId)
-        if (photos.length > 0) {
-          const photoIds = slides.map((s, i) =>
-            s.kind === 'cover' ? null : photos[i % photos.length]?.id ?? null
-          )
-          const fetched = await Promise.all(
-            photoIds.map((id) => (id ? getPhotoDataUrl(id) : Promise.resolve(null)))
-          )
-          photoUrls = fetched
+      // Cover always renders without a photo (white bg + sky gradient).
+      // Body and CTA can use photos. Drive returns webContentLink which
+      // is not loadable by puppeteer without auth — we fetch bytes
+      // server-side and pass as base64 data URLs.
+      let photoUrls: (string | null)[] = slides.map(() => null)
+      if (folderId && params.style.background.type === 'photo') {
+        try {
+          const photos = await getPhotosFromFolder(folderId)
+          if (photos.length > 0) {
+            const photoIds = slides.map((s, i) =>
+              s.kind === 'cover' ? null : photos[i % photos.length]?.id ?? null
+            )
+            const fetched = await Promise.all(
+              photoIds.map((id) =>
+                id ? getPhotoDataUrl(id) : Promise.resolve(null)
+              )
+            )
+            photoUrls = fetched
+          }
+        } catch {
+          photoUrls = slides.map(() => null)
         }
-      } catch {
-        photoUrls = slides.map(() => null)
       }
-    }
 
-    const buffers = await renderSlides(
-      slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] })),
-      params.style
-    )
-    previews = buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`)
+      const buffers = await renderSlides(
+        slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] })),
+        params.style
+      )
+      previews = buffers.map(
+        (b) => `data:image/png;base64,${b.toString('base64')}`
+      )
 
-    const lifecycleStatus = compliance
-      ? statusFromCompliance(compliance)
-      : 'rendered'
+      const lifecycleStatus = compliance
+        ? statusFromCompliance(compliance)
+        : 'rendered'
 
-    const slideSet = await createSlideSet({
-      clinicId: params.clinicId,
-      scriptId: winnerSaved.id,
-      slides,
-      styleTemplate: params.style,
-      driveFolderId: folderId,
-      categoryId: matchedCategory?.id ?? null,
-      status: lifecycleStatus,
-    })
-    slideSetId = slideSet.id
-    }
-
-    // Persist compliance verdict + plan_id on the slide_set row.
-    // createSlideSet doesn't take these (legacy signature); patch them
-    // in a second UPDATE to avoid touching the shared helper.
-    if (compliance || params.planId) {
-      try {
-        const { createServerClient } = await import('@/lib/supabase/server')
-        const supabase = createServerClient()
-        const patch: Record<string, unknown> = {}
-        if (compliance) {
-          patch.compliance = JSON.parse(JSON.stringify(compliance))
-        }
-        if (params.planId) {
-          patch.plan_id = params.planId
-        }
-        await supabase
-          .from('slide_sets')
-          .update(patch as never)
-          .eq('id', slideSet.id)
-      } catch {
-        // Non-fatal — verdict missing in DB just means it's not surfaced
-        // in the UI yet. The grade still gates publish via in-memory
-        // status.
-      }
+      const slideSetRow = await createSlideSet({
+        clinicId: params.clinicId,
+        scriptId: winnerSaved.id,
+        slides,
+        styleTemplate: params.style,
+        driveFolderId: folderId,
+        categoryId: matchedCategory?.id ?? null,
+        status: lifecycleStatus,
+      })
+      slideSetId = slideSetRow.id
+      await patchComplianceAndPlan(slideSetRow.id)
     }
   }
 

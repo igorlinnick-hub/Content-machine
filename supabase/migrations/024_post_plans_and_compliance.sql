@@ -1,5 +1,5 @@
 -- ============================================================
--- Content Machine — Migration 023
+-- Content Machine — Migration 024
 -- Script-factory architecture (HANDOFF-POSTS.md §22):
 --   - slide_sets.status vocabulary extended for compliance + Canva-bot lifecycle
 --   - slide_sets.compliance JSONB stores the gate's verdict + findings
