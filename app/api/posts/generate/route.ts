@@ -12,6 +12,7 @@ import { runCritic } from '@/lib/agents/critic'
 import { runCaptioner } from '@/lib/agents/captioner'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { splitScriptToSlides } from '@/lib/visual/slides'
+import { splitScriptToPostPlan } from '@/lib/posts/splitter'
 import { renderSlides } from '@/lib/visual/renderer'
 import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
 import { getPhotosFromFolder, getPhotoDataUrl } from '@/lib/google/drive'
@@ -195,6 +196,58 @@ async function generateOne(params: {
   let slideSetId: string | null = null
 
   if (params.renderSlidesForThis) {
+    // POST CAROUSEL mode (the live path used by /visual Generate + the
+    // cron + the Canva-bot service trigger): produce PostPlan-shaped
+    // slides ({n, kind, heading, intro, bullets[], close}) and persist
+    // them straight into slide_sets.slides JSONB. Canva-bot reads that
+    // structured shape and assembles the carousel in Canva — Content
+    // Machine does NOT render PNGs on this path. Skipping Puppeteer
+    // saves ~5-10s/post and stops the navy-fallback preview confusion.
+    //
+    // Legacy fallback: if the PostPlan splitter fails (parse error /
+    // model glitch), fall through to splitScriptToSlides → Puppeteer
+    // render. That keeps the marketer UI working for ad-hoc topics that
+    // don't yet have a structural-arc winner.
+
+    let postPlanOk = false
+    try {
+      const plan = await splitScriptToPostPlan(winner.script, {
+        topic: winner.topic,
+        hook: winner.hook,
+      })
+      // Persist the rich PostPlan in slide_sets.slides. The legacy
+      // TypedSlide path was a parseable prose stand-in; PostPlan is
+      // the structured contract per HANDOFF-POSTS.md §15.
+      const planRow = {
+        cover: plan.cover,
+        slides: plan.slides,
+        cta: plan.cta,
+        sources: plan.sources,
+      }
+      slides = []        // legacy TypedSlide list is intentionally empty
+      previews = []      // Puppeteer skipped — Canva renders
+
+      const lifecycleStatus = compliance
+        ? statusFromCompliance(compliance)
+        : 'needs_review'
+
+      const slideSet = await createSlideSet({
+        clinicId: params.clinicId,
+        scriptId: winnerSaved.id,
+        slides: planRow as unknown as TypedSlide[], // JSONB stores anything
+        styleTemplate: params.style,
+        driveFolderId: folderId,
+        categoryId: matchedCategory?.id ?? null,
+        status: lifecycleStatus,
+      })
+      slideSetId = slideSet.id
+      postPlanOk = true
+    } catch {
+      // Fall through to legacy renderer below.
+      postPlanOk = false
+    }
+
+    if (!postPlanOk) {
     const split = await splitScriptToSlides(winner.script)
     slides = split.slides
 
@@ -240,6 +293,7 @@ async function generateOne(params: {
       status: lifecycleStatus,
     })
     slideSetId = slideSet.id
+    }
 
     // Persist compliance verdict + plan_id on the slide_set row.
     // createSlideSet doesn't take these (legacy signature); patch them

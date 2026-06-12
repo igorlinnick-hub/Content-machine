@@ -24,6 +24,7 @@ export type SlideSetStatus =
   | 'rendered'
   | 'exported'
   | 'blocked'
+  | 'needs_review'      // compliance returned REVIEW — human judgement needed
   | 'ready_for_canva'
   | 'in_canva'
   | 'published'
@@ -363,6 +364,7 @@ export interface PostPlan {
 export type SlideSetStatusV2 =
   | 'pending'
   | 'blocked'
+  | 'needs_review'                          // REVIEW grade — human judgement
   | 'ready_for_canva'
   | 'in_canva'
   | 'published'

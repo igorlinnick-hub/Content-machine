@@ -34,20 +34,18 @@ export async function runComplianceGate(input: {
   })
 }
 
-// Map compliance verdict + render outcome to the slide_sets.status that
-// the row should be persisted with. The pipeline writes this verbatim.
+// Map compliance verdict to the slide_sets.status the row gets
+// persisted with. The pipeline writes this verbatim — never 'rendered'
+// for post carousels (that legacy status implied "marketer should
+// preview as PNG", which doesn't fit the script-factory + Canva-bot
+// model).
 //
-//   REMOVE / REWORD → 'blocked'    (Canva-bot ignores; UI flags for fix)
-//   REVIEW          → 'rendered'   (legacy preview path; marketer reviews)
-//   PASS            → 'ready_for_canva' (Canva-bot picks up next poll)
-//
-// The 'rendered' legacy value is intentional for REVIEW — it keeps the
-// existing UI behaviour where REVIEW posts show up for marketer review
-// without auto-publishing. The compliance JSONB is the source of truth
-// for "why this is still pending".
+//   REMOVE / REWORD → 'blocked'      (Canva-bot ignores; UI flags findings)
+//   REVIEW          → 'needs_review' (human judgement; held in marketer UI)
+//   PASS            → 'ready_for_canva' (Canva-bot picks up on next poll)
 export function statusFromCompliance(result: ComplianceResult): SlideSetStatusV2 {
   if (shouldBlockPublish(result)) return 'blocked'
-  if (result.grade === 'REVIEW') return 'rendered'
+  if (result.grade === 'REVIEW') return 'needs_review'
   return 'ready_for_canva'
 }
 
