@@ -95,6 +95,14 @@ async function generateOne(params: {
     ? `${params.topicText}\n\nDoctor's starting note (use as steer, do not quote verbatim):\n${params.note.trim()}`
     : params.topicText
 
+  // Stage-by-stage timing log so a "Load failed" in the browser maps to a
+  // specific stage in Vercel function logs. Logs go to stdout — surface in
+  // the dashboard under the deployment's Logs tab.
+  const t0 = Date.now()
+  const stage = (name: string) =>
+    console.log(`[generate] ${name} @ ${Date.now() - t0}ms`)
+
+  stage('start')
   const writerOut = await runWriter({
     context: params.context,
     topicHint: topicHintWithNote,
@@ -103,11 +111,13 @@ async function generateOne(params: {
     lengthTarget: params.length,
     postCarouselMode: true,
   })
+  stage('writer:done')
   const criticOut = await runCritic({
     context: params.context,
     variants: writerOut,
     lengthTarget: params.length,
   })
+  stage('critic:done')
 
   const scoreById = new Map(criticOut.scores.map((s) => [s.variant_id, s]))
   const ranked = [...writerOut.variants].sort((a, b) => {
@@ -174,22 +184,48 @@ async function generateOne(params: {
   const folderId =
     params.preMatchedFolderId || matchedCategory?.drive_folder_id || null
 
+  stage('captioner:done')
+
   // Compliance gate runs on the winner BEFORE rendering. The verdict
   // is stored on the slide_sets row alongside the rendered preview;
   // status reflects the grade (ready_for_canva on PASS, blocked on
-  // REMOVE/REWORD, rendered on REVIEW for marketer review).
+  // REMOVE/REWORD, needs_review on REVIEW).
+  //
+  // Hard 45s cap on the gate. If Opus is slow or rate-limited, we
+  // fall back to factCheck-only verdict rather than blow the route's
+  // 300s budget.
   let compliance: ComplianceResult | null = null
   try {
-    compliance = await runComplianceGate({
-      script: winner.script,
-      category: matchedCategory?.name ?? null,
-      topic: winner.topic,
-    })
-  } catch {
-    // Defensive — never block the pipeline if the gate misbehaves;
-    // mark for review instead so a human sees it.
-    compliance = null
+    compliance = await Promise.race([
+      runComplianceGate({
+        script: winner.script,
+        category: matchedCategory?.name ?? null,
+        topic: winner.topic,
+      }),
+      new Promise<ComplianceResult>((_, reject) =>
+        setTimeout(() => reject(new Error('compliance LLM timeout 45s')), 45_000)
+      ),
+    ])
+  } catch (e) {
+    // Last-ditch: run the deterministic regex pass only — costs nothing,
+    // produces a verdict (PASS or REWORD on hard fact violations).
+    console.warn(
+      `[generate] compliance fell back to factCheck-only: ${
+        e instanceof Error ? e.message : 'unknown'
+      }`
+    )
+    try {
+      compliance = await runComplianceGate({
+        script: winner.script,
+        category: matchedCategory?.name ?? null,
+        topic: winner.topic,
+        skipLLM: true,
+      })
+    } catch {
+      compliance = null
+    }
   }
+  stage('compliance:done')
 
   let slides: TypedSlide[] = []
   let previews: string[] = []
@@ -237,10 +273,12 @@ async function generateOne(params: {
 
     let postPlanOk = false
     try {
+      stage('splitter:postplan:start')
       const plan = await splitScriptToPostPlan(winner.script, {
         topic: winner.topic,
         hook: winner.hook,
       })
+      stage('splitter:postplan:done')
       // Persist the rich PostPlan in slide_sets.slides. The legacy
       // TypedSlide path was a parseable prose stand-in; PostPlan is
       // the structured contract per HANDOFF-POSTS.md §15.
@@ -269,12 +307,18 @@ async function generateOne(params: {
       slideSetId = slideSetRow.id
       await patchComplianceAndPlan(slideSetRow.id)
       postPlanOk = true
-    } catch {
-      // Fall through to legacy renderer below.
+      stage('postplan:persisted')
+    } catch (e) {
+      console.warn(
+        `[generate] PostPlan splitter failed, falling back to legacy: ${
+          e instanceof Error ? e.message : 'unknown'
+        }`
+      )
       postPlanOk = false
     }
 
     if (!postPlanOk) {
+      stage('splitter:legacy:start')
       const split = await splitScriptToSlides(winner.script)
       slides = split.slides
 
