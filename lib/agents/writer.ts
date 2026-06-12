@@ -168,6 +168,14 @@ OUTPUT SHAPE (POST CAROUSEL):
 The "script" field of each variant is the full carousel rendered as readable text — cover line + each numbered slide + CTA stack. The compliance gate reads this; downstream the splitter parses it into the slide_sets row.
 
 Use the canonical examples in docs/content-plan-2026-06.md §5 (posts 01 Ketamine, 07 Painkillers, 11 Semaglutide, 18 ED) as gold-standard tone references when relevant — these are source-checked and pass compliance v2.1.
+
+JSON OUTPUT — STRICT (preserve valid JSON at all costs):
+- Inside any string field (especially "script"), NEVER use raw double-quote characters " for quoting phrases. Use single quotes ' or em-dashes — instead.
+  WRONG: "script": "Most people have filed exosomes under "not proven yet." Here's..."
+  RIGHT: "script": "Most people have filed exosomes under 'not proven yet.' Here's..."
+- Escape ONLY when you genuinely need a real double quote in the visible text. Otherwise prefer single quotes / em-dashes / parentheses.
+- Newlines inside script strings must be \\n escapes (not real line breaks inside the JSON).
+- Do not emit markdown fences around the JSON output.
 `
 
 // Appended to the base system prompt only when a pinned format requests
