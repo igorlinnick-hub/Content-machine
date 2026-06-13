@@ -205,6 +205,7 @@ function parseJSONBlock<T>(raw: string): T {
   }
   const json = s.slice(start, end + 1)
 
+  // [parseJSONBlock v2.1] repair-on-fail enabled
   try {
     return JSON.parse(json) as T
   } catch (e) {
@@ -226,7 +227,7 @@ function parseJSONBlock<T>(raw: string): T {
         Math.min(json.length, pos + 200)
       )
       throw new Error(
-        `callAgentJSON: JSON.parse failed twice. Original: ${(e as Error).message}. After repair: ${msg}. Window around pos ${pos}:\n---\n${window}\n---`
+        `callAgentJSON[v2.1]: JSON.parse failed twice. Original: ${(e as Error).message}. After repair: ${msg}. Window around pos ${pos}:\n---\n${window}\n---`
       )
     }
   }
