@@ -127,10 +127,14 @@ export async function PUT(
   try {
     const slideSet = await loadSlideSet(params.slideSetId)
 
+    // Save & re-render — slides changed, but the compliance lifecycle
+    // status (needs_review / ready_for_canva / blocked) stays untouched.
+    // Forcing 'rendered' here would overwrite the script-factory verdict
+    // every time the marketer edits a field, masking compliance blocks.
     const supabase = createServerClient()
     const { error: updateError } = await supabase
       .from('slide_sets')
-      .update({ slides: slides as unknown as Json, status: 'rendered' })
+      .update({ slides: slides as unknown as Json })
       .eq('id', params.slideSetId)
     if (updateError) throw updateError
 

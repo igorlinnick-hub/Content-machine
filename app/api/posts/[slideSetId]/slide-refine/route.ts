@@ -67,10 +67,13 @@ export async function POST(
     const updatedSlides = slideSet.slides.slice()
     updatedSlides[index] = fix.slide
 
+    // Same rule as PUT in [slideSetId]/route.ts: preserve the
+    // compliance lifecycle status when slides change. Forcing
+    // 'rendered' would silently reset needs_review → publishable.
     const supabase = createServerClient()
     const { error: updateError } = await supabase
       .from('slide_sets')
-      .update({ slides: updatedSlides as unknown as Json, status: 'rendered' })
+      .update({ slides: updatedSlides as unknown as Json })
       .eq('id', params.slideSetId)
     if (updateError) throw updateError
 
