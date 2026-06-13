@@ -6,7 +6,7 @@ import type {
   RoleBlock,
 } from '@/types'
 import type { ArsenalBeat } from '@/lib/arsenal/store'
-import { MODEL_DEFAULT, callAgentJSON } from './base'
+import { MODEL_DEFAULT, callAgentTool } from './base'
 
 // A single reference video pinned as THE format to use (Studio). When
 // present, the Writer drops the "pick one of N templates" choice and
@@ -168,14 +168,6 @@ OUTPUT SHAPE (POST CAROUSEL):
 The "script" field of each variant is the full carousel rendered as readable text — cover line + each numbered slide + CTA stack. The compliance gate reads this; downstream the splitter parses it into the slide_sets row.
 
 Use the canonical examples in docs/content-plan-2026-06.md §5 (posts 01 Ketamine, 07 Painkillers, 11 Semaglutide, 18 ED) as gold-standard tone references when relevant — these are source-checked and pass compliance v2.1.
-
-JSON OUTPUT — STRICT (preserve valid JSON at all costs):
-- Inside any string field (especially "script"), NEVER use raw double-quote characters " for quoting phrases. Use single quotes ' or em-dashes — instead.
-  WRONG: "script": "Most people have filed exosomes under "not proven yet." Here's..."
-  RIGHT: "script": "Most people have filed exosomes under 'not proven yet.' Here's..."
-- Escape ONLY when you genuinely need a real double quote in the visible text. Otherwise prefer single quotes / em-dashes / parentheses.
-- Newlines inside script strings must be \\n escapes (not real line breaks inside the JSON).
-- Do not emit markdown fences around the JSON output.
 `
 
 // Appended to the base system prompt only when a pinned format requests
@@ -482,13 +474,69 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     (params.postCarouselMode ? SYSTEM_PROMPT_POSTS : '') +
     (roleMode ? SYSTEM_PROMPT_ROLES : '')
 
-  const out = await callAgentJSON<WriterOutput>({
+  // Switched from callAgentJSON to callAgentTool — Anthropic guarantees
+  // the tool input parses cleanly against the schema, killing the entire
+  // "unescaped double quote inside script field" class of bug we hit
+  // repeatedly with Sonnet on the long post-carousel prompt. No more
+  // JSON.parse on free-form prose.
+  const out = await callAgentTool<WriterOutput>({
     model: MODEL_DEFAULT,
     systemPrompt,
     userContent,
     maxTokens: 16384,
     effort: 'low',
     cacheSystem: true,
+    toolName: 'emit_script_variants',
+    toolDescription:
+      'Emit the requested script variants. Strings (especially `script`) may contain any prose — quotes, apostrophes, em-dashes, newlines — the schema handles escaping.',
+    inputSchema: {
+      type: 'object',
+      required: ['variants'],
+      properties: {
+        variants: {
+          type: 'array',
+          items: {
+            type: 'object',
+            required: [
+              'id',
+              'topic',
+              'hook',
+              'script',
+              'word_count',
+              'estimated_seconds',
+            ],
+            properties: {
+              id: { type: 'string' },
+              topic: { type: 'string' },
+              hook: { type: 'string' },
+              script: {
+                type: 'string',
+                description: 'Full script. Free-form prose; quotes/newlines fine.',
+              },
+              word_count: { type: 'integer' },
+              estimated_seconds: { type: 'integer' },
+              template_name: { type: 'string' },
+              summary_steps: {
+                type: 'array',
+                items: { type: 'string' },
+              },
+              role_blocks: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  required: ['speaker', 'text'],
+                  properties: {
+                    speaker: { type: 'string' },
+                    text: { type: 'string' },
+                    direction: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   })
 
   // In role mode, make full_script (= variant.script) the canonical join

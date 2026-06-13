@@ -126,6 +126,76 @@ export interface CallAgentVisionOptions {
   cacheSystem?: boolean
 }
 
+// Build tag — appears in error messages so we can tell at a glance whether
+// a stale Vercel build is serving. Bump when the agent shape changes.
+export const AGENT_BUILD_TAG = 'writer-tooluse-2026-06-12'
+
+// Tool-use variant: forces structured output via Anthropic's tool schema.
+// The model fills a tool_use block whose `input` is guaranteed valid JSON
+// matching the schema — no text parsing, no quote-escaping bugs. Use this
+// for any agent where the output schema is fixed and the strings can
+// contain arbitrary user prose (writer, captioner, etc.).
+export interface CallAgentToolOptions {
+  model?: string
+  systemPrompt: string
+  userContent: string
+  toolName: string
+  toolDescription: string
+  // JSON Schema for the tool input.
+  inputSchema: Record<string, unknown>
+  maxTokens?: number
+  effort?: Effort
+  cacheSystem?: boolean
+}
+
+export async function callAgentTool<T>(opts: CallAgentToolOptions): Promise<T> {
+  if (!llmAgentsEnabled()) {
+    throw new LLMAgentsDisabledError(
+      `LLM agents are disabled (ENABLE_LLM_AGENTS != 'true'). Refusing to call model=${opts.model ?? MODEL_DEFAULT}.`
+    )
+  }
+  const client = getAnthropic()
+  const model = opts.model ?? MODEL_DEFAULT
+
+  const systemPayload: string | TextBlockParam[] = opts.cacheSystem
+    ? [
+        {
+          type: 'text',
+          text: opts.systemPrompt,
+          cache_control: { type: 'ephemeral' },
+        },
+      ]
+    : opts.systemPrompt
+
+  const supportsAdaptive = !model.includes('haiku')
+  const stream = client.messages.stream({
+    model,
+    max_tokens: opts.maxTokens ?? 4096,
+    system: systemPayload,
+    messages: [{ role: 'user', content: opts.userContent }],
+    tools: [
+      {
+        name: opts.toolName,
+        description: opts.toolDescription,
+        input_schema: opts.inputSchema as unknown as never,
+      },
+    ],
+    tool_choice: { type: 'tool', name: opts.toolName },
+    ...(supportsAdaptive ? { thinking: { type: 'adaptive' } } : {}),
+    ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
+  })
+
+  const final = await stream.finalMessage()
+  const toolBlock = final.content.find((b) => b.type === 'tool_use')
+  if (!toolBlock || toolBlock.type !== 'tool_use') {
+    const types = final.content.map((b) => b.type).join(',')
+    throw new Error(
+      `callAgentTool[${AGENT_BUILD_TAG}]: no tool_use block returned. stop_reason=${final.stop_reason} block_types=[${types}] usage=${JSON.stringify(final.usage)}`
+    )
+  }
+  return toolBlock.input as T
+}
+
 export async function callAgentVisionJSON<T>(
   opts: CallAgentVisionOptions
 ): Promise<T> {
