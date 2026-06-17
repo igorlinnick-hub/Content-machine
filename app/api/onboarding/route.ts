@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { saveInsights } from '@/lib/supabase/context'
 import { resolveAccess } from '@/lib/auth/session'
-import { createAccessToken } from '@/lib/auth/tokens'
+import { createAccessToken, pickAvailableCode, slugifyForCode } from '@/lib/auth/tokens'
 
 export const runtime = 'nodejs'
 
@@ -72,10 +72,44 @@ export async function POST(req: Request) {
       )
     }
 
-    // Bootstrap a fresh doctor token alongside the clinic.
-    const tokenRow = await createAccessToken({ clinicId: data.id, role: 'doctor' })
+    // Bootstrap BOTH access tokens (doctor + team) with memorable
+    // slug-codes derived from the clinic name. So when admin onboards
+    // a new clinic they instantly have the 2 codes to hand off, no
+    // follow-up steps in /clinics. Codes can be edited later.
+    const slug = slugifyForCode(name)
+    const doctorCode = await pickAvailableCode(`${slug}-doctor`)
+    const teamCode = await pickAvailableCode(`${slug}-team`)
 
-    return NextResponse.json({ clinic: data, token: tokenRow.token })
+    const [doctorRow, teamRow] = await Promise.all([
+      createAccessToken({
+        clinicId: data.id,
+        role: 'doctor',
+        label: body.doctor_name?.trim() || undefined,
+        code: doctorCode,
+      }),
+      createAccessToken({
+        clinicId: data.id,
+        role: 'editor',
+        label: 'Team',
+        code: teamCode,
+      }),
+    ])
+
+    return NextResponse.json({
+      clinic: data,
+      // Legacy field — kept so the existing onboarding UI still works.
+      token: doctorRow.token,
+      doctor: {
+        token: doctorRow.token,
+        code: doctorRow.code,
+        label: doctorRow.label,
+      },
+      team: {
+        token: teamRow.token,
+        code: teamRow.code,
+        label: teamRow.label,
+      },
+    })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown error'
     return NextResponse.json({ error: msg }, { status: 500 })

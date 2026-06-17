@@ -58,12 +58,19 @@ export default function Wizard({
   tokenDoctorName,
 }: WizardProps) {
   const router = useRouter()
-  const [phase, setPhase] = useState<'welcome' | 'wizard'>(
+  const [phase, setPhase] = useState<'welcome' | 'wizard' | 'success'>(
     welcome ? 'welcome' : 'wizard'
   )
   const [step, setStep] = useState<Step>(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [createdCodes, setCreatedCodes] = useState<{
+    clinicName: string
+    doctorCode: string | null
+    teamCode: string | null
+    doctorUrl: string
+    teamUrl: string
+  } | null>(null)
   const [state, setState] = useState<State>({
     clinicName: initial?.clinicName ?? '',
     doctorName: initial?.doctorName || tokenDoctorName || '',
@@ -111,8 +118,25 @@ export default function Wizard({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
-      router.push('/dashboard')
-      router.refresh()
+      // On edit just bounce to dashboard. On create show the success
+      // screen with the auto-generated doctor + team codes so admin
+      // can copy them right away.
+      if (editing) {
+        router.push('/dashboard')
+        router.refresh()
+        return
+      }
+      const origin = window.location.origin
+      setCreatedCodes({
+        clinicName: state.clinicName.trim(),
+        doctorCode: data?.doctor?.code ?? null,
+        teamCode: data?.team?.code ?? null,
+        doctorUrl: `${origin}/c/${data?.doctor?.token ?? data?.token ?? ''}`,
+        teamUrl: data?.team?.token ? `${origin}/c/${data.team.token}` : '',
+      })
+      setPhase('success')
+      setSubmitting(false)
+      return
     } catch (err) {
       setError(err instanceof Error ? err.message : 'unknown error')
       setSubmitting(false)
@@ -127,6 +151,22 @@ export default function Wizard({
       <WelcomeIntro
         doctorName={tokenDoctorName ?? null}
         onContinue={() => setPhase('wizard')}
+      />
+    )
+  }
+
+  if (phase === 'success' && createdCodes) {
+    return (
+      <ClinicCreatedScreen
+        clinicName={createdCodes.clinicName}
+        doctorCode={createdCodes.doctorCode}
+        teamCode={createdCodes.teamCode}
+        doctorUrl={createdCodes.doctorUrl}
+        teamUrl={createdCodes.teamUrl}
+        onContinue={() => {
+          router.push('/dashboard')
+          router.refresh()
+        }}
       />
     )
   }
@@ -553,6 +593,139 @@ function TagEditor({
           ))}
         </ul>
       )}
+    </div>
+  )
+}
+
+function ClinicCreatedScreen({
+  clinicName,
+  doctorCode,
+  teamCode,
+  doctorUrl,
+  teamUrl,
+  onContinue,
+}: {
+  clinicName: string
+  doctorCode: string | null
+  teamCode: string | null
+  doctorUrl: string
+  teamUrl: string
+  onContinue: () => void
+}) {
+  return (
+    <main className="relative min-h-screen overflow-hidden bg-white text-neutral-900">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-[18%] -top-40 h-[520px] w-[520px] rounded-full bg-emerald-200/45 blur-3xl"
+      />
+      <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-10 px-5 py-12 sm:gap-12 sm:px-6 sm:py-16 cm-fade-in">
+        <div className="flex flex-col gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-600">
+            Clinic created
+          </p>
+          <h1 className="text-balance text-3xl font-semibold leading-tight text-neutral-900 sm:text-4xl">
+            {clinicName} is ready.
+          </h1>
+          <p className="text-base text-neutral-600 sm:text-lg">
+            Two access codes are waiting below. Share them with the doctor and
+            the team — anyone who types either code on the sign-in screen is in
+            for a year.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <CodeCard
+            label="Doctor"
+            badgeClass="bg-sky-50 text-sky-700 border-sky-200"
+            code={doctorCode}
+            url={doctorUrl}
+          />
+          <CodeCard
+            label="Team"
+            badgeClass="bg-violet-50 text-violet-700 border-violet-200"
+            code={teamCode}
+            url={teamUrl}
+          />
+        </div>
+
+        <div className="flex flex-col gap-3 text-sm text-neutral-500">
+          <p>
+            You can edit the codes (or generate more links) anytime from{' '}
+            <strong>/clinics → {clinicName} → Install link</strong>.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={onContinue}
+          className="cm-btn cm-btn-primary self-start text-base sm:px-7 sm:py-3"
+        >
+          Continue to dashboard →
+        </button>
+      </div>
+    </main>
+  )
+}
+
+function CodeCard({
+  label,
+  badgeClass,
+  code,
+  url,
+}: {
+  label: string
+  badgeClass: string
+  code: string | null
+  url: string
+}) {
+  const [copied, setCopied] = useState<'code' | 'url' | null>(null)
+  async function copy(text: string, kind: 'code' | 'url') {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(kind)
+      setTimeout(() => setCopied(null), 1500)
+    } catch {
+      // ignore
+    }
+  }
+  return (
+    <div className="cm-card flex flex-col gap-3 p-5">
+      <div className="flex items-center justify-between">
+        <span
+          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wider ${badgeClass}`}
+        >
+          {label}
+        </span>
+      </div>
+      {code && (
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="rounded bg-amber-50 px-3 py-1.5 font-mono text-base font-semibold text-amber-900 ring-1 ring-amber-200">
+            {code}
+          </code>
+          <button
+            type="button"
+            onClick={() => copy(code, 'code')}
+            className="cm-btn cm-btn-ghost text-xs"
+          >
+            {copied === 'code' ? 'Copied!' : 'Copy code'}
+          </button>
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-[11px] uppercase tracking-wider text-neutral-500">
+          Install link
+        </span>
+        <code className="break-all rounded bg-neutral-50 px-3 py-2 text-xs text-neutral-700 ring-1 ring-neutral-200">
+          {url}
+        </code>
+        <button
+          type="button"
+          onClick={() => copy(url, 'url')}
+          className="cm-btn cm-btn-ghost self-start text-xs"
+        >
+          {copied === 'url' ? 'Copied!' : 'Copy link'}
+        </button>
+      </div>
     </div>
   )
 }

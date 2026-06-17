@@ -29,6 +29,40 @@ export function normalizeCode(input: string): string {
   return input.trim().toLowerCase()
 }
 
+// Turns a clinic name into a code-safe slug, e.g. "Sunshine Therapy" →
+// "sunshine-therapy". Caps total length so the role suffix fits.
+export function slugifyForCode(input: string, maxLen = 20): string {
+  const slug = input
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, maxLen)
+  return slug || 'clinic'
+}
+
+// Pick the next code that isn't already in use among active rows.
+// Returns null only if every slug-N up to attempts (default 50) is taken.
+export async function pickAvailableCode(
+  base: string,
+  attempts = 50
+): Promise<string | null> {
+  const supabase = createServerClient()
+  const candidates = [base, ...Array.from({ length: attempts - 1 }, (_, i) => `${base}-${i + 2}`)]
+  // Single roundtrip — fetch any existing matches in one query.
+  const { data } = await supabase
+    .from('clinic_access_tokens')
+    .select('code')
+    .in('code', candidates)
+    .is('revoked_at', null)
+  const taken = new Set((data ?? []).map((r) => r.code))
+  for (const c of candidates) {
+    if (!taken.has(c)) return c
+  }
+  return null
+}
+
 export function validateCode(input: string): { ok: true; code: string } | { ok: false; error: string } {
   const trimmed = input.trim()
   if (trimmed.length === 0) return { ok: false, error: 'Code is required' }
