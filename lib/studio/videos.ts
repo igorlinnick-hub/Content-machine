@@ -149,10 +149,26 @@ export async function pickNextStudioVideo(
   return { videoId: pool[0].id }
 }
 
+const BUCKET = 'arsenal-videos'
+
+// Delete a Studio video AND its files (mp4 + cover) so nothing orphans in
+// storage. Files are removed first; then the row.
 export async function deleteStudioVideo(
   id: string,
   clinicId: string
 ): Promise<void> {
   const supabase = createServerClient()
+  const { data } = await supabase
+    .from('studio_videos')
+    .select('video_storage_path, thumbnail_storage_path')
+    .eq('id', id)
+    .eq('clinic_id', clinicId)
+    .maybeSingle()
+  const paths = [data?.video_storage_path, data?.thumbnail_storage_path].filter(
+    (p): p is string => Boolean(p)
+  )
+  if (paths.length) {
+    await supabase.storage.from(BUCKET).remove(paths)
+  }
   await supabase.from('studio_videos').delete().eq('id', id).eq('clinic_id', clinicId)
 }
