@@ -190,3 +190,124 @@ body {
     text-wrap: balance;
   }
 }
+
+/* Render container for server-converted markdown docs (compliance page).
+   Keeps Tailwind out of the .md files while still giving them a clean
+   visual hierarchy. */
+.cm-doc {
+  color: #1f2937;
+  line-height: 1.65;
+}
+.cm-doc h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+}
+.cm-doc h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 2rem 0 0.6rem;
+  color: #0f172a;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1.25rem;
+}
+.cm-doc h2:first-child,
+.cm-doc h1 + h2 {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 1rem;
+}
+.cm-doc h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem;
+  color: #0f172a;
+}
+.cm-doc h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.4rem;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.cm-doc p {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+}
+.cm-doc ul,
+.cm-doc ol {
+  margin: 0 0 1rem;
+  padding-left: 1.4rem;
+  font-size: 0.95rem;
+}
+.cm-doc ul { list-style: disc; }
+.cm-doc ol { list-style: decimal; }
+.cm-doc li { margin-bottom: 0.35rem; }
+.cm-doc li > p { margin-bottom: 0.4rem; }
+.cm-doc strong { color: #0f172a; font-weight: 600; }
+.cm-doc em { color: #475569; }
+.cm-doc blockquote {
+  border-left: 3px solid #38bdf8;
+  background: #f0f9ff;
+  padding: 0.65rem 1rem;
+  margin: 1rem 0;
+  color: #0f172a;
+  font-size: 0.92rem;
+  border-radius: 0 0.5rem 0.5rem 0;
+}
+.cm-doc blockquote p:last-child { margin-bottom: 0; }
+.cm-doc code {
+  background: #f1f5f9;
+  color: #1e293b;
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.cm-doc pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 0.6rem;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  margin: 0 0 1rem;
+}
+.cm-doc pre code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+.cm-doc a {
+  color: #0284c7;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cm-doc a:hover { color: #075985; }
+.cm-doc hr {
+  border: 0;
+  border-top: 1px solid #e5e7eb;
+  margin: 2rem 0;
+}
+.cm-doc table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  margin: 0 0 1.25rem;
+}
+.cm-doc th,
+.cm-doc td {
+  border: 1px solid #e5e7eb;
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.cm-doc th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: #0f172a;
+}

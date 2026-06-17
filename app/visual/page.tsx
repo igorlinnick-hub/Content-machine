@@ -43,6 +43,9 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
           </h1>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/compliance" className="cm-btn cm-btn-ghost text-sm">
+            ⚖️ Compliance
+          </Link>
           <Link
             href={`/dashboard?clinicId=${clinic.id}`}
             className="cm-btn cm-btn-ghost text-sm"
