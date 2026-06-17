@@ -63,10 +63,11 @@ export default async function StudioPage({
     })
   )
 
-  const inboxId = process.env.GOOGLE_DRIVE_CLIPS_INBOX_ID ?? null
-  const driveInboxUrl = inboxId
-    ? `https://drive.google.com/drive/folders/${inboxId}`
-    : null
+  // The shared Drive folder where the team uploads finished clips. Pinned
+  // in the header so staff can always find it. Override via env if needed.
+  const driveInboxUrl =
+    process.env.NEXT_PUBLIC_DRIVE_UPLOAD_URL ??
+    'https://drive.google.com/drive/folders/1erhf5AURtETtyXUlnskCNiSVUvD_JfKJ?usp=share_link'
 
   // Land on a stage that actually has content (Shot List first), unless the
   // URL asks for a specific tab.
@@ -103,7 +104,15 @@ export default async function StudioPage({
               what, step by step.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <a
+              href={driveInboxUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700"
+            >
+              📁 Upload folder
+            </a>
             <Link
               href={`/dashboard?clinicId=${clinicId}`}
               className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
