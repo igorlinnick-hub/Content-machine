@@ -582,7 +582,21 @@ export async function POST(req: Request) {
       versions: results,
     })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'unknown error'
-    return NextResponse.json({ error: msg }, { status: 500 })
+    // Surface every detail so "unknown error" can't happen — every
+    // failure surfaces with its constructor name, status (if any),
+    // and message.
+    const err = e as { message?: string; status?: number; constructor?: { name: string } }
+    const constructorName = err?.constructor?.name ?? 'Unknown'
+    const status = err?.status ?? null
+    const msg = e instanceof Error ? e.message : String(e ?? 'unknown error')
+    console.error('[generate] route catch:', constructorName, 'status:', status, 'msg:', msg, e)
+    return NextResponse.json(
+      {
+        error: msg || `${constructorName}${status ? ` (${status})` : ''}`,
+        kind: constructorName,
+        status,
+      },
+      { status: 500 }
+    )
   }
 }

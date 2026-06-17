@@ -6,7 +6,7 @@ import type {
   RoleBlock,
 } from '@/types'
 import type { ArsenalBeat } from '@/lib/arsenal/store'
-import { MODEL_DEFAULT, callAgentTool } from './base'
+import { MODEL_DEFAULT, callAgentJSON } from './base'
 
 // A single reference video pinned as THE format to use (Studio). When
 // present, the Writer drops the "pick one of N templates" choice and
@@ -474,69 +474,18 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     (params.postCarouselMode ? SYSTEM_PROMPT_POSTS : '') +
     (roleMode ? SYSTEM_PROMPT_ROLES : '')
 
-  // Switched from callAgentJSON to callAgentTool — Anthropic guarantees
-  // the tool input parses cleanly against the schema, killing the entire
-  // "unescaped double quote inside script field" class of bug we hit
-  // repeatedly with Sonnet on the long post-carousel prompt. No more
-  // JSON.parse on free-form prose.
-  const out = await callAgentTool<WriterOutput>({
+  // Back on callAgentJSON. tool_use forced thinking/effort to be
+  // incompatible with tool_choice and burned through Sonnet's quality
+  // lever on the long post-carousel prompt. The repair heuristic in
+  // parseJSONBlock (v2.1) handles the unescaped-quote class of bug
+  // that tool_use was supposed to eliminate.
+  const out = await callAgentJSON<WriterOutput>({
     model: MODEL_DEFAULT,
     systemPrompt,
     userContent,
     maxTokens: 16384,
     effort: 'low',
     cacheSystem: true,
-    toolName: 'emit_script_variants',
-    toolDescription:
-      'Emit the requested script variants. Strings (especially `script`) may contain any prose — quotes, apostrophes, em-dashes, newlines — the schema handles escaping.',
-    inputSchema: {
-      type: 'object',
-      required: ['variants'],
-      properties: {
-        variants: {
-          type: 'array',
-          items: {
-            type: 'object',
-            required: [
-              'id',
-              'topic',
-              'hook',
-              'script',
-              'word_count',
-              'estimated_seconds',
-            ],
-            properties: {
-              id: { type: 'string' },
-              topic: { type: 'string' },
-              hook: { type: 'string' },
-              script: {
-                type: 'string',
-                description: 'Full script. Free-form prose; quotes/newlines fine.',
-              },
-              word_count: { type: 'integer' },
-              estimated_seconds: { type: 'integer' },
-              template_name: { type: 'string' },
-              summary_steps: {
-                type: 'array',
-                items: { type: 'string' },
-              },
-              role_blocks: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  required: ['speaker', 'text'],
-                  properties: {
-                    speaker: { type: 'string' },
-                    text: { type: 'string' },
-                    direction: { type: 'string' },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
   })
 
   // In role mode, make full_script (= variant.script) the canonical join
