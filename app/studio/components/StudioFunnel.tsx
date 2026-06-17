@@ -5,7 +5,7 @@ import type { RoleBlock } from '@/types'
 import { RoleScript } from './RoleScript'
 
 type Status = 'candidate' | 'liked' | 'shotlist' | 'rejected'
-type Tab = 'discover' | 'liked' | 'shotlist'
+type Tab = 'discover' | 'liked' | 'shotlist' | 'trash'
 
 export interface StudioCardIdea {
   script_id: string
@@ -36,10 +36,11 @@ function formatViews(n: number | null): string | null {
   return `${n}`
 }
 
-const TABS: { key: Tab; label: string; status: Status }[] = [
+const TABS: { key: Tab; label: string; status: Status; adminOnly?: boolean }[] = [
   { key: 'discover', label: 'Discover', status: 'candidate' },
   { key: 'liked', label: 'Liked', status: 'liked' },
   { key: 'shotlist', label: 'Shot List', status: 'shotlist' },
+  { key: 'trash', label: '🗑 Trash', status: 'rejected', adminOnly: true },
 ]
 
 function VideoBox({ card }: { card: StudioCard }) {
@@ -156,6 +157,27 @@ export function StudioFunnel({
     }
   }
 
+  // Permanently delete a video from the Trash (admin only).
+  async function deleteForever(id: string) {
+    setBusyFor(id, true)
+    setErrorFor(id, null)
+    try {
+      const res = await fetch(`/api/studio/videos/${id}?clinicId=${clinicId}`, {
+        method: 'DELETE',
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setErrorFor(id, data.error || 'Failed')
+        return
+      }
+      setCards((cs) => cs.filter((c) => c.id !== id))
+    } catch {
+      setErrorFor(id, 'Network error')
+    } finally {
+      setBusyFor(id, false)
+    }
+  }
+
   async function generate(id: string) {
     setBusyFor(id, true)
     setErrorFor(id, null)
@@ -188,7 +210,7 @@ export function StudioFunnel({
       {/* Tabs — the funnel, left to right */}
       <nav className="flex flex-col gap-2 border-b border-neutral-200 pb-3">
         <div className="flex flex-wrap items-center gap-1.5">
-          {TABS.map((t, i) => (
+          {TABS.filter((t) => !t.adminOnly || isAdmin).map((t, i) => (
             <div key={t.key} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-neutral-300">→</span>}
               <button
@@ -229,10 +251,13 @@ export function StudioFunnel({
           </p>
           <div className="flex flex-wrap gap-2">
             <input
-              className="cm-input flex-1 text-sm"
+              className="cm-input min-w-0 flex-1 text-sm"
               placeholder="Paste a TikTok video link…"
               value={addUrl}
-              onChange={(e) => setAddUrl(e.target.value)}
+              onChange={(e) => {
+                setAddUrl(e.target.value)
+                if (addError) setAddError(null)
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') addVideo()
               }}
@@ -258,6 +283,7 @@ export function StudioFunnel({
             (isAdmin
               ? 'Shot List is empty. Promote liked reels here.'
               : 'Shot List is empty. The admin sets what we film.')}
+          {tab === 'trash' && 'Trash is empty. Skipped / removed reels land here.'}
         </div>
       ) : (
         <div
@@ -443,14 +469,36 @@ export function StudioFunnel({
                   {isAdmin && (
                     <button
                       type="button"
-                      onClick={() => move(card.id, 'liked')}
+                      onClick={() => move(card.id, 'rejected')}
                       disabled={busy[card.id]}
                       className="cm-btn cm-btn-ghost w-full text-xs"
                     >
-                      Remove from Shot List
+                      🗑 Move to Trash
                     </button>
                   )}
                 </>
+              )}
+
+              {/* TRASH — restore or delete forever (admin) */}
+              {tab === 'trash' && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => move(card.id, 'candidate')}
+                    disabled={busy[card.id]}
+                    className="cm-btn cm-btn-ghost flex-1 text-xs"
+                  >
+                    ↩ Restore
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteForever(card.id)}
+                    disabled={busy[card.id]}
+                    className="cm-btn cm-btn-danger flex-1 text-xs"
+                  >
+                    {busy[card.id] ? '…' : '✕ Delete forever'}
+                  </button>
+                </div>
               )}
 
               {errors[card.id] && (

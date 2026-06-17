@@ -1,23 +1,30 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
 import type { StudioStatus, StudioVideo } from '@/lib/studio/videos'
+import { analyzeVideoFormat } from '@/lib/studio/analyze'
 
 const BUCKET = 'arsenal-videos'
 const TIKTOK_ACTOR = 'clockworks~tiktok-scraper'
+
+// Fetch a media URL, appending the Apify token for private KV-store links.
+async function fetchMedia(url: string, token: string): Promise<Buffer | null> {
+  const u = url.includes('api.apify.com')
+    ? `${url}${url.includes('?') ? '&' : '?'}token=${token}`
+    : url
+  try {
+    const r = await fetch(u)
+    if (!r.ok) return null
+    return Buffer.from(await r.arrayBuffer())
+  } catch {
+    return null
+  }
+}
 
 function detectPlatform(url: string): 'tiktok' | 'instagram' | 'youtube' | null {
   if (/tiktok\.com/i.test(url)) return 'tiktok'
   if (/instagram\.com/i.test(url)) return 'instagram'
   if (/youtube\.com|youtu\.be/i.test(url)) return 'youtube'
   return null
-}
-
-const DEFAULT_STRUCTURE = {
-  beats: [
-    { name: 'hook', text: 'Open with a question / myth in the first 2s.' },
-    { name: 'point', text: 'Bust it / compare options in plain English.' },
-    { name: 'cta', text: 'One clear takeaway.' },
-  ],
 }
 
 // Admin "Add to Shot List": ingest a single TikTok video by URL via Apify
@@ -51,7 +58,7 @@ export async function addStudioVideoByUrl(params: {
         postURLs: [params.url],
         resultsPerPage: 1,
         shouldDownloadVideos: true,
-        shouldDownloadCovers: false,
+        shouldDownloadCovers: true,
       }),
     }
   )
@@ -75,7 +82,9 @@ export async function addStudioVideoByUrl(params: {
   const buf = Buffer.from(await vr.arrayBuffer())
   if (buf.length < 10000) throw new Error('downloaded video looks empty')
 
-  // 3. upload to our bucket
+  const caption = (v.text as string) || ''
+
+  // 3. upload to our bucket + upload the cover (for the thumbnail + analysis)
   const supabase = createServerClient()
   const id = randomUUID()
   const videoPath = `studio/${params.clinicId}/${id}.mp4`
@@ -84,8 +93,24 @@ export async function addStudioVideoByUrl(params: {
     .upload(videoPath, buf, { contentType: 'video/mp4', upsert: true })
   if (up.error) throw new Error(`upload failed: ${up.error.message}`)
 
-  // 4. insert the row
-  const caption = (v.text as string) || ''
+  const coverUrl = (videoMeta.coverUrl as string) || ((v.covers as string[]) || [])[0]
+  const coverBuf = coverUrl ? await fetchMedia(coverUrl, token) : null
+  let thumbPath: string | null = null
+  if (coverBuf && coverBuf.length > 2000) {
+    thumbPath = `studio/${params.clinicId}/${id}.jpg`
+    await supabase.storage
+      .from(BUCKET)
+      .upload(thumbPath, coverBuf, { contentType: 'image/jpeg', upsert: true })
+  }
+
+  // 4. REAL analysis — read the cover frame + caption to extract the actual
+  // format + structure (not a generic template).
+  const analysis = await analyzeVideoFormat({
+    caption,
+    cover: coverBuf ? { data: coverBuf, mediaType: 'image/jpeg' } : null,
+  })
+
+  // 5. insert the row
   const author = (authorMeta.name as string) || null
   const plays = (v.playCount as number) ?? (v.diggCount as number) ?? null
   const { data, error } = await supabase
@@ -97,12 +122,11 @@ export async function addStudioVideoByUrl(params: {
       author_handle: author ? `@${author}` : null,
       view_count: plays,
       title: caption.slice(0, 120) || 'TikTok reel',
-      style_description:
-        'Vertical talking-head doctor reel — sharp hook, plain-English point, one takeaway. Re-film inside the clinic.',
-      structure: DEFAULT_STRUCTURE as unknown as never,
+      style_description: analysis.style_description,
+      structure: { beats: analysis.beats } as unknown as never,
       caption: caption || null,
       video_storage_path: videoPath,
-      thumbnail_storage_path: null,
+      thumbnail_storage_path: thumbPath,
       is_active: true,
       status: params.status,
     })
