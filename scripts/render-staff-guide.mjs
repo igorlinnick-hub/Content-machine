@@ -211,11 +211,12 @@ function buildHTML(qrDataUrl) {
         <img class="qr" src="${qrDataUrl}" alt="Login QR" />
         <div class="qr-text">
           <h3>🔐 Log in to Content Machine</h3>
-          <p>Scan the code (or open <b>${LOGIN_URL.replace(/^https?:\/\//, '')}</b>) → tap <b>“I have a code or link”</b> → enter your code:</p>
+          <p>Scan the code, or tap the button below → then <b>“I have a code or link”</b> → enter your code:</p>
           <div class="codes">
             <div class="code"><div class="who">Team</div><div class="val">${TEAM_CODE}</div></div>
             <div class="code"><div class="who">Doctor</div><div class="val">${DOCTOR_CODE}</div></div>
           </div>
+          <a class="cta" href="${LOGIN_URL}" style="margin-top:12pt;">🔐 Open login →</a>
         </div>
       </div>
     </div>
