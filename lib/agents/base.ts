@@ -167,7 +167,11 @@ export async function callAgentTool<T>(opts: CallAgentToolOptions): Promise<T> {
       ]
     : opts.systemPrompt
 
-  const supportsAdaptive = !model.includes('haiku')
+  // Note: NO `thinking` here. Anthropic rejects the combination of
+  // `thinking: adaptive` with `tool_choice: { type: 'tool' }` —
+  // "Thinking may not be enabled when tool_choice forces tool use."
+  // Forcing the tool is the whole point (guaranteed valid JSON), so we
+  // accept losing adaptive thinking on this path.
   const stream = client.messages.stream({
     model,
     max_tokens: opts.maxTokens ?? 4096,
@@ -181,7 +185,6 @@ export async function callAgentTool<T>(opts: CallAgentToolOptions): Promise<T> {
       },
     ],
     tool_choice: { type: 'tool', name: opts.toolName },
-    ...(supportsAdaptive ? { thinking: { type: 'adaptive' } } : {}),
     ...(opts.effort ? { output_config: { effort: opts.effort } } : {}),
   })
 
