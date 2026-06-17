@@ -75,6 +75,12 @@ interface PhotoFolderRefs {
   category: GenerateOneResult['category']
 }
 
+// Cross-call stage emitter. Used both as a console-log helper for the
+// JSON path and as a stream-push hook for the SSE path. The route's
+// stream handler installs a custom emitter that publishes each named
+// stage to the client so the UI can show a real-time stepper.
+type StageEmitter = (name: string, meta?: Record<string, unknown>) => void
+
 async function generateOne(params: {
   clinicId: string
   context: SharedContext
@@ -88,6 +94,7 @@ async function generateOne(params: {
   renderSlidesForThis: boolean
   preMatchedFolderId: string | null
   planId?: string | null
+  onStage?: StageEmitter
 }): Promise<GenerateOneResult> {
   // If the user pasted a starting note, fold it into the topic hint so the
   // writer treats it as additional steering, not a separate concept.
@@ -99,8 +106,10 @@ async function generateOne(params: {
   // specific stage in Vercel function logs. Logs go to stdout — surface in
   // the dashboard under the deployment's Logs tab.
   const t0 = Date.now()
-  const stage = (name: string) =>
+  const stage = (name: string, meta?: Record<string, unknown>) => {
     console.log(`[generate] ${name} @ ${Date.now() - t0}ms`)
+    params.onStage?.(name, { ...meta, elapsed_ms: Date.now() - t0 })
+  }
 
   stage('start')
   const writerOut = await runWriter({
@@ -455,12 +464,21 @@ export async function POST(req: Request) {
       ? body.length
       : 'short'
 
-  try {
+  const url = new URL(req.url)
+  const shouldStream = url.searchParams.get('stream') === '1'
+
+  // The post-validation pipeline lives in this closure so both the JSON
+  // and the SSE branches share one source of truth. When streaming, the
+  // route handler installs a stage emitter that pushes events to the
+  // client; in JSON mode the emitter is undefined and stages just log.
+  const runPipeline = async (
+    onStage: StageEmitter | undefined
+  ): Promise<Record<string, unknown>> => {
     let topicText: string
     if (topicId) {
       const planTopic = await getTopic(topicId)
       if (!planTopic) {
-        return NextResponse.json({ error: 'topic not found' }, { status: 404 })
+        throw new Error('topic not found')
       }
       topicText = planTopic.topic
     } else if (planHandle) {
@@ -476,10 +494,7 @@ export async function POST(req: Request) {
         .maybeSingle()
       const t = (row as { topic?: string | null } | null)?.topic
       if (!t) {
-        return NextResponse.json(
-          { error: `plan_handle "${planHandle}" not found for clinic` },
-          { status: 404 }
-        )
+        throw new Error(`plan_handle "${planHandle}" not found for clinic`)
       }
       topicText = t
     } else {
@@ -547,6 +562,7 @@ export async function POST(req: Request) {
           renderSlidesForThis: len === 'short',
           preMatchedFolderId: photoFolderRefs.folderId,
           planId: body.planId ?? null,
+          onStage,
         })
       )
     )
@@ -563,7 +579,7 @@ export async function POST(req: Request) {
 
     const primary = results.find((r) => r.length_target === 'short') ?? results[0]
 
-    return NextResponse.json({
+    return {
       // Backwards-compatible top-level shape (matches the previous response):
       slide_set_id: primary.slide_set_id,
       script_id: primary.script_id,
@@ -576,11 +592,70 @@ export async function POST(req: Request) {
         ? `/api/visual/download?slideSetId=${primary.slide_set_id}`
         : null,
       category: primary.category ?? photoFolderRefs.category,
-      // New fields:
       pair_id: pairId,
       length_target: primary.length_target,
       versions: results,
+    }
+  } // end runPipeline
+
+  if (shouldStream) {
+    const encoder = new TextEncoder()
+    const send = (
+      controller: ReadableStreamDefaultController<Uint8Array>,
+      event: string,
+      payload: unknown
+    ) => {
+      const line = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`
+      controller.enqueue(encoder.encode(line))
+    }
+    const stream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        try {
+          send(controller, 'stage', { name: 'queued', elapsed_ms: 0 })
+          const result = await runPipeline((name, meta) => {
+            send(controller, 'stage', { name, ...(meta ?? {}) })
+          })
+          send(controller, 'done', result)
+        } catch (e) {
+          const err = e as {
+            message?: unknown
+            code?: string
+            details?: string
+            hint?: string
+          }
+          const msg =
+            e instanceof Error
+              ? e.message
+              : e && typeof e === 'object' && 'message' in (e as object) && typeof err.message === 'string'
+                ? err.message
+                : String(e ?? 'unknown error')
+          const supabaseDetails =
+            err && typeof err === 'object'
+              ? [err.code, err.details, err.hint].filter(Boolean).join(' | ')
+              : ''
+          console.error('[generate] stream catch:', msg, supabaseDetails, e)
+          send(controller, 'error', {
+            error: supabaseDetails ? `${msg} [${supabaseDetails}]` : msg,
+          })
+        } finally {
+          controller.close()
+        }
+      },
     })
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        // Tell proxies (Vercel edge) not to buffer SSE.
+        'X-Accel-Buffering': 'no',
+      },
+    })
+  }
+
+  try {
+    const result = await runPipeline(undefined)
+    return NextResponse.json(result)
   } catch (e) {
     // Surface every detail so "unknown error" / "[object Object]"
     // can't happen. The main trap: Supabase PostgrestError is a plain

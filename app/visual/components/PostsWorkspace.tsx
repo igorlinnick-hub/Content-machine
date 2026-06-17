@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
 import { SlideEditor, type UISlide } from './SlideEditor'
 import { PhotoPicker } from './PhotoPicker'
+import {
+  GenerateProgress,
+  applyStageEvent,
+  emptyProgressState,
+  markDone,
+  type ProgressState,
+} from './GenerateProgress'
 
 interface Props {
   clinicId: string
@@ -61,6 +68,18 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
   const [styleVariant, setStyleVariant] = useState<StyleVariant>('classic')
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
+
+  // While generating, tick the client-side elapsedMs every 250ms so
+  // the user sees a live counter even between server stage events.
+  useEffect(() => {
+    if (!generating) return
+    const start = Date.now()
+    const id = setInterval(() => {
+      setProgress((s) => ({ ...s, elapsedMs: Date.now() - start }))
+    }, 250)
+    return () => clearInterval(id)
+  }, [generating])
 
   // PhotoPicker modal state — null = closed; otherwise the index of the
   // slide whose photo is being changed.
@@ -104,8 +123,10 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
     }
     setGenerating(true)
     setGenError(null)
+    setProgress(emptyProgressState())
+
     try {
-      const res = await fetch('/api/posts/generate', {
+      const res = await fetch('/api/posts/generate?stream=1', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -115,22 +136,80 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           template_variant: styleVariant,
         }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        // Kill-switch on — show the human "batch day" message instead
-        // of the bare LLM_AGENTS_DISABLED token. Anything else falls
-        // through to the original error string.
-        if (
-          res.status === 503 &&
-          (data?.error === 'LLM_AGENTS_DISABLED' ||
-            data?.ok === false)
-        ) {
-          throw new Error('LLM_AGENTS_DISABLED')
-        }
-        throw new Error(data?.error ?? `HTTP ${res.status}`)
-      }
-      const fresh = data as GenerateResponse
 
+      if (!res.ok || !res.body) {
+        // Most likely an early validation / kill-switch response: it's
+        // JSON, not a stream. Parse and throw.
+        let errMsg = `HTTP ${res.status}`
+        try {
+          const data = await res.json()
+          if (
+            res.status === 503 &&
+            (data?.error === 'LLM_AGENTS_DISABLED' || data?.ok === false)
+          ) {
+            errMsg = 'LLM_AGENTS_DISABLED'
+          } else if (data?.error) {
+            errMsg = data.error
+          }
+        } catch {
+          // ignore — body not JSON, keep HTTP status message
+        }
+        throw new Error(errMsg)
+      }
+
+      // Stream parser. SSE frames are double-newline separated, each
+      // frame has lines like "event: <name>\ndata: <json>". We
+      // accumulate buffer and flush whole frames as they arrive.
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let result: GenerateResponse | null = null
+      let streamError: string | null = null
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        // Split on double newline — anything before the last \n\n is a
+        // complete frame, the trailing tail goes back into the buffer.
+        const frames = buffer.split('\n\n')
+        buffer = frames.pop() ?? ''
+        for (const frame of frames) {
+          if (!frame.trim()) continue
+          let evName = 'message'
+          let dataLine = ''
+          for (const line of frame.split('\n')) {
+            if (line.startsWith('event: ')) evName = line.slice(7).trim()
+            else if (line.startsWith('data: ')) dataLine = line.slice(6)
+          }
+          if (!dataLine) continue
+          let payload: unknown
+          try {
+            payload = JSON.parse(dataLine)
+          } catch {
+            continue
+          }
+          if (evName === 'stage') {
+            const p = payload as { name?: string; elapsed_ms?: number }
+            if (typeof p?.name === 'string') {
+              setProgress((s) =>
+                applyStageEvent(s, p.name as string, p.elapsed_ms ?? s.elapsedMs)
+              )
+            }
+          } else if (evName === 'done') {
+            result = payload as GenerateResponse
+            setProgress((s) => markDone(s, s.elapsedMs))
+          } else if (evName === 'error') {
+            streamError = (payload as { error?: string })?.error ?? 'failed'
+          }
+        }
+      }
+
+      if (streamError) throw new Error(streamError)
+      if (!result) throw new Error('Stream ended without result')
+
+      const fresh = result
       if (fresh.slide_set_id) {
         const newItem: PostListItem = {
           slide_set_id: fresh.slide_set_id,
@@ -155,7 +234,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           slides: fresh.slides,
           previews: fresh.previews,
           created_at: newItem.created_at,
-          drive_folder_id: null, // hydrated on next GET
+          drive_folder_id: null,
           photo_overrides: {},
         })
         setDrafts(fresh.slides.slice())
@@ -165,7 +244,9 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
       setNote('')
       router.refresh()
     } catch (e) {
-      setGenError(e instanceof Error ? e.message : 'failed to generate')
+      const msg = e instanceof Error ? e.message : 'failed to generate'
+      setGenError(msg)
+      setProgress((s) => ({ ...s, error: msg }))
     } finally {
       setGenerating(false)
     }
@@ -304,6 +385,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
               </button>
             </div>
           </div>
+          {generating && <GenerateProgress state={progress} />}
           {genError === 'LLM_AGENTS_DISABLED' ? (
             <div className="rounded border border-sky-200 bg-sky-50 px-3 py-3 text-xs text-sky-800">
               <p className="mb-1 font-semibold">

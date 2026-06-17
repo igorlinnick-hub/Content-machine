@@ -151,6 +151,21 @@ body {
   animation: cm-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
+@keyframes cm-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.45);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 6px rgba(14, 165, 233, 0);
+  }
+}
+
+.cm-pulse {
+  animation: cm-pulse 1.4s ease-in-out infinite;
+}
+
 .cm-fade-in-stagger > * {
   animation: cm-fade-in 0.5s ease-out both;
 }
@@ -164,7 +179,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cm-fade-in,
   .cm-fade-in-stagger > *,
-  .animate-cm-ping {
+  .animate-cm-ping,
+  .cm-pulse {
     animation: none;
   }
 }
