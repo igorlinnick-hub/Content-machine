@@ -582,17 +582,46 @@ export async function POST(req: Request) {
       versions: results,
     })
   } catch (e) {
-    // Surface every detail so "unknown error" can't happen — every
-    // failure surfaces with its constructor name, status (if any),
-    // and message.
-    const err = e as { message?: string; status?: number; constructor?: { name: string } }
+    // Surface every detail so "unknown error" / "[object Object]"
+    // can't happen. The main trap: Supabase PostgrestError is a plain
+    // object (not Error instance) — `String(e)` = "[object Object]".
+    // 3-branch extraction: Error.message → object.message → String(e).
+    const err = e as {
+      message?: unknown
+      status?: number
+      code?: string
+      details?: string
+      hint?: string
+      constructor?: { name: string }
+    }
     const constructorName = err?.constructor?.name ?? 'Unknown'
-    const status = err?.status ?? null
-    const msg = e instanceof Error ? e.message : String(e ?? 'unknown error')
-    console.error('[generate] route catch:', constructorName, 'status:', status, 'msg:', msg, e)
+    const status = typeof err?.status === 'number' ? err.status : null
+    const msg =
+      e instanceof Error
+        ? e.message
+        : e && typeof e === 'object' && 'message' in (e as object) && typeof err.message === 'string'
+          ? err.message
+          : String(e ?? 'unknown error')
+    // Pull supabase-specific fields if present, so a column-missing /
+    // RLS failure tells us exactly what to fix.
+    const supabaseDetails =
+      err && typeof err === 'object'
+        ? [err.code, err.details, err.hint].filter(Boolean).join(' | ')
+        : ''
+    console.error(
+      '[generate] route catch:',
+      constructorName,
+      'status:',
+      status,
+      'msg:',
+      msg,
+      'supabase:',
+      supabaseDetails,
+      e
+    )
     return NextResponse.json(
       {
-        error: msg || `${constructorName}${status ? ` (${status})` : ''}`,
+        error: supabaseDetails ? `${msg} [${supabaseDetails}]` : msg,
         kind: constructorName,
         status,
       },
