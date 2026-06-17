@@ -15,6 +15,9 @@ export interface StudioVideoStructure {
   notes?: string
 }
 
+// Funnel stage. candidate -> liked (anyone) -> shotlist (admin only).
+export type StudioStatus = 'candidate' | 'liked' | 'shotlist' | 'rejected'
+
 export interface StudioVideo {
   id: string
   clinic_id: string
@@ -29,6 +32,8 @@ export interface StudioVideo {
   video_storage_path: string | null
   thumbnail_storage_path: string | null
   is_active: boolean
+  status: StudioStatus
+  current_script_id: string | null
   created_at: string
 }
 
@@ -61,6 +66,14 @@ export interface StudioVideoView extends StudioVideo {
   thumbnail_url: string | null
 }
 
+function decorate(v: StudioVideo): StudioVideoView {
+  return {
+    ...v,
+    video_url: publicUrl(v.video_storage_path),
+    thumbnail_url: publicUrl(v.thumbnail_storage_path),
+  }
+}
+
 export async function listStudioVideos(
   clinicId: string
 ): Promise<StudioVideoView[]> {
@@ -70,11 +83,49 @@ export async function listStudioVideos(
     .select('*')
     .eq('clinic_id', clinicId)
     .order('created_at', { ascending: false })
-  return ((data ?? []) as unknown as StudioVideo[]).map((v) => ({
-    ...v,
-    video_url: publicUrl(v.video_storage_path),
-    thumbnail_url: publicUrl(v.thumbnail_storage_path),
-  }))
+  return ((data ?? []) as unknown as StudioVideo[]).map(decorate)
+}
+
+// Videos in one funnel stage (Discover / Liked / Shot List).
+export async function listStudioVideosByStatus(
+  clinicId: string,
+  status: StudioStatus
+): Promise<StudioVideoView[]> {
+  const supabase = createServerClient()
+  const { data } = await supabase
+    .from('studio_videos')
+    .select('*')
+    .eq('clinic_id', clinicId)
+    .eq('status', status)
+    .order('view_count', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+  return ((data ?? []) as unknown as StudioVideo[]).map(decorate)
+}
+
+export async function setStudioStatus(
+  id: string,
+  clinicId: string,
+  status: StudioStatus
+): Promise<void> {
+  const supabase = createServerClient()
+  await supabase
+    .from('studio_videos')
+    .update({ status })
+    .eq('id', id)
+    .eq('clinic_id', clinicId)
+}
+
+export async function setStudioCurrentScript(
+  id: string,
+  clinicId: string,
+  scriptId: string
+): Promise<void> {
+  const supabase = createServerClient()
+  await supabase
+    .from('studio_videos')
+    .update({ current_script_id: scriptId })
+    .eq('id', id)
+    .eq('clinic_id', clinicId)
 }
 
 // Next playable video from the curated base not already on the board.

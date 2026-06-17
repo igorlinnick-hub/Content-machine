@@ -1171,6 +1171,8 @@ export type Database = {
           video_storage_path: string | null
           thumbnail_storage_path: string | null
           is_active: boolean
+          status: string
+          current_script_id: string | null
           created_at: string
         }
         Insert: {
@@ -1187,6 +1189,8 @@ export type Database = {
           video_storage_path?: string | null
           thumbnail_storage_path?: string | null
           is_active?: boolean
+          status?: string
+          current_script_id?: string | null
           created_at?: string
         }
         Update: {
@@ -1203,6 +1207,8 @@ export type Database = {
           video_storage_path?: string | null
           thumbnail_storage_path?: string | null
           is_active?: boolean
+          status?: string
+          current_script_id?: string | null
           created_at?: string
         }
         Relationships: [
