@@ -22,6 +22,12 @@ const nextConfig = {
       // skip bundling, resolve at runtime from node_modules.
       '@ffmpeg-installer/ffmpeg',
     ],
+    // Tell Vercel's serverless tracer to bundle the compliance .md
+    // files alongside the /compliance route. Without this the docs
+    // directory is stripped from the deploy and readFile() 500s.
+    outputFileTracingIncludes: {
+      '/compliance': ['./docs/**/*.md'],
+    },
   },
 };
 
