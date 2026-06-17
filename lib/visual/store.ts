@@ -2,9 +2,98 @@ import { createServerClient } from '@/lib/supabase/server'
 import type { VisualStyle, SlideSetStatus, TypedSlide } from '@/types'
 import type { Json } from '@/types/supabase'
 
+// Detects the v2 PostPlan shape {cover, slides[], cta, sources} that the
+// post pipeline writes. Returns null for anything else so callers fall
+// through to legacy array handling.
+function isPostPlanShape(raw: unknown): raw is {
+  cover?: unknown
+  slides?: unknown
+  cta?: unknown
+  sources?: unknown
+} {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false
+  return 'cover' in (raw as object) && 'slides' in (raw as object)
+}
+
+// Total visible carousel slide count for both shapes. The list cards
+// just need "X slides" — they don't care about content.
+export function countSlides(raw: unknown): number {
+  if (Array.isArray(raw)) return (raw as unknown[]).length
+  if (isPostPlanShape(raw)) {
+    const bodies = Array.isArray(raw.slides) ? (raw.slides as unknown[]).length : 0
+    const hasCover = !!raw.cover && typeof raw.cover === 'object'
+    const hasCta = !!raw.cta && typeof raw.cta === 'object'
+    return (hasCover ? 1 : 0) + bodies + (hasCta ? 1 : 0)
+  }
+  return 0
+}
+
+// Flatten a v2 PostPlan into TypedSlide[] so the legacy editor UI can
+// still display + edit the carousel until we ship a PostPlan-native
+// editor. Body bullets become bullet-prefixed lines in the text field;
+// PostPlan heading goes to `chip`; cover hook goes to `subtext`.
+function flattenPostPlan(raw: unknown): TypedSlide[] | null {
+  if (!isPostPlanShape(raw)) return null
+  const out: TypedSlide[] = []
+
+  const cover = raw.cover as { title?: unknown; hook?: unknown } | undefined
+  if (cover && typeof cover === 'object') {
+    const title = typeof cover.title === 'string' ? cover.title : ''
+    const hook = typeof cover.hook === 'string' ? cover.hook : null
+    if (title) out.push({ kind: 'cover', text: title, chip: null, subtext: hook })
+  }
+
+  const bodies = Array.isArray(raw.slides) ? raw.slides : []
+  for (const s of bodies) {
+    if (!s || typeof s !== 'object') continue
+    const b = s as Record<string, unknown>
+    const heading = typeof b.heading === 'string' ? b.heading.trim() : ''
+    const intro = typeof b.intro === 'string' ? b.intro.trim() : ''
+    const bullets = Array.isArray(b.bullets)
+      ? (b.bullets as unknown[]).filter((x): x is string => typeof x === 'string')
+      : []
+    const close = typeof b.close === 'string' ? b.close.trim() : ''
+    const parts: string[] = []
+    if (intro) parts.push(intro)
+    if (bullets.length) parts.push(...bullets.map((bl) => `• ${bl.trim()}`))
+    if (close) parts.push(close)
+    const text = parts.join('\n').trim()
+    if (!text && !heading) continue
+    out.push({
+      kind: 'body',
+      text: text || heading,
+      chip: heading || null,
+      subtext: null,
+    })
+  }
+
+  const cta = raw.cta as Record<string, unknown> | undefined
+  if (cta && typeof cta === 'object') {
+    const keyword = typeof cta.keyword === 'string' ? cta.keyword : ''
+    const follow = typeof cta.follow_line === 'string' ? cta.follow_line : ''
+    const comment = typeof cta.comment_line === 'string' ? cta.comment_line : ''
+    const book = typeof cta.book_line === 'string' ? cta.book_line : ''
+    const crisis = typeof cta.crisis_line_in_cta === 'string' ? cta.crisis_line_in_cta : ''
+    const lines = [follow, comment, book, crisis].filter(Boolean)
+    if (lines.length > 0 || keyword) {
+      out.push({
+        kind: 'cta',
+        text: lines.join('\n'),
+        chip: keyword || null,
+        subtext: null,
+      })
+    }
+  }
+
+  return out.length > 0 ? out : null
+}
+
 // Coerce a JSONB value from slide_sets.slides into a TypedSlide[]. Supports
-// both legacy string[] storage (older slide_sets) and the new structured form.
+// (1) v2 PostPlan object {cover, slides[], cta, sources} — flattened for
+// the legacy editor; (2) modern TypedSlide[]; (3) legacy string[].
 export function readSlidesJson(raw: unknown): TypedSlide[] {
+  const plan = flattenPostPlan(raw)
+  if (plan) return plan
   if (!Array.isArray(raw)) return []
   const out: TypedSlide[] = []
   raw.forEach((item, i) => {
@@ -236,7 +325,7 @@ export async function loadRecentSlideSets(
     script_id: r.script_id,
     status: (r.status ?? 'rendered') as SlideSetStatus,
     created_at: r.created_at ?? nowIso,
-    slide_count: Array.isArray(r.slides) ? (r.slides as unknown[]).length : 0,
+    slide_count: countSlides(r.slides),
   }))
 }
 
@@ -284,7 +373,7 @@ export async function loadPosts(
       topic: s?.topic ?? null,
       hook: s?.hook ?? null,
       script: s?.full_script ?? null,
-      slide_count: Array.isArray(r.slides) ? (r.slides as unknown[]).length : 0,
+      slide_count: countSlides(r.slides),
       status: (r.status ?? 'rendered') as SlideSetStatus,
       created_at: r.created_at ?? nowIso,
       length_target,
