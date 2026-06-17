@@ -143,14 +143,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             )}
           </div>
 
-          {/* Compact top-right: role badge only. The clinic switcher and
-              section nav live in their own rows below the headline so
-              "WHICH clinic" and "WHERE to go" stop competing for the
-              same eye-line. */}
-          <RoleBadge
-            role={access.role}
-            doctorName={isDoctor ? doctorDisplayName : null}
-          />
+          {/* Compact top-right: compliance link + role badge. The clinic
+              switcher and section nav live in their own rows below the
+              headline so "WHICH clinic" and "WHERE to go" stop competing
+              for the same eye-line. Compliance lives here so it's one
+              click for both doctor and admin from every page. */}
+          <div className="flex items-center gap-2">
+            <Link
+              href="/compliance"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+              title="FDA / FTC ruleset that every post is scored against"
+            >
+              ⚖️ Compliance
+            </Link>
+            <RoleBadge
+              role={access.role}
+              doctorName={isDoctor ? doctorDisplayName : null}
+            />
+          </div>
         </header>
 
         {/* Admin secondary nav — clinic switcher (one row) + section
