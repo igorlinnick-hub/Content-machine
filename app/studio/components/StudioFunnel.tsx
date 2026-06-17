@@ -99,6 +99,35 @@ export function StudioFunnel({
   const [tab, setTab] = useState<Tab>(initialTab)
   const [busy, setBusy] = useState<Record<string, boolean>>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [tweaks, setTweaks] = useState<Record<string, string>>({})
+  const [addUrl, setAddUrl] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
+
+  async function addVideo() {
+    const url = addUrl.trim()
+    if (!url) return
+    setAdding(true)
+    setAddError(null)
+    try {
+      const res = await fetch('/api/studio/videos/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId, url }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setAddError(data.error || 'Failed to add')
+        return
+      }
+      setAddUrl('')
+      window.location.reload() // re-fetch the board with the new card + idea
+    } catch {
+      setAddError('Network error')
+    } finally {
+      setAdding(false)
+    }
+  }
 
   const setBusyFor = (id: string, v: boolean) =>
     setBusy((b) => ({ ...b, [id]: v }))
@@ -134,7 +163,7 @@ export function StudioFunnel({
       const res = await fetch(`/api/studio/videos/${id}/generate-idea`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clinicId }),
+        body: JSON.stringify({ clinicId, note: tweaks[id] || undefined }),
       })
       const data = await res.json()
       if (!res.ok || !data.ok) {
@@ -191,6 +220,35 @@ export function StudioFunnel({
           {tab === 'shotlist' && 'What we film. Generate a shoot idea for each — swipe sideways for more.'}
         </p>
       </nav>
+
+      {/* Admin: add your own video straight to the Shot List */}
+      {tab === 'shotlist' && isAdmin && (
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            Add your own video to the Shot List
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              className="cm-input flex-1 text-sm"
+              placeholder="Paste a TikTok video link…"
+              value={addUrl}
+              onChange={(e) => setAddUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addVideo()
+              }}
+            />
+            <button
+              type="button"
+              onClick={addVideo}
+              disabled={adding || !addUrl.trim()}
+              className="cm-btn cm-btn-primary text-sm"
+            >
+              {adding ? 'Adding…' : '➕ Add'}
+            </button>
+          </div>
+          {addError && <p className="mt-1 text-xs text-red-600">{addError}</p>}
+        </div>
+      )}
 
       {shown.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 px-6 py-12 text-center text-sm text-neutral-600">
@@ -345,6 +403,17 @@ export function StudioFunnel({
                     )}
                   </div>
 
+                  {/* Optional tweak — steer the redo ("make it shorter") */}
+                  {card.idea && (
+                    <input
+                      className="cm-input text-xs"
+                      placeholder="Want it a bit different? e.g. shorter, more about knees"
+                      value={tweaks[card.id] ?? ''}
+                      onChange={(e) =>
+                        setTweaks((t) => ({ ...t, [card.id]: e.target.value }))
+                      }
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => generate(card.id)}
@@ -354,7 +423,9 @@ export function StudioFunnel({
                     {busy[card.id]
                       ? 'Thinking…'
                       : card.idea
-                        ? '✨ Regenerate idea'
+                        ? tweaks[card.id]?.trim()
+                          ? '✨ Redo with this'
+                          : '✨ Regenerate idea'
                         : '✨ Generate idea'}
                   </button>
 

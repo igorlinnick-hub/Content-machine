@@ -424,6 +424,9 @@ export interface RunWriterParams {
   pinnedFormat?: PinnedFormat
   // Studio "regenerate": hooks to diverge from on this pass.
   excludeHooks?: string[]
+  // Studio "tweak": a short free-text steer from the user ("make it
+  // shorter", "more about knees"). Applied on top of the pinned format.
+  studioSteer?: string | null
   // Post carousel pipeline (HANDOFF-POSTS.md §17.3 + §18). When true,
   // appends the HWC content-plan structural template + compliance
   // baseline + acute-trigger rules to the system prompt. Used by the
@@ -467,7 +470,12 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
       }`
     : 'follow the LENGTH SPEC and pick one FORMAT TEMPLATE (set template_name accordingly)'
 
-  const userContent = `${brief}${topicSection}${ctaSection}${refineSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
+  const steerSection =
+    params.studioSteer && params.studioSteer.trim()
+      ? `\n\nUSER TWEAK — adjust the idea to honour this request (keep the same pinned format):\n"${params.studioSteer.trim()}"\n`
+      : ''
+
+  const userContent = `${brief}${topicSection}${ctaSection}${refineSection}${steerSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
 
   const systemPrompt =
     SYSTEM_PROMPT_BASE +

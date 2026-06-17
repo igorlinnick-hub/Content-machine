@@ -157,19 +157,19 @@ function buildHTML(qrDataUrl) {
       left:-46mm;bottom:-44mm;"></div>
     <div style="position:relative;">
       <div class="eyebrow">Where the ideas come from</div>
-      <h1 style="font-size:28pt;">Open Studio. <span class="accent">Pick a format. Film.</span></h1>
+      <h1 style="font-size:28pt;">Open Studio. <span class="accent">Go to Shot List. Film.</span></h1>
       <div class="rule"></div>
 
       ${step(
         '3',
         BRAND.ocean,
-        'Get your idea from the portal',
+        'Get today’s ideas — the Shot List',
         `<ul>
           <li><b>Scan the code below</b> to open <b>Studio</b> on your phone.</li>
-          <li><b>Swipe the cards sideways</b> — each is a format that's working right now, with a real example video. <b>Watch it.</b></li>
-          <li>Under it you get the <b>idea + the script</b>, broken down by who says what (<span style="color:${BRAND.teal}">Doctor</span>, <span style="color:${BRAND.coral}">Patient</span>, Assistant, Narrator).</li>
-          <li>Don't love the idea? Tap <b>“Regenerate idea”</b>. Want a different video? Tap <b>“Change video”.</b></li>
-          <li>Film it the same way the example does — then upload to the Drive Inbox.</li>
+          <li>Open the <b>“Shot List”</b> tab — that’s <b>your list of what to film</b>. New ideas are added for you.</li>
+          <li>Each card has the <b>example video</b> (watch it) + a <b>simple script</b>: who says what — <span style="color:${BRAND.teal}">Doctor</span> on camera and <span style="color:${BRAND.coral}">Operator</span> behind it — plus the steps.</li>
+          <li>You can also browse the other videos if you want ideas, but <b>Shot List is where to start.</b></li>
+          <li>Film it the same way, <b>inside the clinic</b> — then upload to the Drive Inbox.</li>
         </ul>`
       )}
 
@@ -186,8 +186,8 @@ function buildHTML(qrDataUrl) {
       <div class="qr-wrap">
         <img src="${qrDataUrl}" alt="Studio QR" />
         <div class="qr-text">
-          <h3>📲 Open Studio</h3>
-          <p>Point your camera at the code. Bookmark it — new ideas appear every week.</p>
+          <h3>📲 Open Studio → Shot List</h3>
+          <p>Point your camera at the code, then tap <b>Shot List</b>. Bookmark it — fresh ideas are added for you.</p>
           <p class="url">${PORTAL_URL}</p>
         </div>
       </div>

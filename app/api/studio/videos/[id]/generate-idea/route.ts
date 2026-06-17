@@ -20,7 +20,10 @@ export async function POST(
   const off = await disabledHttpResponse()
   if (off) return off
 
-  const body = (await req.json().catch(() => ({}))) as { clinicId?: string }
+  const body = (await req.json().catch(() => ({}))) as {
+    clinicId?: string
+    note?: string
+  }
   const clinicId = access.role === 'admin' ? body.clinicId : access.clinicId
   if (!clinicId)
     return NextResponse.json({ error: 'clinicId required' }, { status: 400 })
@@ -29,12 +32,13 @@ export async function POST(
   if (!video)
     return NextResponse.json({ error: 'video not found' }, { status: 404 })
 
-  // Steer a regenerate away from the current hook.
+  // Steer a regenerate away from the current hook; honour an optional tweak.
   const previous = await loadStudioIdea(clinicId, video.current_script_id)
   const excludeHooks = previous?.hook ? [previous.hook] : []
+  const steer = typeof body.note === 'string' ? body.note.slice(0, 300) : null
 
   try {
-    const idea = await generateAndPinIdea(clinicId, video, { excludeHooks })
+    const idea = await generateAndPinIdea(clinicId, video, { excludeHooks, steer })
     return NextResponse.json({ ok: true, idea })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown'

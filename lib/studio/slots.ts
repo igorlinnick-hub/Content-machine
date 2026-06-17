@@ -35,7 +35,7 @@ export interface StudioIdea {
 export async function generateIdeaForVideo(
   clinicId: string,
   video: StudioVideo,
-  opts?: { excludeHooks?: string[] }
+  opts?: { excludeHooks?: string[]; steer?: string | null }
 ): Promise<StudioIdea> {
   const context = await loadSharedContext(clinicId)
   const pinnedFormat: PinnedFormat = {
@@ -56,6 +56,7 @@ export async function generateIdeaForVideo(
     lengthTarget: 'short',
     pinnedFormat,
     excludeHooks: opts?.excludeHooks,
+    studioSteer: opts?.steer ?? null,
   })
   const v = out.variants[0]
   if (!v) throw new Error('writer returned no variant for studio idea')
@@ -96,7 +97,7 @@ export async function generateIdeaForVideo(
 export async function generateAndPinIdea(
   clinicId: string,
   video: StudioVideo,
-  opts?: { excludeHooks?: string[] }
+  opts?: { excludeHooks?: string[]; steer?: string | null }
 ): Promise<StudioIdea> {
   const idea = await generateIdeaForVideo(clinicId, video, opts)
   await setStudioCurrentScript(video.id, clinicId, idea.script_id)
