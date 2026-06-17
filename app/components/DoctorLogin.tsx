@@ -2,32 +2,44 @@
 
 import { useState } from 'react'
 
-function extractToken(input: string): string | null {
-  const raw = input.trim()
-  if (!raw) return null
-  // Accept either a full install-link URL (…/c/<token>) or the bare token.
-  const slashIdx = raw.lastIndexOf('/c/')
-  if (slashIdx >= 0) {
-    const tail = raw.slice(slashIdx + 3).split(/[?#]/)[0]
-    return tail.length > 0 ? tail : null
-  }
-  // Bare token: alphanum + url-safe base64 chars only.
-  return /^[A-Za-z0-9_-]+$/.test(raw) ? raw : null
-}
-
 export function DoctorLogin() {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault()
-    const token = extractToken(value)
-    if (!token) {
-      setError('Paste the full install link your clinic sent you.')
+    const raw = value.trim()
+    if (!raw) {
+      setError('Type the code or paste the install link.')
       return
     }
-    window.location.assign(`/c/${token}`)
+    setSubmitting(true)
+    setError(null)
+    try {
+      // Server resolves whatever was typed: a /c/<token> URL, a raw
+      // token, or a memorable code. On success it sets the cookie and
+      // returns 200; we then bounce to the dashboard.
+      const res = await fetch('/api/auth/restore', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: raw }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(
+          data?.error ??
+            (res.status === 429
+              ? 'Too many attempts. Try again later.'
+              : 'Invalid code or link.')
+        )
+      }
+      window.location.assign('/dashboard')
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sign-in failed')
+      setSubmitting(false)
+    }
   }
 
   if (!open) {
@@ -37,7 +49,7 @@ export function DoctorLogin() {
         onClick={() => setOpen(true)}
         className="text-xs font-medium text-neutral-500 underline-offset-4 hover:text-neutral-800 hover:underline"
       >
-        I have an install link
+        I have a code or link
       </button>
     )
   }
@@ -46,7 +58,7 @@ export function DoctorLogin() {
     <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-2">
       <label className="flex flex-col gap-1 text-left">
         <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-          Install link
+          Sign in
         </span>
         <input
           type="text"
@@ -55,8 +67,9 @@ export function DoctorLogin() {
           autoFocus
           autoComplete="off"
           spellCheck={false}
-          placeholder="Paste the link from your clinic"
-          className="cm-input text-sm"
+          placeholder="hwc-team-2026  or  /c/…"
+          className="cm-input font-mono text-sm"
+          disabled={submitting}
         />
       </label>
       {error && (
@@ -73,20 +86,21 @@ export function DoctorLogin() {
             setValue('')
           }}
           className="cm-btn cm-btn-ghost text-xs"
+          disabled={submitting}
         >
           Cancel
         </button>
         <button
           type="submit"
-          disabled={!value.trim()}
+          disabled={!value.trim() || submitting}
           className="cm-btn cm-btn-primary flex-1 text-sm"
         >
-          Continue
+          {submitting ? 'Signing in…' : 'Continue'}
         </button>
       </div>
       <p className="text-[11px] text-neutral-400">
-        Paste the full link or just the code. Tap once on this device, then it
-        remembers you for a year.
+        Type the short code from your clinic, or paste the full link. This
+        device stays signed in for a year.
       </p>
     </form>
   )
