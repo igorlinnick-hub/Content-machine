@@ -14,12 +14,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'admin access required' }, { status: 403 })
   }
 
-  let body: { clinicId?: string; revokeExisting?: boolean; doctorName?: string }
+  let body: {
+    clinicId?: string
+    revokeExisting?: boolean
+    doctorName?: string
+    role?: string
+  }
   try {
     body = (await req.json()) as {
       clinicId?: string
       revokeExisting?: boolean
       doctorName?: string
+      role?: string
     }
   } catch {
     return NextResponse.json({ error: 'invalid body' }, { status: 400 })
@@ -31,19 +37,23 @@ export async function POST(req: Request) {
   }
 
   const doctorName = body.doctorName?.trim() || undefined
+  const role: 'doctor' | 'editor' =
+    body.role === 'editor' ? 'editor' : 'doctor'
 
+  // Revoke only links of the SAME role so doctor + team links don't
+  // wipe each other when admin clicks "Revoke + new" for one of them.
   if (body.revokeExisting) {
     const existing = await listActiveTokensForClinic(clinicId)
     await Promise.all(
       existing
-        .filter((t) => t.role === 'doctor')
+        .filter((t) => t.role === role)
         .map((t) => revokeToken(t.token))
     )
   }
 
   const row = await createAccessToken({
     clinicId,
-    role: 'doctor',
+    role,
     label: doctorName,
   })
   const url = new URL(req.url)
@@ -52,6 +62,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     token: row.token,
     url: installUrl,
+    role: row.role,
     doctorName: row.label,
   })
 }
@@ -69,13 +80,12 @@ export async function GET(req: Request) {
   }
 
   const tokens = await listActiveTokensForClinic(clinicId)
-  const links = tokens
-    .filter((t) => t.role === 'doctor')
-    .map((t) => ({
-      token: t.token,
-      url: `${url.origin}/c/${t.token}`,
-      doctorName: t.label,
-      lastUsedAt: t.last_used_at,
-    }))
+  const links = tokens.map((t) => ({
+    token: t.token,
+    url: `${url.origin}/c/${t.token}`,
+    role: t.role,
+    doctorName: t.label,
+    lastUsedAt: t.last_used_at,
+  }))
   return NextResponse.json({ links })
 }

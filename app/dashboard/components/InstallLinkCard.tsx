@@ -11,6 +11,7 @@ interface Props {
 interface Link {
   token: string
   url: string
+  role: 'doctor' | 'editor'
   doctorName: string | null
   lastUsedAt: string | null
 }
@@ -21,6 +22,7 @@ export function InstallLinkCard({ clinicId }: Props) {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [doctorName, setDoctorName] = useState('')
+  const [role, setRole] = useState<'doctor' | 'editor'>('doctor')
 
   useEffect(() => {
     let cancelled = false
@@ -46,7 +48,11 @@ export function InstallLinkCard({ clinicId }: Props) {
 
   async function generate(revokeExisting: boolean) {
     if (!doctorName.trim()) {
-      setError("Enter the doctor's first name first.")
+      setError(
+        role === 'doctor'
+          ? "Enter the doctor's first name first."
+          : "Enter the team member's name first."
+      )
       return
     }
     setGenerating(true)
@@ -59,6 +65,7 @@ export function InstallLinkCard({ clinicId }: Props) {
           clinicId,
           revokeExisting,
           doctorName: doctorName.trim(),
+          role,
         }),
       })
       const data = await res.json()
@@ -66,10 +73,17 @@ export function InstallLinkCard({ clinicId }: Props) {
       const newLink: Link = {
         token: data.token,
         url: data.url,
+        role: data.role ?? role,
         doctorName: data.doctorName ?? doctorName.trim(),
         lastUsedAt: null,
       }
-      setLinks(revokeExisting ? [newLink] : [newLink, ...links])
+      // When revoking, only same-role links were wiped server-side; keep
+      // the other-role rows in the list so the UI matches the DB.
+      setLinks(
+        revokeExisting
+          ? [newLink, ...links.filter((l) => l.role !== role)]
+          : [newLink, ...links]
+      )
       setDoctorName('')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to generate')
@@ -113,15 +127,29 @@ export function InstallLinkCard({ clinicId }: Props) {
       </details>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <label className="flex flex-col gap-1 sm:w-36">
+          <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+            Role
+          </span>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as 'doctor' | 'editor')}
+            className="cm-input text-sm"
+            disabled={generating}
+          >
+            <option value="doctor">Doctor</option>
+            <option value="editor">Team member</option>
+          </select>
+        </label>
         <label className="flex flex-1 flex-col gap-1">
           <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-            Doctor first name
+            {role === 'doctor' ? 'Doctor first name' : 'Team member name'}
           </span>
           <input
             type="text"
             value={doctorName}
             onChange={(e) => setDoctorName(e.target.value)}
-            placeholder="Shawn"
+            placeholder={role === 'doctor' ? 'Shawn' : 'Marketing'}
             className="cm-input text-sm"
             disabled={generating}
           />
@@ -135,13 +163,14 @@ export function InstallLinkCard({ clinicId }: Props) {
           >
             {generating ? 'Generating…' : 'Generate link'}
           </button>
-          {links.length > 0 && (
+          {links.some((l) => l.role === role) && (
             <button
               type="button"
               onClick={() => {
+                const label = role === 'doctor' ? 'doctor' : 'team'
                 if (
                   confirm(
-                    'Revoke all existing doctor links and generate a fresh one? Anyone with the old links loses access immediately.'
+                    `Revoke all existing ${label} links and generate a fresh one? Anyone with the old links loses access immediately.`
                   )
                 ) {
                   generate(true)
@@ -220,10 +249,26 @@ function LinkRow({ link }: { link: Link }) {
       <div className="flex min-w-0 flex-1 flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {link.doctorName && (
-            <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-              Dr. {link.doctorName}
+            <span
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                link.role === 'editor'
+                  ? 'border-violet-200 bg-violet-50 text-violet-700'
+                  : 'border-sky-200 bg-sky-50 text-sky-700'
+              }`}
+            >
+              {link.role === 'editor' ? '' : 'Dr. '}
+              {link.doctorName}
             </span>
           )}
+          <span
+            className={`rounded-full border px-2.5 py-0.5 text-[11px] uppercase tracking-wider ${
+              link.role === 'editor'
+                ? 'border-violet-200 bg-violet-50 text-violet-700'
+                : 'border-neutral-200 bg-white text-neutral-600'
+            }`}
+          >
+            {link.role === 'editor' ? 'Team' : 'Doctor'}
+          </span>
           <span
             className={`rounded-full border px-2.5 py-0.5 text-[11px] uppercase tracking-wider ${
               link.lastUsedAt

@@ -19,19 +19,15 @@ export async function GET(
     return NextResponse.redirect(new URL('/?error=invalid_link', url.origin))
   }
 
-  const firstVisit = row.last_used_at === null
   void touchToken(token)
 
-  // First-visit doctors land on a personalized welcome that walks them
-  // through the setup quiz themselves. Returning doctors go straight to
-  // the dashboard. Either way we attach cm_bootstrap so the localStorage
-  // backup picks it up client-side (cookie may not flow into PWA on
-  // iOS < 16.4).
-  const redirectUrl = new URL(
-    firstVisit ? '/onboarding' : '/dashboard',
-    url.origin
-  )
-  if (firstVisit) redirectUrl.searchParams.set('welcome', '1')
+  // Onboarding is OPTIONAL — the clinic profile is seeded by the admin,
+  // so first-time visitors (doctor + team members) land on the
+  // dashboard, not the quiz. Anyone who wants the quiz can still open
+  // /onboarding directly. cm_bootstrap is attached so the localStorage
+  // backup picks the token up client-side (cookie may not flow into the
+  // PWA on iOS < 16.4).
+  const redirectUrl = new URL('/dashboard', url.origin)
   redirectUrl.searchParams.set('cm_bootstrap', token)
 
   const res = NextResponse.redirect(redirectUrl)
