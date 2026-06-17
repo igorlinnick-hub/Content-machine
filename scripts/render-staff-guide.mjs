@@ -29,6 +29,11 @@ const DRIVE_URL =
   process.env.DRIVE_UPLOAD_URL ??
   'https://drive.google.com/drive/folders/1erhf5AURtETtyXUlnskCNiSVUvD_JfKJ?usp=share_link'
 
+// Login — the app's base URL + the access codes.
+const LOGIN_URL = process.env.LOGIN_URL ?? 'https://content-machine-gules.vercel.app'
+const TEAM_CODE = process.env.TEAM_CODE ?? 'hwc-team'
+const DOCTOR_CODE = process.env.DOCTOR_CODE ?? 'hwc-doctor'
+
 // HWC wave logo → embed as base64 so the PDF is self-contained.
 const LOGO_CANDIDATES = [
   '/Users/igorlinnik/Documents/Code Projects/Hawaii Wellness Clinic/clinic-landings/HWC-Landing-pages/wellness/logo.png',
@@ -107,6 +112,10 @@ function buildHTML(qrDataUrl) {
   b { color:${C.navy}; }
   .pill { display:inline-block; background:${C.mist}; color:${C.navy};
     border-radius:999px; padding:3pt 10pt; font-size:9.5pt; font-weight:600; margin:0 4pt 4pt 0; }
+  .codes { display:flex; gap:10pt; margin-top:10pt; }
+  .code { flex:1; background:${C.mist}; border:1px solid ${C.line}; border-radius:10pt; padding:9pt 12pt; }
+  .code .who { font-size:8.5pt; letter-spacing:.1em; text-transform:uppercase; color:${C.blue}; font-weight:700; }
+  .code .val { font-family:monospace; font-size:15pt; font-weight:700; color:${C.navy}; margin-top:2pt; }
   .card { background:rgba(255,255,255,.75); border:1px solid ${C.line};
     border-radius:16pt; padding:16pt 18pt; box-shadow:0 8pt 30pt rgba(47,107,255,.08);
     backdrop-filter:blur(2px); }
@@ -180,7 +189,7 @@ function buildHTML(qrDataUrl) {
         '3',
         'Get today’s ideas — the Shot List',
         `<ul>
-          <li><b>Scan the code below</b> to open <b>Studio</b> on your phone.</li>
+          <li><b>Log in first</b> (see the box below), then open <b>Studio</b>.</li>
           <li>Open the <b>“Shot List”</b> tab — that’s <b>your list of what to film</b>. New ideas are added for you.</li>
           <li>Each card has the <b>example video</b> (watch it) + a <b>simple script</b>: who says what — <b>Doctor</b> on camera and <b>Operator</b> behind it — plus the steps.</li>
           <li>You can browse the other videos too, but <b>Shot List is where to start.</b></li>
@@ -199,11 +208,14 @@ function buildHTML(qrDataUrl) {
       </div>
 
       <div class="qr-wrap">
-        <img class="qr" src="${qrDataUrl}" alt="Studio QR" />
+        <img class="qr" src="${qrDataUrl}" alt="Login QR" />
         <div class="qr-text">
-          <h3>📲 Open Studio → Shot List</h3>
-          <p>Point your camera at the code, then tap <b>Shot List</b>. Bookmark it — fresh ideas are added for you.</p>
-          <p class="link">${PORTAL_URL}</p>
+          <h3>🔐 Log in to Content Machine</h3>
+          <p>Scan the code (or open <b>${LOGIN_URL.replace(/^https?:\/\//, '')}</b>) → tap <b>“I have a code or link”</b> → enter your code:</p>
+          <div class="codes">
+            <div class="code"><div class="who">Team</div><div class="val">${TEAM_CODE}</div></div>
+            <div class="code"><div class="who">Doctor</div><div class="val">${DOCTOR_CODE}</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -214,7 +226,7 @@ function buildHTML(qrDataUrl) {
 }
 
 async function main() {
-  const qrDataUrl = await QRCode.toDataURL(PORTAL_URL, {
+  const qrDataUrl = await QRCode.toDataURL(LOGIN_URL, {
     margin: 1,
     width: 600,
     color: { dark: C.navy, light: '#ffffff' },
