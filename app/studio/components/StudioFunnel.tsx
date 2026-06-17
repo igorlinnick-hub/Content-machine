@@ -59,6 +59,7 @@ function VideoBox({ card }: { card: StudioCard }) {
       {card.video_url ? (
         <video
           controls
+          playsInline
           preload="metadata"
           poster={card.thumbnail_url ?? undefined}
           className="aspect-[9/16] w-full rounded-xl bg-neutral-900 object-cover"
@@ -155,22 +156,40 @@ export function StudioFunnel({
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Tabs */}
-      <nav className="flex flex-wrap gap-1.5 border-b border-neutral-200 pb-2">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              tab === t.key
-                ? 'bg-neutral-900 text-white'
-                : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-            }`}
-          >
-            {t.label} ({countFor(t.status)})
-          </button>
-        ))}
+      {/* Tabs — the funnel, left to right */}
+      <nav className="flex flex-col gap-2 border-b border-neutral-200 pb-3">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {TABS.map((t, i) => (
+            <div key={t.key} className="flex items-center gap-1.5">
+              {i > 0 && <span className="text-neutral-300">→</span>}
+              <button
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  tab === t.key
+                    ? 'bg-neutral-900 text-white'
+                    : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                }`}
+              >
+                {t.label}
+                <span
+                  className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                    tab === t.key
+                      ? 'bg-white/20 text-white'
+                      : 'bg-neutral-100 text-neutral-500'
+                  }`}
+                >
+                  {countFor(t.status)}
+                </span>
+              </button>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-neutral-500">
+          {tab === 'discover' && 'New reels to review — Like the ones that fit the clinic, Skip the rest.'}
+          {tab === 'liked' && "The team's picks. The admin promotes the best to the Shot List."}
+          {tab === 'shotlist' && 'What we film. Generate a shoot idea for each — swipe sideways for more.'}
+        </p>
       </nav>
 
       {shown.length === 0 ? (
@@ -193,7 +212,7 @@ export function StudioFunnel({
           {shown.map((card) => (
             <div
               key={card.id}
-              className={`flex shrink-0 flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm ${
+              className={`flex shrink-0 flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:shadow-md ${
                 tab === 'shotlist' ? 'w-[340px] snap-start sm:w-[380px]' : ''
               }`}
             >
@@ -206,9 +225,9 @@ export function StudioFunnel({
                     type="button"
                     onClick={() => move(card.id, 'liked')}
                     disabled={busy[card.id]}
-                    className="cm-btn cm-btn-primary flex-1 text-xs"
+                    className="cm-btn cm-btn-success flex-1 text-xs"
                   >
-                    👍 Like
+                    {busy[card.id] ? '…' : '👍 Like'}
                   </button>
                   <button
                     type="button"

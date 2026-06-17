@@ -68,10 +68,22 @@ export default async function StudioPage({
     ? `https://drive.google.com/drive/folders/${inboxId}`
     : null
 
+  // Land on a stage that actually has content (Shot List first), unless the
+  // URL asks for a specific tab.
+  const explicit =
+    searchParams.tab === 'liked' ||
+    searchParams.tab === 'discover' ||
+    searchParams.tab === 'shotlist'
+      ? (searchParams.tab as 'liked' | 'discover' | 'shotlist')
+      : null
+  const has = (s: string) => cards.some((c) => c.status === s)
   const tab =
-    searchParams.tab === 'liked' || searchParams.tab === 'discover'
-      ? searchParams.tab
-      : 'shotlist'
+    explicit ??
+    (has('shotlist')
+      ? 'shotlist'
+      : has('liked')
+        ? 'liked'
+        : 'discover')
 
   return (
     <main className="min-h-screen bg-white">
