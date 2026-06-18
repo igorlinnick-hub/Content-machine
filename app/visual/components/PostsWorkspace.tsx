@@ -69,6 +69,8 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
   const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
+  const [composing, setComposing] = useState(false)
+  const [composeError, setComposeError] = useState<string | null>(null)
 
   // While generating, tick the client-side elapsedMs every 250ms so
   // the user sees a live counter even between server stage events.
@@ -223,6 +225,8 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           length_target: fresh.length_target,
           pair_id: fresh.pair_id,
           category: fresh.category,
+          canva_design_url: null,
+          compose_status: 'idle',
         }
         setPosts((prev) => [newItem, ...prev])
         setSelectedId(fresh.slide_set_id)
@@ -478,6 +482,43 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  <ComposeInCanvaButton
+                    post={posts.find((p) => p.slide_set_id === detail.slide_set_id) ?? null}
+                    composing={composing}
+                    onCompose={async () => {
+                      setComposing(true)
+                      setComposeError(null)
+                      try {
+                        const res = await fetch(
+                          `/api/posts/${detail.slide_set_id}/compose`,
+                          { method: 'POST' }
+                        )
+                        const data = await res.json().catch(() => ({}))
+                        if (!res.ok) {
+                          throw new Error(
+                            data?.error ?? `Compose failed (HTTP ${res.status})`
+                          )
+                        }
+                        setPosts((prev) =>
+                          prev.map((p) =>
+                            p.slide_set_id === detail.slide_set_id
+                              ? {
+                                  ...p,
+                                  canva_design_url: data.canva_design_url ?? null,
+                                  compose_status: data.compose_status ?? 'ready',
+                                }
+                              : p
+                          )
+                        )
+                      } catch (e) {
+                        setComposeError(
+                          e instanceof Error ? e.message : 'compose failed'
+                        )
+                      } finally {
+                        setComposing(false)
+                      }
+                    }}
+                  />
                   {dirty && (
                     <button
                       type="button"
@@ -490,9 +531,9 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
                   )}
                   <a
                     href={`/api/visual/download?slideSetId=${detail.slide_set_id}`}
-                    className="cm-btn cm-btn-primary text-sm"
+                    className="cm-btn cm-btn-ghost text-sm"
                   >
-                    Download
+                    Download PNG
                   </a>
                   <button
                     type="button"
@@ -504,6 +545,12 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
                   </button>
                 </div>
               </header>
+
+              {composeError && (
+                <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  Compose in Canva: {composeError}
+                </p>
+              )}
 
               {error && (
                 <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -575,4 +622,70 @@ function formatDate(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+// Three button states based on compose_status + status:
+//   1. ready (already composed) → "Open in Canva ↗"
+//   2. idle / queued (eligible) → "🎨 Compose in Canva" (purple)
+//   3. blocked / failed         → disabled with hint
+// Posts in 'blocked' compliance status can't compose at all — the
+// backend rejects them, and we mirror that here so the marketer
+// doesn't waste a click.
+function ComposeInCanvaButton({
+  post,
+  composing,
+  onCompose,
+}: {
+  post: PostListItem | null
+  composing: boolean
+  onCompose: () => void
+}) {
+  if (!post) return null
+
+  if (post.compose_status === 'ready' && post.canva_design_url) {
+    return (
+      <a
+        href={post.canva_design_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="cm-btn text-sm"
+        style={{
+          background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+          color: 'white',
+        }}
+      >
+        🎨 Open in Canva ↗
+      </a>
+    )
+  }
+
+  if (post.status === 'blocked') {
+    return (
+      <button
+        type="button"
+        disabled
+        title="Compliance blocked this post — fix the findings first"
+        className="cm-btn cm-btn-ghost text-sm opacity-60"
+      >
+        🎨 Compose in Canva
+      </button>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onCompose}
+      disabled={composing}
+      className="cm-btn text-sm font-semibold"
+      style={{
+        background: composing
+          ? '#a78bfa'
+          : 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+        color: 'white',
+      }}
+    >
+      {composing ? 'Composing in Canva…' : '🎨 Compose in Canva'}
+    </button>
+  )
 }

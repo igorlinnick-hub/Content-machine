@@ -3,9 +3,11 @@ import type {
   PostPlanBodySlide,
   PostPlanCover,
   PostPlanCta,
+  PostPlanPhotoBrief,
   PostPlanSource,
 } from '@/types'
 import { suggestCtaKeyword, isMentalHealthAcute } from '@/lib/seeds/cta-keywords'
+import { generatePhotoBriefs } from './photo-brief'
 
 // PostPlan splitter (HANDOFF-POSTS.md §15). Owns its own Haiku call —
 // does not import lib/visual/slides.ts which emits the LEGACY
@@ -76,11 +78,16 @@ export interface SplitToPostPlanResult {
   slides: PostPlanBodySlide[]
   cta: PostPlanCta
   sources: PostPlanSource[]
+  // Per-slide photo brief. Populated by the photo-brief Haiku agent
+  // after the structural split. Canva compose endpoint resolves each
+  // entry (Replicate for 'ai', Drive for 'drive', etc.) when the
+  // marketer presses "Compose in Canva".
+  photo_brief: PostPlanPhotoBrief[]
 }
 
 export async function splitScriptToPostPlan(
   script: string,
-  context?: { topic?: string | null; hook?: string | null }
+  context?: { topic?: string | null; hook?: string | null; onStage?: (name: string) => void }
 ): Promise<SplitToPostPlanResult> {
   if (!script.trim()) {
     throw new Error('splitScriptToPostPlan: script is empty')
@@ -170,5 +177,27 @@ export async function splitScriptToPostPlan(
     })
     .filter((s): s is PostPlanSource => s !== null)
 
-  return { cover, slides, cta, sources }
+  // Photo brief is generated AFTER the structural split so the agent
+  // sees the full PostPlan and can decide per-slide source intelligently.
+  // Soft-fail to an empty array — the rest of the post is still valid.
+  context?.onStage?.('photo_brief:start')
+  let photo_brief: PostPlanPhotoBrief[] = []
+  try {
+    photo_brief = await generatePhotoBriefs({
+      cover,
+      slides,
+      cta,
+      topic: context?.topic ?? null,
+      category: null,
+    })
+    context?.onStage?.('photo_brief:done')
+  } catch (e) {
+    console.warn(
+      `[splitter] photo_brief generation failed: ${
+        e instanceof Error ? e.message : 'unknown'
+      }`
+    )
+  }
+
+  return { cover, slides, cta, sources, photo_brief }
 }

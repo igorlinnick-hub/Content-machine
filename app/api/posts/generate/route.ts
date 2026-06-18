@@ -286,16 +286,20 @@ async function generateOne(params: {
       const plan = await splitScriptToPostPlan(winner.script, {
         topic: winner.topic,
         hook: winner.hook,
+        onStage: stage,
       })
       stage('splitter:postplan:done')
       // Persist the rich PostPlan in slide_sets.slides. The legacy
       // TypedSlide path was a parseable prose stand-in; PostPlan is
-      // the structured contract per HANDOFF-POSTS.md §15.
+      // the structured contract per HANDOFF-POSTS.md §15. photo_brief
+      // ships with the plan so the Canva compose step has the per-
+      // slide directive (ai / drive / stock / fallback).
       const planRow = {
         cover: plan.cover,
         slides: plan.slides,
         cta: plan.cta,
         sources: plan.sources,
+        photo_brief: plan.photo_brief,
       }
       slides = []        // legacy TypedSlide list is intentionally empty
       previews = []      // Puppeteer skipped — Canva renders

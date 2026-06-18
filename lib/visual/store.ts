@@ -341,6 +341,10 @@ export interface PostListItem {
   length_target: 'short' | 'long' | null
   pair_id: string | null
   category: { id: string; name: string; emoji: string | null } | null
+  // Canva compose pipeline state. canva_design_url is null until a
+  // successful compose (real or stub) flips compose_status to 'ready'.
+  canva_design_url: string | null
+  compose_status: 'idle' | 'queued' | 'rendering' | 'ready' | 'failed'
 }
 
 export async function loadPosts(
@@ -351,7 +355,7 @@ export async function loadPosts(
   const { data, error } = await supabase
     .from('slide_sets')
     .select(
-      'id, script_id, status, created_at, slides, scripts ( topic, hook, full_script, length_target, pair_id ), clinic_categories ( id, name, emoji )'
+      'id, script_id, status, created_at, slides, canva_design_url, compose_status, scripts ( topic, hook, full_script, length_target, pair_id ), clinic_categories ( id, name, emoji )'
     )
     .eq('clinic_id', clinicId)
     .not('script_id', 'is', null)
@@ -380,6 +384,11 @@ export async function loadPosts(
       pair_id:
         (s as { pair_id?: string | null } | null | undefined)?.pair_id ?? null,
       category: cat ? { id: cat.id, name: cat.name, emoji: cat.emoji } : null,
+      canva_design_url:
+        (r as { canva_design_url?: string | null }).canva_design_url ?? null,
+      compose_status:
+        ((r as { compose_status?: string | null }).compose_status ??
+          'idle') as PostListItem['compose_status'],
     }
   })
 }
