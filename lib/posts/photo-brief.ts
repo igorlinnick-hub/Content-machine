@@ -29,23 +29,25 @@ const SYSTEM_PROMPT = `You decide what photo each slide in an HWC Instagram caro
 You receive a finished PostPlan (cover + body slides + cta) and emit a photo_brief array, one entry per slide.
 
 For each slide pick exactly one source:
-  • "ai"        — generate via Replicate Flux. Use for cover (hero) and high-impact body slides. Requires "prompt".
-  • "drive"     — use a real photo from the clinic's Google Drive folder (matched by category later). Use when the slide topic maps cleanly to existing library (peptides, exosomes, neuropathy, etc). Requires "keywords" used as a hint.
-  • "stock"     — Unsplash fallback. Use when subject is generic enough that real photo > AI. Requires "keywords".
-  • "fallback"  — no photo, brand surface only. Use for the CTA slide and prose-only slides (analogy / "Think of it this way").
+  • "ai"       — generate via Replicate Flux. Use for cover hero and slides about emotion, lifestyle, recovery, confidence, doctor-patient moments. Requires "prompt". Subject must be Native Hawaiian or Polynesian — never generic stock-look.
+  • "stock"    — Pexels/Unsplash. Use when the slide is about a biological mechanism, lab process, or clinical concept (blood cells, microscope, vials) — Flux hallucinates medical equipment. Requires "keywords".
+  • "fallback" — no photo, brand surface only. Use for analogy/prose-only slides (no bullets) and the CTA.
 
 Rules:
-  • Cover (n=1): almost always "ai" unless the topic is so specific (a particular protocol) that Drive has the right file. Subject should be a single human in a wellness setting, not a product shot.
-  • Body slides: prefer "drive" when the heading references a body system / protocol with photos already shot. "ai" when the slide needs an emotionally specific moment.
-  • Analogy / gap slides (no bullets, prose only): "fallback" — the prose carries it.
+  • Cover (n=1): always "ai". Single human in a wellness setting, not a product shot.
+  • Body slides with bullets and human/emotional content: "ai".
+  • Body slides about biology, mechanism, clinical science: "stock".
+  • Slides with no bullet points (analogy / "Think of it this way"): "fallback".
   • CTA: always "fallback".
-  • For "ai" entries the "prompt" field must START with the subject sentence and then include the style line verbatim — do NOT rewrite the style line, append it as-is. The style line is: "${STYLE_LINE}"
+  • For "ai" prompt: start with a subject sentence, then append the style line verbatim. The style line is: "${STYLE_LINE}"
+  • AI photo MUST have a dark lower third — the teal text panel overlays there and needs contrast.
+  • Never put clinical equipment (syringes, test tubes, lab coat) in an "ai" prompt — use "stock" instead.
 
 Respond with ONLY valid JSON, no markdown fences:
 {
   "photo_brief": [
-    { "n": 1, "source": "ai", "subject": "...", "prompt": "<subject>. ${STYLE_LINE}", "keywords": null },
-    { "n": 2, "source": "drive", "subject": "...", "prompt": null, "keywords": ["..."] },
+    { "n": 1, "source": "ai", "subject": "...", "prompt": "<subject sentence>. ${STYLE_LINE}", "keywords": null },
+    { "n": 2, "source": "stock", "subject": "...", "prompt": null, "keywords": ["blood cells", "microscope"] },
     { "n": 7, "source": "fallback", "subject": "CTA stack — no photo", "prompt": null, "keywords": null }
   ]
 }`
@@ -105,7 +107,7 @@ export async function generatePhotoBriefs(params: {
     const heuristic =
       !slide.bullets || slide.bullets.length === 0
         ? { source: 'fallback' as const, subject: slide.heading ?? 'Prose slide — no photo' }
-        : { source: 'drive' as const, subject: slide.heading ?? slide.intro ?? 'Clinic photo' }
+        : { source: 'ai' as const, subject: slide.heading ?? slide.intro ?? 'HWC patient wellness moment' }
     normalized.push(normaliseBrief(found, slide.n, heuristic))
   }
 
@@ -125,11 +127,10 @@ export async function generatePhotoBriefs(params: {
 function normaliseBrief(
   raw: Partial<PostPlanPhotoBrief> | undefined,
   n: number,
-  fallback: { source: 'ai' | 'drive' | 'stock' | 'fallback'; subject: string }
+  fallback: { source: 'ai' | 'stock' | 'fallback'; subject: string }
 ): PostPlanPhotoBrief {
-  const source: 'ai' | 'drive' | 'stock' | 'fallback' =
+  const source: 'ai' | 'stock' | 'fallback' =
     raw?.source === 'ai' ||
-    raw?.source === 'drive' ||
     raw?.source === 'stock' ||
     raw?.source === 'fallback'
       ? raw.source
@@ -143,7 +144,7 @@ function normaliseBrief(
         : `${subject}. ${STYLE_LINE}`
       : null
   const keywords =
-    source === 'stock' || source === 'drive'
+    source === 'stock'
       ? Array.isArray(raw?.keywords)
         ? raw!.keywords!.filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
         : null

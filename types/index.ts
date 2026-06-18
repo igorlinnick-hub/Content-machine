@@ -329,11 +329,10 @@ export interface PostPlanCta {
 
 export interface PostPlanPhotoBrief {
   n: number
-  source: 'drive' | 'ai' | 'stock' | 'fallback'
+  source: 'ai' | 'stock' | 'fallback'
   subject: string                          // human-readable for the picker
   prompt?: string | null                   // present when source: 'ai'
   keywords?: string[] | null               // present when source: 'stock'
-  drive_file_id?: string | null            // present when source: 'drive' (resolved)
 }
 
 export interface PostPlanCaption {
