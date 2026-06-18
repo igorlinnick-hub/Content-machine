@@ -48,9 +48,11 @@ export default async function StudioPage({
       return {
         id: v.id,
         status: v.status,
+        shot_type: v.shot_type ?? 'doctor',
         account: v.author_handle,
         view_count: v.view_count,
         title: v.title,
+        style_description: v.style_description,
         video_url: v.video_url,
         thumbnail_url: v.thumbnail_url,
         schema_beats: (v.structure?.beats ?? []).map((b) => ({

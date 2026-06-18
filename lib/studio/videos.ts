@@ -18,6 +18,9 @@ export interface StudioVideoStructure {
 // Funnel stage. candidate -> liked (anyone) -> shotlist (admin only).
 export type StudioStatus = 'candidate' | 'liked' | 'shotlist' | 'rejected'
 
+// doctor = talking-head script for Shawn. clinic = b-roll / format card for MAs.
+export type ShotType = 'doctor' | 'clinic'
+
 export interface StudioVideo {
   id: string
   clinic_id: string
@@ -33,6 +36,7 @@ export interface StudioVideo {
   thumbnail_storage_path: string | null
   is_active: boolean
   status: StudioStatus
+  shot_type: ShotType
   current_script_id: string | null
   created_at: string
 }

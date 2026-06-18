@@ -40,19 +40,13 @@ export default async function Home({
         <div className="flex flex-col gap-5 cm-fade-in">
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-500">
             <Logomark size={20} />
-            Content Machine
+            Hawaii Wellness Clinic
           </p>
           <h1 className="text-balance text-4xl font-semibold leading-[1.05] text-neutral-900 sm:text-6xl">
-            An AI team that writes
-            <br />
-            <span className="text-neutral-400">
-              in your voice. About you.
-            </span>
+            Content Studio
           </h1>
           <p className="max-w-xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
-            Built for regenerative-medicine doctors. Your clinic sends you a
-            one-time install link — open it on your phone once and your team
-            of agents goes to work.
+            Use your team code or install link to sign in.
           </p>
         </div>
 
