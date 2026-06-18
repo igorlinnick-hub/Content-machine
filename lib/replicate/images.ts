@@ -15,6 +15,9 @@ const REPLICATE_API = 'https://api.replicate.com/v1'
 export const IMAGE_MODELS = {
   flux_schnell: 'black-forest-labs/flux-schnell',
   flux_pro: 'black-forest-labs/flux-1.1-pro',
+  // Production HWC carousels. Spec: canva-posts.md "ФОТО-логика".
+  // $0.06/img, 4MP output, safety_tolerance up to 6.
+  flux_pro_ultra: 'black-forest-labs/flux-1.1-pro-ultra',
   sdxl_lightning: 'bytedance/sdxl-lightning-4step',
 } as const
 
@@ -60,6 +63,7 @@ function estimateCost(model: ImageModelKey, count: number): number {
   const per: Record<ImageModelKey, number> = {
     flux_schnell: 0.003,
     flux_pro: 0.04,
+    flux_pro_ultra: 0.06,
     sdxl_lightning: 0.0019,
   }
   return (per[model] ?? 0.005) * Math.max(1, count)
@@ -83,6 +87,20 @@ function buildInput(
       num_outputs: num,
       output_format: 'png',
       output_quality: 90,
+      ...(seed !== undefined ? { seed } : {}),
+    }
+  }
+  if (model === 'flux_pro_ultra') {
+    // Ultra returns a single image per call (no num_outputs param)
+    // and accepts safety_tolerance 1-6. We pin 6 per the HWC Canva
+    // spec — editorial wellness, no inappropriate gating for medical
+    // / anatomical subjects.
+    return {
+      prompt: input.prompt,
+      aspect_ratio: aspect,
+      safety_tolerance: 6,
+      output_format: 'png',
+      raw: false,
       ...(seed !== undefined ? { seed } : {}),
     }
   }

@@ -13,12 +13,16 @@ import type {
 // into actual bytes — Replicate Flux for 'ai', Drive folder lookup
 // for 'drive', Unsplash for 'stock', brand surface for 'fallback'.
 //
-// NOTE — the HWC style sentence below is the council placeholder until
-// the user pastes the tested Flux prompt template from the other Canva
-// chat (step 1 of the plan). Swap STYLE_LINE when that arrives.
-
+// Locked to the spec in
+// ~/Documents/Code Projects/Hawaii Wellness Clinic/My Bots & ALL Projects/docs/projects/canva-posts.md
+// section "ФОТО-логика (4 AI + 4 stock на пост)". This is the
+// HWC editorial look the Canva chat tested and approved on Post 18
+// (ED) + Post 16 (Peptides), 2026-06-10. Native Hawaiian / Polynesian
+// human subjects, muted teal+amber colour grade, photoreal 35mm.
+// safety_tolerance:6 is enforced at Replicate call time, not in the
+// prompt string.
 const STYLE_LINE =
-  'Editorial photographic style, soft natural daylight, warm Hawaii tones (ocean teal + sand + coral accents). Clinical wellness aesthetic, authentic real humans (not stocky). Shot on Canon EOS R5, 50mm. No text overlay. 1080x1350 portrait composition.'
+  'Cinematic editorial photograph, Native Hawaiian or Polynesian subject in a wellness setting in Hawaii, soft natural light, muted teal and warm amber colour grade, premium wellness brand photography, photoreal, 35mm, high detail. No text overlay.'
 
 const SYSTEM_PROMPT = `You decide what photo each slide in an HWC Instagram carousel should show. The clinic's photographic look is editorial wellness — real human subjects, soft daylight, warm Hawaii palette. NEVER inventory props that aren't visible in the script. Avoid stock-cliche subjects (handshake, lab coat pointing, generic pills bottle).
 
