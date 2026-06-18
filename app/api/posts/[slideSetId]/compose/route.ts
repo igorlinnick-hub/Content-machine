@@ -3,25 +3,36 @@ import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
 import { canCompose } from '@/lib/posts/status-owners'
 import { pingCanvaRunner } from '@/lib/posts/ping-canva-runner'
+import { composeInCanva, ComposeError } from '@/lib/canva/orchestrator'
+import { canvaIsConfigured } from '@/lib/canva/oauth'
+import { autofillIsConfigured } from '@/lib/canva/template-map'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// Flux × 4-6 + asset uploads + Canva autofill poll → keep generous headroom.
+export const maxDuration = 300
 
-// Queues a slide_set for the Canva runner.
+// Compose a slide_set's PostPlan into a finished Canva design.
 //
-// Contract (2026-06-17, locked with the runner spec):
-//   • Endpoint flips the row to status='ready_for_canva' atomically.
-//   • Runner polls /api/posts/ready-for-canva (Bearer SERVICE_TOKEN)
-//     OR receives the Telegram ping we send right after, picks a row,
-//     and does its own atomic claim:
-//       UPDATE slide_sets SET status='in_canva'
-//        WHERE id=$1 AND status='ready_for_canva' RETURNING id
-//     If RETURNING returns nothing, somebody else already took it.
-//   • Runner writes render_result + status='visuals_ready' when done.
+// Two paths, picked at request time based on env config:
 //
-// We do NOT compute a placeholder Canva URL anymore — that was the
-// pre-contract stub. render_result is the runner's column, owned by
-// the runner, never written from this side.
+//   1. INLINE PATH (canvaIsConfigured + autofillIsConfigured):
+//      Flip status='in_canva', then run the full Canva pipeline
+//      synchronously: Flux photos → Canva upload → autofill brand
+//      template. On success: write render_result + status='visuals_ready'.
+//      On failure: revert status to 'review' (don't strand the row in
+//      'in_canva' on a transient error) and surface the message.
+//      Returns the render_result JSON.
+//
+//   2. QUEUE PATH (env vars missing):
+//      Flip status='ready_for_canva' and send a Telegram ping so an
+//      external runner can pick it up. Returns immediately with the
+//      queue status. This was the only path until the orchestrator
+//      landed; we keep it so partial config still does something
+//      useful instead of failing the request.
+//
+// Both paths refuse 'blocked' posts (compliance violations) and any
+// status that canCompose() rejects.
 export async function POST(
   req: Request,
   { params }: { params: { slideSetId: string } }
@@ -33,7 +44,6 @@ export async function POST(
 
   const supabase = createServerClient()
 
-  // Sanity-load so we can return a meaningful 404 / 409 before mutating.
   const { data: row, error: loadErr } = await supabase
     .from('slide_sets')
     .select('id, clinic_id, status, scripts ( topic )')
@@ -58,35 +68,95 @@ export async function POST(
     )
   }
 
-  // Idempotent move to ready_for_canva. If a previous press already
-  // queued us and the runner hasn't picked it up yet, this is a
-  // no-op — the update lands the same value and the ping renotifies.
-  const { error: updErr } = await supabase
+  const inlineMode = canvaIsConfigured() && autofillIsConfigured()
+
+  // ── QUEUE PATH ──────────────────────────────────────────────────
+  if (!inlineMode) {
+    const { error: updErr } = await supabase
+      .from('slide_sets')
+      .update({ status: 'ready_for_canva' })
+      .eq('id', params.slideSetId)
+    if (updErr) {
+      return NextResponse.json(
+        { error: `queue failed: ${updErr.message}` },
+        { status: 500 }
+      )
+    }
+
+    const url = new URL(req.url)
+    const scripts = Array.isArray(row.scripts) ? row.scripts[0] : row.scripts
+    const topic = (scripts as { topic?: string | null } | null | undefined)?.topic ?? null
+    void pingCanvaRunner({
+      slideSetId: params.slideSetId,
+      clinicId: row.clinic_id ?? '',
+      topic,
+      origin: url.origin,
+    })
+
+    return NextResponse.json({
+      ok: true,
+      mode: 'queue',
+      slide_set_id: params.slideSetId,
+      status: 'ready_for_canva',
+    })
+  }
+
+  // ── INLINE PATH ─────────────────────────────────────────────────
+  // Atomic claim — only flip to in_canva if we're still in a
+  // composable state. Two clicks from different tabs can't double-fire.
+  const { data: claimed, error: claimErr } = await supabase
     .from('slide_sets')
-    .update({ status: 'ready_for_canva' })
+    .update({ status: 'in_canva' })
     .eq('id', params.slideSetId)
-  if (updErr) {
+    .in('status', [
+      'review',
+      'ready_for_canva',
+      'visuals_ready',
+      'approved',
+      'rendered',
+      'exported',
+    ])
+    .select('id')
+    .maybeSingle()
+  if (claimErr) {
     return NextResponse.json(
-      { error: `queue failed: ${updErr.message}` },
+      { error: `claim failed: ${claimErr.message}` },
       { status: 500 }
     )
   }
+  if (!claimed) {
+    return NextResponse.json(
+      { error: 'another compose is already running for this post' },
+      { status: 409 }
+    )
+  }
 
-  // Fire-and-forget: Telegram ping to wake up the runner. Failures
-  // here don't block the response — the DB row is the contract.
-  const url = new URL(req.url)
-  const scripts = Array.isArray(row.scripts) ? row.scripts[0] : row.scripts
-  const topic = (scripts as { topic?: string | null } | null | undefined)?.topic ?? null
-  void pingCanvaRunner({
-    slideSetId: params.slideSetId,
-    clinicId: row.clinic_id ?? '',
-    topic,
-    origin: url.origin,
-  })
+  try {
+    const result = await composeInCanva({ slideSetId: params.slideSetId })
+    return NextResponse.json({
+      ok: true,
+      mode: 'inline',
+      slide_set_id: params.slideSetId,
+      status: 'visuals_ready',
+      render_result: result,
+    })
+  } catch (e) {
+    // Roll the row back to 'review' so the marketer can see a clear
+    // state instead of a permanently-in-canva ghost. Surface the
+    // hint when it's a config error so they know what to fix.
+    await supabase
+      .from('slide_sets')
+      .update({ status: 'review' })
+      .eq('id', params.slideSetId)
 
-  return NextResponse.json({
-    ok: true,
-    slide_set_id: params.slideSetId,
-    status: 'ready_for_canva',
-  })
+    const isComposeErr = e instanceof ComposeError
+    const msg = e instanceof Error ? e.message : 'compose failed'
+    return NextResponse.json(
+      {
+        error: msg,
+        hint: isComposeErr ? e.hint ?? null : null,
+      },
+      { status: 500 }
+    )
+  }
 }
