@@ -16,18 +16,21 @@ export type SlideSetRow = Row<'slide_sets'>
 export type Tone = 'professional' | 'educational' | 'conversational'
 export type InsightType = 'story' | 'opinion' | 'angle' | 'hook'
 export type NoteSource = 'widget' | 'voice' | 'text'
-// Legacy status values. The pipeline (HANDOFF-POSTS.md §22.3) adds
-// 'blocked', 'ready_for_canva', 'in_canva', 'published' on top — those
-// live in SlideSetStatusV2 (defined at the bottom of this file).
+// The full enum the runner contract uses. SlideSetStatusV2 below is
+// kept as an alias for compat with code that imports the newer name.
+// Migration 028 renames live 'needs_review' rows → 'review' so this
+// file is the single source of truth from 2026-06-17 onwards.
 export type SlideSetStatus =
-  | 'pending'
-  | 'rendered'
-  | 'exported'
-  | 'blocked'
-  | 'needs_review'      // compliance returned REVIEW — human judgement needed
-  | 'ready_for_canva'
-  | 'in_canva'
-  | 'published'
+  | 'pending'           // system: just created, awaiting compliance grade
+  | 'review'            // human/medical: compliance returned REVIEW
+  | 'blocked'           // marketer: compliance REMOVE/REWORD — fix findings
+  | 'ready_for_canva'   // runner: queued for Canva pipeline
+  | 'in_canva'          // runner: composing now
+  | 'visuals_ready'     // marketer: render_result populated, review the dest
+  | 'approved'          // marketer: ack'd; NOT auto-published
+  | 'published'         // manual: flipped after IG/Buffer post
+  | 'rendered'          // legacy — pre-contract write path; never set anymore
+  | 'exported'          // legacy — same
 
 export interface ClinicProfile {
   id: string
@@ -357,16 +360,23 @@ export interface PostPlan {
 }
 
 // ─── Slide set lifecycle (HANDOFF-POSTS.md §22.3) ──────────────────
-// Extended vocabulary for slide_sets.status. The compliance gate
-// transitions pending → ready_for_canva on PASS, or pending → blocked
-// on REMOVE/REWORD. Canva bot polls 'ready_for_canva' rows and writes
-// 'in_canva' / 'published' back via the same service token.
-export type SlideSetStatusV2 =
-  | 'pending'
-  | 'blocked'
-  | 'needs_review'                          // REVIEW grade — human judgement
-  | 'ready_for_canva'
-  | 'in_canva'
-  | 'published'
-  | 'rendered'                              // legacy
-  | 'exported'                              // legacy
+// Backwards alias. SlideSetStatus above is the single source of truth.
+export type SlideSetStatusV2 = SlideSetStatus
+
+// Contract column slide_sets.render_result (migration 028). Owned by
+// the Canva runner — Content Machine reads it, never writes (except
+// to nullify on regenerate). schema_version lets the runner evolve
+// the payload shape without DB migrations.
+export interface RenderResult {
+  schema_version: number
+  channel: 'carousel' | 'reel' | 'story'
+  canva_edit_url: string
+  outputs: Array<{
+    kind: 'slide' | 'cover'
+    page: number              // 1-indexed; page=1 is cover/preview
+    url: string               // PNG URL — Canva-hosted, may expire
+  }>
+  assets_used: string[]
+  cost_usd: number
+  ts: string                   // ISO timestamp the runner wrote this
+}

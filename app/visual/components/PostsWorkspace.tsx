@@ -3,7 +3,9 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { PostListItem } from '@/lib/visual/store'
+import type { PostListItem, RenderResultSummary } from '@/lib/visual/store'
+import type { RenderResult, SlideSetStatus } from '@/types'
+import { isActivelyMoving, statusMeta } from '@/lib/posts/status-owners'
 import { SlideEditor, type UISlide } from './SlideEditor'
 import { PhotoPicker } from './PhotoPicker'
 import {
@@ -27,6 +29,8 @@ interface PostDetail {
   slides: UISlide[]
   previews: string[]
   created_at: string
+  status: SlideSetStatus
+  render_result: RenderResult | null
   // Effective Drive folder used by the renderer for body/cta photos.
   // Null when neither slide_set nor category has one — PhotoPicker
   // disables the re-index button in that case.
@@ -71,6 +75,10 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
   const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
   const [composing, setComposing] = useState(false)
   const [composeError, setComposeError] = useState<string | null>(null)
+  // Set when the marketer presses Compose so the deadline UX can
+  // show "in queue ~2 min" → "longer than usual" without flooding
+  // the runner with re-pings. Reset on detail change.
+  const [queuedAt, setQueuedAt] = useState<number | null>(null)
 
   // While generating, tick the client-side elapsedMs every 250ms so
   // the user sees a live counter even between server stage events.
@@ -82,6 +90,55 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
     }, 250)
     return () => clearInterval(id)
   }, [generating])
+
+  // Reset the queue-since timer whenever the selected post changes —
+  // otherwise the deadline UX would say "queued 5min" for a fresh row
+  // I just clicked into.
+  useEffect(() => {
+    setQueuedAt(null)
+  }, [selectedId])
+
+  // Polling: while the row is actively moving (system/runner working),
+  // re-fetch the detail every 4s so the marketer sees status changes
+  // without a refresh. Stops automatically when the row settles into
+  // a marketer-owned status (visuals_ready / approved / etc).
+  useEffect(() => {
+    if (!detail) return
+    if (!isActivelyMoving(detail.status)) return
+    const id = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/posts/${detail.slide_set_id}`)
+        if (!res.ok) return
+        const data = (await res.json()) as PostDetail
+        setDetail((d) =>
+          d && d.slide_set_id === data.slide_set_id
+            ? { ...d, status: data.status, render_result: data.render_result }
+            : d
+        )
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.slide_set_id === data.slide_set_id
+              ? {
+                  ...p,
+                  status: data.status,
+                  render_result: data.render_result
+                    ? {
+                        schema_version: data.render_result.schema_version,
+                        canva_edit_url: data.render_result.canva_edit_url,
+                        cover_url: data.render_result.outputs?.[0]?.url ?? null,
+                        ts: data.render_result.ts,
+                      }
+                    : null,
+                }
+              : p
+          )
+        )
+      } catch {
+        // poll is best-effort
+      }
+    }, 4000)
+    return () => clearInterval(id)
+  }, [detail])
 
   // PhotoPicker modal state — null = closed; otherwise the index of the
   // slide whose photo is being changed.
@@ -225,8 +282,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           length_target: fresh.length_target,
           pair_id: fresh.pair_id,
           category: fresh.category,
-          canva_design_url: null,
-          compose_status: 'idle',
+          render_result: null,
         }
         setPosts((prev) => [newItem, ...prev])
         setSelectedId(fresh.slide_set_id)
@@ -238,6 +294,8 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           slides: fresh.slides,
           previews: fresh.previews,
           created_at: newItem.created_at,
+          status: 'review',
+          render_result: null,
           drive_folder_id: null,
           photo_overrides: {},
         })
@@ -474,17 +532,25 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
             <>
               <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
-                  <h2 className="text-xl font-semibold text-neutral-900">
-                    {detail.topic ?? 'Untitled post'}
-                  </h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-semibold text-neutral-900">
+                      {detail.topic ?? 'Untitled post'}
+                    </h2>
+                    <StatusChip status={detail.status} />
+                  </div>
                   <p className="mt-1 text-xs text-neutral-500">
                     {formatDate(detail.created_at)} · {detail.slides.length} slides
+                  </p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    {statusMeta(detail.status).hint}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <ComposeInCanvaButton
-                    post={posts.find((p) => p.slide_set_id === detail.slide_set_id) ?? null}
+                    status={detail.status}
+                    renderResult={detail.render_result}
                     composing={composing}
+                    queuedAt={queuedAt}
                     onCompose={async () => {
                       setComposing(true)
                       setComposeError(null)
@@ -499,14 +565,18 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
                             data?.error ?? `Compose failed (HTTP ${res.status})`
                           )
                         }
+                        setQueuedAt(Date.now())
+                        // Optimistically flip to ready_for_canva — the
+                        // poll loop will pick up further status changes.
+                        setDetail((d) =>
+                          d
+                            ? { ...d, status: 'ready_for_canva' as SlideSetStatus }
+                            : d
+                        )
                         setPosts((prev) =>
                           prev.map((p) =>
                             p.slide_set_id === detail.slide_set_id
-                              ? {
-                                  ...p,
-                                  canva_design_url: data.canva_design_url ?? null,
-                                  compose_status: data.compose_status ?? 'ready',
-                                }
+                              ? { ...p, status: 'ready_for_canva' as SlideSetStatus }
                               : p
                           )
                         )
@@ -614,6 +684,18 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
   )
 }
 
+function StatusChip({ status }: { status: SlideSetStatus }) {
+  const meta = statusMeta(status)
+  return (
+    <span
+      className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${meta.chipClass}`}
+      title={meta.hint}
+    >
+      {meta.label}
+    </span>
+  )
+}
+
 function formatDate(iso: string): string {
   const d = new Date(iso)
   return d.toLocaleString(undefined, {
@@ -624,42 +706,29 @@ function formatDate(iso: string): string {
   })
 }
 
-// Three button states based on compose_status + status:
-//   1. ready (already composed) → "Open in Canva ↗"
-//   2. idle / queued (eligible) → "🎨 Compose in Canva" (purple)
-//   3. blocked / failed         → disabled with hint
-// Posts in 'blocked' compliance status can't compose at all — the
-// backend rejects them, and we mirror that here so the marketer
-// doesn't waste a click.
+// State-machine driven button. Mirrors the runner contract from
+// HANDOFF-POSTS.md §22 + status-owners.ts:
+//   blocked         → disabled (compliance fix first)
+//   ready_for_canva → "Queued for Canva…" + deadline UX (≤2min normal,
+//                     >10min "longer than usual" hint)
+//   in_canva        → "Drawing carousel…"
+//   visuals_ready   → "🎨 Open in Canva ↗" + (caller will add Approve)
+//   approved/etc    → "Re-compose" (allows regenerate)
+//   pending/review  → "🎨 Compose in Canva" (primary action)
 function ComposeInCanvaButton({
-  post,
+  status,
+  renderResult,
   composing,
+  queuedAt,
   onCompose,
 }: {
-  post: PostListItem | null
+  status: SlideSetStatus
+  renderResult: RenderResult | null
   composing: boolean
+  queuedAt: number | null
   onCompose: () => void
 }) {
-  if (!post) return null
-
-  if (post.compose_status === 'ready' && post.canva_design_url) {
-    return (
-      <a
-        href={post.canva_design_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="cm-btn text-sm"
-        style={{
-          background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-          color: 'white',
-        }}
-      >
-        🎨 Open in Canva ↗
-      </a>
-    )
-  }
-
-  if (post.status === 'blocked') {
+  if (status === 'blocked') {
     return (
       <button
         type="button"
@@ -669,6 +738,61 @@ function ComposeInCanvaButton({
       >
         🎨 Compose in Canva
       </button>
+    )
+  }
+
+  if (status === 'ready_for_canva' || status === 'in_canva') {
+    const elapsed = queuedAt ? Date.now() - queuedAt : 0
+    const slow = elapsed > 10 * 60_000
+    return (
+      <div className="flex flex-col gap-1">
+        <button
+          type="button"
+          disabled
+          className="cm-btn text-sm font-semibold opacity-90"
+          style={{
+            background: 'linear-gradient(135deg, #a78bfa 0%, #818cf8 100%)',
+            color: 'white',
+          }}
+        >
+          {status === 'in_canva'
+            ? '🎨 Drawing carousel…'
+            : '🎨 Queued for Canva… ~2 min'}
+        </button>
+        {slow && (
+          <span className="text-[10px] text-amber-700">
+            Longer than usual — the runner may be down. Try again in a bit.
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  if (renderResult?.canva_edit_url) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        <a
+          href={renderResult.canva_edit_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="cm-btn text-sm font-semibold"
+          style={{
+            background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+            color: 'white',
+          }}
+        >
+          🎨 Open in Canva ↗
+        </a>
+        <button
+          type="button"
+          onClick={onCompose}
+          disabled={composing}
+          className="cm-btn cm-btn-ghost text-sm"
+          title="Discard the current visuals and recompose from scratch"
+        >
+          {composing ? 'Re-composing…' : 'Re-compose'}
+        </button>
+      </div>
     )
   }
 
@@ -685,7 +809,7 @@ function ComposeInCanvaButton({
         color: 'white',
       }}
     >
-      {composing ? 'Composing in Canva…' : '🎨 Compose in Canva'}
+      {composing ? 'Queuing…' : '🎨 Compose in Canva'}
     </button>
   )
 }

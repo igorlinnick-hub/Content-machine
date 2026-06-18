@@ -306,7 +306,7 @@ async function generateOne(params: {
 
       const lifecycleStatus = compliance
         ? statusFromCompliance(compliance)
-        : 'needs_review'
+        : 'review'
       stage(
         `postplan:status=${lifecycleStatus} grade=${
           compliance?.grade ?? 'null'
@@ -372,13 +372,13 @@ async function generateOne(params: {
         (b) => `data:image/png;base64,${b.toString('base64')}`
       )
 
-      // Default to 'needs_review' (NOT 'rendered') when compliance is
-      // null — 'rendered' was the legacy preview-PNG status that no
-      // longer fits the script-factory model. If we don't have a
-      // verdict, hold for human review.
+      // Default to 'review' (NOT 'rendered') when compliance is null —
+      // 'rendered' was the legacy preview-PNG status that no longer
+      // fits the script-factory model. If we don't have a verdict,
+      // hold for human review.
       const lifecycleStatus = compliance
         ? statusFromCompliance(compliance)
-        : 'needs_review'
+        : 'review'
       stage(
         `legacy:status=${lifecycleStatus} grade=${
           compliance?.grade ?? 'null'

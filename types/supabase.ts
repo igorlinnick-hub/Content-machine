@@ -525,9 +525,7 @@ export type Database = {
           photo_overrides: Json | null
           compliance: Json | null
           plan_id: string | null
-          canva_design_url: string | null
-          compose_status: string | null
-          compose_error: string | null
+          render_result: Json | null
         }
         Insert: {
           clinic_id?: string | null
@@ -542,9 +540,7 @@ export type Database = {
           photo_overrides?: Json | null
           compliance?: Json | null
           plan_id?: string | null
-          canva_design_url?: string | null
-          compose_status?: string | null
-          compose_error?: string | null
+          render_result?: Json | null
         }
         Update: {
           clinic_id?: string | null
@@ -559,9 +555,7 @@ export type Database = {
           photo_overrides?: Json | null
           compliance?: Json | null
           plan_id?: string | null
-          canva_design_url?: string | null
-          compose_status?: string | null
-          compose_error?: string | null
+          render_result?: Json | null
         }
         Relationships: [
           {

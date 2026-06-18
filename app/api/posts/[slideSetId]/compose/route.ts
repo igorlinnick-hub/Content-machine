@@ -1,30 +1,29 @@
 import { NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
+import { canCompose } from '@/lib/posts/status-owners'
+import { pingCanvaRunner } from '@/lib/posts/ping-canva-runner'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 300
 
-// Compose a slide_set into a real Canva design.
+// Queues a slide_set for the Canva runner.
 //
-// Current state: STUB. Steps 5-7 of the Canva integration plan will
-// replace the placeholder URL with a real pipeline:
-//   1. Read slide_set.slides (PostPlan JSONB) + photo_brief
-//   2. For each photo_brief.source='ai': call Replicate Flux Pro to
-//      generate the photo; upload bytes to Canva as an asset
-//   3. For each photo_brief.source='drive': resolve drive_file_id
-//      from the clinic_categories drive_folder_id + clinic library
-//   4. createDesignFromTemplate(HWC brand-template) with field
-//      mappings from PostPlan (cover.title, slides[].heading, etc.)
-//   5. Save design URL + flip compose_status to 'ready'
+// Contract (2026-06-17, locked with the runner spec):
+//   • Endpoint flips the row to status='ready_for_canva' atomically.
+//   • Runner polls /api/posts/ready-for-canva (Bearer SERVICE_TOKEN)
+//     OR receives the Telegram ping we send right after, picks a row,
+//     and does its own atomic claim:
+//       UPDATE slide_sets SET status='in_canva'
+//        WHERE id=$1 AND status='ready_for_canva' RETURNING id
+//     If RETURNING returns nothing, somebody else already took it.
+//   • Runner writes render_result + status='visuals_ready' when done.
 //
-// Until then this endpoint marks the row as 'queued' → 'ready' with
-// a placeholder URL, so the UI can show the loading → success states
-// end-to-end. The marketer sees how the flow will look the moment
-// the real wire-up lands. Stub never fires Replicate / Canva quota.
+// We do NOT compute a placeholder Canva URL anymore — that was the
+// pre-contract stub. render_result is the runner's column, owned by
+// the runner, never written from this side.
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { slideSetId: string } }
 ) {
   const access = await resolveAccess()
@@ -34,11 +33,10 @@ export async function POST(
 
   const supabase = createServerClient()
 
-  // Load the row first so we can refuse early if the slide_set is in
-  // a bad state (blocked, deleted, missing photo_brief).
+  // Sanity-load so we can return a meaningful 404 / 409 before mutating.
   const { data: row, error: loadErr } = await supabase
     .from('slide_sets')
-    .select('id, status, slides, compose_status')
+    .select('id, clinic_id, status, scripts ( topic )')
     .eq('id', params.slideSetId)
     .maybeSingle()
   if (loadErr || !row) {
@@ -49,32 +47,46 @@ export async function POST(
   }
   if (row.status === 'blocked') {
     return NextResponse.json(
-      { error: 'cannot compose a blocked post — fix the compliance findings first' },
+      { error: 'cannot compose a blocked post — fix compliance findings first' },
+      { status: 409 }
+    )
+  }
+  if (!canCompose(row.status)) {
+    return NextResponse.json(
+      { error: `cannot compose from status='${row.status}'` },
       { status: 409 }
     )
   }
 
-  // Mark queued so the UI button can flip to "Composing…" immediately.
-  await supabase
+  // Idempotent move to ready_for_canva. If a previous press already
+  // queued us and the runner hasn't picked it up yet, this is a
+  // no-op — the update lands the same value and the ping renotifies.
+  const { error: updErr } = await supabase
     .from('slide_sets')
-    .update({ compose_status: 'queued', compose_error: null })
+    .update({ status: 'ready_for_canva' })
     .eq('id', params.slideSetId)
+  if (updErr) {
+    return NextResponse.json(
+      { error: `queue failed: ${updErr.message}` },
+      { status: 500 }
+    )
+  }
 
-  // ── STUB PATH ─────────────────────────────────────────────────
-  // Replace this block once steps 5-7 land. For now we synthesize a
-  // deterministic placeholder so the UI roundtrip is testable.
-  const placeholderUrl = `https://www.canva.com/design/placeholder-${params.slideSetId.slice(0, 8)}/edit`
-  await supabase
-    .from('slide_sets')
-    .update({
-      compose_status: 'ready',
-      canva_design_url: placeholderUrl,
-    })
-    .eq('id', params.slideSetId)
+  // Fire-and-forget: Telegram ping to wake up the runner. Failures
+  // here don't block the response — the DB row is the contract.
+  const url = new URL(req.url)
+  const scripts = Array.isArray(row.scripts) ? row.scripts[0] : row.scripts
+  const topic = (scripts as { topic?: string | null } | null | undefined)?.topic ?? null
+  void pingCanvaRunner({
+    slideSetId: params.slideSetId,
+    clinicId: row.clinic_id ?? '',
+    topic,
+    origin: url.origin,
+  })
+
   return NextResponse.json({
     ok: true,
-    stub: true,
-    canva_design_url: placeholderUrl,
-    compose_status: 'ready',
+    slide_set_id: params.slideSetId,
+    status: 'ready_for_canva',
   })
 }

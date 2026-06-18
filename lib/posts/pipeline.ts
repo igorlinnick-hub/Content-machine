@@ -41,11 +41,11 @@ export async function runComplianceGate(input: {
 // model).
 //
 //   REMOVE / REWORD → 'blocked'      (Canva-bot ignores; UI flags findings)
-//   REVIEW          → 'needs_review' (human judgement; held in marketer UI)
+//   REVIEW          → 'review' (human judgement; held in marketer UI)
 //   PASS            → 'ready_for_canva' (Canva-bot picks up on next poll)
 export function statusFromCompliance(result: ComplianceResult): SlideSetStatusV2 {
   if (shouldBlockPublish(result)) return 'blocked'
-  if (result.grade === 'REVIEW') return 'needs_review'
+  if (result.grade === 'REVIEW') return 'review'
   return 'ready_for_canva'
 }
 

@@ -341,10 +341,19 @@ export interface PostListItem {
   length_target: 'short' | 'long' | null
   pair_id: string | null
   category: { id: string; name: string; emoji: string | null } | null
-  // Canva compose pipeline state. canva_design_url is null until a
-  // successful compose (real or stub) flips compose_status to 'ready'.
-  canva_design_url: string | null
-  compose_status: 'idle' | 'queued' | 'rendering' | 'ready' | 'failed'
+  // Canva runner write-back (migration 028). Owned by the runner —
+  // CM reads, never writes (except to clear on regenerate). Null
+  // until the runner finishes a compose.
+  render_result: RenderResultSummary | null
+}
+
+// Summary fields the list view needs from render_result. Avoids
+// shipping every PNG URL in the list response.
+export interface RenderResultSummary {
+  schema_version: number
+  canva_edit_url: string | null
+  cover_url: string | null      // outputs[0].url when present
+  ts: string | null
 }
 
 export async function loadPosts(
@@ -355,7 +364,7 @@ export async function loadPosts(
   const { data, error } = await supabase
     .from('slide_sets')
     .select(
-      'id, script_id, status, created_at, slides, canva_design_url, compose_status, scripts ( topic, hook, full_script, length_target, pair_id ), clinic_categories ( id, name, emoji )'
+      'id, script_id, status, created_at, slides, render_result, scripts ( topic, hook, full_script, length_target, pair_id ), clinic_categories ( id, name, emoji )'
     )
     .eq('clinic_id', clinicId)
     .not('script_id', 'is', null)
@@ -384,13 +393,30 @@ export async function loadPosts(
       pair_id:
         (s as { pair_id?: string | null } | null | undefined)?.pair_id ?? null,
       category: cat ? { id: cat.id, name: cat.name, emoji: cat.emoji } : null,
-      canva_design_url:
-        (r as { canva_design_url?: string | null }).canva_design_url ?? null,
-      compose_status:
-        ((r as { compose_status?: string | null }).compose_status ??
-          'idle') as PostListItem['compose_status'],
+      render_result: summarizeRenderResult(
+        (r as { render_result?: unknown }).render_result
+      ),
     }
   })
+}
+
+// Pulls the small subset of render_result the list view needs. The
+// full object lives in slide_sets.render_result; the detail GET
+// returns it verbatim. Defensive about shape — runner can evolve
+// schema_version while we keep summarising what we know.
+function summarizeRenderResult(raw: unknown): RenderResultSummary | null {
+  if (!raw || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+  const outputs = Array.isArray(r.outputs) ? r.outputs : []
+  const firstOutput = outputs[0] as { url?: unknown } | undefined
+  return {
+    schema_version: typeof r.schema_version === 'number' ? r.schema_version : 1,
+    canva_edit_url:
+      typeof r.canva_edit_url === 'string' ? r.canva_edit_url : null,
+    cover_url:
+      firstOutput && typeof firstOutput.url === 'string' ? firstOutput.url : null,
+    ts: typeof r.ts === 'string' ? r.ts : null,
+  }
 }
 
 export async function deletePost(slideSetId: string): Promise<void> {

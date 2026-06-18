@@ -69,6 +69,17 @@ export async function GET(
     const effectiveFolderId = await resolveEffectiveFolderId(slideSet.id)
     const photoOverrides = await getPhotoOverrides(slideSet.id)
 
+    // Pick up render_result directly — loadSlideSet doesn't return it,
+    // so we do a thin extra select. Cheap and only on the detail GET.
+    const supabase = createServerClient()
+    const { data: rrRow } = await supabase
+      .from('slide_sets')
+      .select('render_result')
+      .eq('id', slideSet.id)
+      .maybeSingle()
+    const render_result = (rrRow as { render_result?: Json | null } | null)
+      ?.render_result ?? null
+
     return NextResponse.json({
       slide_set_id: slideSet.id,
       clinic_id: slideSet.clinic_id,
@@ -80,6 +91,7 @@ export async function GET(
       previews,
       created_at: slideSet.created_at,
       status: slideSet.status,
+      render_result,
       drive_folder_id: effectiveFolderId,
       photo_overrides: photoOverrides,
     })
