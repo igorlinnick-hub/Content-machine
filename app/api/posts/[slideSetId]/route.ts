@@ -4,18 +4,13 @@ import { createServerClient } from '@/lib/supabase/server'
 import {
   deletePost,
   loadSlideSet,
-  loadScriptForRender,
   readSlidesJson,
 } from '@/lib/visual/store'
-import { renderSlides } from '@/lib/visual/renderer'
-import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
-import { getPhotoOverrides } from '@/lib/visual/photo-index-store'
-import { resolveEffectiveFolderId } from '@/lib/visual/folder'
 import type { Json } from '@/types/supabase'
 import type { TypedSlide } from '@/types'
 
 export const runtime = 'nodejs'
-export const maxDuration = 300
+export const maxDuration = 60
 
 export async function DELETE(
   _req: Request,
@@ -44,34 +39,16 @@ export async function GET(
   }
   try {
     const slideSet = await loadSlideSet(params.slideSetId)
-    const script = slideSet.script_id
-      ? await loadScriptForRender(slideSet.script_id)
-      : null
 
-    const photoUrls = await loadPhotoUrlsForSlideSet(
-      slideSet.id,
-      slideSet.slides,
-      slideSet.style_template
-    )
-    const buffers = slideSet.slides.length
-      ? await renderSlides(
-          slideSet.slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] ?? null })),
-          slideSet.style_template
-        )
-      : []
-    const previews = buffers.map(
-      (b) => `data:image/png;base64,${b.toString('base64')}`
-    )
-
-    // Effective Drive folder for the PhotoPicker. Same priority as the
-    // photo renderer (slide_set wins, category fallback) so the UI is
-    // re-indexing the same folder the renderer is reading from.
-    const effectiveFolderId = await resolveEffectiveFolderId(slideSet.id)
-    const photoOverrides = await getPhotoOverrides(slideSet.id)
-
-    // Pick up render_result directly — loadSlideSet doesn't return it,
-    // so we do a thin extra select. Cheap and only on the detail GET.
     const supabase = createServerClient()
+    const { data: scriptRow } = slideSet.script_id
+      ? await supabase
+          .from('scripts')
+          .select('topic, hook, full_script')
+          .eq('id', slideSet.script_id)
+          .maybeSingle()
+      : { data: null }
+
     const { data: rrRow } = await supabase
       .from('slide_sets')
       .select('render_result')
@@ -84,16 +61,13 @@ export async function GET(
       slide_set_id: slideSet.id,
       clinic_id: slideSet.clinic_id,
       script_id: slideSet.script_id,
-      topic: script?.topic ?? null,
-      hook: script?.hook ?? null,
-      script: script?.full_script ?? null,
+      topic: scriptRow?.topic ?? null,
+      hook: scriptRow?.hook ?? null,
+      script: scriptRow?.full_script ?? null,
       slides: slideSet.slides,
-      previews,
       created_at: slideSet.created_at,
       status: slideSet.status,
       render_result,
-      drive_folder_id: effectiveFolderId,
-      photo_overrides: photoOverrides,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown error'
@@ -121,8 +95,6 @@ export async function PUT(
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }
 
-  // Support both legacy string[] (from textarea edits) and TypedSlide[] (full
-  // structure) on PUT. Strings get coerced to typed by position.
   const incoming = readSlidesJson(body.slides)
   if (incoming.length === 0) {
     return NextResponse.json(
@@ -137,12 +109,6 @@ export async function PUT(
   })
 
   try {
-    const slideSet = await loadSlideSet(params.slideSetId)
-
-    // Save & re-render — slides changed, but the compliance lifecycle
-    // status (needs_review / ready_for_canva / blocked) stays untouched.
-    // Forcing 'rendered' here would overwrite the script-factory verdict
-    // every time the marketer edits a field, masking compliance blocks.
     const supabase = createServerClient()
     const { error: updateError } = await supabase
       .from('slide_sets')
@@ -150,23 +116,9 @@ export async function PUT(
       .eq('id', params.slideSetId)
     if (updateError) throw updateError
 
-    const photoUrls = await loadPhotoUrlsForSlideSet(
-      params.slideSetId,
-      slides,
-      slideSet.style_template
-    )
-    const buffers = await renderSlides(
-      slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] ?? null })),
-      slideSet.style_template
-    )
-    const previews = buffers.map(
-      (b) => `data:image/png;base64,${b.toString('base64')}`
-    )
-
     return NextResponse.json({
       slide_set_id: params.slideSetId,
       slides,
-      previews,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown error'

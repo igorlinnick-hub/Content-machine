@@ -110,7 +110,6 @@ export async function GET(req: Request) {
           clinicId,
           planId: next.plan_handle,
           length: 'short',
-          template_variant: 'classic',
         }),
       })
       const data = (await res.json().catch(() => ({}))) as {

@@ -1,9 +1,7 @@
 import { TEAM, type AgentPersona } from '../personas'
-import { runMarekGeneratePost, runMarekRefinePost } from './marek'
 import { runOpsDiag } from './ops'
 import { runIrisResearch } from './iris'
 import { runVexBilling } from './vex'
-import { runTildaReRender } from './tilda'
 import { runPaxClipClean, runPaxClipStatus } from './pax'
 import {
   runArchyConfirm,
@@ -11,11 +9,6 @@ import {
   runArchyList,
   runArchyToggle,
 } from './archy'
-import {
-  runVerifyClip,
-  runVerifyPost,
-  runVerifyRender,
-} from './verify'
 import { tgSend } from '../telegram'
 import type { HandoffResult } from './types'
 
@@ -53,29 +46,6 @@ async function runOne(params: DispatchParams): Promise<HandoffResult> {
   const withClinic = { ...baseCtx, clinicId: ctx.clinicId }
 
   switch (intent) {
-    case 'generate_post': {
-      const topic = String(toolParams.topic ?? '')
-      const length = toolParams.length === 'long' ? 'long' : 'short'
-      const note = toolParams.note ? String(toolParams.note) : undefined
-      await runMarekGeneratePost({ topic, length, note }, withClinic)
-      return
-    }
-    case 'refine_post':
-    case 'refine_script': {
-      const note = String(toolParams.note ?? toolParams.topic ?? '')
-      const slide_set_id = toolParams.slide_set_id
-        ? String(toolParams.slide_set_id)
-        : undefined
-      await runMarekRefinePost({ note, slide_set_id }, withClinic)
-      return
-    }
-    case 're_render_slides': {
-      const slide_set_id = toolParams.slide_set_id
-        ? String(toolParams.slide_set_id)
-        : undefined
-      await runTildaReRender({ slide_set_id }, withClinic)
-      return
-    }
     case 'change_style': {
       const tweak = String(toolParams.tweak ?? '')
       await tgSend(
@@ -114,21 +84,6 @@ async function runOne(params: DispatchParams): Promise<HandoffResult> {
     case 'clip_status': {
       await runPaxClipStatus(withClinic)
       return
-    }
-    case 'verify_post': {
-      const slide_set_id = toolParams.slide_set_id
-        ? String(toolParams.slide_set_id)
-        : undefined
-      return await runVerifyPost(withClinic, { slide_set_id })
-    }
-    case 'verify_clip': {
-      return await runVerifyClip(withClinic)
-    }
-    case 'verify_render': {
-      const slide_set_id = toolParams.slide_set_id
-        ? String(toolParams.slide_set_id)
-        : undefined
-      return await runVerifyRender(withClinic, { slide_set_id })
     }
     case 'arsenal_list': {
       await runArchyList(withClinic)

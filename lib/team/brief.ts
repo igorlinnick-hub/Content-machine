@@ -1,7 +1,6 @@
 import { loadClinicProfile } from '@/lib/supabase/context'
 import { loadCategories, type Category } from '@/lib/posts/categories'
 import { loadPlan, type PlanTopic } from '@/lib/posts/plan'
-import { loadStyleTemplate } from '@/lib/visual/store'
 import { createServerClient } from '@/lib/supabase/server'
 import { loadArsenal, type ArsenalRow } from '@/lib/arsenal/store'
 import {
@@ -15,7 +14,6 @@ import type {
   ClinicProfile,
   ScriptFeedbackEntry,
   DiffRule,
-  VisualStyle,
   FeedbackAction,
 } from '@/types'
 
@@ -51,7 +49,6 @@ export interface TeamBrief {
   categories: Category[]
   recent_picks: ScriptFeedbackEntry[]
   diff_rules: DiffRule[]
-  style_template: VisualStyle
   latest_slide_set: LatestSlideSet | null
   pending_plan_topics: PlanTopic[]
   // Active script_arsenal entries (is_active=true). Each row is a
@@ -151,7 +148,6 @@ export async function loadTeamBrief(clinicId: string): Promise<TeamBrief> {
     categories,
     recentPicks,
     diffRules,
-    style,
     latestSlideSet,
     plan,
     promptRows,
@@ -163,7 +159,6 @@ export async function loadTeamBrief(clinicId: string): Promise<TeamBrief> {
     loadCategories(clinicId),
     loadRecentPicks(clinicId, 5),
     loadDiffRules(clinicId),
-    loadStyleTemplate(clinicId),
     loadLatestSlideSet(clinicId),
     loadPlan(clinicId),
     loadAgentPrompts(clinicId),
@@ -200,7 +195,6 @@ export async function loadTeamBrief(clinicId: string): Promise<TeamBrief> {
     categories,
     recent_picks: recentPicks,
     diff_rules: diffRules,
-    style_template: style,
     latest_slide_set: latestSlideSet,
     pending_plan_topics,
     arsenal,

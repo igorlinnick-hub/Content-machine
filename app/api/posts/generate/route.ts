@@ -11,11 +11,8 @@ import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { runCaptioner } from '@/lib/agents/captioner'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
-import { splitScriptToSlides } from '@/lib/visual/slides'
 import { splitScriptToPostPlan } from '@/lib/posts/splitter'
-import { renderSlides } from '@/lib/visual/renderer'
-import { createSlideSet, loadStyleTemplate } from '@/lib/visual/store'
-import { getPhotosFromFolder, getPhotoDataUrl } from '@/lib/google/drive'
+import { createSlideSet } from '@/lib/visual/store'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
 import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
 import { ensureDefaultScriptTemplates } from '@/lib/posts/templates'
@@ -27,7 +24,6 @@ import {
 import type {
   ScriptLengthTarget,
   SharedContext,
-  VisualStyle,
   TypedSlide,
   ComplianceResult,
 } from '@/types'
@@ -44,7 +40,6 @@ interface Body {
   photoFolderId?: string
   length?: LengthRequest
   note?: string
-  template_variant?: 'classic' | 'wave'
   // HANDOFF-POSTS.md §22.5 — Canva-bot / cron path: pick a row from
   // content_plan_topics by plan_handle (e.g. "POST 18"). When set,
   // overrides topic/topicId.
@@ -84,14 +79,12 @@ type StageEmitter = (name: string, meta?: Record<string, unknown>) => void
 async function generateOne(params: {
   clinicId: string
   context: SharedContext
-  style: VisualStyle
   categories: Awaited<ReturnType<typeof ensureDefaultCategories>>
   topicText: string
   note?: string | null
   ctaHint: string | null
   length: ScriptLengthTarget
   pairId: string | null
-  renderSlidesForThis: boolean
   preMatchedFolderId: string | null
   planId?: string | null
   onStage?: StageEmitter
@@ -266,137 +259,44 @@ async function generateOne(params: {
     }
   }
 
-  if (params.renderSlidesForThis) {
-    // POST CAROUSEL mode (the live path used by /visual Generate + the
-    // cron + the Canva-bot service trigger): produce PostPlan-shaped
-    // slides ({n, kind, heading, intro, bullets[], close}) and persist
-    // them straight into slide_sets.slides JSONB. Canva-bot reads that
-    // structured shape and assembles the carousel in Canva — Content
-    // Machine does NOT render PNGs on this path. Skipping Puppeteer
-    // saves ~5-10s/post and stops the navy-fallback preview confusion.
-    //
-    // Legacy fallback: if the PostPlan splitter fails (parse error /
-    // model glitch), fall through to splitScriptToSlides → Puppeteer
-    // render. That keeps the marketer UI working for ad-hoc topics that
-    // don't yet have a structural-arc winner.
-
-    let postPlanOk = false
-    try {
-      stage('splitter:postplan:start')
-      const plan = await splitScriptToPostPlan(winner.script, {
-        topic: winner.topic,
-        hook: winner.hook,
-        onStage: stage,
-      })
-      stage('splitter:postplan:done')
-      // Persist the rich PostPlan in slide_sets.slides. The legacy
-      // TypedSlide path was a parseable prose stand-in; PostPlan is
-      // the structured contract per HANDOFF-POSTS.md §15. photo_brief
-      // ships with the plan so the Canva compose step has the per-
-      // slide directive (ai / drive / stock / fallback).
-      const planRow = {
-        cover: plan.cover,
-        slides: plan.slides,
-        cta: plan.cta,
-        sources: plan.sources,
-        photo_brief: plan.photo_brief,
-      }
-      slides = []        // legacy TypedSlide list is intentionally empty
-      previews = []      // Puppeteer skipped — Canva renders
-
-      const lifecycleStatus = compliance
-        ? statusFromCompliance(compliance)
-        : 'review'
-      stage(
-        `postplan:status=${lifecycleStatus} grade=${
-          compliance?.grade ?? 'null'
-        }`
-      )
-
-      const slideSetRow = await createSlideSet({
-        clinicId: params.clinicId,
-        scriptId: winnerSaved.id,
-        slides: planRow as unknown as TypedSlide[], // JSONB stores anything
-        styleTemplate: params.style,
-        driveFolderId: folderId,
-        categoryId: matchedCategory?.id ?? null,
-        status: lifecycleStatus,
-      })
-      slideSetId = slideSetRow.id
-      await patchComplianceAndPlan(slideSetRow.id)
-      postPlanOk = true
-      stage('postplan:persisted')
-    } catch (e) {
-      console.warn(
-        `[generate] PostPlan splitter failed, falling back to legacy: ${
-          e instanceof Error ? e.message : 'unknown'
-        }`
-      )
-      postPlanOk = false
+  try {
+    stage('splitter:postplan:start')
+    const plan = await splitScriptToPostPlan(winner.script, {
+      topic: winner.topic,
+      hook: winner.hook,
+      onStage: stage,
+    })
+    stage('splitter:postplan:done')
+    const planRow = {
+      cover: plan.cover,
+      slides: plan.slides,
+      cta: plan.cta,
+      sources: plan.sources,
+      photo_brief: plan.photo_brief,
     }
+    slides = []
+    previews = []
 
-    if (!postPlanOk) {
-      stage('splitter:legacy:start')
-      const split = await splitScriptToSlides(winner.script)
-      slides = split.slides
+    const lifecycleStatus = compliance
+      ? statusFromCompliance(compliance)
+      : 'review'
+    stage(`postplan:status=${lifecycleStatus} grade=${compliance?.grade ?? 'null'}`)
 
-      // Cover always renders without a photo (white bg + sky gradient).
-      // Body and CTA can use photos. Drive returns webContentLink which
-      // is not loadable by puppeteer without auth — we fetch bytes
-      // server-side and pass as base64 data URLs.
-      let photoUrls: (string | null)[] = slides.map(() => null)
-      if (folderId && params.style.background.type === 'photo') {
-        try {
-          const photos = await getPhotosFromFolder(folderId)
-          if (photos.length > 0) {
-            const photoIds = slides.map((s, i) =>
-              s.kind === 'cover' ? null : photos[i % photos.length]?.id ?? null
-            )
-            const fetched = await Promise.all(
-              photoIds.map((id) =>
-                id ? getPhotoDataUrl(id) : Promise.resolve(null)
-              )
-            )
-            photoUrls = fetched
-          }
-        } catch {
-          photoUrls = slides.map(() => null)
-        }
-      }
-
-      const buffers = await renderSlides(
-        slides.map((s, i) => ({ slide: s, photoUrl: photoUrls[i] })),
-        params.style
-      )
-      previews = buffers.map(
-        (b) => `data:image/png;base64,${b.toString('base64')}`
-      )
-
-      // Default to 'review' (NOT 'rendered') when compliance is null —
-      // 'rendered' was the legacy preview-PNG status that no longer
-      // fits the script-factory model. If we don't have a verdict,
-      // hold for human review.
-      const lifecycleStatus = compliance
-        ? statusFromCompliance(compliance)
-        : 'review'
-      stage(
-        `legacy:status=${lifecycleStatus} grade=${
-          compliance?.grade ?? 'null'
-        }`
-      )
-
-      const slideSetRow = await createSlideSet({
-        clinicId: params.clinicId,
-        scriptId: winnerSaved.id,
-        slides,
-        styleTemplate: params.style,
-        driveFolderId: folderId,
-        categoryId: matchedCategory?.id ?? null,
-        status: lifecycleStatus,
-      })
-      slideSetId = slideSetRow.id
-      await patchComplianceAndPlan(slideSetRow.id)
-    }
+    const slideSetRow = await createSlideSet({
+      clinicId: params.clinicId,
+      scriptId: winnerSaved.id,
+      slides: planRow as unknown as TypedSlide[],
+      driveFolderId: folderId,
+      categoryId: matchedCategory?.id ?? null,
+      status: lifecycleStatus,
+    })
+    slideSetId = slideSetRow.id
+    await patchComplianceAndPlan(slideSetRow.id)
+    stage('postplan:persisted')
+  } catch (e) {
+    console.error(
+      `[generate] PostPlan splitter failed: ${e instanceof Error ? e.message : 'unknown'}`
+    )
   }
 
   return {
@@ -508,19 +408,10 @@ export async function POST(req: Request) {
     // Seed default templates first so loadSharedContext picks them up.
     await ensureDefaultScriptTemplates(clinicId)
 
-    const [context, categories, baseStyle] = await Promise.all([
+    const [context, categories] = await Promise.all([
       loadSharedContext(clinicId),
       ensureDefaultCategories(clinicId),
-      loadStyleTemplate(clinicId),
     ])
-
-    // Apply per-request template variant override (default classic).
-    // Lets the team pick the visual family at generate time without
-    // mutating the clinic-wide style template.
-    const style: VisualStyle =
-      body.template_variant === 'wave' || body.template_variant === 'classic'
-        ? { ...baseStyle, template_variant: body.template_variant }
-        : baseStyle
 
     const preMatch = matchCategory(topicText, categories)
     const ctaHint =
@@ -554,16 +445,12 @@ export async function POST(req: Request) {
         generateOne({
           clinicId,
           context,
-          style,
           categories,
           topicText,
           note: noteText,
           ctaHint,
           length: len,
           pairId,
-          // Render carousel for short (boost cut). Long is text-only;
-          // user can request slides for it later via /api/visual/generate.
-          renderSlidesForThis: len === 'short',
           preMatchedFolderId: photoFolderRefs.folderId,
           planId: body.planId ?? null,
           onStage,
@@ -592,9 +479,6 @@ export async function POST(req: Request) {
       script: primary.script,
       slides: primary.slides,
       previews: primary.previews,
-      download_url: primary.slide_set_id
-        ? `/api/visual/download?slideSetId=${primary.slide_set_id}`
-        : null,
       category: primary.category ?? photoFolderRefs.category,
       pair_id: pairId,
       length_target: primary.length_target,

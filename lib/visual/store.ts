@@ -1,5 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
-import type { VisualStyle, SlideSetStatus, TypedSlide } from '@/types'
+import type { SlideSetStatus, TypedSlide } from '@/types'
 import type { Json } from '@/types/supabase'
 
 // Detects the v2 PostPlan shape {cover, slides[], cta, sources} that the
@@ -128,124 +128,21 @@ function toJson<T>(value: T): Json {
   return JSON.parse(JSON.stringify(value)) as Json
 }
 
-export const DEFAULT_VISUAL_STYLE: VisualStyle = {
-  // 4:5 portrait — Instagram post, matches HWC reference layout.
-  canvas: { width: 1080, height: 1350 },
-  // Photo backgrounds preferred; renderer falls back to brand surface
-  // when no photo is provided for body/cta slides.
-  background: { type: 'photo', overlay_opacity: 0 },
-  text: {
-    primary: { font: 'Inter', size: 72, color: '#ffffff', position: 'center' },
-    secondary: { font: 'Inter', size: 32, color: '#1e3a8a' },
-  },
-  logo: { url: '', position: 'bottom-right', size: 96 },
-  padding: 64,
-  brand: {
-    primary: '#1e3a8a',       // HWC navy — card bg, cover headline
-    accent: '#3b82f6',        // sky-blue — radial gradient on cover, chips
-    surface: '#ffffff',       // cover bg
-    surface_text: '#1e3a8a',  // dark navy text on white cover
-    card_text: '#ffffff',     // white text on navy cards
-  },
-}
-
-export async function loadStyleTemplate(clinicId: string): Promise<VisualStyle> {
-  const supabase = createServerClient()
-  const [styleRow, clinicRow] = await Promise.all([
-    supabase
-      .from('slide_sets')
-      .select('style_template')
-      .eq('clinic_id', clinicId)
-      .not('style_template', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from('clinics')
-      .select('logo_url')
-      .eq('id', clinicId)
-      .maybeSingle(),
-  ])
-
-  const base =
-    (styleRow.data?.style_template as unknown as VisualStyle | undefined) ??
-    DEFAULT_VISUAL_STYLE
-  const clinicLogo = (clinicRow.data?.logo_url as string | null | undefined) ?? null
-
-  // Clinic-level logo wins unless the saved style explicitly set one
-  // (in which case the per-style override is intentional).
-  if (clinicLogo && (!base.logo.url || base.logo.url.trim().length === 0)) {
-    return { ...base, logo: { ...base.logo, url: clinicLogo } }
-  }
-  return base
-}
-
-export async function saveStyleTemplate(
-  clinicId: string,
-  style: VisualStyle
-): Promise<{ id: string }> {
-  const supabase = createServerClient()
-  const { data, error } = await supabase
-    .from('slide_sets')
-    .insert({
-      clinic_id: clinicId,
-      slides: toJson([]),
-      style_template: toJson(style),
-      status: 'pending',
-    })
-    .select('id')
-    .single()
-  if (error || !data) throw error ?? new Error('saveStyleTemplate: insert returned no row')
-  return { id: data.id }
-}
-
 export interface SlideSetRecord {
   id: string
   clinic_id: string
   script_id: string | null
   slides: TypedSlide[]
-  style_template: VisualStyle
   drive_folder_id: string | null
   status: SlideSetStatus
   created_at: string
-}
-
-export interface LoadScriptForRender {
-  id: string
-  clinic_id: string
-  full_script: string
-  topic: string | null
-  hook: string | null
-}
-
-export async function loadScriptForRender(
-  scriptId: string
-): Promise<LoadScriptForRender> {
-  const supabase = createServerClient()
-  const { data, error } = await supabase
-    .from('scripts')
-    .select('id, clinic_id, full_script, topic, hook')
-    .eq('id', scriptId)
-    .single()
-  if (error || !data || !data.clinic_id) {
-    throw new Error(
-      `loadScriptForRender: script ${scriptId} not found (${error?.message ?? 'no row'})`
-    )
-  }
-  return {
-    id: data.id,
-    clinic_id: data.clinic_id,
-    full_script: data.full_script,
-    topic: data.topic,
-    hook: data.hook,
-  }
 }
 
 export async function createSlideSet(params: {
   clinicId: string
   scriptId: string
   slides: TypedSlide[]
-  styleTemplate: VisualStyle
+  styleTemplate?: unknown
   driveFolderId?: string | null
   categoryId?: string | null
   status?: SlideSetStatus
@@ -257,7 +154,7 @@ export async function createSlideSet(params: {
       clinic_id: params.clinicId,
       script_id: params.scriptId,
       slides: toJson(params.slides),
-      style_template: toJson(params.styleTemplate),
+      style_template: params.styleTemplate ? toJson(params.styleTemplate) : null,
       drive_folder_id: params.driveFolderId ?? null,
       category_id: params.categoryId ?? null,
       status: params.status ?? 'rendered',
@@ -288,7 +185,6 @@ export async function loadSlideSet(slideSetId: string): Promise<SlideSetRecord> 
     clinic_id: data.clinic_id,
     script_id: data.script_id,
     slides,
-    style_template: data.style_template as unknown as VisualStyle,
     drive_folder_id: data.drive_folder_id,
     status: (data.status ?? 'rendered') as SlideSetStatus,
     created_at: data.created_at ?? new Date().toISOString(),

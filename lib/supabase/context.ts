@@ -8,7 +8,6 @@ import type {
   ScriptFormatTemplate,
   ScriptLengthTarget,
   DiffRule,
-  VisualStyle,
   Tone,
   InsightType,
   ScriptFeedbackEntry,
@@ -19,16 +18,6 @@ import type {
 import type { Json } from '@/types/supabase'
 import { createServerClient } from './server'
 
-const DEFAULT_VISUAL_STYLE: VisualStyle = {
-  canvas: { width: 1080, height: 1080 },
-  background: { type: 'color', overlay_opacity: 0 },
-  text: {
-    primary: { font: 'Inter', size: 64, color: '#0a0a0a', position: 'center' },
-    secondary: { font: 'Inter', size: 32, color: '#525252' },
-  },
-  logo: { url: '', position: 'bottom-right', size: 80 },
-  padding: 80,
-}
 
 export async function loadSharedContext(clinicId: string): Promise<SharedContext> {
   const supabase = createServerClient()
@@ -42,7 +31,6 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     fewShotRes,
     formatTemplatesRes,
     diffRulesRes,
-    slideSetRes,
     feedbackRes,
   ] = await Promise.all([
     supabase.from('clinics').select('*').eq('id', clinicId).single(),
@@ -84,14 +72,6 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
       .eq('clinic_id', clinicId)
       .eq('active', true)
       .order('priority', { ascending: false }),
-    supabase
-      .from('slide_sets')
-      .select('style_template')
-      .eq('clinic_id', clinicId)
-      .not('style_template', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
     supabase
       .from('script_feedback')
       .select('id, action, created_at, script_id, scripts ( topic, hook, full_script )')
@@ -171,9 +151,6 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     priority: r.priority ?? 3,
   }))
 
-  const style_template: VisualStyle =
-    (slideSetRes.data?.style_template as VisualStyle | null) ?? DEFAULT_VISUAL_STYLE
-
   const feedback_rows = (feedbackRes.data ?? []) as Array<{
     id: string
     action: string
@@ -213,7 +190,6 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
     few_shot_library,
     format_templates,
     diff_rules,
-    style_template,
     recent_picks,
     recent_rejects,
   }

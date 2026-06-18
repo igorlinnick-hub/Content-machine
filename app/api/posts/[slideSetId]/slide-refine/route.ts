@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
-import { loadSlideSet, loadScriptForRender } from '@/lib/visual/store'
+import { loadSlideSet } from '@/lib/visual/store'
 import { fixSlide } from '@/lib/agents/slide-fixer'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
-import { renderSlide } from '@/lib/visual/renderer'
-import { loadPhotoUrlsForSlideSet } from '@/lib/visual/photos'
 import type { Json } from '@/types/supabase'
 
 export const runtime = 'nodejs'
@@ -52,51 +50,35 @@ export async function POST(
       )
     }
 
-    const script = slideSet.script_id
-      ? await loadScriptForRender(slideSet.script_id).catch(() => null)
-      : null
+    const supabase = createServerClient()
+    const { data: scriptRow } = slideSet.script_id
+      ? await supabase
+          .from('scripts')
+          .select('topic, hook')
+          .eq('id', slideSet.script_id)
+          .maybeSingle()
+      : { data: null }
 
     const fix = await fixSlide({
       slides: slideSet.slides,
       index,
       instruction,
-      scriptTopic: script?.topic ?? null,
-      scriptHook: script?.hook ?? null,
+      scriptTopic: scriptRow?.topic ?? null,
+      scriptHook: scriptRow?.hook ?? null,
     })
 
     const updatedSlides = slideSet.slides.slice()
     updatedSlides[index] = fix.slide
 
-    // Same rule as PUT in [slideSetId]/route.ts: preserve the
-    // compliance lifecycle status when slides change. Forcing
-    // 'rendered' would silently reset needs_review → publishable.
-    const supabase = createServerClient()
     const { error: updateError } = await supabase
       .from('slide_sets')
       .update({ slides: updatedSlides as unknown as Json })
       .eq('id', params.slideSetId)
     if (updateError) throw updateError
 
-    // Re-render only the affected slide. Pull the photo URL aligned to
-    // its position so the navy fallback is not used.
-    const photoUrls = await loadPhotoUrlsForSlideSet(
-      params.slideSetId,
-      updatedSlides,
-      slideSet.style_template
-    )
-    const buffer = await renderSlide({
-      slide: fix.slide,
-      photoUrl: photoUrls[index] ?? null,
-      style: slideSet.style_template,
-      slideIndex: index,
-      slideTotal: updatedSlides.length,
-    })
-    const preview = `data:image/png;base64,${buffer.toString('base64')}`
-
     return NextResponse.json({
       index,
       slide: fix.slide,
-      preview,
       warning: fix.warning,
       slides: updatedSlides,
     })

@@ -108,41 +108,6 @@ export interface DiffRule {
   priority: number
 }
 
-export interface VisualStyle {
-  canvas: { width: number; height: number }
-  background: { type: 'photo' | 'color'; overlay_opacity: number }
-  text: {
-    primary: {
-      font: string
-      size: number
-      color: string
-      position: 'top' | 'center' | 'bottom'
-    }
-    secondary: {
-      font: string
-      size: number
-      color: string
-    }
-  }
-  logo: { url: string; position: string; size: number }
-  padding: number
-  // HWC-style brand tokens. Used by the typed-slide renderer for cover /
-  // body / cta layouts. Optional so legacy slide_sets without brand keep
-  // working — renderer falls back to plain text + photo bg.
-  brand?: {
-    primary: string       // navy — card backgrounds, headlines on white
-    accent: string        // sky — chips, gradient highlight, hover
-    surface: string       // white — cover bg
-    surface_text: string  // dark — text on white
-    card_text: string     // white — text on navy cards
-  }
-  // Visual variant of the template family. 'classic' (HWC navy + rounded
-  // rectangle cards, uppercase) is the default. 'wave' mirrors the ED
-  // Canva reference — solid brand bg cover with mixed-case left-aligned
-  // headline + curved/wave-shaped card overlay on body/cta slides.
-  template_variant?: 'classic' | 'wave'
-}
-
 export type SlideKind = 'cover' | 'body' | 'cta'
 
 // Typed slide payload that the splitter agent produces. Renderer dispatches
@@ -164,7 +129,6 @@ export interface SharedContext {
   few_shot_library: ScriptExample[]
   format_templates: ScriptFormatTemplate[]
   diff_rules: DiffRule[]
-  style_template: VisualStyle
   recent_picks: ScriptFeedbackEntry[]
   recent_rejects: ScriptFeedbackEntry[]
 }
