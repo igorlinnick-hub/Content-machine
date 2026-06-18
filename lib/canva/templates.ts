@@ -114,17 +114,16 @@ const TEMPLATE_PEPTIDES: HwcBrandTemplate = {
   },
 }
 
-// Category → template. Categories named per clinic_categories.slug from
-// the existing CM seeds. Mental Health / Pain & Joint / Weight Loss
-// fall back to ED for now — visually mismatched but routable; replace
-// when the per-category masters land.
+// Category → template. Only map categories that have a real master.
+// DO NOT fall back to a wrong-category master — this causes silent text
+// injection failures and wrong branding (proven 2026-06-18 with SGB post).
+// Mental Health / Pain & Joint / Weight Loss masters are not built yet.
+// When they're ready, add their IDs here.
 const CATEGORY_MAP: Record<string, HwcBrandTemplate> = {
   'wellness_vitality': TEMPLATE_PEPTIDES,
-  // Topical category overrides — finer-grained mapping when topic
-  // matches the ED master vs the generic Peptides master.
-  'mental_health': TEMPLATE_ED,        // TODO: build Mental Health master
-  'pain_joint': TEMPLATE_PEPTIDES,     // TODO: build Pain & Joint master
-  'weight_loss': TEMPLATE_PEPTIDES,    // TODO: build Weight Loss master
+  // Mental Health master → NOT CREATED. Create in Canva UI first, then add here.
+  // Pain & Joint master → NOT CREATED. Create in Canva UI first, then add here.
+  // Weight Loss master  → NOT CREATED. Create in Canva UI first, then add here.
 }
 
 /**
