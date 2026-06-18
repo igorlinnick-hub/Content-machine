@@ -3,16 +3,6 @@
 // than the literal string 'true' is treated as off — fail-safe default
 // so an unset var on a fresh deploy can never accidentally burn API
 // credits).
-//
-// Three callers wire to this:
-//   1. lib/agents/base.ts.callAgentJSON — throws LLMAgentsDisabledError
-//      before any network call, so every agent (writer, critic, etc.)
-//      inherits the gate for free.
-//   2. Handoffs (marek, iris, pax, verify) — short-circuit with the
-//      friendly TG message instead of calling their agents.
-//   3. API routes that wrap agents (/api/agents/*, /api/posts/generate,
-//      /api/clips/process, /api/videos/generate) — return a structured
-//      503 so any UI button hitting them sees a clean error string.
 
 export class LLMAgentsDisabledError extends Error {
   constructor(message?: string) {
@@ -23,45 +13,6 @@ export class LLMAgentsDisabledError extends Error {
 
 export function llmAgentsEnabled(): boolean {
   return process.env.ENABLE_LLM_AGENTS === 'true'
-}
-
-// The Telegram-friendly message every disabled handoff uses. Single
-// source so we can iterate the wording without grepping for it.
-export function llmAgentsDisabledTgMessage(featureName: string): string {
-  return [
-    `_${featureName} is off in this build — running on Claude subscription only._`,
-    '',
-    'Paste an Instagram / YouTube / TikTok URL or type *arsenal list* to use the arsenal pipeline (subscription-paid, works now).',
-    '',
-    'To enable post generation: top up Anthropic API credits + set `ENABLE_LLM_AGENTS=true` in Vercel env.',
-  ].join('\n')
-}
-
-// One-liner used by every API-dependent handoff at the top of its
-// run function. Returns true when the caller should bail (handoff
-// already sent the TG ack). Returns false when LLM agents are
-// enabled and the handoff should run normally.
-//
-// Usage:
-//   if (await guardDisabledHandoff(ctx, 'Post generation')) return
-export async function guardDisabledHandoff(
-  ctx: {
-    chatId: number | string
-    agentEmoji: string
-    agentName: string
-  },
-  featureName: string
-): Promise<boolean> {
-  if (llmAgentsEnabled()) return false
-  // Dynamic import avoids pulling the Telegram module into every
-  // agent/lib bundle. The cost is one extra await per disabled call,
-  // which only matters during cold path — already off the hot trail.
-  const { tgSend } = await import('@/lib/team/telegram')
-  await tgSend(
-    ctx.chatId,
-    `${ctx.agentEmoji} *${ctx.agentName}*\n\n${llmAgentsDisabledTgMessage(featureName)}`
-  )
-  return true
 }
 
 // HTTP body used by the route guards. Stable shape so the dashboard

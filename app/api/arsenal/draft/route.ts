@@ -7,8 +7,6 @@ import {
   type ArsenalStructure,
   type ArsenalVisualNotes,
 } from '@/lib/arsenal/store'
-import { tgSend } from '@/lib/team/telegram'
-
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30
@@ -41,7 +39,6 @@ interface DraftBody {
   // this from the queue row's requested_by_chat_id. Null when the
   // ingest came from the web (admin UI) — UI polls /api/arsenal/[id]
   // to detect the new row instead.
-  notify_chat_id?: string | null
   // Visual analysis + storage paths come from phases 4.5 / 4.6 of the
   // local skill. All optional — a draft posted without them works,
   // the visual block in the UI just renders empty.
@@ -134,47 +131,6 @@ export async function POST(req: Request) {
       body.video_storage_path ?? null,
       body.thumbnail_storage_path ?? null
     ).catch(() => {})
-  }
-
-  // Ping the doctor with the extraction summary. Fire-and-forget —
-  // the skill doesn't block on TG delivery.
-  if (body.notify_chat_id) {
-    const proposalBlock =
-      body.clinic_template_proposal && body.clinic_template_proposal.trim()
-        ? [
-            '',
-            '*Темплейт под нашу клинику* 🧱',
-            body.clinic_template_note ? `_${body.clinic_template_note}_` : '',
-            '```',
-            body.clinic_template_proposal.trim().slice(0, 900),
-            '```',
-            'Сохраню в Templates на вебапе при подтверждении.',
-          ]
-            .filter((line) => line !== '')
-            .join('\n')
-        : ''
-    const text = [
-      `📚 *Archy* — стиль *\`${row.style_label}\`* готов к подтверждению`,
-      '',
-      row.style_description ? `_${row.style_description}_` : '',
-      '',
-      `*Структура*`,
-      fmtBeats(body.structure),
-      '',
-      `*Хуки*`,
-      fmtHooks(body.hooks),
-      '',
-      body.pains && body.pains.length
-        ? `*Боли:* ${body.pains.slice(0, 5).join(', ')}`
-        : '',
-      proposalBlock,
-      '',
-      `Сохранить → *"arsenal confirm ${row.style_label}"*`,
-      `Удалить → *"arsenal drop ${row.style_label}"*`,
-    ]
-      .filter((line) => line !== '')
-      .join('\n')
-    void tgSend(body.notify_chat_id, text).catch(() => {})
   }
 
   return NextResponse.json({ ok: true, arsenal_id: row.id })
