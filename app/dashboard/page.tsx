@@ -13,7 +13,6 @@ import { PWAInstallCard } from './components/PWAInstallCard'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
-import { ImageLab } from '@/app/lab/components/ImageLab'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +24,7 @@ interface DashboardPageProps {
   }
 }
 
-type DashTab = 'generate' | 'recent' | 'input' | 'image'
+type DashTab = 'generate' | 'recent' | 'input'
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const access = await resolveAccess()
@@ -69,7 +68,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     loadScriptTemplates(clinicId, { activeOnly: true }),
   ])
 
-  const validTabs: DashTab[] = ['generate', 'recent', 'input', 'image']
+  const validTabs: DashTab[] = ['generate', 'recent', 'input']
   const tab: DashTab = validTabs.includes(searchParams.tab as DashTab)
     ? (searchParams.tab as DashTab)
     : 'generate'
@@ -235,11 +234,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             href={`/dashboard?clinicId=${clinicId}&tab=input`}
             active={tab === 'input'}
           />
-          <DashTabLink
-            label="🎨 Image"
-            href={`/dashboard?clinicId=${clinicId}&tab=image`}
-            active={tab === 'image'}
-          />
           {/* Studio is its own page (film board for the team), not a tab. */}
           <Link
             href={`/studio?clinicId=${clinicId}`}
@@ -323,15 +317,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             subtitle="Three quick prompts — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
           >
             <DailyWidgets clinicId={clinicId} questions={questions} />
-          </Section>
-        )}
-
-        {tab === 'image' && (
-          <Section
-            title="🎨 Image"
-            subtitle="Generate a slide-sized image for the post. Default 4:5 portrait, matches the slide template. Click any result to download."
-          >
-            <ImageLab clinicId={clinicId} compact />
           </Section>
         )}
 
