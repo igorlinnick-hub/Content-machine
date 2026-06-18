@@ -106,10 +106,6 @@ export function StudioFunnel({
   const [addUrl, setAddUrl] = useState('')
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
-  const [addMode, setAddMode] = useState<'url' | 'format'>('url')
-  const [formatTitle, setFormatTitle] = useState('')
-  const [formatDesc, setFormatDesc] = useState('')
-  const [shotTypeFilter, setShotTypeFilter] = useState<'all' | 'doctor' | 'clinic'>('all')
   const [discoverVisible, setDiscoverVisible] = useState(20)
 
   async function addVideo() {
@@ -129,32 +125,6 @@ export function StudioFunnel({
         return
       }
       setAddUrl('')
-      window.location.reload()
-    } catch {
-      setAddError('Network error')
-    } finally {
-      setAdding(false)
-    }
-  }
-
-  async function addFormat() {
-    const title = formatTitle.trim()
-    if (!title) return
-    setAdding(true)
-    setAddError(null)
-    try {
-      const res = await fetch('/api/studio/videos/add-format', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clinicId, title, description: formatDesc.trim() || undefined }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.ok) {
-        setAddError(data.error || 'Failed to add')
-        return
-      }
-      setFormatTitle('')
-      setFormatDesc('')
       window.location.reload()
     } catch {
       setAddError('Network error')
@@ -236,11 +206,7 @@ export function StudioFunnel({
   }
 
   const tabStatus = TABS.find((t) => t.key === tab)!.status
-  const allShown = cards.filter((c) => {
-    if (c.status !== tabStatus) return false
-    if (tab === 'shotlist' && shotTypeFilter !== 'all') return c.shot_type === shotTypeFilter
-    return true
-  })
+  const allShown = cards.filter((c) => c.status === tabStatus)
   const shown = tab === 'discover' ? allShown.slice(0, discoverVisible) : allShown
   const countFor = (s: Status) => cards.filter((c) => c.status === s).length
 
@@ -282,93 +248,34 @@ export function StudioFunnel({
         </p>
       </nav>
 
-      {/* Shot List type filter */}
-      {tab === 'shotlist' && (
-        <div className="flex items-center gap-1.5">
-          {(['all', 'doctor', 'clinic'] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setShotTypeFilter(f)}
-              className={`rounded-lg px-3 py-1 text-xs font-medium transition ${
-                shotTypeFilter === f
-                  ? 'bg-neutral-900 text-white'
-                  : 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50'
-              }`}
-            >
-              {f === 'all' ? 'All' : f === 'doctor' ? '👨‍⚕️ Doctor shots' : '🏥 Clinic shots'}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Admin: add to the Shot List */}
+      {/* Admin: add your own video straight to the Shot List */}
       {tab === 'shotlist' && isAdmin && (
         <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-          <div className="mb-2 flex items-center gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-              Add to Shot List
-            </p>
-            <div className="flex gap-1">
-              <button
-                type="button"
-                onClick={() => { setAddMode('url'); setAddError(null) }}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${addMode === 'url' ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:text-neutral-800'}`}
-              >
-                👨‍⚕️ Doctor shot (URL)
-              </button>
-              <button
-                type="button"
-                onClick={() => { setAddMode('format'); setAddError(null) }}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition ${addMode === 'format' ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:text-neutral-800'}`}
-              >
-                🏥 Clinic format
-              </button>
-            </div>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            Add your own video to the Shot List
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <input
+              className="cm-input min-w-0 flex-1 text-sm"
+              placeholder="Paste a TikTok video link…"
+              value={addUrl}
+              onChange={(e) => {
+                setAddUrl(e.target.value)
+                if (addError) setAddError(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addVideo()
+              }}
+            />
+            <button
+              type="button"
+              onClick={addVideo}
+              disabled={adding || !addUrl.trim()}
+              className="cm-btn cm-btn-primary text-sm"
+            >
+              {adding ? 'Adding…' : '➕ Add'}
+            </button>
           </div>
-
-          {addMode === 'url' ? (
-            <div className="flex flex-wrap gap-2">
-              <input
-                className="cm-input min-w-0 flex-1 text-sm"
-                placeholder="Paste a TikTok video link…"
-                value={addUrl}
-                onChange={(e) => { setAddUrl(e.target.value); if (addError) setAddError(null) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') addVideo() }}
-              />
-              <button
-                type="button"
-                onClick={addVideo}
-                disabled={adding || !addUrl.trim()}
-                className="cm-btn cm-btn-primary text-sm"
-              >
-                {adding ? 'Adding…' : '➕ Add'}
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <input
-                className="cm-input text-sm"
-                placeholder="Format name — e.g. Clinic walk-around"
-                value={formatTitle}
-                onChange={(e) => { setFormatTitle(e.target.value); if (addError) setAddError(null) }}
-              />
-              <input
-                className="cm-input text-sm"
-                placeholder="What to film — e.g. Pan the waiting room, show the team and equipment"
-                value={formatDesc}
-                onChange={(e) => setFormatDesc(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={addFormat}
-                disabled={adding || !formatTitle.trim()}
-                className="cm-btn cm-btn-primary text-sm self-start"
-              >
-                {adding ? 'Adding…' : '➕ Add clinic format'}
-              </button>
-            </div>
-          )}
           {addError && <p className="mt-1 text-xs text-red-600">{addError}</p>}
         </div>
       )}
@@ -398,10 +305,7 @@ export function StudioFunnel({
                 tab === 'shotlist' ? 'w-[340px] snap-start sm:w-[380px]' : ''
               }`}
             >
-              {!(tab === 'shotlist' && card.shot_type === 'clinic') && <VideoBox card={card} />}
-              {tab === 'shotlist' && card.shot_type === 'clinic' && card.title && (
-                <p className="text-base font-semibold text-neutral-900">🏥 {card.title}</p>
-              )}
+              <VideoBox card={card} />
 
               {/* DISCOVER — like / skip */}
               {tab === 'discover' && (
@@ -453,39 +357,8 @@ export function StudioFunnel({
                 </div>
               )}
 
-              {/* SHOT LIST — clinic format card (no video, no script) */}
-              {tab === 'shotlist' && card.shot_type === 'clinic' && (
-                <>
-                  {card.style_description && (
-                    <div className="rounded-xl bg-teal-50 p-3 text-sm text-teal-900">
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-teal-600">What to film</p>
-                      <p className="leading-relaxed">{card.style_description}</p>
-                    </div>
-                  )}
-                  <div className="rounded-xl bg-neutral-50 p-3">
-                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Filming tips</p>
-                    <ul className="flex flex-col gap-1 text-xs text-neutral-600">
-                      <li>• Phone vertical (9:16), face toward the light</li>
-                      <li>• Quiet room, no echo — audio matters</li>
-                      <li>• Keep it 20–45 seconds, 2–3 takes</li>
-                      <li>• Upload to the Drive folder when done</li>
-                    </ul>
-                  </div>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => move(card.id, 'rejected')}
-                      disabled={busy[card.id]}
-                      className="cm-btn cm-btn-ghost w-full text-xs"
-                    >
-                      🗑 Move to Trash
-                    </button>
-                  )}
-                </>
-              )}
-
-              {/* SHOT LIST — doctor talking-head card (schema + script + generate) */}
-              {tab === 'shotlist' && card.shot_type !== 'clinic' && (
+              {/* SHOT LIST — schema + template + idea + generate */}
+              {tab === 'shotlist' && (
                 <>
                   {card.schema_beats.length > 0 && (
                     <div className="rounded-xl bg-neutral-50 p-3">
