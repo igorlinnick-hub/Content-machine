@@ -39,8 +39,6 @@ interface PostDetail {
   photo_overrides: Record<string, string | null>
 }
 
-type StyleVariant = 'classic' | 'wave'
-
 interface GenerateResponse {
   slide_set_id: string | null
   script_id: string
@@ -69,7 +67,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
 
   const [topic, setTopic] = useState('')
   const [note, setNote] = useState('')
-  const [styleVariant, setStyleVariant] = useState<StyleVariant>('classic')
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
   const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
@@ -192,7 +189,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           clinicId,
           topic: topic.trim(),
           note: note.trim() || undefined,
-          template_variant: styleVariant,
+
         }),
       })
 
@@ -420,32 +417,14 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
             <p className="text-xs text-neutral-600">
               Writer + critic + slide splitter run on the backend. ~3-5 min for a finished carousel.
             </p>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-xs text-neutral-700">
-                <span className="font-medium uppercase tracking-wider text-neutral-500">
-                  Style
-                </span>
-                <select
-                  value={styleVariant}
-                  onChange={(e) =>
-                    setStyleVariant(e.target.value as StyleVariant)
-                  }
-                  disabled={generating}
-                  className="cm-input text-xs"
-                >
-                  <option value="classic">Classic (TMS)</option>
-                  <option value="wave">Wave (ED)</option>
-                </select>
-              </label>
-              <button
-                type="button"
-                onClick={generate}
-                disabled={generating || !topic.trim()}
-                className="cm-btn cm-btn-primary text-sm"
-              >
-                {generating ? 'Generating…' : 'Generate'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={generate}
+              disabled={generating || !topic.trim()}
+              className="cm-btn cm-btn-primary text-sm"
+            >
+              {generating ? 'Generating…' : 'Generate'}
+            </button>
           </div>
           {generating && <GenerateProgress state={progress} />}
           {genError === 'LLM_AGENTS_DISABLED' ? (
