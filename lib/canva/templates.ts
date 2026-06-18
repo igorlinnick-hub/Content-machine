@@ -46,7 +46,7 @@ export const HWC_BRAND_KIT_ID = 'kAG87QCkJl0'
 
 // Template A — ED / men's health (Wellness & Vitality category).
 const TEMPLATE_ED: HwcBrandTemplate = {
-  id: 'DAHK2poX3PY',
+  id: 'DAHMHS1wLls',
   label: 'ED / Men\'s Health (full-bleed photo cover)',
   coverHasPhoto: true,
   bodyCount: 7,
@@ -81,7 +81,7 @@ const TEMPLATE_ED: HwcBrandTemplate = {
 // Template B — Peptides (Wellness & Vitality category).
 // Cover is a brand GRADIENT — do NOT inject a photo for n=1.
 const TEMPLATE_PEPTIDES: HwcBrandTemplate = {
-  id: 'DAHK2t13oEI',
+  id: 'DAHMHtkFTW0',
   label: 'Peptides (gradient cover, body has full-bleed photos)',
   coverHasPhoto: false,
   bodyCount: 7,
@@ -114,28 +114,19 @@ const TEMPLATE_PEPTIDES: HwcBrandTemplate = {
   },
 }
 
-// Category → template. Only map categories that have a real master.
-// DO NOT fall back to a wrong-category master — this causes silent text
-// injection failures and wrong branding (proven 2026-06-18 with SGB post).
-// Mental Health / Pain & Joint / Weight Loss masters are not built yet.
-// When they're ready, add their IDs here.
-const CATEGORY_MAP: Record<string, HwcBrandTemplate> = {
-  'wellness_vitality': TEMPLATE_PEPTIDES,
-  // Mental Health master → NOT CREATED. Create in Canva UI first, then add here.
-  // Pain & Joint master → NOT CREATED. Create in Canva UI first, then add here.
-  // Weight Loss master  → NOT CREATED. Create in Canva UI first, then add here.
-}
-
 /**
- * Pick the brand template for a post. Topic keywords win over category
- * — "erectile dysfunction" / "men's health" routes to ED master
- * regardless of slug. Returns null when nothing fits, so the caller
- * can fall back to queue-only.
+ * Pick one of the two global brand templates for a post.
+ *
+ * Two formats cover ALL post types — no per-category masters needed:
+ *   TEMPLATE_ED      — full-bleed photo cover (ED / men's health topics)
+ *   TEMPLATE_PEPTIDES — gradient cover (everything else)
+ *
+ * Topic keywords win over category slug. Default is TEMPLATE_PEPTIDES.
  */
 export function pickBrandTemplate(params: {
   categorySlug: string | null
   topic: string | null
-}): HwcBrandTemplate | null {
+}): HwcBrandTemplate {
   const topic = (params.topic ?? '').toLowerCase()
   if (
     topic.includes('erectile') ||
@@ -146,14 +137,7 @@ export function pickBrandTemplate(params: {
   ) {
     return TEMPLATE_ED
   }
-  if (topic.includes('peptide') || topic.includes('copper')) {
-    return TEMPLATE_PEPTIDES
-  }
-  if (params.categorySlug) {
-    const cat = params.categorySlug.toLowerCase().replace(/[\s-]+/g, '_')
-    if (CATEGORY_MAP[cat]) return CATEGORY_MAP[cat]
-  }
-  return null
+  return TEMPLATE_PEPTIDES
 }
 
 export { TEMPLATE_ED, TEMPLATE_PEPTIDES }
