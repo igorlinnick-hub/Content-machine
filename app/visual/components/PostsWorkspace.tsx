@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PostListItem, RenderResultSummary } from '@/lib/visual/store'
 import type { RenderResult, SlideSetStatus } from '@/types'
@@ -684,6 +684,123 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
   )
 }
 
+// Live waiting indicator while the row sits in ready_for_canva /
+// in_canva. Three liveness signals at once so the marketer never
+// stares at a frozen pill:
+//   • Pulsing dot (HWC sky-blue heartbeat — distinct from Claude's
+//     amber Accomplishing-cursor).
+//   • Cross-faded phase text that rotates through the runner's actual
+//     pipeline ("Waking the runner…" → "Generating photos…" → etc).
+//     We don't know which phase the runner is in (no SSE from the bot
+//     yet), so we cycle on a fixed cadence — illusion of progress is
+//     fine here, and the cycle resets to phase 1 once 'in_canva'
+//     fires so the words sync with real state changes when we have
+//     them.
+//   • Diagonal shimmer sweeping across the chip background.
+// Elapsed counter is the truth-source — bypasses the "is it stuck?"
+// question. After 10 minutes we surface a "runner may be down" hint.
+const QUEUE_PHASES = [
+  'Queueing for Canva runner',
+  'Waking the runner',
+  'Generating slide photos',
+  'Uploading assets to Canva',
+  'Filling the brand template',
+]
+const IN_CANVA_PHASES = [
+  'Filling the brand template',
+  'Generating slide photos',
+  'Uploading assets to Canva',
+  'Composing slides in Canva',
+  'Finalising preview',
+]
+
+function ComposeWaitingChip({
+  status,
+  queuedAt,
+}: {
+  status: SlideSetStatus
+  queuedAt: number | null
+}) {
+  const [phaseIdx, setPhaseIdx] = useState(0)
+  const [, forceTick] = useState(0)
+  const phases = status === 'in_canva' ? IN_CANVA_PHASES : QUEUE_PHASES
+  const phase = phases[phaseIdx % phases.length]
+
+  // Truth-source for elapsed: queuedAt (when the marketer clicked
+  // Compose in this session) if present, else when this chip first
+  // mounted. Lets the counter survive a page refresh — if the row
+  // was already queued, we honestly show "since you opened this".
+  const startRef = useRef<number>(queuedAt ?? Date.now())
+  useEffect(() => {
+    if (queuedAt && queuedAt !== startRef.current) {
+      startRef.current = queuedAt
+    }
+  }, [queuedAt])
+
+  // Rotate the phase label every ~4s. Reset to 0 on status change so
+  // 'in_canva' starts its own cycle rather than continuing from where
+  // 'ready_for_canva' left off.
+  useEffect(() => {
+    setPhaseIdx(0)
+    const id = setInterval(() => {
+      setPhaseIdx((i) => i + 1)
+    }, 4000)
+    return () => clearInterval(id)
+  }, [status])
+
+  // 1s tick to keep the elapsed counter live without depending on
+  // poll-driven re-renders.
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const elapsedMs = Date.now() - startRef.current
+  const elapsedLabel = formatElapsed(elapsedMs)
+  const slow = elapsedMs > 10 * 60_000
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div
+        className="cm-shimmer-host flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold"
+        style={{
+          background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 55%, #0ea5e9 100%)',
+          color: 'white',
+          minWidth: '15rem',
+        }}
+      >
+        <span
+          aria-hidden
+          className="cm-dot-blink inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ background: '#bae6fd', boxShadow: '0 0 0 3px rgba(186, 230, 253, 0.25)' }}
+        />
+        <span className="relative z-10 flex flex-col leading-tight">
+          <span key={phase} className="cm-fade-swap">
+            🎨 {phase}…
+          </span>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-violet-100/90">
+            {elapsedLabel} elapsed · est. ~2 min
+          </span>
+        </span>
+      </div>
+      {slow && (
+        <span className="text-[10px] text-amber-700">
+          ⚠ Longer than usual — the Canva runner may be down. Safe to leave
+          this open; the page will catch up when it lands.
+        </span>
+      )}
+    </div>
+  )
+}
+
+function formatElapsed(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}m ${r.toString().padStart(2, '0')}s`
+}
+
 function StatusChip({ status }: { status: SlideSetStatus }) {
   const meta = statusMeta(status)
   return (
@@ -742,30 +859,7 @@ function ComposeInCanvaButton({
   }
 
   if (status === 'ready_for_canva' || status === 'in_canva') {
-    const elapsed = queuedAt ? Date.now() - queuedAt : 0
-    const slow = elapsed > 10 * 60_000
-    return (
-      <div className="flex flex-col gap-1">
-        <button
-          type="button"
-          disabled
-          className="cm-btn text-sm font-semibold opacity-90"
-          style={{
-            background: 'linear-gradient(135deg, #a78bfa 0%, #818cf8 100%)',
-            color: 'white',
-          }}
-        >
-          {status === 'in_canva'
-            ? '🎨 Drawing carousel…'
-            : '🎨 Queued for Canva… ~2 min'}
-        </button>
-        {slow && (
-          <span className="text-[10px] text-amber-700">
-            Longer than usual — the runner may be down. Try again in a bit.
-          </span>
-        )}
-      </div>
-    )
+    return <ComposeWaitingChip status={status} queuedAt={queuedAt} />
   }
 
   if (renderResult?.canva_edit_url) {
