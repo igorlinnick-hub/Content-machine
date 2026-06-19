@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { marked } from 'marked'
 import { resolveAccess } from '@/lib/auth/session'
 import { RoleBadge } from '@/app/components/RoleBadge'
+import { PageHeader } from '@/app/components/PageHeader'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,43 +67,31 @@ export default async function CompliancePage({ searchParams }: PageProps) {
       : `/dashboard?clinicId=${access.clinicId}`
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">
-      <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-500">
-            Compliance
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-            FDA / FTC ruleset
-          </h1>
-          <p className="mt-1 text-xs text-neutral-500">
-            Every post the writer drafts is scored against this ruleset
-            before it can reach Canva.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href={dashboardHref} className="cm-btn cm-btn-ghost text-sm">
-            ← Dashboard
-          </Link>
-          <RoleBadge role={access.role} />
-        </div>
-      </header>
+    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 px-5 py-8 cm-page-bg sm:px-6 sm:py-10">
+      <PageHeader
+        eyebrow="Compliance"
+        eyebrowColor="text-amber-500"
+        title="FDA / FTC Ruleset"
+        subtitle="Every post the writer drafts is scored against this ruleset before it can reach Canva."
+        back={dashboardHref}
+        right={<RoleBadge role={access.role} />}
+      />
 
-      <nav className="flex flex-wrap gap-2">
+      <nav className="flex flex-wrap gap-2 -mt-2">
         {DOCS.map((d) => {
           const isActive = d.slug === activeSlug
           return (
             <Link
               key={d.slug}
               href={`/compliance?doc=${d.slug}`}
-              className={`flex flex-col rounded-lg border px-4 py-3 text-sm transition ${
+              className={`flex flex-col rounded-xl border px-4 py-3 text-sm transition-all ${
                 isActive
-                  ? 'border-sky-300 bg-sky-50 text-sky-900'
-                  : 'border-neutral-200 bg-white text-neutral-700 hover:border-sky-200 hover:bg-sky-50/50'
+                  ? 'border-sky-300 bg-sky-50 text-sky-900 shadow-sm'
+                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-sky-200 hover:bg-sky-50/50 hover:shadow-sm'
               }`}
             >
               <span className="font-semibold">{d.label}</span>
-              <span className="text-[11px] text-neutral-500">{d.description}</span>
+              <span className="mt-0.5 text-[11px] text-neutral-500">{d.description}</span>
             </Link>
           )
         })}

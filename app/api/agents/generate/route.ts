@@ -2,8 +2,9 @@ import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { runComplianceGate } from '@/lib/posts/pipeline'
+import { runComplianceRewriter } from '@/lib/agents/compliance-rewriter'
 import { disabledHttpResponse, LLM_AGENTS_DISABLED_PAYLOAD, LLM_AGENTS_DISABLED_STATUS } from '@/lib/agents/disabled'
-import type { CriticOutput, ComplianceResult } from '@/types'
+import type { CriticOutput, ComplianceResult, ScriptVariant } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -80,11 +81,30 @@ export async function POST(req: Request) {
             )
           )
         )
+
+        // Auto-fix REWORD variants (one retry), drop REMOVE entirely.
+        // Doctor only sees PASS/REVIEW scripts — clean by construction.
+        const fixedPairs = await Promise.all(
+          variants.variants.map(async (v, i): Promise<{ variant: ScriptVariant; compliance: ComplianceResult } | null> => {
+            const cr = complianceResults[i]
+            if (!cr || cr.grade === 'REMOVE') return null
+            if (cr.grade !== 'REWORD') return { variant: v, compliance: cr }
+
+            const fixedScript = await runComplianceRewriter({ script: v.script, findings: cr.findings }).catch(() => null)
+            if (!fixedScript) return { variant: v, compliance: cr }
+
+            const recheck = await runComplianceGate({ script: fixedScript, topic: v.topic }).catch((): ComplianceResult => cr)
+            if (recheck.grade === 'REMOVE') return null
+
+            return { variant: { ...v, script: fixedScript }, compliance: recheck }
+          })
+        )
+        const cleanPairs = fixedPairs.filter((p): p is NonNullable<typeof p> => p !== null)
         stage('compliance:done')
 
         const saved = await saveScripts(
           clinicId,
-          variants.variants.map((v) => {
+          cleanPairs.map(({ variant: v }) => {
             const s = scores.scores.find((sc) => sc.variant_id === v.id)
             return {
               variant_id: v.id,
@@ -102,12 +122,9 @@ export async function POST(req: Request) {
         emit('done', {
           clinic_id: clinicId,
           rewritten: needsRewrite,
-          variants: variants.variants,
+          variants: cleanPairs.map((p) => p.variant),
           scores: scores.scores,
-          compliance: variants.variants.map((v, i) => ({
-            variant_id: v.id,
-            result: complianceResults[i] ?? null,
-          })),
+          compliance: cleanPairs.map((p) => ({ variant_id: p.variant.id, result: p.compliance })),
           saved,
         })
       } catch (e) {

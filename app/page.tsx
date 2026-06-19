@@ -4,6 +4,7 @@ import { SessionRestore } from './components/SessionRestore'
 import { AdminLogin } from './components/AdminLogin'
 import { DoctorLogin } from './components/DoctorLogin'
 import { Logomark } from './components/Logomark'
+import { HeroBg } from './dashboard/components/HeroBg'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,53 +24,57 @@ export default async function Home({
         : null
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-white text-neutral-900">
+    <main className="relative min-h-screen overflow-hidden">
       <SessionRestore />
 
-      {/* Ambient orange glows */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-[15%] -top-32 h-[520px] w-[520px] rounded-full bg-sky-200/45 blur-3xl"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -left-[12%] top-[55%] h-[420px] w-[420px] rounded-full bg-sky-100/60 blur-3xl"
-      />
+      {/* Full-screen animated shader */}
+      <HeroBg className="absolute inset-0 h-full w-full" />
 
-      <div className="relative mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-12 px-5 py-12 sm:gap-14 sm:px-6 sm:py-16">
-        <div className="flex flex-col gap-5 cm-fade-in">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-sky-500">
-            <Logomark size={20} />
-            Hawaii Wellness Clinic
-          </p>
-          <h1 className="text-balance text-4xl font-semibold leading-[1.05] text-neutral-900 sm:text-6xl">
-            Content Studio
-          </h1>
-          <p className="max-w-xl text-lg leading-relaxed text-neutral-600 sm:text-xl">
-            Use your team code or install link to sign in.
-          </p>
-        </div>
+      {/* Content centered on top */}
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-5 py-12">
+        <div className="w-full max-w-[420px]">
 
-        {errorMsg && (
+          {/* Title — white on dark shader */}
+          <div className="mb-7 cm-rise" style={{ animationDelay: '0ms' }}>
+            <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-300">
+              <Logomark size={18} />
+              Hawaii Wellness Clinic
+            </p>
+            <h1
+              className="mt-3 text-4xl font-bold tracking-tight text-white sm:text-5xl cm-rise"
+              style={{ animationDelay: '80ms' }}
+            >
+              Content Studio
+            </h1>
+            <p
+              className="mt-2 text-base text-white/55 cm-rise"
+              style={{ animationDelay: '160ms' }}
+            >
+              Sign in with your team code or install link.
+            </p>
+          </div>
+
+          {/* Glass card — forms */}
           <div
-            className="cm-fade-in rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-            style={{ animationDelay: '0.1s' }}
+            className="rounded-3xl border border-white/20 bg-white/88 p-7 shadow-[0_24px_64px_rgba(0,0,0,0.35)] backdrop-blur-2xl cm-rise"
+            style={{ animationDelay: '220ms' }}
           >
-            {errorMsg}
-          </div>
-        )}
+            {errorMsg && (
+              <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {errorMsg}
+              </div>
+            )}
 
-        <div
-          className="flex flex-col gap-5 cm-fade-in"
-          style={{ animationDelay: '0.2s' }}
-        >
-          <DoctorLogin />
-          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-neutral-300">
-            <span className="h-px flex-1 bg-neutral-200" />
-            or
-            <span className="h-px flex-1 bg-neutral-200" />
+            <div className="flex flex-col gap-5">
+              <DoctorLogin />
+              <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.22em] text-neutral-300">
+                <span className="h-px flex-1 bg-neutral-200" />
+                or
+                <span className="h-px flex-1 bg-neutral-200" />
+              </div>
+              <AdminLogin />
+            </div>
           </div>
-          <AdminLogin />
         </div>
       </div>
     </main>

@@ -7,6 +7,7 @@ import { ScriptCard } from './ScriptCard'
 
 interface ScriptGeneratorProps {
   clinicId: string
+  isAdmin?: boolean
 }
 
 interface GenerateResult {
@@ -136,7 +137,7 @@ function loadScriptDraft(clinicId: string): GenerateResult | null {
   } catch { return null }
 }
 
-export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
+export function ScriptGenerator({ clinicId, isAdmin = false }: ScriptGeneratorProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -303,6 +304,7 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
                 clinicId={clinicId}
                 scriptId={savedRow?.id}
                 siblingScriptIds={siblingIds}
+                isAdmin={isAdmin}
               />
             )
           })}

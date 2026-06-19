@@ -13,6 +13,7 @@ interface ScriptCardProps {
   clinicId?: string
   scriptId?: string
   siblingScriptIds?: string[]
+  isAdmin?: boolean
 }
 
 export function ScriptCard({
@@ -22,6 +23,7 @@ export function ScriptCard({
   clinicId,
   scriptId: initialScriptId,
   siblingScriptIds,
+  isAdmin = false,
 }: ScriptCardProps) {
   const router = useRouter()
   const [variant, setVariant] = useState<ScriptVariant>(initialVariant)
@@ -176,8 +178,16 @@ export function ScriptCard({
         </span>
       </div>
 
-      {/* Compliance confirmation */}
-      {complianceStyle && (
+      {/* Compliance signal */}
+      {compliance && !isAdmin && (grade === 'PASS' || grade === 'REVIEW') && (
+        /* Doctor: simple "checked" badge — no rule IDs, no details */
+        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+          <span className="font-bold">✓</span>
+          <span className="font-medium">Reviewed</span>
+        </div>
+      )}
+      {compliance && isAdmin && complianceStyle && (
+        /* Admin: full details with rule IDs and corrections */
         <div className={`rounded-xl border ${complianceStyle.border} ${complianceStyle.bg} px-4 py-3`}>
           <div className="flex items-center gap-2">
             <span className={`text-base font-bold ${complianceStyle.iconCls}`}>
@@ -186,13 +196,13 @@ export function ScriptCard({
             <span className={`text-sm font-semibold ${complianceStyle.labelCls}`}>
               {complianceStyle.label}
             </span>
-            {compliance && compliance.findings.length > 0 && (
+            {compliance.findings.length > 0 && (
               <span className={`ml-auto text-xs ${complianceStyle.labelCls} opacity-70`}>
                 {compliance.findings.length} finding{compliance.findings.length !== 1 ? 's' : ''}
               </span>
             )}
           </div>
-          {compliance && compliance.findings.length > 0 && (
+          {compliance.findings.length > 0 && (
             <details className="mt-2">
               <summary className={`cursor-pointer text-xs font-medium ${complianceStyle.labelCls} opacity-80 hover:opacity-100`}>
                 Show details

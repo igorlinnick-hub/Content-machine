@@ -116,8 +116,26 @@ body {
 .cm-card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(10, 10, 10, 0.04);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(10,10,10,0.04), 0 4px 12px rgba(10,10,10,0.03);
+  transition: box-shadow 200ms ease, transform 200ms ease, border-color 200ms ease;
+}
+
+/* Text reveal — blur+rise, used with animationDelay inline style */
+@keyframes cm-rise {
+  from { opacity: 0; transform: translateY(18px); filter: blur(5px); }
+  to   { opacity: 1; transform: translateY(0);    filter: blur(0px); }
+}
+.cm-rise {
+  animation: cm-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Page background — very subtle cool tint instead of plain white */
+.cm-page-bg {
+  background:
+    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(224,242,254,0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 35% at 90% 95%, rgba(220,231,254,0.35) 0%, transparent 55%),
+    #f9fafb;
 }
 
 @keyframes cm-fade-in {

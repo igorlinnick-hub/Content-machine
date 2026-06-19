@@ -5,8 +5,8 @@ import { resolveAccess } from '@/lib/auth/session'
 import { listStudioVideos, studioScaffold } from '@/lib/studio/videos'
 import { loadStudioIdea } from '@/lib/studio/slots'
 import { llmAgentsEnabled } from '@/lib/agents/disabled'
-import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
+import { PageHeader } from '@/app/components/PageHeader'
 import { StudioFunnel, type StudioCard } from './components/StudioFunnel'
 
 export const dynamic = 'force-dynamic'
@@ -89,44 +89,30 @@ export default async function StudioPage({
         : 'discover')
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10 cm-fade-in">
-        <header className="flex flex-col gap-3 border-b border-neutral-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-sky-500">
-              <Logomark size={18} />
-              Content Machine · Studio
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-neutral-900 sm:text-4xl">
-              🎬 What to film
-            </h1>
-            <p className="mt-1 max-w-2xl text-base text-neutral-600">
-              Like the reels that fit the clinic. The admin picks the final
-              Shot List. Then generate a simple shoot idea for each — who says
-              what, step by step.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <a
-              href={driveInboxUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-700"
-            >
-              📁 Upload folder
-            </a>
-            <Link
-              href={`/dashboard?clinicId=${clinicId}`}
-              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
-            >
-              ← Dashboard
-            </Link>
-            <RoleBadge
-              role={access.role}
-              doctorName={access.role !== 'admin' ? access.doctorName ?? null : null}
-            />
-          </div>
-        </header>
+    <main className="min-h-screen cm-page-bg">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-10">
+        <PageHeader
+          eyebrow="Content Machine · Studio"
+          title="What to film"
+          subtitle="Like the reels that fit the clinic. The admin picks the final Shot List. Then generate a shoot idea for each."
+          back={`/dashboard?clinicId=${clinicId}`}
+          right={
+            <>
+              <a
+                href={driveInboxUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-600"
+              >
+                📁 Upload folder
+              </a>
+              <RoleBadge
+                role={access.role}
+                doctorName={access.role !== 'admin' ? access.doctorName ?? null : null}
+              />
+            </>
+          }
+        />
 
         {!llmAgentsEnabled() && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

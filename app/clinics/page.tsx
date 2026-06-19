@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { RoleBadge } from '@/app/components/RoleBadge'
+import { PageHeader } from '@/app/components/PageHeader'
 import { BrandCard } from '@/app/dashboard/components/BrandCard'
 import { InstallLinkCard } from '@/app/dashboard/components/InstallLinkCard'
 import { ClinicProfileEditor } from './components/ClinicProfileEditor'
@@ -69,61 +70,29 @@ export default async function ClinicsPage({ searchParams }: ClinicsPageProps) {
   const selected = clinics.find((c) => c.id === selectedId) ?? clinics[0]
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">
-      <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-500">
-            Back-office
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-            Clinics — {clinics.length}
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Manage profiles, brand, and install links for every clinic on this
-            account. Pick one below to edit; jump back to its dashboard or
-            library anytime.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/dashboard?clinicId=${selected.id}`}
-            className="cm-btn cm-btn-ghost text-sm"
-          >
-            ← Dashboard
-          </Link>
-          <RoleBadge role="admin" />
-        </div>
-      </header>
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-5 py-8 cm-page-bg sm:px-6 sm:py-10">
+      <PageHeader
+        eyebrow="Back-office · Clinics"
+        title={`Clinics — ${clinics.length}`}
+        subtitle="Manage profiles, brand, and install links. Pick a clinic below to edit."
+        back={`/dashboard?clinicId=${selected.id}`}
+        right={<RoleBadge role="admin" />}
+      />
 
       <ClinicSwitcher clinics={clinics} selectedId={selected.id} />
 
-      {/* Per-clinic quick-jump strip — admins live in /dashboard or
-          /arsenal so make jumps one click away. ViewAsButton lets the
-          admin see the dashboard the way this clinic's doctor sees
-          it (cookie-based override, exit via banner). */}
-      <nav className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-medium text-neutral-600">
-          {selected.name} →
-        </span>
-        <Link
-          href={`/dashboard?clinicId=${selected.id}`}
-          className="cm-btn cm-btn-ghost text-xs"
-        >
-          📝 Posts
-        </Link>
-        <Link
-          href={`/arsenal?clinicId=${selected.id}`}
-          className="cm-btn cm-btn-ghost text-xs"
-        >
-          🧱 Library
-        </Link>
-        <Link
-          href={`/visual?clinicId=${selected.id}`}
-          className="cm-btn cm-btn-ghost text-xs"
-        >
-          🎨 Visual posts
-        </Link>
-        <span className="text-neutral-300">·</span>
+      <nav className="flex flex-wrap items-center gap-2 -mt-2">
+        <span className="text-xs font-semibold text-neutral-500">{selected.name} →</span>
+        {[
+          { href: `/dashboard?clinicId=${selected.id}`, label: '📝 Posts' },
+          { href: `/arsenal?clinicId=${selected.id}`,   label: '🧱 Library' },
+          { href: `/visual?clinicId=${selected.id}`,    label: '🎨 Visual' },
+        ].map(({ href, label }) => (
+          <Link key={href} href={href} className="rounded-xl border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-50 hover:shadow-sm">
+            {label}
+          </Link>
+        ))}
+        <span className="text-neutral-200">·</span>
         <ViewAsButton clinicId={selected.id} clinicName={selected.name} />
       </nav>
 

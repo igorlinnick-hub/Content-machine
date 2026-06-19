@@ -10,6 +10,7 @@ import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { PWAInstallCard } from './components/PWAInstallCard'
+import { HeroBg } from './components/HeroBg'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
@@ -97,7 +98,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     access.adminPreview === true
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen cm-page-bg">
       {isAdminPreview && (
         <AdminPreviewBanner
           clinicName={clinicName}
@@ -105,59 +106,76 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
       )}
       <TokenBootstrap />
-      <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10 cm-fade-in">
-        <header className="flex flex-col gap-4 border-b border-neutral-200 pb-6 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-sky-500">
-              <Logomark size={18} />
-              Content Machine
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-neutral-900 sm:text-4xl">
-              {headline}
-            </h1>
-            {subline && (
-              <p className="mt-1 text-base text-neutral-600">{subline}</p>
-            )}
-          </div>
+      <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
 
-          {/* Compact top-right: compliance link + role badge. The clinic
-              switcher and section nav live in their own rows below the
-              headline so "WHICH clinic" and "WHERE to go" stop competing
-              for the same eye-line. Compliance lives here so it's one
-              click for both doctor and admin from every page. */}
-          <div className="flex items-center gap-2">
-            <Link
-              href="/compliance"
-              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
-              title="FDA / FTC ruleset that every post is scored against"
+        {/* ── Hero header with animated shader ───────────────────────── */}
+        <header className="relative overflow-hidden rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)]">
+          {/* Shader canvas fills the background */}
+          <HeroBg className="absolute inset-0 h-full w-full" />
+
+          {/* Content overlay */}
+          <div className="relative z-10 flex flex-col gap-4 px-6 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
+            <div className="min-w-0">
+              <p
+                className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-300 cm-rise"
+                style={{ animationDelay: '0ms' }}
+              >
+                <Logomark size={16} />
+                Content Machine
+              </p>
+              <h1
+                className="mt-2 text-4xl font-bold tracking-tight text-white sm:text-5xl cm-rise"
+                style={{ animationDelay: '90ms' }}
+              >
+                {headline}
+              </h1>
+              {subline && (
+                <p
+                  className="mt-2 text-base font-medium text-white/65 cm-rise"
+                  style={{ animationDelay: '180ms' }}
+                >
+                  {subline}
+                </p>
+              )}
+            </div>
+
+            <div
+              className="flex shrink-0 items-center gap-2 cm-rise"
+              style={{ animationDelay: '240ms' }}
             >
-              ⚖️ Compliance
-            </Link>
-            <RoleBadge
-              role={access.role}
-              doctorName={isDoctor ? doctorDisplayName : null}
-            />
+              <Link
+                href="/compliance"
+                className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-3 py-1.5 text-xs font-semibold text-amber-300 backdrop-blur-sm transition hover:bg-amber-400/25"
+                title="FDA / FTC ruleset that every post is scored against"
+              >
+                ⚖️ Compliance
+              </Link>
+              <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 backdrop-blur-sm">
+                <RoleBadge
+                  role={access.role}
+                  doctorName={isDoctor ? doctorDisplayName : null}
+                />
+              </div>
+            </div>
           </div>
         </header>
 
-        {/* Admin secondary nav — clinic switcher (one row) + section
-            jumps (separate row). Doctors don't see this; they're
-            pinned to their one clinic. */}
+        {/* Admin secondary nav */}
         {showAdminTools && (
-          <nav className="flex flex-col gap-3 -mt-4 border-b border-neutral-200 pb-5">
+          <nav className="flex flex-col gap-3 -mt-4">
             {clinics.length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
                   Clinic
                 </span>
                 {clinics.map((c) => (
                   <Link
                     key={c.id}
                     href={`/dashboard?clinicId=${c.id}`}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                    className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${
                       c.id === clinicId
-                        ? 'bg-neutral-900 text-white'
-                        : 'border border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                        ? 'bg-neutral-900 text-white shadow-sm'
+                        : 'border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
                     }`}
                   >
                     {c.name}
@@ -166,65 +184,59 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </div>
             )}
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
                 Go to
               </span>
-              <span className="rounded-lg bg-sky-100 px-3 py-1.5 text-xs font-semibold text-sky-800">
+              <span className="rounded-xl bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
                 📝 Posts
               </span>
-              <Link
-                href={`/arsenal?clinicId=${clinicId}`}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
-              >
-                🧱 Library
-              </Link>
-              <Link
-                href={`/visual?clinicId=${clinicId}`}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
-              >
-                🎨 Visual posts
-              </Link>
-              <Link
-                href={`/clinics?clinicId=${clinicId}`}
-                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-50"
-              >
-                ⚙ Clinics
-              </Link>
+              {[
+                { href: `/arsenal?clinicId=${clinicId}`, label: '🧱 Library' },
+                { href: `/visual?clinicId=${clinicId}`,  label: '🎨 Visual' },
+                { href: `/clinics?clinicId=${clinicId}`, label: '⚙ Clinics' },
+              ].map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow-sm"
+                >
+                  {label}
+                </Link>
+              ))}
             </div>
           </nav>
         )}
 
-        {/* Main tab bar — Generate / Recent / Today's input. Three
-            distinct jobs, one click each, no scrolling competition. */}
-        <nav className="flex flex-wrap items-center gap-1.5 border-b border-neutral-200 pb-2">
+        {/* Main tab bar */}
+        <nav className="flex flex-wrap items-center gap-1 rounded-2xl border border-neutral-200 bg-white/70 p-1 shadow-sm backdrop-blur-sm -mt-4">
           <DashTabLink
-            label="📝 Generate"
+            label="Generate"
             href={`/dashboard?clinicId=${clinicId}&tab=generate`}
             active={tab === 'generate'}
           />
           <DashTabLink
-            label={`📚 Recent (${recent.length})`}
+            label={`Recent (${recent.length})`}
             href={`/dashboard?clinicId=${clinicId}&tab=recent`}
             active={tab === 'recent'}
           />
           <DashTabLink
-            label="💡 Today's input"
+            label="Today's input"
             href={`/dashboard?clinicId=${clinicId}&tab=input`}
             active={tab === 'input'}
           />
           {showAdminTools ? (
             <Link
               href={`/studio?clinicId=${clinicId}`}
-              className="ml-auto rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
+              className="ml-auto rounded-xl border border-sky-200 bg-sky-50 px-4 py-1.5 text-sm font-medium text-sky-700 transition hover:bg-sky-100"
             >
               🎬 Studio
             </Link>
           ) : (
             <Link
               href="/install"
-              className="ml-auto rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:bg-neutral-50"
+              className="ml-auto rounded-xl border border-neutral-200 px-4 py-1.5 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
             >
-              📲 Install app
+              📲 Install
             </Link>
           )}
         </nav>
@@ -261,7 +273,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 Generate scripts
               </h2>
             </div>
-            <ScriptGenerator clinicId={clinicId} />
+            <ScriptGenerator clinicId={clinicId} isAdmin={showAdminTools} />
 
           </section>
         )}
@@ -286,7 +298,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         <PWAInstallCard clinicId={clinicId} isAdmin={showAdminTools} />
 
-        <footer className="pt-2 text-center text-xs text-neutral-400">
+        <footer className="pb-2 pt-4 text-center text-xs text-neutral-400">
           Content Machine · regen-med
         </footer>
       </div>
@@ -326,10 +338,10 @@ function DashTabLink({
   return (
     <Link
       href={href}
-      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+      className={`rounded-xl px-4 py-1.5 text-sm font-medium transition-all duration-150 ${
         active
-          ? 'bg-sky-500 text-white shadow-sm'
-          : 'text-neutral-700 hover:bg-neutral-100'
+          ? 'bg-neutral-900 text-white shadow-sm'
+          : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'
       }`}
     >
       {label}

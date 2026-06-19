@@ -5,6 +5,7 @@ import { loadPosts } from '@/lib/visual/store'
 import { resolveAccess } from '@/lib/auth/session'
 import { PostsWorkspace } from './components/PostsWorkspace'
 import { RoleBadge } from '@/app/components/RoleBadge'
+import { PageHeader } from '@/app/components/PageHeader'
 
 // Videos tab removed from /visual — marketer's workflow is post
 // carousels only. The video pipeline (Seedance via Replicate) still
@@ -32,29 +33,20 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const posts = await loadPosts(clinic.id, 50)
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-5 py-6 sm:px-6 sm:py-8">
-      <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-sky-500">
-            Workspace
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-            {clinic.name}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/compliance" className="cm-btn cm-btn-ghost text-sm">
-            ⚖️ Compliance
-          </Link>
-          <Link
-            href={`/dashboard?clinicId=${clinic.id}`}
-            className="cm-btn cm-btn-ghost text-sm"
-          >
-            ← Dashboard
-          </Link>
-          <RoleBadge role="admin" />
-        </div>
-      </header>
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-5 py-8 cm-page-bg sm:px-6 sm:py-10">
+      <PageHeader
+        eyebrow="Visual Posts"
+        title={clinic.name}
+        back={`/dashboard?clinicId=${clinic.id}`}
+        right={
+          <>
+            <Link href="/compliance" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">
+              ⚖️ Compliance
+            </Link>
+            <RoleBadge role="admin" />
+          </>
+        }
+      />
 
       <PostsWorkspace clinicId={clinic.id} posts={posts} />
     </main>

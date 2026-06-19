@@ -7,6 +7,7 @@ import { loadScriptTemplates } from '@/lib/posts/templates'
 import { loadTrendSources } from '@/lib/trends/sources'
 import { resolveAccess } from '@/lib/auth/session'
 import { RoleBadge } from '@/app/components/RoleBadge'
+import { PageHeader } from '@/app/components/PageHeader'
 import { ArsenalWorkspace } from './components/ArsenalWorkspace'
 import { TemplatesCanvas } from './components/TemplatesCanvas'
 import { TrendCuration } from './components/TrendCuration'
@@ -73,44 +74,25 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
   const activeTemplateCount = templates.filter((t) => t.active).length
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-5 py-6 sm:px-6 sm:py-8">
-      <header className="flex items-start justify-between gap-4 border-b border-neutral-200 pb-4">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-violet-500">
-            Back-office
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-            {clinic.name} · Script library
-          </h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Drop a reference video → it becomes a clinic-tailored template the
-            writer borrows from. Toggle off what stops working; edit the
-            scaffolds inline; everything flows from top to bottom.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/dashboard?clinicId=${clinic.id}`}
-            className="cm-btn cm-btn-ghost text-sm"
-          >
-            ← Dashboard
-          </Link>
-          <RoleBadge role="admin" />
-        </div>
-      </header>
+    <main className="mx-auto flex min-h-screen max-w-7xl flex-col gap-8 px-5 py-8 cm-page-bg sm:px-6 sm:py-10">
+      <PageHeader
+        eyebrow="Back-office · Library"
+        eyebrowColor="text-violet-500"
+        title={`${clinic.name} · Script library`}
+        subtitle="Drop a reference video → it becomes a clinic-tailored template the writer borrows from. Everything flows top to bottom."
+        back={`/dashboard?clinicId=${clinic.id}`}
+        right={<RoleBadge role="admin" />}
+      />
 
-      {/* Quick counters strip — replaces the old tab nav. Same info,
-          no clicks needed. */}
-      <nav className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-        <span className="rounded-full bg-violet-100 px-2.5 py-1 font-medium text-violet-700">
-          🧱 {templates.length} template{templates.length === 1 ? '' : 's'} ·{' '}
-          {activeTemplateCount} active
+      <nav className="flex flex-wrap items-center gap-2 -mt-4">
+        <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
+          🧱 {templates.length} template{templates.length === 1 ? '' : 's'} · {activeTemplateCount} active
         </span>
-        <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-medium text-emerald-700">
-          📚 {decorated.length} arsenal entr{decorated.length === 1 ? 'y' : 'ies'}
+        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+          📚 {decorated.length} entr{decorated.length === 1 ? 'y' : 'ies'}
         </span>
         {pendingQueue.length > 0 && (
-          <span className="rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-700">
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
             ⏳ {pendingQueue.length} in queue
           </span>
         )}

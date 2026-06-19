@@ -43,3 +43,11 @@ supabase/.branches/
 jobflow-*.json
 *-service-account*.json
 .claude/
+
+# playwright-mcp session artifacts (contain API tokens)
+.playwright-mcp/
+
+# loose screenshots at repo root (never part of source)
+*.png
+!public/**/*.png
+!samples/staff-filming-guide*.png
