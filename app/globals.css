@@ -130,24 +130,9 @@ body {
   animation: cm-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Page background — slow animated gradient, predominantly white */
-@keyframes cm-page-gradient {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
+/* Page background — transparent, GradientBg in layout handles the animated blobs */
 .cm-page-bg {
-  background: linear-gradient(
-    -40deg,
-    #f0f9ff 0%,
-    #fafafa 20%,
-    #f0fdf9 40%,
-    #fafafa 60%,
-    #f5f3ff 80%,
-    #fafafa 100%
-  );
-  background-size: 400% 400%;
-  animation: cm-page-gradient 22s ease infinite;
+  background: transparent;
 }
 
 /* Liquid glass — light surface (tabs, nav, cards on white bg) */
