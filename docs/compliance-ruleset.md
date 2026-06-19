@@ -11,12 +11,12 @@
 > evidence scienter — the opposite of a good-faith program. Hence the careful framing,
 > dating, and review cadence below.)
 
-**Читай этот файл ПЕРЕД любым анализом или авто-грейдингом контента.** Формальный свод
-правил: `compliance_analyze.py` подаёт весь файл в Claude как промпт, и судья обязан
-ссылаться ТОЛЬКО на `rule_id` отсюда и цитировать доказательства дословно.
+**Read this file BEFORE any analysis or auto-grading of content.** This is the formal ruleset:
+`compliance_analyze.py` feeds the entire file to Claude as a prompt, and the judge MUST
+reference only `rule_id` values from here and quote evidence verbatim.
 
-⚠️ **Это НЕ юридическая консультация.** Вывод — карта *потенциальных* рисков для медицинского
-директора и юриста (Constitution §4). Не заменяет healthcare-юриста.
+⚠️ **This is NOT legal advice.** The output is a map of *potential* risks for the medical
+director and legal counsel (Constitution §4). It does not replace a healthcare attorney.
 
 This is the **FDA/FTC enforcement layer**. The marketing-channel framework (Meta ad policy,
 IG community guidelines, HIPAA/Pixel) lives in
