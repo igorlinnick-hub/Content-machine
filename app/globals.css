@@ -14,9 +14,14 @@
   --danger: #dc2626;
 }
 
+@keyframes body-gradient {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 html,
 body {
-  background: var(--background);
   color: var(--foreground);
 }
 
@@ -24,6 +29,18 @@ body {
   font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  background: linear-gradient(
+    -45deg,
+    #dbeafe,
+    #f8faff,
+    #ccfbf1,
+    #f8faff,
+    #ede9fe,
+    #fef3c7,
+    #f8faff
+  ) !important;
+  background-size: 400% 400% !important;
+  animation: body-gradient 20s ease infinite !important;
 }
 
 /* Form primitives reused across pages */
@@ -298,6 +315,10 @@ body {
 .cm-fade-in-stagger > *:nth-child(6) { animation-delay: 0.44s; }
 
 @media (prefers-reduced-motion: reduce) {
+  body {
+    animation: none !important;
+    background-position: 50% 50% !important;
+  }
   .cm-fade-in,
   .cm-fade-in-stagger > *,
   .animate-cm-ping,
