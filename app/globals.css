@@ -135,6 +135,25 @@ body {
   animation: cm-fade-in 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes cm-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes cm-modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+@keyframes cm-sheet-in {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cm-backdrop-in  { animation: cm-backdrop-in  0.18s ease both; }
+.cm-modal-in     { animation: cm-modal-in     0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.cm-sheet-in     { animation: cm-sheet-in     0.32s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@media (min-width: 640px) {
+  .cm-sheet-in { animation: cm-modal-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) both; }
+}
+
 @keyframes cm-ping {
   0% {
     transform: scale(1);
