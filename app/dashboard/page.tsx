@@ -11,6 +11,7 @@ import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { PWAInstallCard } from './components/PWAInstallCard'
 import { HeroBg } from './components/HeroBg'
+import { DashBento } from './components/DashBento'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
@@ -145,12 +146,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             >
               <Link
                 href="/compliance"
-                className="rounded-lg border border-amber-400/40 bg-amber-400/15 px-3 py-1.5 text-xs font-semibold text-amber-300 backdrop-blur-sm transition hover:bg-amber-400/25"
+                className="cm-glass-dark rounded-full px-4 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-white/15"
                 title="FDA / FTC ruleset that every post is scored against"
               >
-                ⚖️ Compliance
+                Compliance
               </Link>
-              <div className="rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 backdrop-blur-sm">
+              <div className="cm-glass-dark rounded-full px-3 py-1.5">
                 <RoleBadge
                   role={access.role}
                   doctorName={isDoctor ? doctorDisplayName : null}
@@ -160,55 +161,33 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </header>
 
-        {/* Admin secondary nav */}
-        {showAdminTools && (
-          <nav className="flex flex-col gap-3 -mt-4">
-            {clinics.length > 1 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                  Clinic
-                </span>
-                {clinics.map((c) => (
-                  <Link
-                    key={c.id}
-                    href={`/dashboard?clinicId=${c.id}`}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${
-                      c.id === clinicId
-                        ? 'bg-neutral-900 text-white shadow-sm'
-                        : 'border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
-                    }`}
-                  >
-                    {c.name}
-                  </Link>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-                Go to
-              </span>
-              <span className="rounded-xl bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
-                📝 Posts
-              </span>
-              {[
-                { href: `/arsenal?clinicId=${clinicId}`, label: '🧱 Library' },
-                { href: `/visual?clinicId=${clinicId}`,  label: '🎨 Visual' },
-                { href: `/clinics?clinicId=${clinicId}`, label: '⚙ Clinics' },
-              ].map(({ href, label }) => (
-                <Link
-                  key={href}
-                  href={href}
-                  className="rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 transition-all hover:border-neutral-300 hover:bg-neutral-50 hover:shadow-sm"
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
+        {/* Admin clinic switcher (compact) */}
+        {showAdminTools && clinics.length > 1 && (
+          <nav className="flex flex-wrap items-center gap-1.5 -mt-4">
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+              Clinic
+            </span>
+            {clinics.map((c) => (
+              <Link
+                key={c.id}
+                href={`/dashboard?clinicId=${c.id}`}
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${
+                  c.id === clinicId
+                    ? 'bg-neutral-900 text-white shadow-sm'
+                    : 'border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
+                }`}
+              >
+                {c.name}
+              </Link>
+            ))}
           </nav>
         )}
 
+        {/* Bento overview grid */}
+        <DashBento clinicId={clinicId} isAdmin={showAdminTools} />
+
         {/* Main tab bar */}
-        <nav className="flex flex-wrap items-center gap-1 rounded-2xl border border-neutral-200 bg-white/70 p-1 shadow-sm backdrop-blur-sm -mt-4">
+        <nav className="cm-glass flex flex-wrap items-center gap-1 rounded-2xl p-1 -mt-4">
           <DashTabLink
             label="Generate"
             href={`/dashboard?clinicId=${clinicId}&tab=generate`}
@@ -227,16 +206,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           {showAdminTools ? (
             <Link
               href={`/studio?clinicId=${clinicId}`}
-              className="ml-auto rounded-xl border border-sky-200 bg-sky-50 px-4 py-1.5 text-sm font-medium text-sky-700 transition hover:bg-sky-100"
+              className="ml-auto rounded-xl px-4 py-1.5 text-sm font-medium text-sky-600 transition hover:bg-white/60"
             >
-              🎬 Studio
+              Studio
             </Link>
           ) : (
             <Link
               href="/install"
-              className="ml-auto rounded-xl border border-neutral-200 px-4 py-1.5 text-sm font-medium text-neutral-500 transition hover:bg-neutral-50"
+              className="ml-auto rounded-xl px-4 py-1.5 text-sm font-medium text-neutral-500 transition hover:bg-white/60"
             >
-              📲 Install
+              Install
             </Link>
           )}
         </nav>
@@ -338,10 +317,10 @@ function DashTabLink({
   return (
     <Link
       href={href}
-      className={`rounded-xl px-4 py-1.5 text-sm font-medium transition-all duration-150 ${
+      className={`rounded-xl px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
         active
-          ? 'bg-neutral-900 text-white shadow-sm'
-          : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700'
+          ? 'bg-neutral-900/90 text-white shadow-sm backdrop-blur-sm'
+          : 'text-neutral-500 hover:bg-white/70 hover:text-neutral-700'
       }`}
     >
       {label}

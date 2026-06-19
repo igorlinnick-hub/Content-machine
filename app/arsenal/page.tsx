@@ -86,14 +86,14 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
 
       <nav className="flex flex-wrap items-center gap-2 -mt-4">
         <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
-          🧱 {templates.length} template{templates.length === 1 ? '' : 's'} · {activeTemplateCount} active
+          {templates.length} template{templates.length === 1 ? '' : 's'} · {activeTemplateCount} active
         </span>
         <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-          📚 {decorated.length} entr{decorated.length === 1 ? 'y' : 'ies'}
+          {decorated.length} entr{decorated.length === 1 ? 'y' : 'ies'}
         </span>
         {pendingQueue.length > 0 && (
           <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-            ⏳ {pendingQueue.length} in queue
+            {pendingQueue.length} in queue
           </span>
         )}
       </nav>
@@ -104,7 +104,7 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
           pending list, and arsenal cards. */}
       <section className="flex flex-col gap-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-700">
-          📚 Reference arsenal — ingest + extracted styles
+          Reference arsenal — ingest + extracted styles
         </h2>
         <ArsenalWorkspace
           clinicId={clinic.id}
@@ -116,7 +116,7 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
       {/* 2. TEMPLATES canvas — the scaffolds Writer actually reads. */}
       <section className="flex flex-col gap-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-700">
-          🧱 Templates — what the writer borrows from
+          Templates — what the writer borrows from
         </h2>
         <TemplatesCanvas
           clinicId={clinic.id}

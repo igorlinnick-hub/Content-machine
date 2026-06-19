@@ -104,7 +104,7 @@ export default async function StudioPage({
                 rel="noreferrer"
                 className="rounded-xl bg-sky-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-sky-600"
               >
-                📁 Upload folder
+                Upload folder
               </a>
               <RoleBadge
                 role={access.role}

@@ -84,9 +84,9 @@ export default async function ClinicsPage({ searchParams }: ClinicsPageProps) {
       <nav className="flex flex-wrap items-center gap-2 -mt-2">
         <span className="text-xs font-semibold text-neutral-500">{selected.name} →</span>
         {[
-          { href: `/dashboard?clinicId=${selected.id}`, label: '📝 Posts' },
-          { href: `/arsenal?clinicId=${selected.id}`,   label: '🧱 Library' },
-          { href: `/visual?clinicId=${selected.id}`,    label: '🎨 Visual' },
+          { href: `/dashboard?clinicId=${selected.id}`, label: 'Posts' },
+          { href: `/arsenal?clinicId=${selected.id}`,   label: 'Library' },
+          { href: `/visual?clinicId=${selected.id}`,    label: 'Visual' },
         ].map(({ href, label }) => (
           <Link key={href} href={href} className="rounded-xl border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-600 transition hover:bg-neutral-50 hover:shadow-sm">
             {label}

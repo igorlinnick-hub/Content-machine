@@ -130,12 +130,41 @@ body {
   animation: cm-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* Page background — very subtle cool tint instead of plain white */
+/* Page background — slow animated gradient, predominantly white */
+@keyframes cm-page-gradient {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
 .cm-page-bg {
-  background:
-    radial-gradient(ellipse 70% 50% at 10% 0%, rgba(224,242,254,0.55) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 35% at 90% 95%, rgba(220,231,254,0.35) 0%, transparent 55%),
-    #f9fafb;
+  background: linear-gradient(
+    -40deg,
+    #f0f9ff 0%,
+    #fafafa 20%,
+    #f0fdf9 40%,
+    #fafafa 60%,
+    #f5f3ff 80%,
+    #fafafa 100%
+  );
+  background-size: 400% 400%;
+  animation: cm-page-gradient 22s ease infinite;
+}
+
+/* Liquid glass — light surface (tabs, nav, cards on white bg) */
+.cm-glass {
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(18px) saturate(1.8);
+  -webkit-backdrop-filter: blur(18px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 2px 20px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.95);
+}
+
+/* Liquid glass — dark surface (buttons on dark hero) */
+.cm-glass-dark {
+  background: rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 @keyframes cm-fade-in {
