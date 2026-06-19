@@ -220,10 +220,6 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
           <p className="text-base font-semibold text-neutral-900">
             Ready to generate 3 fresh variants
           </p>
-          <p className="text-sm text-neutral-600">
-            Leave the topic blank to let your team pick from your pillars, or
-            give them a specific topic.
-          </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex flex-1 flex-col gap-1">

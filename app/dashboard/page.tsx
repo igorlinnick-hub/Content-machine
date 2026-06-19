@@ -274,10 +274,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <h2 className="mt-1 text-2xl font-semibold text-neutral-900">
                 Generate scripts
               </h2>
-              <p className="mt-1 text-sm text-neutral-600">
-                Leave the topic blank to let your team pick from your pillars,
-                or type a specific topic. Three variants every time.
-              </p>
             </div>
             <ScriptGenerator clinicId={clinicId} />
 
