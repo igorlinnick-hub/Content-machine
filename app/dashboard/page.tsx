@@ -278,7 +278,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {tab === 'input' && (
           <Section
             title="Today's input"
-            subtitle="Three quick prompts — 1–2 minutes total. Your answers feed the writer, so it sounds like you tomorrow."
+            subtitle="Answer a few questions to give your scripts your personal touch."
           >
             <DailyWidgets clinicId={clinicId} questions={questions} />
           </Section>
