@@ -35,27 +35,28 @@ export function ScriptCard({
   const [refining, setRefining] = useState(false)
   const [refineError, setRefineError] = useState<string | null>(null)
   const [refineCount, setRefineCount] = useState(0)
+
   const total = score?.total_score
   const strong = typeof total === 'number' && total >= 7
 
-  const complianceGrade = compliance?.grade ?? null
-  const complianceBadge =
-    complianceGrade === 'REMOVE'
-      ? { label: 'Compliance: Remove', cls: 'bg-red-100 text-red-800' }
-      : complianceGrade === 'REWORD'
-        ? { label: 'Compliance: Reword', cls: 'bg-orange-100 text-orange-800' }
-        : complianceGrade === 'REVIEW'
-          ? { label: 'Compliance: Review', cls: 'bg-amber-100 text-amber-800' }
-          : null
+  const grade = compliance?.grade ?? null
+  const complianceStyle =
+    grade === 'REMOVE'
+      ? { border: 'border-red-200',   bg: 'bg-red-50',    icon: '✕', iconCls: 'text-red-500',    label: 'Cannot publish',    labelCls: 'text-red-800'    }
+      : grade === 'REWORD'
+        ? { border: 'border-orange-200', bg: 'bg-orange-50', icon: '⚠', iconCls: 'text-orange-500', label: 'Reword required',   labelCls: 'text-orange-800' }
+        : grade === 'REVIEW'
+          ? { border: 'border-amber-200',  bg: 'bg-amber-50',  icon: '⚠', iconCls: 'text-amber-500',  label: 'Review needed',     labelCls: 'text-amber-800'  }
+          : grade === 'PASS'
+            ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: '✓', iconCls: 'text-emerald-500', label: 'Compliant',      labelCls: 'text-emerald-800' }
+            : null
 
   async function onCopy() {
     try {
       await navigator.clipboard.writeText(variant.script)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // older browsers / insecure contexts — user can still select text
-    }
+    } catch { /* older browsers */ }
   }
 
   async function sendFeedback(action: 'selected' | 'rejected') {
@@ -91,26 +92,14 @@ export function ScriptCard({
       const res = await fetch('/api/agents/refine', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          clinicId,
-          scriptId,
-          note: refineNote.trim() || undefined,
-        }),
+        body: JSON.stringify({ clinicId, scriptId, note: refineNote.trim() || undefined }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
-      if (data.variant) {
-        setVariant(data.variant as ScriptVariant)
-      }
-      if (data.score) {
-        setScore(data.score as CriticScore)
-      } else {
-        setScore(undefined)
-      }
-      if (data.scriptId) {
-        setScriptId(data.scriptId as string)
-      }
-      // Reset feedback state for the new attempt.
+      if (data.variant) setVariant(data.variant as ScriptVariant)
+      if (data.score) setScore(data.score as CriticScore)
+      else setScore(undefined)
+      if (data.scriptId) setScriptId(data.scriptId as string)
       setFeedback('idle')
       setFeedbackError(null)
       setRefineNote('')
@@ -129,6 +118,7 @@ export function ScriptCard({
 
   return (
     <article className="cm-card flex flex-col gap-4 p-5 sm:p-6">
+      {/* Header */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-neutral-500">
@@ -144,28 +134,19 @@ export function ScriptCard({
             {variant.topic}
           </h3>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {complianceBadge && (
-            <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${complianceBadge.cls}`}>
-              <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              {complianceBadge.label}
-            </span>
-          )}
-          {typeof total === 'number' && (
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-                strong
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-amber-100 text-amber-800'
-              }`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full bg-current" />
-              {total.toFixed(1)} / 10
-            </span>
-          )}
-        </div>
+        {typeof total === 'number' && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+              strong ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
+            }`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            {total.toFixed(1)} / 10
+          </span>
+        )}
       </header>
 
+      {/* Hook */}
       <p className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm italic text-sky-900">
         <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider not-italic text-sky-500">
           Hook
@@ -173,10 +154,12 @@ export function ScriptCard({
         {variant.hook}
       </p>
 
+      {/* Script body */}
       <pre className="whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-4 font-sans text-[15px] leading-relaxed text-neutral-900">
         {variant.script}
       </pre>
 
+      {/* Critic detail (collapsible) */}
       {score && (
         <details className="text-xs text-neutral-600">
           <summary className="cursor-pointer font-medium text-neutral-700 hover:text-neutral-900">
@@ -193,25 +176,48 @@ export function ScriptCard({
         </details>
       )}
 
-      {compliance && compliance.findings.length > 0 && (
-        <details className="text-xs text-neutral-600">
-          <summary className="cursor-pointer font-medium text-neutral-700 hover:text-neutral-900">
-            Compliance findings ({compliance.findings.length})
-          </summary>
-          <ul className="mt-2 flex flex-col gap-2">
-            {compliance.findings.map((f, i) => (
-              <li key={i} className="flex flex-col gap-0.5">
-                <span className={`font-medium ${f.severity === 'remove' ? 'text-red-700' : f.severity === 'reword' ? 'text-orange-700' : 'text-amber-700'}`}>
-                  [{f.rule}] {f.severity.toUpperCase()}
-                </span>
-                <span className="text-neutral-600">&ldquo;{f.matched}&rdquo;</span>
-                <span className="text-neutral-500">→ {f.correction}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
+      {/* Compliance confirmation — prominent, at the bottom where the doctor sees it */}
+      {complianceStyle && (
+        <div className={`rounded-xl border ${complianceStyle.border} ${complianceStyle.bg} px-4 py-3`}>
+          <div className="flex items-center gap-2">
+            <span className={`text-base font-bold ${complianceStyle.iconCls}`}>
+              {complianceStyle.icon}
+            </span>
+            <span className={`text-sm font-semibold ${complianceStyle.labelCls}`}>
+              {complianceStyle.label}
+            </span>
+            {compliance && compliance.findings.length > 0 && (
+              <span className={`ml-auto text-xs ${complianceStyle.labelCls} opacity-70`}>
+                {compliance.findings.length} finding{compliance.findings.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          {compliance && compliance.findings.length > 0 && (
+            <details className="mt-2">
+              <summary className={`cursor-pointer text-xs font-medium ${complianceStyle.labelCls} opacity-80 hover:opacity-100`}>
+                Show details
+              </summary>
+              <ul className="mt-2 flex flex-col gap-2.5">
+                {compliance.findings.map((f, i) => (
+                  <li key={i} className="flex flex-col gap-0.5 text-xs">
+                    <span className={`font-semibold ${
+                      f.severity === 'remove' ? 'text-red-700' :
+                      f.severity === 'reword' ? 'text-orange-700' : 'text-amber-700'
+                    }`}>
+                      [{f.rule}] {f.severity.toUpperCase()}
+                    </span>
+                    <span className="text-neutral-600 italic">&ldquo;{f.matched}&rdquo;</span>
+                    <span className="text-neutral-500">→ {f.correction}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
       )}
 
+      {/* Footer: actions */}
       <footer className="flex flex-col gap-3 border-t border-neutral-100 pt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -222,9 +228,7 @@ export function ScriptCard({
                   onClick={() => sendFeedback('selected')}
                   disabled={locked || feedback === 'saving' || refining}
                   className={`cm-btn text-sm ${
-                    feedback === 'selected'
-                      ? 'cm-btn-success'
-                      : 'cm-btn-success-outline'
+                    feedback === 'selected' ? 'cm-btn-success' : 'cm-btn-success-outline'
                   }`}
                 >
                   {feedback === 'selected' ? '✓ Picked' : 'Pick'}
@@ -246,9 +250,7 @@ export function ScriptCard({
                   onClick={() => sendFeedback('rejected')}
                   disabled={locked || feedback === 'saving' || refining}
                   className={`cm-btn text-sm ${
-                    feedback === 'rejected'
-                      ? 'cm-btn-danger'
-                      : 'cm-btn-danger-outline'
+                    feedback === 'rejected' ? 'cm-btn-danger' : 'cm-btn-danger-outline'
                   }`}
                 >
                   {feedback === 'rejected' ? '✕ Passed' : 'Pass'}
@@ -264,15 +266,13 @@ export function ScriptCard({
               </span>
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={onCopy}
-              className="cm-btn cm-btn-ghost text-sm"
-            >
-              {copied ? 'Copied' : 'Copy script'}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="cm-btn cm-btn-ghost text-sm"
+          >
+            {copied ? 'Copied' : 'Copy script'}
+          </button>
         </div>
 
         {refineOpen && (
