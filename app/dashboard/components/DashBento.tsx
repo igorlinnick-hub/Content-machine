@@ -106,16 +106,6 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
 
   const cards = [
     {
-      title: 'Script Generator',
-      desc: '5-agent AI pipeline — research, write, critique, finalize',
-      href: `/dashboard?${q}&tab=generate`,
-      tag: 'AI',
-      tagColor: '#38bdf8',
-      iconBg: 'linear-gradient(135deg,#0ea5e9,#0284c7)',
-      icon: <IconPen />,
-      meteors: true,
-    },
-    {
       title: 'Script Library',
       desc: 'Proven hooks and structures',
       href: `/arsenal?${q}`,
@@ -123,6 +113,7 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       tagColor: '#a78bfa',
       iconBg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
       icon: <IconStack />,
+      meteors: true,
     },
     {
       title: 'Visual Posts',
@@ -156,14 +147,11 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
   if (!isAdmin) return null
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {/* Row 1 */}
-      <div className="col-span-2"><Card {...cards[0]} tall /></div>
+    <div className="grid grid-cols-2 gap-3">
+      <Card {...cards[0]} tall />
       <Card {...cards[1]} tall />
-      {/* Row 2 */}
       <Card {...cards[2]} />
       <Card {...cards[3]} />
-      <Card {...cards[4]} />
     </div>
   )
 }

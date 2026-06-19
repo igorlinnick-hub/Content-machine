@@ -57,21 +57,16 @@ export function RoleBadge({ role, doctorName, variant = 'light' }: Props) {
             onClick={() => setOpen(false)}
             className="fixed inset-0 z-10 cursor-default"
           />
-          <div className="absolute right-0 top-full z-20 mt-2 w-64 rounded-lg border border-neutral-200 bg-white p-3 text-sm shadow-lg">
-            <p className="text-xs uppercase tracking-wider text-neutral-500">
-              Signed in as
-            </p>
-            <p className="mt-1 font-medium text-neutral-900">{label}</p>
-            {isAdmin && (
-              <p className="mt-2 text-xs text-neutral-500">
-                Want to preview as the doctor? Open the install link in a private window.
-              </p>
-            )}
+          <div className="absolute right-0 top-full z-20 mt-2 w-48 overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-xl">
+            <div className="px-4 py-3 border-b border-neutral-100">
+              <p className="text-[11px] text-neutral-400">Signed in as</p>
+              <p className="mt-0.5 text-sm font-semibold text-neutral-900">{label}</p>
+            </div>
             <button
               type="button"
               onClick={signOut}
               disabled={signingOut}
-              className="mt-3 w-full cm-btn cm-btn-ghost text-xs text-red-600"
+              className="w-full px-4 py-2.5 text-left text-sm text-red-500 hover:bg-red-50 transition-colors"
             >
               {signingOut ? 'Signing out…' : 'Sign out'}
             </button>
