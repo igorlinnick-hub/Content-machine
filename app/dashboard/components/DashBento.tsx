@@ -144,8 +144,6 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
     },
   ]
 
-  if (!isAdmin) return null
-
   return (
     <div className="grid grid-cols-2 gap-3">
       <Card {...cards[0]} tall />
