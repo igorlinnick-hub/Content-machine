@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 
@@ -25,8 +25,9 @@ export function ScriptCard({
 }: ScriptCardProps) {
   const router = useRouter()
   const [variant, setVariant] = useState<ScriptVariant>(initialVariant)
-  const [score, setScore] = useState<CriticScore | undefined>(initialScore)
+  const [score] = useState<CriticScore | undefined>(initialScore)
   const [scriptId, setScriptId] = useState<string | undefined>(initialScriptId)
+  const [scriptText, setScriptText] = useState(initialVariant.script)
   const [copied, setCopied] = useState(false)
   const [feedback, setFeedback] = useState<FeedbackState>('idle')
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
@@ -35,6 +36,7 @@ export function ScriptCard({
   const [refining, setRefining] = useState(false)
   const [refineError, setRefineError] = useState<string | null>(null)
   const [refineCount, setRefineCount] = useState(0)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const total = score?.total_score
   const strong = typeof total === 'number' && total >= 7
@@ -42,24 +44,31 @@ export function ScriptCard({
   const grade = compliance?.grade ?? null
   const complianceStyle =
     grade === 'REMOVE'
-      ? { border: 'border-red-200',   bg: 'bg-red-50',    icon: '✕', iconCls: 'text-red-500',    label: 'Cannot publish',    labelCls: 'text-red-800'    }
+      ? { border: 'border-red-200',    bg: 'bg-red-50',    icon: '✕', iconCls: 'text-red-500',    label: 'Cannot publish',  labelCls: 'text-red-800'    }
       : grade === 'REWORD'
-        ? { border: 'border-orange-200', bg: 'bg-orange-50', icon: '⚠', iconCls: 'text-orange-500', label: 'Reword required',   labelCls: 'text-orange-800' }
+        ? { border: 'border-orange-200', bg: 'bg-orange-50', icon: '⚠', iconCls: 'text-orange-500', label: 'Reword required', labelCls: 'text-orange-800' }
         : grade === 'REVIEW'
-          ? { border: 'border-amber-200',  bg: 'bg-amber-50',  icon: '⚠', iconCls: 'text-amber-500',  label: 'Review needed',     labelCls: 'text-amber-800'  }
+          ? { border: 'border-amber-200',  bg: 'bg-amber-50',  icon: '⚠', iconCls: 'text-amber-500',  label: 'Review needed',   labelCls: 'text-amber-800'  }
           : grade === 'PASS'
-            ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: '✓', iconCls: 'text-emerald-500', label: 'Compliant',      labelCls: 'text-emerald-800' }
+            ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: '✓', iconCls: 'text-emerald-500', label: 'Compliant', labelCls: 'text-emerald-800' }
             : null
+
+  function autoResize() {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }
 
   async function onCopy() {
     try {
-      await navigator.clipboard.writeText(variant.script)
+      await navigator.clipboard.writeText(scriptText)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch { /* older browsers */ }
   }
 
-  async function sendFeedback(action: 'selected' | 'rejected') {
+  async function sendFeedback(action: 'rejected') {
     if (!clinicId || !scriptId) return
     setFeedback('saving')
     setFeedbackError(null)
@@ -67,12 +76,7 @@ export function ScriptCard({
       const res = await fetch('/api/scripts/feedback', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          clinicId,
-          scriptId,
-          action,
-          siblingIds: action === 'selected' ? siblingScriptIds ?? [] : [],
-        }),
+        body: JSON.stringify({ clinicId, scriptId, action, siblingIds: [] }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
@@ -96,9 +100,10 @@ export function ScriptCard({
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
-      if (data.variant) setVariant(data.variant as ScriptVariant)
-      if (data.score) setScore(data.score as CriticScore)
-      else setScore(undefined)
+      if (data.variant) {
+        setVariant(data.variant as ScriptVariant)
+        setScriptText((data.variant as ScriptVariant).script)
+      }
       if (data.scriptId) setScriptId(data.scriptId as string)
       setFeedback('idle')
       setFeedbackError(null)
@@ -112,7 +117,7 @@ export function ScriptCard({
     }
   }
 
-  const locked = feedback === 'selected' || feedback === 'rejected'
+  const locked = feedback === 'rejected'
   const canFeedback = Boolean(clinicId && scriptId)
   const canRefine = canFeedback && !locked && !refining
 
@@ -154,29 +159,24 @@ export function ScriptCard({
         {variant.hook}
       </p>
 
-      {/* Script body */}
-      <pre className="whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-4 font-sans text-[15px] leading-relaxed text-neutral-900">
-        {variant.script}
-      </pre>
+      {/* Script — click to edit */}
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={scriptText}
+          onChange={(e) => { setScriptText(e.target.value); autoResize() }}
+          onFocus={autoResize}
+          spellCheck={false}
+          className="w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-4 font-sans text-[15px] leading-relaxed text-neutral-900 outline-none transition-colors hover:border-neutral-300 focus:border-sky-300 focus:bg-white focus:ring-2 focus:ring-sky-100"
+          rows={1}
+          style={{ overflow: 'hidden' }}
+        />
+        <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-neutral-300 select-none">
+          click to edit
+        </span>
+      </div>
 
-      {/* Critic detail (collapsible) */}
-      {score && (
-        <details className="text-xs text-neutral-600">
-          <summary className="cursor-pointer font-medium text-neutral-700 hover:text-neutral-900">
-            Critic detail
-          </summary>
-          <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-5">
-            <li>tone: {score.criteria.tone_match}</li>
-            <li>no_promises: {score.criteria.no_promises}</li>
-            <li>hook: {score.criteria.hook_quality}</li>
-            <li>length: {score.criteria.length_ok}</li>
-            <li>science: {score.criteria.science_present}</li>
-          </ul>
-          <p className="mt-2 text-neutral-700">{score.feedback}</p>
-        </details>
-      )}
-
-      {/* Compliance confirmation — prominent, at the bottom where the doctor sees it */}
+      {/* Compliance confirmation */}
       {complianceStyle && (
         <div className={`rounded-xl border ${complianceStyle.border} ${complianceStyle.bg} px-4 py-3`}>
           <div className="flex items-center gap-2">
@@ -192,7 +192,6 @@ export function ScriptCard({
               </span>
             )}
           </div>
-
           {compliance && compliance.findings.length > 0 && (
             <details className="mt-2">
               <summary className={`cursor-pointer text-xs font-medium ${complianceStyle.labelCls} opacity-80 hover:opacity-100`}>
@@ -207,7 +206,7 @@ export function ScriptCard({
                     }`}>
                       [{f.rule}] {f.severity.toUpperCase()}
                     </span>
-                    <span className="text-neutral-600 italic">&ldquo;{f.matched}&rdquo;</span>
+                    <span className="italic text-neutral-600">&ldquo;{f.matched}&rdquo;</span>
                     <span className="text-neutral-500">→ {f.correction}</span>
                   </li>
                 ))}
@@ -217,22 +216,12 @@ export function ScriptCard({
         </div>
       )}
 
-      {/* Footer: actions */}
+      {/* Footer */}
       <footer className="flex flex-col gap-3 border-t border-neutral-100 pt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {canFeedback && (
               <>
-                <button
-                  type="button"
-                  onClick={() => sendFeedback('selected')}
-                  disabled={locked || feedback === 'saving' || refining}
-                  className={`cm-btn text-sm ${
-                    feedback === 'selected' ? 'cm-btn-success' : 'cm-btn-success-outline'
-                  }`}
-                >
-                  {feedback === 'selected' ? '✓ Picked' : 'Pick'}
-                </button>
                 <button
                   type="button"
                   onClick={() => setRefineOpen((v) => !v)}
@@ -250,10 +239,10 @@ export function ScriptCard({
                   onClick={() => sendFeedback('rejected')}
                   disabled={locked || feedback === 'saving' || refining}
                   className={`cm-btn text-sm ${
-                    feedback === 'rejected' ? 'cm-btn-danger' : 'cm-btn-danger-outline'
+                    locked ? 'cm-btn-danger' : 'cm-btn-danger-outline'
                   }`}
                 >
-                  {feedback === 'rejected' ? '✕ Passed' : 'Pass'}
+                  {locked ? '✕ Passed' : 'Pass'}
                 </button>
               </>
             )}
