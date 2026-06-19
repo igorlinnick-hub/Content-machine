@@ -67,7 +67,7 @@ export function DoctorLogin() {
           autoFocus
           autoComplete="off"
           spellCheck={false}
-          placeholder="hwc-team-2026  or  /c/…"
+          placeholder=""
           className="cm-input font-mono text-sm"
           disabled={submitting}
         />
