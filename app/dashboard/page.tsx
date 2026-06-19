@@ -107,7 +107,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         />
       )}
       <TokenBootstrap />
-      <div className="mx-auto flex max-w-5xl flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
 
         {/* ── Hero header with animated shader ───────────────────────── */}
         <header className="relative overflow-hidden rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)]">
@@ -163,7 +163,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         {/* Admin clinic switcher (compact) */}
         {showAdminTools && clinics.length > 1 && (
-          <nav className="flex flex-wrap items-center gap-1.5 -mt-4">
+          <nav className="flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
               Clinic
             </span>
@@ -187,7 +187,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <DashBento clinicId={clinicId} isAdmin={showAdminTools} />
 
         {/* Main tab bar */}
-        <nav className="cm-glass flex flex-wrap items-center gap-1 rounded-2xl p-1 -mt-4">
+        <nav className="flex flex-wrap items-center gap-1 rounded-2xl p-1"
+          style={{
+            background: 'rgba(255,255,255,0.55)',
+            backdropFilter: 'blur(20px) saturate(1.8)',
+            WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
+            border: '1px solid rgba(255,255,255,0.70)',
+            boxShadow: '0 2px 16px rgba(0,0,0,0.05)',
+          }}
+        >
           <DashTabLink
             label="Generate"
             href={`/dashboard?clinicId=${clinicId}&tab=generate`}
