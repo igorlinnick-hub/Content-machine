@@ -88,7 +88,7 @@ export async function POST(req: Request) {
           variants.variants.map(async (v, i): Promise<{ variant: ScriptVariant; compliance: ComplianceResult } | null> => {
             const cr = complianceResults[i]
             if (!cr || cr.grade === 'REMOVE') return null
-            if (cr.grade !== 'REWORD') return { variant: v, compliance: cr }
+            if (cr.grade === 'PASS') return { variant: v, compliance: cr }
 
             const fixedScript = await runComplianceRewriter({ script: v.script, findings: cr.findings }).catch(() => null)
             if (!fixedScript) return { variant: v, compliance: cr }

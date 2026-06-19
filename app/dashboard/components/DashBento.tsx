@@ -1,11 +1,12 @@
 import Link from 'next/link'
+import { Meteors } from '@/app/components/ui/meteors'
 
-const GLASS = {
-  background: 'rgba(255,255,255,0.58)',
-  backdropFilter: 'blur(20px) saturate(1.8)',
-  WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
-  border: '1px solid rgba(255,255,255,0.72)',
-  boxShadow: '0 4px 24px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.9) inset',
+const GLASS_CARD = {
+  background: 'rgba(255,255,255,0.52)',
+  backdropFilter: 'blur(24px) saturate(1.8)',
+  WebkitBackdropFilter: 'blur(24px) saturate(1.8)',
+  border: '1px solid rgba(255,255,255,0.70)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.06), 0 1px 0 rgba(255,255,255,0.95) inset',
 } as const
 
 interface CardProps {
@@ -13,34 +14,45 @@ interface CardProps {
   desc: string
   href: string
   tag: string
-  tagClass: string
+  tagColor: string
   iconBg: string
   icon: React.ReactNode
   tall?: boolean
+  meteors?: boolean
 }
 
-function Card({ title, desc, href, tag, tagClass, iconBg, icon, tall }: CardProps) {
+function Card({ title, desc, href, tag, tagColor, iconBg, icon, tall, meteors }: CardProps) {
   return (
     <Link
       href={href}
-      className="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_48px_rgba(0,0,0,0.10)]"
-      style={{ ...GLASS, minHeight: tall ? 200 : 160 }}
+      className="group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-300 hover:-translate-y-0.5 hover:border-white/12"
+      style={{ ...GLASS_CARD, minHeight: tall ? 200 : 160 }}
     >
-      <div className="flex flex-1 flex-col justify-between p-5">
-        {/* Top row: icon + tag */}
+      {/* Meteors decoration */}
+      {meteors && <Meteors number={10} color={tagColor} />}
+
+      {/* Subtle gradient tint on hover */}
+      <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: `radial-gradient(ellipse at 30% 0%, ${tagColor}14 0%, transparent 65%)` }} />
+
+      <div className="relative flex flex-1 flex-col justify-between p-5">
+        {/* Top row: icon + status tag */}
         <div className="flex items-start justify-between">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl shadow-sm"
-            style={{ background: iconBg }}
+            className="flex h-9 w-9 items-center justify-center rounded-xl"
+            style={{ background: iconBg, boxShadow: `0 4px 12px ${tagColor}30` }}
           >
             {icon}
           </div>
-          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest ${tagClass}`}>
+          <span
+            className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em]"
+            style={{ background: `${tagColor}18`, color: tagColor, border: `1px solid ${tagColor}30` }}
+          >
             {tag}
           </span>
         </div>
 
-        {/* Bottom: text + hover arrow */}
+        {/* Bottom: text */}
         <div className="mt-4">
           <h3 className="text-[15px] font-semibold tracking-tight text-neutral-900">{title}</h3>
           <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">{desc}</p>
@@ -49,7 +61,7 @@ function Card({ title, desc, href, tag, tagClass, iconBg, icon, tall }: CardProp
 
       {/* Hover arrow */}
       <div className="absolute bottom-5 right-5 translate-x-1 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-900 text-white">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-900 text-white shadow-sm">
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
           </svg>
@@ -98,61 +110,50 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       desc: '5-agent AI pipeline — research, write, critique, finalize',
       href: `/dashboard?${q}&tab=generate`,
       tag: 'AI',
-      tagClass: 'bg-sky-100/80 text-sky-700',
+      tagColor: '#38bdf8',
       iconBg: 'linear-gradient(135deg,#0ea5e9,#0284c7)',
       icon: <IconPen />,
-      wide: true,
+      meteors: true,
     },
     {
       title: 'Script Library',
       desc: 'Proven hooks and structures',
       href: `/arsenal?${q}`,
       tag: 'Templates',
-      tagClass: 'bg-violet-100/80 text-violet-700',
+      tagColor: '#a78bfa',
       iconBg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
       icon: <IconStack />,
-      wide: false,
     },
     {
       title: 'Visual Posts',
       desc: 'Scripts → Canva slides',
       href: `/visual?${q}`,
       tag: 'Canva',
-      tagClass: 'bg-teal-100/80 text-teal-700',
+      tagColor: '#2dd4bf',
       iconBg: 'linear-gradient(135deg,#14b8a6,#0d9488)',
       icon: <IconPalette />,
-      wide: false,
     },
     {
       title: 'Studio',
       desc: 'TikTok trends to shot list',
       href: `/studio?${q}`,
       tag: 'Film',
-      tagClass: 'bg-sky-100/80 text-sky-700',
+      tagColor: '#38bdf8',
       iconBg: 'linear-gradient(135deg,#38bdf8,#0ea5e9)',
       icon: <IconCamera />,
-      wide: false,
     },
     {
       title: 'Compliance',
       desc: 'FDA / FTC — every post scored',
       href: '/compliance',
       tag: 'FDA/FTC',
-      tagClass: 'bg-amber-100/80 text-amber-700',
+      tagColor: '#fbbf24',
       iconBg: 'linear-gradient(135deg,#f59e0b,#d97706)',
       icon: <IconShield />,
-      wide: false,
     },
   ]
 
-  if (!isAdmin) {
-    return (
-      <div className="grid grid-cols-2 gap-3">
-        <Card {...cards[0]} tall />
-        <Card {...cards[1]} tall />
-      </div>
-    )
-  }
+  if (!isAdmin) return null
 
   return (
     <div className="grid grid-cols-3 gap-3">

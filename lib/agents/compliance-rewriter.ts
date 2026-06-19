@@ -9,7 +9,9 @@ export async function runComplianceRewriter(input: {
   script: string
   findings: ComplianceFinding[]
 }): Promise<string> {
-  const reworderFindings = input.findings.filter((f) => f.severity === 'reword')
+  const reworderFindings = input.findings.filter(
+    (f) => f.severity === 'reword' || f.severity === 'review'
+  )
   if (reworderFindings.length === 0) return input.script
 
   const correctionsList = reworderFindings

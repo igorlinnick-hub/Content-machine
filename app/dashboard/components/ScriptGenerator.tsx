@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
+import { TypingAnimation } from '@/app/components/ui/typing-animation'
 
 interface ScriptGeneratorProps {
   clinicId: string
@@ -242,9 +243,13 @@ export function ScriptGenerator({ clinicId, isAdmin = false }: ScriptGeneratorPr
     <div className="flex flex-col gap-5">
       <div className="cm-card flex flex-col gap-4 p-5">
         <div>
-          <p className="text-base font-semibold text-neutral-900">
-            Ready to generate 3 fresh variants
-          </p>
+          <TypingAnimation
+            text="Ready to generate 3 fresh variants"
+            duration={40}
+            delay={400}
+            className="text-base font-semibold text-neutral-900"
+            as="p"
+          />
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex flex-1 flex-col gap-1">

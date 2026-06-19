@@ -12,12 +12,12 @@ import type { RoleBlock, RolePlan, StudioRolePayload } from '@/types'
 // brief (steps + role-assigned script) adapted to the clinic's niche, then
 // pinned to the video via current_script_id.
 
-// Filmed inside the clinic by non-actor staff. Doctor on camera; Operator
-// is behind the camera (a line or just an action). Patient only if needed.
+// Filmed inside the clinic by non-actor staff. Doctor speaks to camera.
+// Patient / Assistant only if the format genuinely needs a second person.
 const DEFAULT_ROLE_PLAN: RolePlan = {
-  speakers: ['Doctor', 'Operator', 'Patient'],
+  speakers: ['Doctor', 'Patient', 'Assistant'],
   guidance:
-    'Filmed inside the clinic by non-actor staff. Doctor carries the medical authority on camera; Operator (behind the camera) gives short cues or on-screen actions; Patient only when the format truly needs a second person. Keep it simple and doable. Not every speaker must appear.',
+    'Filmed inside the clinic by a team member holding a phone. Doctor speaks directly to camera — conversational, no teleprompter. Patient or Assistant only when the format truly needs a second on-screen person. Keep it simple and doable for non-actors.',
   default_length: 'short',
 }
 

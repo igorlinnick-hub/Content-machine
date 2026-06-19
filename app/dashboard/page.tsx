@@ -1,3 +1,4 @@
+import React from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
@@ -15,6 +16,11 @@ import { DashBento } from './components/DashBento'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
+import { BorderBeam } from '@/app/components/ui/border-beam'
+import { AnimatedGradientText } from '@/app/components/ui/animated-gradient-text'
+import { AnimatedShinyText } from '@/app/components/ui/animated-shiny-text'
+import { DiaTextReveal } from '@/app/components/ui/dia-text-reveal'
+import { NumberTicker } from '@/app/components/ui/number-ticker'
 
 export const dynamic = 'force-dynamic'
 
@@ -110,9 +116,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
 
         {/* ── Hero header with animated shader ───────────────────────── */}
-        <header className="relative overflow-hidden rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)]">
-          {/* Shader canvas fills the background */}
+        <header className="relative overflow-hidden rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.22)]">
           <HeroBg className="absolute inset-0 h-full w-full" />
+          <BorderBeam colorFrom="#38bdf8" colorTo="#a78bfa" duration={5} />
 
           {/* Content overlay */}
           <div className="relative z-10 flex flex-col gap-4 px-6 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
@@ -122,20 +128,29 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 style={{ animationDelay: '0ms' }}
               >
                 <Logomark size={16} />
-                Content Machine
+                <AnimatedShinyText shimmerWidth={120} className="text-sky-300">
+                  Content Machine
+                </AnimatedShinyText>
               </p>
               <h1
-                className="mt-2 text-4xl font-bold tracking-tight text-white sm:text-5xl cm-rise"
+                className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl cm-rise"
                 style={{ animationDelay: '90ms' }}
               >
-                {headline}
+                <AnimatedGradientText colorFrom="#ffffff" colorVia="#38bdf8" colorTo="#a78bfa">
+                  {headline}
+                </AnimatedGradientText>
               </h1>
               {subline && (
                 <p
                   className="mt-2 text-base font-medium text-white/65 cm-rise"
                   style={{ animationDelay: '180ms' }}
                 >
-                  {subline}
+                  <DiaTextReveal
+                    text={subline}
+                    textColor="rgba(255,255,255,0.65)"
+                    duration={1.2}
+                    delay={0.3}
+                  />
                 </p>
               )}
             </div>
@@ -151,12 +166,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               >
                 Compliance
               </Link>
-              <div className="cm-glass-dark rounded-full px-3 py-1.5">
-                <RoleBadge
-                  role={access.role}
-                  doctorName={isDoctor ? doctorDisplayName : null}
-                />
-              </div>
+              <RoleBadge
+                role={access.role}
+                doctorName={isDoctor ? doctorDisplayName : null}
+                variant="dark"
+              />
             </div>
           </div>
         </header>
@@ -202,7 +216,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             active={tab === 'generate'}
           />
           <DashTabLink
-            label={`Recent (${recent.length})`}
+            label={
+              <span className="inline-flex items-center">
+                {'Recent ('}
+                <NumberTicker value={recent.length} />
+                {')'}
+              </span>
+            }
             href={`/dashboard?clinicId=${clinicId}&tab=recent`}
             active={tab === 'recent'}
           />
@@ -318,20 +338,31 @@ function DashTabLink({
   href,
   active,
 }: {
-  label: string
+  label: React.ReactNode
   href: string
   active: boolean
 }) {
   return (
     <Link
       href={href}
-      className={`rounded-xl px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
+      className={`relative rounded-xl px-4 py-1.5 text-sm font-medium transition-all duration-200 overflow-hidden ${
         active
-          ? 'bg-neutral-900/90 text-white shadow-sm backdrop-blur-sm'
+          ? 'bg-neutral-900/90 text-white shadow-sm'
           : 'text-neutral-500 hover:bg-white/70 hover:text-neutral-700'
       }`}
     >
       {label}
+      {active && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-xl"
+          style={{
+            background: 'linear-gradient(to right, #38bdf820, #a78bfa20, #2dd4bf20)',
+            backgroundSize: '200% 100%',
+            animation: 'gradient 4s linear infinite',
+          }}
+        />
+      )}
     </Link>
   )
 }
