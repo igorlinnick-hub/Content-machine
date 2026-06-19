@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
+import { runComplianceGate } from '@/lib/posts/pipeline'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
-import type { CriticOutput } from '@/types'
+import type { CriticOutput, ComplianceResult } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -43,6 +44,24 @@ export async function POST(req: Request) {
       scores = await runCritic({ context, variants })
     }
 
+    // Run compliance on all variants in parallel — same gate as posts.
+    const complianceResults = await Promise.all(
+      variants.variants.map((v) =>
+        runComplianceGate({ script: v.script, topic: v.topic }).catch(
+          (): ComplianceResult => ({
+            grade: 'REVIEW',
+            findings: [],
+            model: 'fallback',
+            ruleset_version: 'v2.1',
+            run_at: new Date().toISOString(),
+          })
+        )
+      )
+    )
+    const complianceByVariantId = new Map(
+      variants.variants.map((v, i) => [v.id, complianceResults[i]])
+    )
+
     const scoreById = new Map(scores.scores.map((s) => [s.variant_id, s]))
     const saved = await saveScripts(
       clinicId,
@@ -66,6 +85,10 @@ export async function POST(req: Request) {
       rewritten: needsRewrite,
       variants: variants.variants,
       scores: scores.scores,
+      compliance: variants.variants.map((v) => ({
+        variant_id: v.id,
+        result: complianceByVariantId.get(v.id) ?? null,
+      })),
       saved,
     })
   } catch (e) {

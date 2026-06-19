@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { CriticScore, ScriptVariant } from '@/types'
+import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
 
 interface ScriptGeneratorProps {
@@ -12,6 +12,7 @@ interface ScriptGeneratorProps {
 interface GenerateResult {
   variants: ScriptVariant[]
   scores: CriticScore[]
+  compliance: Array<{ variant_id: string; result: ComplianceResult | null }>
   rewritten: boolean
   saved: Array<{ id: string; variant_id: string }>
 }
@@ -104,11 +105,13 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
             const siblingIds = result.saved
               .filter((s) => s.variant_id !== v.id)
               .map((s) => s.id)
+            const compliance = result.compliance?.find((c) => c.variant_id === v.id)?.result ?? null
             return (
               <ScriptCard
                 key={v.id}
                 variant={v}
                 score={score}
+                compliance={compliance}
                 clinicId={clinicId}
                 scriptId={savedRow?.id}
                 siblingScriptIds={siblingIds}

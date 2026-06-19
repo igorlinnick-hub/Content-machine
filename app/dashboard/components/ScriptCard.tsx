@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { CriticScore, ScriptVariant } from '@/types'
+import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 
 type FeedbackState = 'idle' | 'saving' | 'selected' | 'rejected' | 'error'
 
 interface ScriptCardProps {
   variant: ScriptVariant
   score?: CriticScore
+  compliance?: ComplianceResult | null
   clinicId?: string
   scriptId?: string
   siblingScriptIds?: string[]
@@ -17,6 +18,7 @@ interface ScriptCardProps {
 export function ScriptCard({
   variant: initialVariant,
   score: initialScore,
+  compliance,
   clinicId,
   scriptId: initialScriptId,
   siblingScriptIds,
@@ -33,15 +35,18 @@ export function ScriptCard({
   const [refining, setRefining] = useState(false)
   const [refineError, setRefineError] = useState<string | null>(null)
   const [refineCount, setRefineCount] = useState(0)
-  const [slidesLoading, setSlidesLoading] = useState(false)
-  const [slidesError, setSlidesError] = useState<string | null>(null)
-  const [slides, setSlides] = useState<{
-    downloadUrl: string
-    previews: string[]
-    count: number
-  } | null>(null)
   const total = score?.total_score
   const strong = typeof total === 'number' && total >= 7
+
+  const complianceGrade = compliance?.grade ?? null
+  const complianceBadge =
+    complianceGrade === 'REMOVE'
+      ? { label: 'Compliance: Remove', cls: 'bg-red-100 text-red-800' }
+      : complianceGrade === 'REWORD'
+        ? { label: 'Compliance: Reword', cls: 'bg-orange-100 text-orange-800' }
+        : complianceGrade === 'REVIEW'
+          ? { label: 'Compliance: Review', cls: 'bg-amber-100 text-amber-800' }
+          : null
 
   async function onCopy() {
     try {
@@ -118,34 +123,9 @@ export function ScriptCard({
     }
   }
 
-  async function makeSlides() {
-    if (!scriptId) return
-    setSlidesLoading(true)
-    setSlidesError(null)
-    try {
-      const res = await fetch('/api/visual/generate', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ scriptId, returnPreview: true }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
-      setSlides({
-        downloadUrl: data.download_url as string,
-        previews: (data.previews as string[]) ?? [],
-        count: (data.slide_count as number) ?? 0,
-      })
-    } catch (err) {
-      setSlidesError(err instanceof Error ? err.message : 'unknown error')
-    } finally {
-      setSlidesLoading(false)
-    }
-  }
-
   const locked = feedback === 'selected' || feedback === 'rejected'
   const canFeedback = Boolean(clinicId && scriptId)
   const canRefine = canFeedback && !locked && !refining
-  const canSlides = Boolean(scriptId) && !slidesLoading
 
   return (
     <article className="cm-card flex flex-col gap-4 p-5 sm:p-6">
@@ -164,18 +144,26 @@ export function ScriptCard({
             {variant.topic}
           </h3>
         </div>
-        {typeof total === 'number' && (
-          <span
-            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-              strong
-                ? 'bg-green-100 text-green-800'
-                : 'bg-amber-100 text-amber-800'
-            }`}
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-current" />
-            {total.toFixed(1)} / 10
-          </span>
-        )}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {complianceBadge && (
+            <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${complianceBadge.cls}`}>
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              {complianceBadge.label}
+            </span>
+          )}
+          {typeof total === 'number' && (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+                strong
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-amber-100 text-amber-800'
+              }`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              {total.toFixed(1)} / 10
+            </span>
+          )}
+        </div>
       </header>
 
       <p className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm italic text-sky-900">
@@ -202,6 +190,25 @@ export function ScriptCard({
             <li>science: {score.criteria.science_present}</li>
           </ul>
           <p className="mt-2 text-neutral-700">{score.feedback}</p>
+        </details>
+      )}
+
+      {compliance && compliance.findings.length > 0 && (
+        <details className="text-xs text-neutral-600">
+          <summary className="cursor-pointer font-medium text-neutral-700 hover:text-neutral-900">
+            Compliance findings ({compliance.findings.length})
+          </summary>
+          <ul className="mt-2 flex flex-col gap-2">
+            {compliance.findings.map((f, i) => (
+              <li key={i} className="flex flex-col gap-0.5">
+                <span className={`font-medium ${f.severity === 'remove' ? 'text-red-700' : f.severity === 'reword' ? 'text-orange-700' : 'text-amber-700'}`}>
+                  [{f.rule}] {f.severity.toUpperCase()}
+                </span>
+                <span className="text-neutral-600">&ldquo;{f.matched}&rdquo;</span>
+                <span className="text-neutral-500">→ {f.correction}</span>
+              </li>
+            ))}
+          </ul>
         </details>
       )}
 
@@ -258,17 +265,6 @@ export function ScriptCard({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {scriptId && (
-              <button
-                type="button"
-                onClick={makeSlides}
-                disabled={!canSlides}
-                className="cm-btn cm-btn-ghost text-sm border border-sky-200 text-sky-700 hover:bg-sky-50"
-                title="Render this script as a PNG carousel"
-              >
-                {slidesLoading ? 'Making slides…' : slides ? '🎴 Re-render' : '🎴 Make slides'}
-              </button>
-            )}
             <button
               type="button"
               onClick={onCopy}
@@ -278,40 +274,6 @@ export function ScriptCard({
             </button>
           </div>
         </div>
-
-        {slidesError && (
-          <p className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {slidesError}
-          </p>
-        )}
-
-        {slides && slides.previews.length > 0 && (
-          <div className="flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50/40 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-medium uppercase tracking-wider text-sky-700">
-                {slides.count} slide{slides.count === 1 ? '' : 's'} ready
-              </p>
-              <a
-                href={slides.downloadUrl}
-                download
-                className="cm-btn cm-btn-primary text-xs"
-              >
-                Download .zip
-              </a>
-            </div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <div className="-mx-1 flex gap-1.5 overflow-x-auto pb-1">
-              {slides.previews.map((src, i) => (
-                <img
-                  key={i}
-                  src={src}
-                  alt={`Slide ${i + 1}`}
-                  className="h-24 w-24 shrink-0 rounded border border-neutral-200 bg-white object-contain"
-                />
-              ))}
-            </div>
-          </div>
-        )}
 
         {refineOpen && (
           <div className="flex flex-col gap-2 rounded-lg border border-sky-200 bg-sky-50/60 p-3">
