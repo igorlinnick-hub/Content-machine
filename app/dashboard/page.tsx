@@ -2,7 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { loadClinicList, loadRecentScripts } from '@/lib/supabase/context'
+import { loadClinicList, loadClinicSummaries, loadRecentScripts } from '@/lib/supabase/context'
 import { loadScriptTemplates } from '@/lib/posts/templates'
 import { getDailyQuestions } from '@/lib/widgets/questions'
 import { resolveAccess } from '@/lib/auth/session'
@@ -11,8 +11,8 @@ import { ScriptGenerator } from './components/ScriptGenerator'
 import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { PWAInstallCard } from './components/PWAInstallCard'
-import { HeroBg } from './components/HeroBg'
 import { DashBento } from './components/DashBento'
+import { AdminOverview } from './components/AdminOverview'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
@@ -37,6 +37,9 @@ type DashTab = 'generate' | 'recent' | 'input'
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const access = await resolveAccess()
   if (!access) redirect('/')
+
+  // Admin without clinicId → show overview
+  const isAdminOverview = access.role === 'admin' && !searchParams.clinicId
 
   // Doctors are pinned to their clinic. Admin can switch via ?clinicId.
   let clinicId: string
@@ -71,9 +74,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const questions = getDailyQuestions()
-  const [recent, activeTemplates] = await Promise.all([
+  const [recent, activeTemplates, clinicSummaries] = await Promise.all([
     loadRecentScripts(clinicId, 15),
     loadScriptTemplates(clinicId, { activeOnly: true }),
+    isAdminOverview ? loadClinicSummaries() : Promise.resolve([]),
   ])
 
   const validTabs: DashTab[] = ['generate', 'recent', 'input']
@@ -89,13 +93,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const doctorDisplayName =
     (isDoctor && access.doctorName) || clinicRow.doctor_name || null
 
-  const headline = isDoctor ? clinicName : clinicName
+  const ADMIN_NAME = process.env.ADMIN_DISPLAY_NAME ?? 'Igor'
+
+  const headline = isDoctor ? clinicName : `Welcome, ${ADMIN_NAME}`
 
   const subline = isDoctor
     ? doctorDisplayName
       ? `Welcome, ${doctorDisplayName}`
       : 'Welcome'
-    : clinicRow.doctor_name || null
+    : null
 
   const profileIncomplete = services.length === 0 || pillars.length === 0
 
@@ -115,20 +121,27 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       <TokenBootstrap />
       <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
 
-        {/* ── Hero header with animated shader ───────────────────────── */}
-        <header className="relative overflow-hidden rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.22)]">
-          <HeroBg className="absolute inset-0 h-full w-full" />
-          <BorderBeam colorFrom="#38bdf8" colorTo="#a78bfa" duration={5} />
+        {/* ── Hero header — glass ───────────────────────────────────── */}
+        <header
+          className="relative overflow-hidden rounded-2xl"
+          style={{
+            background: 'rgba(255,255,255,0.62)',
+            backdropFilter: 'blur(32px) saturate(1.8)',
+            WebkitBackdropFilter: 'blur(32px) saturate(1.8)',
+            border: '1px solid rgba(255,255,255,0.80)',
+            boxShadow: '0 4px 32px rgba(0,0,0,0.07), 0 1px 0 rgba(255,255,255,0.95) inset',
+          }}
+        >
+          <BorderBeam colorFrom="#38bdf8" colorTo="#a78bfa" duration={5} bg="rgba(255,255,255,0.62)" />
 
-          {/* Content overlay */}
           <div className="relative z-10 flex flex-col gap-4 px-6 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
             <div className="min-w-0">
               <p
-                className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-300 cm-rise"
+                className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-sky-500 cm-rise"
                 style={{ animationDelay: '0ms' }}
               >
                 <Logomark size={16} />
-                <AnimatedShinyText shimmerWidth={120} className="text-sky-300">
+                <AnimatedShinyText shimmerWidth={120} className="text-sky-500">
                   Content Machine
                 </AnimatedShinyText>
               </p>
@@ -136,18 +149,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 className="mt-2 text-4xl font-bold tracking-tight sm:text-5xl cm-rise"
                 style={{ animationDelay: '90ms' }}
               >
-                <AnimatedGradientText colorFrom="#ffffff" colorVia="#38bdf8" colorTo="#a78bfa">
+                <AnimatedGradientText colorFrom="#0ea5e9" colorVia="#7c3aed" colorTo="#0d9488">
                   {headline}
                 </AnimatedGradientText>
               </h1>
               {subline && (
                 <p
-                  className="mt-2 text-base font-medium text-white/65 cm-rise"
+                  className="mt-2 text-base font-medium text-neutral-500 cm-rise"
                   style={{ animationDelay: '180ms' }}
                 >
                   <DiaTextReveal
                     text={subline}
-                    textColor="rgba(255,255,255,0.65)"
+                    textColor="#6b7280"
                     duration={1.2}
                     delay={0.3}
                   />
@@ -161,7 +174,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             >
               <Link
                 href="/compliance"
-                className="cm-glass-dark rounded-full px-4 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-white/15"
+                className="rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-600 transition hover:bg-amber-100"
                 title="FDA / FTC ruleset that every post is scored against"
               >
                 Compliance
@@ -169,14 +182,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               <RoleBadge
                 role={access.role}
                 doctorName={isDoctor ? doctorDisplayName : null}
-                variant="dark"
+                variant="light"
               />
             </div>
           </div>
         </header>
 
-        {/* Admin clinic switcher (compact) */}
-        {showAdminTools && clinics.length > 1 && (
+        {/* Admin clinic switcher (compact) — only when viewing a specific clinic */}
+        {showAdminTools && !isAdminOverview && clinics.length > 1 && (
           <nav className="flex flex-wrap items-center gap-1.5">
             <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
               Clinic
@@ -197,11 +210,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </nav>
         )}
 
-        {/* Bento overview grid */}
-        <DashBento clinicId={clinicId} isAdmin={showAdminTools} />
+        {/* Admin overview — clinic cards */}
+        {isAdminOverview && <AdminOverview clinics={clinicSummaries} />}
 
-        {/* Main tab bar */}
-        <nav className="flex flex-wrap items-center gap-1 rounded-2xl p-1"
+        {/* Bento overview grid */}
+        {!isAdminOverview && <DashBento clinicId={clinicId} isAdmin={showAdminTools} />}
+
+        {/* Main tab bar — hidden on admin overview */}
+        {!isAdminOverview && <nav className="flex flex-wrap items-center gap-1 rounded-2xl p-1"
           style={{
             background: 'rgba(255,255,255,0.55)',
             backdropFilter: 'blur(20px) saturate(1.8)',
@@ -246,9 +262,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               Install
             </Link>
           )}
-        </nav>
+        </nav>}
 
-        {isDoctor && profileIncomplete && tab === 'generate' && (
+        {!isAdminOverview && isDoctor && profileIncomplete && tab === 'generate' && (
           <Link
             href="/onboarding"
             className="cm-card flex items-center justify-between gap-4 p-5 transition hover:border-sky-300 hover:shadow-md"
@@ -270,7 +286,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         )}
 
-        {tab === 'generate' && (
+        {!isAdminOverview && tab === 'generate' && (
           <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm sm:p-7">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
@@ -281,11 +297,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               </h2>
             </div>
             <ScriptGenerator clinicId={clinicId} isAdmin={showAdminTools} />
-
           </section>
         )}
 
-        {tab === 'recent' && (
+        {!isAdminOverview && tab === 'recent' && (
           <Section
             title="Recent scripts"
             subtitle="Every script Writer has saved for this clinic. Tap any to read, copy, or post."
@@ -294,7 +309,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Section>
         )}
 
-        {tab === 'input' && (
+        {!isAdminOverview && tab === 'input' && (
           <Section
             title="Today's input"
             subtitle="Answer a few questions to give your scripts your personal touch."

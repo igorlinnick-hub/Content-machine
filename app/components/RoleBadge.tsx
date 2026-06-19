@@ -6,16 +6,16 @@ import { clearStoredToken } from '@/lib/clinic-storage'
 interface Props {
   role: 'admin' | 'doctor' | 'editor'
   doctorName?: string | null
+  variant?: 'light' | 'dark'
 }
 
-export function RoleBadge({ role, doctorName }: Props) {
+export function RoleBadge({ role, doctorName, variant = 'light' }: Props) {
   const [open, setOpen] = useState(false)
   const [signingOut, setSigningOut] = useState(false)
 
   async function signOut() {
     setSigningOut(true)
     try {
-      // Wipe localStorage backup so PWA doesn't auto-restore the session.
       clearStoredToken()
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch {
@@ -26,11 +26,14 @@ export function RoleBadge({ role, doctorName }: Props) {
   }
 
   const isAdmin = role === 'admin'
-  const label = isAdmin ? 'Admin' : doctorName ? `Doctor: ${doctorName}` : 'Doctor'
-  const dotCls = isAdmin ? 'bg-sky-500' : 'bg-neutral-400'
-  const ringCls = isAdmin
-    ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
-    : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100'
+  const label = isAdmin ? 'Admin' : doctorName ? `Dr. ${doctorName}` : 'Doctor'
+  const dotCls = isAdmin ? 'bg-sky-400' : 'bg-neutral-400'
+
+  const ringCls = variant === 'dark'
+    ? 'border-white/12 bg-white/10 text-white/80 hover:bg-white/15 backdrop-blur-sm'
+    : isAdmin
+      ? 'border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100'
+      : 'border-neutral-200 bg-neutral-50 text-neutral-700 hover:bg-neutral-100'
 
   return (
     <div className="relative">

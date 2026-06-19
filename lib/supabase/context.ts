@@ -332,6 +332,23 @@ export async function loadClinicList(): Promise<
   return data ?? []
 }
 
+export async function loadClinicSummaries(): Promise<
+  Array<{ id: string; name: string; doctor_name: string | null; services: string[] }>
+> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('clinics')
+    .select('id, name, doctor_name, services')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    doctor_name: r.doctor_name ?? null,
+    services: (r.services as string[]) ?? [],
+  }))
+}
+
 export async function loadClinicProfile(
   clinicId: string
 ): Promise<ClinicProfile> {

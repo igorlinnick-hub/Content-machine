@@ -14,10 +14,24 @@
   --danger: #dc2626;
 }
 
-@keyframes body-gradient {
-  0%   { background-position: 0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+@keyframes blob1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(60px, -40px) scale(1.15); }
+  66%       { transform: translate(-30px, 30px) scale(0.92); }
+}
+@keyframes blob2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(-50px, 30px) scale(0.9); }
+  66%       { transform: translate(40px, -50px) scale(1.12); }
+}
+@keyframes blob3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(30px, 50px) scale(1.1); }
+  66%       { transform: translate(-40px, -20px) scale(0.88); }
+}
+@keyframes blob4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%       { transform: translate(-60px, 40px) scale(1.08); }
 }
 
 html,
@@ -29,18 +43,40 @@ body {
   font-family: var(--font-inter), system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  background: linear-gradient(
-    -45deg,
-    #dbeafe,
-    #f8faff,
-    #ccfbf1,
-    #f8faff,
-    #ede9fe,
-    #fef3c7,
-    #f8faff
-  ) !important;
-  background-size: 400% 400% !important;
-  animation: body-gradient 20s ease infinite !important;
+  background: #f7f9ff;
+}
+
+/* Animated gradient blobs rendered by GradientBg in layout */
+.cm-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  mix-blend-mode: normal;
+  will-change: transform;
+}
+.cm-blob-1 {
+  width: 520px; height: 520px;
+  top: -120px; left: -80px;
+  background: rgba(147, 197, 253, 0.55);
+  animation: blob1 16s ease-in-out infinite;
+}
+.cm-blob-2 {
+  width: 480px; height: 480px;
+  top: -60px; right: -100px;
+  background: rgba(196, 181, 253, 0.50);
+  animation: blob2 20s ease-in-out infinite;
+}
+.cm-blob-3 {
+  width: 440px; height: 440px;
+  bottom: 80px; left: 30%;
+  background: rgba(110, 231, 183, 0.42);
+  animation: blob3 24s ease-in-out infinite;
+}
+.cm-blob-4 {
+  width: 380px; height: 380px;
+  bottom: 0; right: 10%;
+  background: rgba(253, 186, 116, 0.40);
+  animation: blob4 18s ease-in-out infinite;
 }
 
 /* Form primitives reused across pages */
@@ -315,10 +351,7 @@ body {
 .cm-fade-in-stagger > *:nth-child(6) { animation-delay: 0.44s; }
 
 @media (prefers-reduced-motion: reduce) {
-  body {
-    animation: none !important;
-    background-position: 50% 50% !important;
-  }
+  .cm-blob { animation: none !important; }
   .cm-fade-in,
   .cm-fade-in-stagger > *,
   .animate-cm-ping,
