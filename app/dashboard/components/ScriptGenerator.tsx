@@ -121,6 +121,25 @@ function ScriptProgress({ state }: { state: ScriptProgressState }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+const SESSION_KEY = (id: string) => `cm-scripts-${id}`
+const SESSION_TTL_MS = 60 * 60 * 1000 // 1 hour
+
+function saveToSession(clinicId: string, result: GenerateResult) {
+  try {
+    sessionStorage.setItem(SESSION_KEY(clinicId), JSON.stringify({ result, ts: Date.now() }))
+  } catch { /* storage full or SSR */ }
+}
+
+function loadFromSession(clinicId: string): GenerateResult | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY(clinicId))
+    if (!raw) return null
+    const { result, ts } = JSON.parse(raw) as { result: GenerateResult; ts: number }
+    if (Date.now() - ts > SESSION_TTL_MS) return null
+    return result
+  } catch { return null }
+}
+
 export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -128,6 +147,13 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [topic, setTopic] = useState('')
   const [progress, setProgress] = useState<ScriptProgressState>(emptyProgress())
+
+  // Restore last batch from session on mount (survives tab switches)
+  useEffect(() => {
+    const saved = loadFromSession(clinicId)
+    if (saved) setResult(saved)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicId])
 
   // Live elapsed timer while generating
   useEffect(() => {
@@ -143,6 +169,7 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
     setLoading(true)
     setError(null)
     setResult(null)
+    try { sessionStorage.removeItem(SESSION_KEY(clinicId)) } catch { /* noop */ }
     setProgress(emptyProgress())
 
     try {
@@ -205,6 +232,7 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
       if (!finalResult) throw new Error('Stream ended without result')
 
       setResult(finalResult)
+      saveToSession(clinicId, finalResult)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'unknown error')
