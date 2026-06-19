@@ -212,13 +212,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             href={`/dashboard?clinicId=${clinicId}&tab=input`}
             active={tab === 'input'}
           />
-          {/* Studio hidden from doctors — admin only for now */}
-          {showAdminTools && (
+          {showAdminTools ? (
             <Link
               href={`/studio?clinicId=${clinicId}`}
               className="ml-auto rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 transition hover:bg-sky-100"
             >
               🎬 Studio
+            </Link>
+          ) : (
+            <Link
+              href="/install"
+              className="ml-auto rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-500 transition hover:bg-neutral-50"
+            >
+              📲 Install app
             </Link>
           )}
         </nav>
