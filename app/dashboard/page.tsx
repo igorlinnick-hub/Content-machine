@@ -281,24 +281,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </div>
             <ScriptGenerator clinicId={clinicId} />
 
-            {/* Subtle context line — count + jump-to-Library. The
-                actual scaffolds live in /arsenal; surfacing them all
-                here was visual noise. */}
-            {activeTemplates.length > 0 && (
-              <div className="flex items-center justify-between gap-2 border-t border-sky-200 pt-3 text-[11px] text-sky-700">
-                <span>
-                  Writer uses{' '}
-                  <strong>{activeTemplates.length} template
-                  {activeTemplates.length === 1 ? '' : 's'}</strong>
-                </span>
-                <Link
-                  href={`/arsenal?clinicId=${clinicId}`}
-                  className="font-medium text-violet-700 hover:underline"
-                >
-                  Manage in Library →
-                </Link>
-              </div>
-            )}
           </section>
         )}
 
