@@ -81,14 +81,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const doctorDisplayName =
     (isDoctor && access.doctorName) || clinicRow.doctor_name || null
 
-  const headline = isDoctor
-    ? doctorDisplayName
-      ? `Hi, ${doctorDisplayName} 👋`
-      : 'Welcome 👋'
-    : clinicName
+  const headline = isDoctor ? clinicName : clinicName
 
   const subline = isDoctor
-    ? clinicName
+    ? doctorDisplayName
+      ? `Welcome, ${doctorDisplayName}`
+      : 'Welcome'
     : clinicRow.doctor_name || null
 
   const profileIncomplete = services.length === 0 || pillars.length === 0
@@ -119,26 +117,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             </h1>
             {subline && (
               <p className="mt-1 text-base text-neutral-600">{subline}</p>
-            )}
-            {(services.length > 0 || pillars.length > 0) && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {services.slice(0, 4).map((s) => (
-                  <span
-                    key={`svc-${s}`}
-                    className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-700"
-                  >
-                    {s}
-                  </span>
-                ))}
-                {pillars.slice(0, 3).map((p) => (
-                  <span
-                    key={`pil-${p}`}
-                    className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs text-sky-700"
-                  >
-                    {p}
-                  </span>
-                ))}
-              </div>
             )}
           </div>
 
@@ -298,7 +276,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Section>
         )}
 
-        <PWAInstallCard />
+        <PWAInstallCard clinicId={clinicId} isAdmin={showAdminTools} />
 
         <footer className="pt-2 text-center text-xs text-neutral-400">
           Content Machine · regen-med
