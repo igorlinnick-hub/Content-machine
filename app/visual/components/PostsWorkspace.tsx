@@ -614,7 +614,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
                     slideSetId={detail.slide_set_id}
                     index={i}
                     slide={slide}
-                    preview={detail.previews[i] ?? null}
+                    preview={detail.previews?.[i] ?? null}
                     onSlideChange={(next) => {
                       const arr = drafts.slice()
                       arr[i] = next
