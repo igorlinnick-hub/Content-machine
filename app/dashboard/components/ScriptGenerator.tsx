@@ -121,22 +121,18 @@ function ScriptProgress({ state }: { state: ScriptProgressState }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const SESSION_KEY = (id: string) => `cm-scripts-${id}`
-const SESSION_TTL_MS = 60 * 60 * 1000 // 1 hour
+const STORE_KEY = (id: string) => `cm-scripts-${id}`
 
-function saveToSession(clinicId: string, result: GenerateResult) {
+function saveScriptDraft(clinicId: string, result: GenerateResult) {
   try {
-    sessionStorage.setItem(SESSION_KEY(clinicId), JSON.stringify({ result, ts: Date.now() }))
+    localStorage.setItem(STORE_KEY(clinicId), JSON.stringify(result))
   } catch { /* storage full or SSR */ }
 }
 
-function loadFromSession(clinicId: string): GenerateResult | null {
+function loadScriptDraft(clinicId: string): GenerateResult | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY(clinicId))
-    if (!raw) return null
-    const { result, ts } = JSON.parse(raw) as { result: GenerateResult; ts: number }
-    if (Date.now() - ts > SESSION_TTL_MS) return null
-    return result
+    const raw = localStorage.getItem(STORE_KEY(clinicId))
+    return raw ? (JSON.parse(raw) as GenerateResult) : null
   } catch { return null }
 }
 
@@ -148,9 +144,9 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
   const [topic, setTopic] = useState('')
   const [progress, setProgress] = useState<ScriptProgressState>(emptyProgress())
 
-  // Restore last batch from session on mount (survives tab switches)
+  // Restore last batch on mount — persists until replaced by a new generation
   useEffect(() => {
-    const saved = loadFromSession(clinicId)
+    const saved = loadScriptDraft(clinicId)
     if (saved) setResult(saved)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clinicId])
@@ -169,7 +165,7 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
     setLoading(true)
     setError(null)
     setResult(null)
-    try { sessionStorage.removeItem(SESSION_KEY(clinicId)) } catch { /* noop */ }
+    try { localStorage.removeItem(STORE_KEY(clinicId)) } catch { /* noop */ }
     setProgress(emptyProgress())
 
     try {
@@ -232,7 +228,7 @@ export function ScriptGenerator({ clinicId }: ScriptGeneratorProps) {
       if (!finalResult) throw new Error('Stream ended without result')
 
       setResult(finalResult)
-      saveToSession(clinicId, finalResult)
+      saveScriptDraft(clinicId, finalResult)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'unknown error')
