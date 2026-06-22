@@ -104,7 +104,7 @@ const IconShield = () => (
 export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
   const q = `clinicId=${clinicId}`
 
-  const cards = [
+  const allCards = [
     {
       title: 'Script Library',
       desc: 'Proven hooks and structures',
@@ -114,6 +114,7 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       iconBg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)',
       icon: <IconStack />,
       meteors: true,
+      adminOnly: false,
     },
     {
       title: 'Visual Posts',
@@ -123,6 +124,7 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       tagColor: '#2dd4bf',
       iconBg: 'linear-gradient(135deg,#14b8a6,#0d9488)',
       icon: <IconPalette />,
+      adminOnly: true,
     },
     {
       title: 'Studio',
@@ -132,6 +134,7 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       tagColor: '#38bdf8',
       iconBg: 'linear-gradient(135deg,#38bdf8,#0ea5e9)',
       icon: <IconCamera />,
+      adminOnly: true,
     },
     {
       title: 'Compliance',
@@ -141,8 +144,11 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       tagColor: '#fbbf24',
       iconBg: 'linear-gradient(135deg,#f59e0b,#d97706)',
       icon: <IconShield />,
+      adminOnly: false,
     },
   ]
+
+  const cards = allCards.filter(c => !c.adminOnly || isAdmin)
 
   return (
     <>

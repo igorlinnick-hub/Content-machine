@@ -13,6 +13,7 @@ import { TokenBootstrap } from './components/TokenBootstrap'
 import { PWAInstallCard } from './components/PWAInstallCard'
 import { DashBento } from './components/DashBento'
 import { AdminOverview } from './components/AdminOverview'
+import { ClinicProfileBar } from './components/ClinicProfileBar'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
@@ -95,11 +96,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const ADMIN_NAME = process.env.ADMIN_DISPLAY_NAME ?? 'Igor'
 
-  const headline = isDoctor ? clinicName : `Welcome, ${ADMIN_NAME}`
+  // Doctor/marketing: headline = clinic full name, subline = welcome
+  // Admin: headline = Welcome Igor (overview), or clinic name (clinic detail)
+  const headline = isDoctor
+    ? clinicName
+    : isAdminOverview
+      ? `Welcome, ${ADMIN_NAME}`
+      : `Welcome, ${ADMIN_NAME}`
 
   const subline = isDoctor
     ? doctorDisplayName
-      ? `Welcome, ${doctorDisplayName}`
+      ? `Welcome, Dr. ${doctorDisplayName}`
       : 'Welcome'
     : null
 
@@ -123,7 +130,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         {/* ── Hero header — glass ───────────────────────────────────── */}
         <header
-          className="relative overflow-hidden rounded-2xl"
+          className="relative z-10 rounded-2xl"
           style={{
             background: 'rgba(255,255,255,0.62)',
             backdropFilter: 'blur(32px) saturate(1.8)',
@@ -188,26 +195,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </header>
 
-        {/* Admin clinic switcher (compact) — only when viewing a specific clinic */}
-        {showAdminTools && !isAdminOverview && clinics.length > 1 && (
-          <nav className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
-              Clinic
-            </span>
-            {clinics.map((c) => (
-              <Link
-                key={c.id}
-                href={`/dashboard?clinicId=${c.id}`}
-                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-all ${
-                  c.id === clinicId
-                    ? 'bg-neutral-900 text-white shadow-sm'
-                    : 'border border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50'
-                }`}
-              >
-                {c.name}
-              </Link>
-            ))}
-          </nav>
+        {/* Admin clinic profile bar — back + clinic name + edit (only when viewing a specific clinic) */}
+        {showAdminTools && !isAdminOverview && (
+          <ClinicProfileBar
+            clinicId={clinicId}
+            clinicName={clinicName}
+            doctorName={clinicRow.doctor_name ?? null}
+            services={services}
+          />
         )}
 
         {/* Admin overview — clinic cards */}
