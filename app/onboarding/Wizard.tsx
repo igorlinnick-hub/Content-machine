@@ -9,6 +9,7 @@ type Step = 0 | 1 | 2 | 3 | 4
 
 interface State {
   clinicName: string
+  fullName: string
   doctorName: string
   services: string[]
   deepDiveTopics: string[]
@@ -21,6 +22,7 @@ export interface WizardProps {
   initial?: Partial<State>
   welcome?: boolean
   tokenDoctorName?: string | null
+  clinicId?: string
 }
 
 const STEPS: Array<{ title: string; hint: string; cta: string }> = [
@@ -56,6 +58,7 @@ export default function Wizard({
   initial,
   welcome,
   tokenDoctorName,
+  clinicId,
 }: WizardProps) {
   const router = useRouter()
   const [phase, setPhase] = useState<'welcome' | 'wizard' | 'success'>(
@@ -73,6 +76,7 @@ export default function Wizard({
   } | null>(null)
   const [state, setState] = useState<State>({
     clinicName: initial?.clinicName ?? '',
+    fullName: initial?.fullName ?? '',
     doctorName: initial?.doctorName || tokenDoctorName || '',
     services: initial?.services ?? [],
     deepDiveTopics: initial?.deepDiveTopics ?? [],
@@ -109,11 +113,14 @@ export default function Wizard({
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           name: state.clinicName.trim(),
+          full_name: state.fullName.trim() || null,
           doctor_name: state.doctorName.trim() || undefined,
           services: state.services,
           deep_dive_topics: state.deepDiveTopics,
           content_pillars: state.contentPillars,
           contrarian_opinions: state.contrarianOpinions,
+          // Admin editing a specific clinic passes the clinicId
+          ...(clinicId ? { clinic_id: clinicId } : {}),
         }),
       })
       const data = await res.json()
@@ -206,6 +213,7 @@ export default function Wizard({
           {step === 0 && (
             <Step0
               clinicName={state.clinicName}
+              fullName={state.fullName}
               doctorName={state.doctorName}
               onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
             />
@@ -454,21 +462,32 @@ function WelcomeStep({
 
 function Step0({
   clinicName,
+  fullName,
   doctorName,
   onChange,
 }: {
   clinicName: string
+  fullName: string
   doctorName: string
   onChange: (patch: Partial<State>) => void
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <Field label="Clinic name" required>
+      <Field label="Clinic name (short / internal)" required>
         <input
           type="text"
           value={clinicName}
           onChange={(e) => onChange({ clinicName: e.target.value })}
-          placeholder="e.g. Regen Health Clinic"
+          placeholder="e.g. HWC"
+          className="cm-input"
+        />
+      </Field>
+      <Field label="Full clinic name (shown to doctors & marketing team)">
+        <input
+          type="text"
+          value={fullName}
+          onChange={(e) => onChange({ fullName: e.target.value })}
+          placeholder="e.g. Hawaii Wellness Clinic"
           className="cm-input"
         />
       </Field>

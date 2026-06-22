@@ -21,6 +21,7 @@ export type Database = {
           created_at: string | null
           deep_dive_topics: string[] | null
           doctor_name: string | null
+          full_name: string | null
           id: string
           logo_url: string | null
           medical_restrictions: string[] | null
@@ -35,6 +36,7 @@ export type Database = {
           created_at?: string | null
           deep_dive_topics?: string[] | null
           doctor_name?: string | null
+          full_name?: string | null
           id?: string
           logo_url?: string | null
           medical_restrictions?: string[] | null
@@ -49,6 +51,7 @@ export type Database = {
           created_at?: string | null
           deep_dive_topics?: string[] | null
           doctor_name?: string | null
+          full_name?: string | null
           id?: string
           logo_url?: string | null
           medical_restrictions?: string[] | null

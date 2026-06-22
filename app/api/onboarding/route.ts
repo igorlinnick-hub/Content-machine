@@ -8,11 +8,14 @@ export const runtime = 'nodejs'
 
 interface OnboardingPostBody {
   name: string
+  full_name?: string | null
   doctor_name?: string
   services?: string[]
   deep_dive_topics?: string[]
   content_pillars?: string[]
   contrarian_opinions?: string[]
+  // Admin editing a specific clinic by ID (PATCH only)
+  clinic_id?: string
   // Legacy / optional — no longer part of the wizard UI but still accepted
   audience?: string
   tone?: string
@@ -51,6 +54,7 @@ export async function POST(req: Request) {
       .from('clinics')
       .insert({
         name,
+        full_name: body.full_name ?? null,
         niche: 'regenerative_medicine',
         doctor_name: body.doctor_name?.trim() || null,
         services: sanitizeList(body.services),
@@ -128,13 +132,21 @@ export async function PATCH(req: Request) {
   if (!access) {
     return NextResponse.json({ error: 'auth required' }, { status: 401 })
   }
-  // Admin must specify which clinic to edit via the cookie or via creating
-  // through POST. PATCH only edits the clinic the cookie is scoped to.
+
+  // Resolve which clinic to edit:
+  // - Admin: must supply clinic_id in the request body
+  // - Doctor/editor: always edits their own clinic
+  let targetClinicId: string
   if (access.role === 'admin') {
-    return NextResponse.json(
-      { error: 'admin must edit clinics directly via SQL or POST flow' },
-      { status: 400 }
-    )
+    if (!body.clinic_id) {
+      return NextResponse.json(
+        { error: 'admin must supply clinic_id to edit a clinic' },
+        { status: 400 }
+      )
+    }
+    targetClinicId = body.clinic_id
+  } else {
+    targetClinicId = access.clinicId
   }
 
   const name = body.name?.trim()
@@ -152,12 +164,13 @@ export async function PATCH(req: Request) {
       .from('clinics')
       .update({
         name,
+        full_name: body.full_name ?? null,
         doctor_name: body.doctor_name?.trim() || null,
         services: sanitizeList(body.services),
         content_pillars,
         deep_dive_topics,
       })
-      .eq('id', access.clinicId)
+      .eq('id', targetClinicId)
       .select('id, name')
       .single()
 

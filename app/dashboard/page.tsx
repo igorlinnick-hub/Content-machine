@@ -58,7 +58,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   const supabase = createServerClient()
   const { data: clinicRow } = await supabase
     .from('clinics')
-    .select('name, doctor_name, services, content_pillars')
+    .select('name, full_name, doctor_name, services, content_pillars')
     .eq('id', clinicId)
     .single()
 
@@ -96,13 +96,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   const ADMIN_NAME = process.env.ADMIN_DISPLAY_NAME ?? 'Igor'
 
-  // Doctor/marketing: headline = clinic full name, subline = welcome
-  // Admin: headline = Welcome Igor (overview), or clinic name (clinic detail)
+  // Doctor/marketing: headline = full_name if set, else name. Admin: Welcome Igor.
   const headline = isDoctor
-    ? clinicName
-    : isAdminOverview
-      ? `Welcome, ${ADMIN_NAME}`
-      : `Welcome, ${ADMIN_NAME}`
+    ? (clinicRow.full_name ?? clinicName)
+    : `Welcome, ${ADMIN_NAME}`
 
   const subline = isDoctor
     ? doctorDisplayName
