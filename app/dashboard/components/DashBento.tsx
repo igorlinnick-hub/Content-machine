@@ -162,10 +162,9 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       </div>
       {/* Desktop: 2-column grid */}
       <div className="hidden sm:grid sm:grid-cols-2 sm:gap-3">
-        <Card {...cards[0]} tall />
-        <Card {...cards[1]} tall />
-        <Card {...cards[2]} />
-        <Card {...cards[3]} />
+        {cards.map((card, i) => (
+          <Card key={card.title} {...card} tall={i < 2} />
+        ))}
       </div>
     </>
   )
