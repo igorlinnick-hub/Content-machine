@@ -145,11 +145,22 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <Card {...cards[0]} tall />
-      <Card {...cards[1]} tall />
-      <Card {...cards[2]} />
-      <Card {...cards[3]} />
-    </div>
+    <>
+      {/* Mobile: horizontal scroll strip */}
+      <div className="flex gap-3 overflow-x-auto pb-1 sm:hidden" style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+        {cards.map((card, i) => (
+          <div key={i} className="w-[160px] shrink-0" style={{ scrollSnapAlign: 'start' }}>
+            <Card {...card} />
+          </div>
+        ))}
+      </div>
+      {/* Desktop: 2-column grid */}
+      <div className="hidden sm:grid sm:grid-cols-2 sm:gap-3">
+        <Card {...cards[0]} tall />
+        <Card {...cards[1]} tall />
+        <Card {...cards[2]} />
+        <Card {...cards[3]} />
+      </div>
+    </>
   )
 }
