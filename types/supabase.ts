@@ -62,6 +62,53 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_recordings: {
+        Row: {
+          id: string
+          clinic_id: string
+          script_id: string | null
+          title: string
+          drive_file_id: string
+          drive_url: string
+          duration_sec: number | null
+          size_bytes: number | null
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          script_id?: string | null
+          title?: string
+          drive_file_id: string
+          drive_url: string
+          duration_sec?: number | null
+          size_bytes?: number | null
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          script_id?: string | null
+          title?: string
+          drive_file_id?: string
+          drive_url?: string
+          duration_sec?: number | null
+          size_bytes?: number | null
+          status?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_recordings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_categories: {
         Row: {
           id: string
