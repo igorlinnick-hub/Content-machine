@@ -33,7 +33,12 @@ export async function DELETE(req: Request) {
   const access = await resolveAccess()
   if (!access) return NextResponse.json({ error: 'auth required' }, { status: 401 })
 
-  const body = (await req.json()) as { recordingId: string }
+  let body: { recordingId?: string }
+  try {
+    body = (await req.json()) as { recordingId: string }
+  } catch {
+    return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
+  }
   if (!body.recordingId) return NextResponse.json({ error: 'recordingId required' }, { status: 400 })
 
   const supabase = createServerClient()

@@ -17,6 +17,8 @@ interface Props {
   recentScripts: RecentScript[]
 }
 
+const MAX_RECORDING_SEC = 90
+
 function fmtTime(sec: number) {
   const m = Math.floor(sec / 60)
   const s = sec % 60
@@ -60,6 +62,21 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   speedRef.current = speed
+
+  // Cleanup on unmount — stop camera + recording so the green LED goes away
+  useEffect(() => {
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      if (timerRef.current) clearInterval(timerRef.current)
+      streamRef.current?.getTracks().forEach((t) => t.stop())
+      if (recorderRef.current) {
+        recorderRef.current.onstop = null
+        recorderRef.current.ondataavailable = null
+        try { recorderRef.current.stop() } catch {}
+        recorderRef.current = null
+      }
+    }
+  }, [])
 
   // Stable stop-recording callback stored in a ref so the RAF loop can call it
   const stopRecordingFn = useCallback(() => {
@@ -141,9 +158,28 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
       ? 'video/webm;codecs=vp9'
       : MediaRecorder.isTypeSupported('video/webm')
       ? 'video/webm'
-      : 'video/mp4'
+      : MediaRecorder.isTypeSupported('video/mp4')
+      ? 'video/mp4'
+      : ''
 
-    const recorder = new MediaRecorder(streamRef.current, { mimeType })
+    if (!mimeType) {
+      setCameraError('Video recording is not supported on this device/browser.')
+      stopCamera()
+      return
+    }
+
+    let recorder: MediaRecorder
+    try {
+      recorder = new MediaRecorder(streamRef.current, {
+        mimeType,
+        videoBitsPerSecond: 500_000, // ~3.75MB/min — keeps files under Vercel limits
+      })
+    } catch {
+      setCameraError('Could not start recorder. Try a different browser.')
+      stopCamera()
+      return
+    }
+
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data)
     }
@@ -160,7 +196,12 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     setElapsedSec(0)
     startTimeRef.current = Date.now()
     timerRef.current = setInterval(() => {
-      setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000))
+      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
+      setElapsedSec(elapsed)
+      // Auto-stop at MAX_RECORDING_SEC
+      if (elapsed >= MAX_RECORDING_SEC) {
+        stopRecordingRef.current()
+      }
     }, 500)
   }
 
@@ -408,9 +449,14 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         >
           <div className="flex items-center gap-3">
             {isRecording && (
-              <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
+              <span
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
+                  elapsedSec >= 80 ? 'bg-orange-500' : 'bg-red-600'
+                }`}
+              >
                 <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
                 REC {fmtTime(elapsedSec)}
+                {elapsedSec >= 80 && ` · stops at ${fmtTime(MAX_RECORDING_SEC)}`}
               </span>
             )}
             {!isRecording && isScrolling && (
@@ -421,6 +467,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
             {!isScrolling && (
               <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-400">
                 Paused — tap to resume
+              </span>
+            )}
+            {cameraError && (
+              <span className="rounded-full bg-orange-900/70 px-2.5 py-1 text-xs text-orange-300">
+                Camera off: {cameraError.slice(0, 40)}
               </span>
             )}
           </div>
@@ -471,7 +522,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         >
           <p
             className="mx-auto max-w-2xl leading-relaxed text-white"
-            style={{ fontSize: fontSize, lineHeight: 1.55 }}
+            style={{ fontSize: fontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}
           >
             {text}
           </p>
@@ -519,7 +570,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
             controls
             playsInline
             className="w-full rounded-2xl bg-neutral-950 shadow-lg"
-            style={{ maxHeight: '55vh', transform: 'scaleX(-1)' }}
+            style={{ maxHeight: '55vh' }}
           />
         )}
 
