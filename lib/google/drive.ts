@@ -92,6 +92,15 @@ export function getDriveClient(): drive_v3.Drive {
   return driveClient()
 }
 
+// Short-lived OAuth2 access token for the service account.
+// Used by the resumable-upload flow where the client PUTs directly
+// to googleapis.com and needs a bearer token for CORS.
+export async function getServiceAccountToken(): Promise<string> {
+  const auth = getAuth()
+  const res = await auth.getAccessToken()
+  return res.token ?? ''
+}
+
 // Fetch a Drive image as raw bytes + mime type. Used by the vision
 // photo indexer (needs un-base64'd bytes for the Anthropic SDK) and as
 // the underlying primitive of getPhotoDataUrl. Returns null on any

@@ -17,8 +17,6 @@ interface Props {
   recentScripts: RecentScript[]
 }
 
-const MAX_RECORDING_SEC = 90
-
 function fmtTime(sec: number) {
   const m = Math.floor(sec / 60)
   const s = sec % 60
@@ -48,6 +46,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [driveUrl, setDriveUrl] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadProgress, setUploadProgress] = useState(0) // 0–1
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const cameraRef = useRef<HTMLVideoElement>(null)
@@ -196,12 +195,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     setElapsedSec(0)
     startTimeRef.current = Date.now()
     timerRef.current = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000)
-      setElapsedSec(elapsed)
-      // Auto-stop at MAX_RECORDING_SEC
-      if (elapsed >= MAX_RECORDING_SEC) {
-        stopRecordingRef.current()
-      }
+      setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000))
     }, 500)
   }
 
@@ -227,28 +221,83 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     return () => URL.revokeObjectURL(url)
   }, [phase, recordedBlob])
 
-  // ── Upload to Drive ──────────────────────────────────────────────────────────
+  // ── Upload to Drive (resumable — bypasses Vercel, no size limit) ────────────
   async function saveRecording() {
     if (!recordedBlob) return
     setPhase('saving')
+    setUploadProgress(0)
     setUploadError(null)
-    try {
-      const form = new FormData()
-      form.append('video', recordedBlob, 'recording.webm')
-      form.append('title', saveTitle.trim() || 'Untitled')
-      if (selectedScriptId) form.append('scriptId', selectedScriptId)
-      form.append('duration', String(elapsedSec))
 
-      const res = await fetch(`/api/studio/upload-recording?clinicId=${clinicId}`, {
+    const title = saveTitle.trim() || 'Untitled'
+
+    try {
+      // Step 1: get a resumable session URL from our server
+      const presignRes = await fetch(`/api/studio/upload-recording/presign?clinicId=${clinicId}`, {
         method: 'POST',
-        body: form,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          mimeType: recordedBlob.type || 'video/webm',
+          scriptId: selectedScriptId,
+          duration: elapsedSec,
+        }),
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error ?? `HTTP ${res.status}`)
+      if (!presignRes.ok) {
+        const err = await presignRes.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? `Presign failed (${presignRes.status})`)
       }
-      const json = (await res.json()) as { driveUrl: string }
-      setDriveUrl(json.driveUrl)
+      const { uploadUrl } = (await presignRes.json()) as { uploadUrl: string }
+
+      // Step 2: upload blob directly to Google Drive (XHR for progress events)
+      const driveFile = await new Promise<{ id: string; webViewLink?: string }>(
+        (resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('PUT', uploadUrl)
+          xhr.setRequestHeader('Content-Type', recordedBlob.type || 'video/webm')
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) setUploadProgress(e.loaded / e.total)
+          }
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                resolve(JSON.parse(xhr.responseText) as { id: string; webViewLink?: string })
+              } catch {
+                reject(new Error('Drive returned invalid response'))
+              }
+            } else {
+              reject(new Error(`Drive upload failed (${xhr.status})`))
+            }
+          }
+          xhr.onerror = () => reject(new Error('Network error during upload'))
+          xhr.onabort = () => reject(new Error('Upload cancelled'))
+          xhr.send(recordedBlob)
+        }
+      )
+
+      const driveUrl =
+        driveFile.webViewLink ??
+        `https://drive.google.com/file/d/${driveFile.id}/view`
+
+      // Step 3: save metadata to Supabase
+      const confirmRes = await fetch(`/api/studio/recordings/confirm?clinicId=${clinicId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileId: driveFile.id,
+          driveUrl,
+          title,
+          scriptId: selectedScriptId,
+          duration: elapsedSec,
+          sizeBytes: recordedBlob.size,
+        }),
+      })
+      if (!confirmRes.ok) {
+        // Drive upload succeeded — still show the link even if metadata save failed
+        const err = await confirmRes.json().catch(() => ({}))
+        console.error('Metadata save failed:', (err as { error?: string }).error)
+      }
+
+      setDriveUrl(driveUrl)
       setPhase('saved')
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
@@ -449,14 +498,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         >
           <div className="flex items-center gap-3">
             {isRecording && (
-              <span
-                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
-                  elapsedSec >= 80 ? 'bg-orange-500' : 'bg-red-600'
-                }`}
-              >
+              <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
                 REC {fmtTime(elapsedSec)}
-                {elapsedSec >= 80 && ` · stops at ${fmtTime(MAX_RECORDING_SEC)}`}
               </span>
             )}
             {!isRecording && isScrolling && (
@@ -625,11 +669,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   // SAVING PHASE
   // ────────────────────────────────────────────────────────────────────────────
   if (phase === 'saving') {
+    const pct = Math.round(uploadProgress * 100)
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-5 px-6">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-violet-200 border-t-violet-600" />
-        <p className="text-sm font-medium text-neutral-600">Uploading to Drive…</p>
-        <p className="text-xs text-neutral-400">{fmtBytes(recordedBlob?.size ?? null)}</p>
+        <div className="w-full max-w-xs text-center">
+          <p className="text-sm font-medium text-neutral-700">
+            {uploadProgress < 0.05 ? 'Starting upload…' : `Uploading to Drive… ${pct}%`}
+          </p>
+          <p className="mt-1 text-xs text-neutral-400">{fmtBytes(recordedBlob?.size ?? null)}</p>
+        </div>
+        <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-neutral-200">
+          <div
+            className="h-full rounded-full bg-violet-500 transition-all duration-200"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
       </div>
     )
   }

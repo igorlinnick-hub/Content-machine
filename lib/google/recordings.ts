@@ -1,4 +1,4 @@
-import { getDriveClient } from './drive'
+import { getDriveClient, getServiceAccountToken } from './drive'
 import { Readable } from 'node:stream'
 
 export interface UploadRecordingResult {
@@ -65,6 +65,52 @@ export async function uploadRecording(
     fileId: res.data.id!,
     webViewLink: res.data.webViewLink ?? '',
   }
+}
+
+// Creates a Google Drive resumable upload session and returns the session URL.
+// The client can PUT the video blob directly to this URL — Google handles
+// the transfer, Vercel never sees the bytes. No file size limit applies.
+//
+// After the PUT, Drive returns JSON with { id, webViewLink } which the client
+// parses and sends to /api/studio/recordings/confirm to save metadata.
+export async function createUploadSession(
+  clinicName: string,
+  filename: string,
+  mimeType: string
+): Promise<{ uploadUrl: string }> {
+  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID ?? null
+  const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
+  const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName)
+
+  const token = await getServiceAccountToken()
+
+  // Initiate resumable upload session via raw fetch — googleapis library
+  // doesn't expose the session URI directly.
+  const res = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,webViewLink',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'X-Upload-Content-Type': mimeType,
+      },
+      body: JSON.stringify({
+        name: filename,
+        parents: [clinicFolderId],
+      }),
+    }
+  )
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Drive session init failed (${res.status}): ${body}`)
+  }
+
+  const uploadUrl = res.headers.get('Location')
+  if (!uploadUrl) throw new Error('Drive did not return a session URL')
+
+  return { uploadUrl }
 }
 
 export async function deleteRecordingFromDrive(fileId: string): Promise<void> {
