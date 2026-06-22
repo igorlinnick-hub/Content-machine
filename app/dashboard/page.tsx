@@ -242,19 +242,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             href={`/dashboard?clinicId=${clinicId}&tab=input`}
             active={tab === 'input'}
           />
-          {showAdminTools ? (
+          {showAdminTools && (
             <Link
               href={`/studio?clinicId=${clinicId}`}
               className="ml-auto rounded-xl px-4 py-1.5 text-sm font-medium text-sky-600 transition hover:bg-white/60"
             >
               Studio
-            </Link>
-          ) : (
-            <Link
-              href="/install"
-              className="ml-auto rounded-xl px-4 py-1.5 text-sm font-medium text-neutral-500 transition hover:bg-white/60"
-            >
-              Install
             </Link>
           )}
         </nav>}
