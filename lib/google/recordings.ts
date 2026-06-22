@@ -44,10 +44,11 @@ export async function uploadRecording(
 ): Promise<UploadRecordingResult> {
   const drive = getDriveClient()
 
-  // If DRIVE_RECORDINGS_ROOT_FOLDER_ID is set, use it as the parent for
-  // the per-clinic subfolder. Otherwise create at Drive root.
-  const rootFolderId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID ?? null
-  const clinicFolderId = await getOrCreateFolder(rootFolderId, clinicName)
+  // Structure: DRIVE_RECORDINGS_ROOT_FOLDER_ID → Recordings → {clinicName} → file
+  // If env var not set, falls back to Drive root → Recordings → {clinicName}
+  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID ?? null
+  const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
+  const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName)
 
   const readable = Readable.from(buffer)
   const res = await drive.files.create({
