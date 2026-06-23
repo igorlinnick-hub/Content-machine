@@ -77,7 +77,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const [savedRecordings, setSavedRecordings] = useState<SavedRecording[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)   // outer overflow:hidden container
+  const textInnerRef = useRef<HTMLDivElement>(null) // inner div — animated via translateY
+  const scrollPosRef = useRef(0)                    // current Y offset in px
   const cameraRef = useRef<HTMLVideoElement>(null)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
@@ -88,7 +90,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const isRecordingRef = useRef(false)
   const startTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  // Accumulates sub-pixel scroll so low speeds (< 60px/s) still advance each frame
+  // Sub-pixel accumulator so any speed value advances smoothly
   const scrollAccRef = useRef(0)
 
   speedRef.current = speed
@@ -138,21 +140,24 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   stopRecordingRef.current = stopRecordingFn
 
   // ── RAF scroll loop ──────────────────────────────────────────────────────────
-  // Uses a sub-pixel accumulator so speeds below 60px/s still advance every frame
-  // (without it, 45px/s → 0.75px/frame → browsers round to 0 → no movement).
+  // Uses CSS transform: translateY on the inner text div instead of scrollTop.
+  // scrollTop on overflow:hidden is unreliable on iOS Safari — translateY is not.
+  // Sub-pixel accumulator ensures smooth movement at any speed value.
   const scrollLoop = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const total = el.scrollHeight - el.clientHeight
+    const container = scrollRef.current
+    const inner = textInnerRef.current
+    if (!container || !inner) return
+    const total = inner.offsetHeight - container.clientHeight
     if (total <= 0) return
     scrollAccRef.current += speedRef.current / 60
     const whole = Math.floor(scrollAccRef.current)
     if (whole > 0) {
-      el.scrollTop += whole
+      scrollPosRef.current = Math.min(scrollPosRef.current + whole, total)
       scrollAccRef.current -= whole
+      inner.style.transform = `translateY(-${scrollPosRef.current}px)`
+      setProgress(scrollPosRef.current / total)
     }
-    setProgress(Math.min(el.scrollTop / total, 1))
-    if (el.scrollTop < total) {
+    if (scrollPosRef.current < total) {
       rafRef.current = requestAnimationFrame(scrollLoop)
     } else {
       cancelAnimationFrame(rafRef.current)
@@ -275,33 +280,40 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     }, 500)
   }
 
-  // ── Seek helpers (used by progress bar + rewind button) ─────────────────────
+  // ── Seek helpers ─────────────────────────────────────────────────────────────
+  function getTotal() {
+    const container = scrollRef.current
+    const inner = textInnerRef.current
+    if (!container || !inner) return 0
+    return Math.max(0, inner.offsetHeight - container.clientHeight)
+  }
+
   function seekByFraction(fraction: number) {
-    const el = scrollRef.current
-    if (!el) return
-    const total = el.scrollHeight - el.clientHeight
+    const total = getTotal()
     if (total <= 0) return
-    el.scrollTop = Math.max(0, Math.min(total * fraction, total))
+    scrollPosRef.current = Math.max(0, Math.min(total * fraction, total))
     scrollAccRef.current = 0
+    if (textInnerRef.current)
+      textInnerRef.current.style.transform = `translateY(-${scrollPosRef.current}px)`
     setProgress(Math.max(0, Math.min(fraction, 1)))
   }
 
   function rewindScroll() {
-    const el = scrollRef.current
-    if (!el) return
-    const total = el.scrollHeight - el.clientHeight
+    const total = getTotal()
     if (total <= 0) return
-    // Rewind ~4 seconds worth of scrolling at the current speed
-    el.scrollTop = Math.max(0, el.scrollTop - speedRef.current * 4)
+    scrollPosRef.current = Math.max(0, scrollPosRef.current - speedRef.current * 4)
     scrollAccRef.current = 0
-    setProgress(el.scrollTop / total)
+    if (textInnerRef.current)
+      textInnerRef.current.style.transform = `translateY(-${scrollPosRef.current}px)`
+    setProgress(scrollPosRef.current / total)
   }
 
   // ── Enter reading phase ──────────────────────────────────────────────────────
   async function enterReading() {
     if (!text.trim()) return
+    scrollPosRef.current = 0
     scrollAccRef.current = 0
-    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    if (textInnerRef.current) textInnerRef.current.style.transform = ''
     setProgress(0)
     setPhase('reading')
 
@@ -469,7 +481,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     setDriveUrl(null)
     setUploadError(null)
     setSaveTitle('')
-    if (scrollRef.current) scrollRef.current.scrollTop = 0
+    scrollPosRef.current = 0
+    scrollAccRef.current = 0
+    if (textInnerRef.current) textInnerRef.current.style.transform = ''
     setPhase('setup')
   }
 
@@ -833,9 +847,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
           </div>
         </div>
 
-        {/* Scroll container — flex-1 gives it the remaining viewport height.
-            overflow-hidden hides the scrollbar while still allowing scrollTop
-            to be set programmatically by the RAF loop. */}
+        {/* Outer clip container — flex-1 gives it the remaining viewport height.
+            Inner div moves via translateY (not scrollTop) — reliable on iOS Safari. */}
         <div
           ref={scrollRef}
           className="relative z-10 flex-1 overflow-hidden px-6 sm:px-16"
@@ -847,20 +860,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
           }}
         >
-          <p
-            className="mx-auto max-w-2xl text-center leading-relaxed"
-            style={{
-              fontSize: fontSize,
-              lineHeight: 1.6,
-              whiteSpace: 'pre-wrap',
-              color: 'rgba(255,255,255,0.92)',
-              textShadow: '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
-            }}
-          >
-            {text}
-          </p>
-          {/* Spacer so the last line can scroll fully into view */}
-          <div style={{ height: '60vh' }} />
+          <div ref={textInnerRef} style={{ willChange: 'transform' }}>
+            <p
+              className="mx-auto max-w-2xl text-center leading-relaxed"
+              style={{
+                fontSize: fontSize,
+                lineHeight: 1.6,
+                whiteSpace: 'pre-wrap',
+                color: 'rgba(255,255,255,0.92)',
+                textShadow: '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
+              }}
+            >
+              {text}
+            </p>
+            {/* Spacer so the last line can scroll fully into view */}
+            <div style={{ height: '60vh' }} />
+          </div>
         </div>
 
         {/* Progress bar — click anywhere to seek */}
