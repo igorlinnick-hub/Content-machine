@@ -68,6 +68,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const [driveUrl, setDriveUrl] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  // True after entering reading phase but before doctor taps "Start Recording"
+  const [readyToStart, setReadyToStart] = useState(false)
 
   // Draft recovery state
   const [pendingDraft, setPendingDraft] = useState<RecordingDraft | null>(null)
@@ -288,39 +290,49 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     return Math.max(0, inner.offsetHeight - container.clientHeight)
   }
 
+  function applyPos(pos: number) {
+    scrollPosRef.current = pos
+    scrollAccRef.current = 0
+    if (textInnerRef.current)
+      textInnerRef.current.style.transform = `translateY(-${pos}px)`
+    const total = getTotal()
+    setProgress(total > 0 ? pos / total : 0)
+  }
+
   function seekByFraction(fraction: number) {
     const total = getTotal()
     if (total <= 0) return
-    scrollPosRef.current = Math.max(0, Math.min(total * fraction, total))
-    scrollAccRef.current = 0
-    if (textInnerRef.current)
-      textInnerRef.current.style.transform = `translateY(-${scrollPosRef.current}px)`
-    setProgress(Math.max(0, Math.min(fraction, 1)))
+    applyPos(Math.max(0, Math.min(total * fraction, total)))
   }
 
   function rewindScroll() {
-    const total = getTotal()
-    if (total <= 0) return
-    scrollPosRef.current = Math.max(0, scrollPosRef.current - speedRef.current * 4)
-    scrollAccRef.current = 0
-    if (textInnerRef.current)
-      textInnerRef.current.style.transform = `translateY(-${scrollPosRef.current}px)`
-    setProgress(scrollPosRef.current / total)
+    applyPos(Math.max(0, scrollPosRef.current - speedRef.current * 5))
   }
 
-  // ── Enter reading phase ──────────────────────────────────────────────────────
+  function forwardScroll() {
+    const total = getTotal()
+    applyPos(Math.min(total > 0 ? total : scrollPosRef.current, scrollPosRef.current + speedRef.current * 5))
+  }
+
+  // ── Enter reading phase — show camera first, wait for doctor to tap Start ───
   async function enterReading() {
     if (!text.trim()) return
     scrollPosRef.current = 0
     scrollAccRef.current = 0
     if (textInnerRef.current) textInnerRef.current.style.transform = ''
     setProgress(0)
+    setReadyToStart(true)
     setPhase('reading')
 
     if (wantCamera) {
-      const ok = await startCamera()
-      if (ok) startRecording()
+      await startCamera()  // preview only — recording starts when doctor taps Start
     }
+  }
+
+  // ── Doctor taps "Start Recording" — recording + scroll begin ─────────────────
+  function beginRecording() {
+    setReadyToStart(false)
+    if (wantCamera && streamRef.current) startRecording()
     setIsScrolling(true)
   }
 
@@ -481,6 +493,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     setDriveUrl(null)
     setUploadError(null)
     setSaveTitle('')
+    setReadyToStart(false)
     scrollPosRef.current = 0
     scrollAccRef.current = 0
     if (textInnerRef.current) textInnerRef.current.style.transform = ''
@@ -761,6 +774,26 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         {/* Slight veil so white text pops on bright backgrounds */}
         <div className="pointer-events-none absolute inset-0 bg-black/25" />
 
+        {/* Pre-flight overlay — doctor checks framing before recording begins */}
+        {readyToStart && (
+          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
+            <button
+              onClick={beginRecording}
+              className="flex items-center gap-3 rounded-2xl bg-red-600 px-10 py-5 text-2xl font-bold text-white shadow-2xl transition active:scale-95 hover:bg-red-500"
+            >
+              <span className="h-4 w-4 shrink-0 rounded-full bg-white" />
+              Start Recording
+            </button>
+            <p className="mt-4 text-base text-white/60">Check your framing, then tap to begin</p>
+            <button
+              onClick={resetToSetup}
+              className="mt-6 rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white/70 backdrop-blur-sm hover:bg-white/20"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
         {/* Toolbar — takes its natural height in the flex column */}
         <div
           className="relative z-10 flex shrink-0 items-center justify-between px-5 py-3"
@@ -789,46 +822,60 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
-            {/* Rewind ~4 s */}
+          <div className="flex items-center gap-2">
+            {/* ◄◄ -5 s */}
             <button
               onClick={rewindScroll}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
-              title="Rewind 4 s"
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 active:scale-90"
+              title="Back 5 s"
             >
-              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
               </svg>
             </button>
 
-            {/* Pause / Play */}
+            {/* ⏸ / ▶ */}
             <button
               onClick={() => setIsScrolling((v) => !v)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-white backdrop-blur-sm hover:bg-white/25"
+              className="flex h-13 w-13 items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 active:scale-90"
               title={isScrolling ? 'Pause' : 'Resume'}
+              style={{ width: 52, height: 52 }}
             >
               {isScrolling ? (
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
                   <rect x="6" y="4" width="4" height="16" rx="1" />
                   <rect x="14" y="4" width="4" height="16" rx="1" />
                 </svg>
               ) : (
-                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M8 5v14l11-7z" />
                 </svg>
               )}
             </button>
 
-            {/* Speed − / + */}
+            {/* ►► +5 s */}
             <button
-              onClick={() => setSpeed((v) => Math.max(15, v - 10))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-sm backdrop-blur-sm hover:bg-white/20"
-            >−</button>
-            <span className="min-w-[20px] text-center text-xs text-white/50">{speed}</span>
-            <button
-              onClick={() => setSpeed((v) => Math.min(120, v + 10))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-sm backdrop-blur-sm hover:bg-white/20"
-            >+</button>
+              onClick={forwardScroll}
+              className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 active:scale-90"
+              title="Forward 5 s"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/>
+              </svg>
+            </button>
+
+            {/* − speed N + */}
+            <div className="flex items-center gap-1 rounded-xl bg-white/10 px-1.5 py-1 backdrop-blur-sm">
+              <button
+                onClick={() => setSpeed((v) => Math.max(15, v - 10))}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-white hover:bg-white/20 active:scale-90"
+              >−</button>
+              <span className="min-w-[28px] text-center text-sm font-semibold text-white/80">{speed}</span>
+              <button
+                onClick={() => setSpeed((v) => Math.min(120, v + 10))}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-white hover:bg-white/20 active:scale-90"
+              >+</button>
+            </div>
 
             <button
               onClick={() => {
@@ -840,7 +887,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
                   resetToSetup()
                 }
               }}
-              className="ml-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 backdrop-blur-sm hover:bg-white/20"
+              className="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/90 backdrop-blur-sm hover:bg-white/20 active:scale-90"
             >
               {isRecording ? 'Done' : 'Exit'}
             </button>
@@ -860,7 +907,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
           }}
         >
-          <div ref={textInnerRef} style={{ willChange: 'transform' }}>
+          <div ref={textInnerRef} style={{ willChange: 'transform', paddingTop: '20vh' }}>
             <p
               className="mx-auto max-w-2xl text-center leading-relaxed"
               style={{
