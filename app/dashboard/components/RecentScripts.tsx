@@ -8,7 +8,8 @@ interface RecentScriptsProps {
   scripts: RecentScript[]
 }
 
-export function RecentScripts({ scripts }: RecentScriptsProps) {
+export function RecentScripts({ scripts: initialScripts }: RecentScriptsProps) {
+  const [scripts, setScripts] = useState(initialScripts)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
 
@@ -20,6 +21,22 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
       setCopiedId(id)
       setTimeout(() => setCopiedId(null), 1500)
     } catch { /* noop */ }
+  }
+
+  async function onDelete(id: string) {
+    // Optimistic remove
+    setScripts((prev) => prev.filter((s) => s.id !== id))
+    if (openId === id) setOpenId(null)
+    try {
+      const res = await fetch(`/api/scripts/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        // Rollback on failure
+        setScripts(initialScripts)
+        console.error('Delete failed:', await res.text())
+      }
+    } catch {
+      setScripts(initialScripts)
+    }
   }
 
   if (scripts.length === 0) {
@@ -42,6 +59,7 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
             copiedId={copiedId}
             onOpen={() => setOpenId(s.id)}
             onCopy={() => onCopy(s.id, s.full_script)}
+            onDelete={() => onDelete(s.id)}
           />
         ))}
       </div>
@@ -51,6 +69,7 @@ export function RecentScripts({ scripts }: RecentScriptsProps) {
           script={open}
           copied={copiedId === open.id}
           onCopy={() => onCopy(open.id, open.full_script)}
+          onDelete={() => onDelete(open.id)}
           onClose={() => setOpenId(null)}
         />
       )}
@@ -65,12 +84,15 @@ function ScriptCard({
   copiedId,
   onOpen,
   onCopy,
+  onDelete,
 }: {
   script: RecentScript
   copiedId: string | null
   onOpen: () => void
   onCopy: () => void
+  onDelete: () => void
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const score = typeof s.critic_score === 'number' ? s.critic_score : null
   const strong = score !== null && score >= 7
   const preview = (s.hook ?? s.full_script ?? '').replace(/\s+/g, ' ').trim()
@@ -100,7 +122,12 @@ function ScriptCard({
             </span>
           )}
           {s.approved && (
-            <span className="text-sky-500" title="Approved">✓</span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Compliant
+            </span>
           )}
         </div>
       </header>
@@ -125,13 +152,46 @@ function ScriptCard({
             {formatDate(s.created_at)} · {s.word_count ?? '?'}w
           </span>
         </div>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onCopy() }}
-          className="cm-btn cm-btn-ghost shrink-0 py-1 text-xs"
-        >
-          {copiedId === s.id ? 'Copied' : 'Copy'}
-        </button>
+        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          {confirmDelete ? (
+            <>
+              <button
+                type="button"
+                onClick={() => { onDelete(); setConfirmDelete(false) }}
+                className="rounded-lg bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-600"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-lg px-2 py-1 text-[11px] text-neutral-400 hover:text-neutral-700"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onCopy}
+                className="cm-btn cm-btn-ghost py-1 text-xs"
+              >
+                {copiedId === s.id ? 'Copied' : 'Copy'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="rounded-lg p-1 text-neutral-300 transition hover:bg-red-50 hover:text-red-500"
+                title="Delete script"
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 4h12M5 4V2.5A.5.5 0 015.5 2h5a.5.5 0 01.5.5V4M6 7v5M10 7v5M3 4l.9 9.1A1 1 0 004.9 14h6.2a1 1 0 001-.9L13 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
       </footer>
     </article>
   )
@@ -143,18 +203,20 @@ function ScriptModal({
   script,
   copied,
   onCopy,
+  onDelete,
   onClose,
 }: {
   script: RecentScript
   copied: boolean
   onCopy: () => void
+  onDelete: () => void
   onClose: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const score = typeof script.critic_score === 'number' ? script.critic_score : null
   const strong = score !== null && score >= 7
 
-  // Lock body scroll; prevent scroll chaining in the modal
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -175,7 +237,6 @@ function ScriptModal({
       style={{ backgroundColor: 'rgba(10,10,10,0.55)', backdropFilter: 'blur(2px)' }}
       onClick={onClose}
     >
-      {/* Dialog */}
       <div
         role="dialog"
         aria-modal="true"
@@ -203,8 +264,11 @@ function ScriptModal({
                 </span>
               )}
               {script.approved && (
-                <span className="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-                  approved
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Compliant
                 </span>
               )}
               {script.template_used && (
@@ -232,7 +296,7 @@ function ScriptModal({
           </button>
         </header>
 
-        {/* Scrollable body — overscroll-contain prevents chaining to page */}
+        {/* Scrollable body */}
         <div
           ref={scrollRef}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
@@ -249,19 +313,52 @@ function ScriptModal({
         </div>
 
         {/* Footer */}
-        <footer className="flex items-center justify-end gap-2 border-t border-neutral-100 px-5 py-3 sm:px-6">
-          <button type="button" onClick={onClose} className="cm-btn cm-btn-ghost text-sm">
-            Close
-          </button>
-          <button type="button" onClick={onCopy} className="cm-btn cm-btn-primary text-sm">
-            {copied ? 'Copied ✓' : 'Copy script'}
-          </button>
+        <footer className="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3 sm:px-6">
+          <div>
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-neutral-500">Delete permanently?</span>
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
+                >
+                  Yes, delete
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="text-xs text-neutral-400 hover:text-neutral-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(true)}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-neutral-400 transition hover:bg-red-50 hover:text-red-500"
+              >
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                  <path d="M2 4h12M5 4V2.5A.5.5 0 015.5 2h5a.5.5 0 01.5.5V4M6 7v5M10 7v5M3 4l.9 9.1A1 1 0 004.9 14h6.2a1 1 0 001-.9L13 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Delete
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onClose} className="cm-btn cm-btn-ghost text-sm">
+              Close
+            </button>
+            <button type="button" onClick={onCopy} className="cm-btn cm-btn-primary text-sm">
+              {copied ? 'Copied ✓' : 'Copy script'}
+            </button>
+          </div>
         </footer>
       </div>
     </div>
   )
 
-  // Render into document.body to avoid z-index / scroll stacking context issues
   return typeof document !== 'undefined' ? createPortal(modal, document.body) : null
 }
 
