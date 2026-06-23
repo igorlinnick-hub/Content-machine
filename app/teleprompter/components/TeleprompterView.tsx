@@ -120,6 +120,17 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     return () => cancelAnimationFrame(rafRef.current)
   }, [isScrolling])
 
+  // Attach stream to video element AFTER React mounts the {hasStream && <video>} node.
+  // Cannot do this synchronously in startCamera() because setHasStream(true) schedules
+  // a render — the <video> ref is null until that render commits.
+  useEffect(() => {
+    if (!hasStream || !streamRef.current) return
+    const video = cameraRef.current
+    if (!video) return
+    video.srcObject = streamRef.current
+    video.play().catch(() => {})
+  }, [hasStream])
+
   // ── Camera setup ─────────────────────────────────────────────────────────────
   async function startCamera(): Promise<boolean> {
     setCameraError(null)
@@ -129,11 +140,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         audio: true,
       })
       streamRef.current = stream
-      setHasStream(true)
-      if (cameraRef.current) {
-        cameraRef.current.srcObject = stream
-        await cameraRef.current.play()
-      }
+      setHasStream(true) // triggers the useEffect above which wires up the video
       return true
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Camera access denied'
@@ -487,15 +494,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   // ────────────────────────────────────────────────────────────────────────────
   if (phase === 'reading') {
     return (
-      <div
-        className="fixed inset-0 z-50 flex flex-col bg-neutral-950 text-white"
-        onClick={() => setIsScrolling((v) => !v)}
-      >
+      <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950 text-white">
         {/* Top bar */}
-        <div
-          className="flex shrink-0 items-center justify-between px-5 py-3"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="flex shrink-0 items-center justify-between px-5 py-3">
           <div className="flex items-center gap-3">
             {isRecording && (
               <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
@@ -509,8 +510,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               </span>
             )}
             {!isScrolling && (
-              <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-400">
-                Paused — tap to resume
+              <span className="rounded-full bg-neutral-700 px-2.5 py-1 text-xs font-medium text-neutral-300">
+                ⏸ Paused
               </span>
             )}
             {cameraError && (
@@ -521,6 +522,24 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Pause / Play */}
+            <button
+              onClick={() => setIsScrolling((v) => !v)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-700 text-white hover:bg-neutral-600"
+              title={isScrolling ? 'Pause' : 'Resume'}
+            >
+              {isScrolling ? (
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              )}
+            </button>
+
             {/* Speed controls */}
             <button
               onClick={() => setSpeed((v) => Math.max(15, v - 10))}
@@ -579,7 +598,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
           <div
             className="absolute bottom-6 right-5 overflow-hidden rounded-2xl shadow-2xl ring-2 ring-white/20"
             style={{ width: 120, height: 90 }}
-            onClick={(e) => e.stopPropagation()}
           >
             <video
               ref={cameraRef}
