@@ -493,8 +493,12 @@ export async function POST(req: Request) {
       event: string,
       payload: unknown
     ) => {
-      const line = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`
-      controller.enqueue(encoder.encode(line))
+      try {
+        const line = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`
+        controller.enqueue(encoder.encode(line))
+      } catch {
+        // client disconnected — pipeline continues to completion
+      }
     }
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {

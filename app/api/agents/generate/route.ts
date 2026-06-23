@@ -38,8 +38,12 @@ export async function POST(req: Request) {
       const startMs = Date.now()
 
       function emit(event: string, data: unknown) {
-        const chunk = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
-        controller.enqueue(encoder.encode(chunk))
+        try {
+          const chunk = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+          controller.enqueue(encoder.encode(chunk))
+        } catch {
+          // client disconnected — swallow so the pipeline continues to saveScripts
+        }
       }
 
       function stage(name: string) {
