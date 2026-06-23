@@ -17,7 +17,6 @@ import { ClinicProfileBar } from './components/ClinicProfileBar'
 import { Logomark } from '@/app/components/Logomark'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
-import { BorderBeam } from '@/app/components/ui/border-beam'
 import { AnimatedGradientText } from '@/app/components/ui/animated-gradient-text'
 import { AnimatedShinyText } from '@/app/components/ui/animated-shiny-text'
 import { DiaTextReveal } from '@/app/components/ui/dia-text-reveal'
@@ -127,7 +126,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
         {/* ── Hero header — glass ───────────────────────────────────── */}
         <header
-          className="relative z-10 rounded-2xl"
+          className="relative z-10 overflow-hidden rounded-2xl"
           style={{
             background: 'rgba(255,255,255,0.62)',
             backdropFilter: 'blur(32px) saturate(1.8)',
@@ -136,7 +135,32 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             boxShadow: '0 4px 32px rgba(0,0,0,0.07), 0 1px 0 rgba(255,255,255,0.95) inset',
           }}
         >
-          <BorderBeam colorFrom="#38bdf8" colorTo="#a78bfa" duration={5} bg="rgba(255,255,255,0.62)" />
+          {/* Soft floating blobs — organic background movement */}
+          <div aria-hidden className="pointer-events-none absolute inset-0">
+            <div style={{
+              position: 'absolute', borderRadius: '50%',
+              width: 320, height: 320, top: -130, left: -70,
+              background: 'rgba(147,197,253,0.52)',
+              filter: 'blur(72px)',
+              animation: 'blob1 18s ease-in-out infinite',
+            }} />
+            <div style={{
+              position: 'absolute', borderRadius: '50%',
+              width: 280, height: 280, top: -90, right: -50,
+              background: 'rgba(196,181,253,0.46)',
+              filter: 'blur(68px)',
+              animation: 'blob2 23s ease-in-out infinite',
+              animationDelay: '-7s',
+            }} />
+            <div style={{
+              position: 'absolute', borderRadius: '50%',
+              width: 240, height: 240, bottom: -90, left: '42%',
+              background: 'rgba(110,231,183,0.38)',
+              filter: 'blur(64px)',
+              animation: 'blob3 28s ease-in-out infinite',
+              animationDelay: '-14s',
+            }} />
+          </div>
 
           <div className="relative z-10 flex flex-col gap-4 px-6 py-7 sm:flex-row sm:items-center sm:justify-between sm:px-8 sm:py-8">
             <div className="min-w-0">
