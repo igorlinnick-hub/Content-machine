@@ -2,6 +2,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import {
+  saveDraft,
+  loadLatestDraft,
+  clearDraft,
+  draftAgeLabel,
+  type RecordingDraft,
+} from '@/lib/client/recording-draft'
 
 type Phase = 'setup' | 'reading' | 'preview' | 'saving' | 'saved'
 
@@ -9,6 +16,15 @@ interface RecentScript {
   id: string
   title: string
   body: string
+}
+
+interface SavedRecording {
+  id: string
+  title: string
+  drive_url: string
+  duration_sec: number | null
+  size_bytes: number | null
+  created_at: string
 }
 
 interface Props {
@@ -29,6 +45,11 @@ function fmtBytes(b: number | null) {
   return `${(b / 1024 / 1024).toFixed(1)} MB`
 }
 
+function fmtDate(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+}
+
 export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props) {
   const [phase, setPhase] = useState<Phase>('setup')
   const [text, setText] = useState('')
@@ -46,7 +67,15 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
   const [driveUrl, setDriveUrl] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadProgress, setUploadProgress] = useState(0) // 0–1
+  const [uploadProgress, setUploadProgress] = useState(0)
+
+  // Draft recovery state
+  const [pendingDraft, setPendingDraft] = useState<RecordingDraft | null>(null)
+  const draftIdRef = useRef<string | null>(null)
+
+  // Recordings history
+  const [savedRecordings, setSavedRecordings] = useState<SavedRecording[]>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const cameraRef = useRef<HTMLVideoElement>(null)
@@ -61,6 +90,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   speedRef.current = speed
+
+  // Check for a pending draft on mount (survives page refresh)
+  useEffect(() => {
+    loadLatestDraft(clinicId).then(setPendingDraft).catch(() => {})
+  }, [clinicId])
+
+  // Fetch recordings history whenever setup phase is entered
+  useEffect(() => {
+    if (phase !== 'setup') return
+    setLoadingHistory(true)
+    fetch(`/api/studio/recordings?clinicId=${clinicId}`)
+      .then((r) => r.json())
+      .then((data) => setSavedRecordings((data as { recordings: SavedRecording[] }).recordings ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingHistory(false))
+  }, [phase, clinicId])
 
   // Cleanup on unmount — stop camera + recording so the green LED goes away
   useEffect(() => {
@@ -101,7 +146,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     if (el.scrollTop < total) {
       rafRef.current = requestAnimationFrame(scrollLoop)
     } else {
-      // reached end
       cancelAnimationFrame(rafRef.current)
       setIsScrolling(false)
       if (isRecordingRef.current) stopRecordingRef.current()
@@ -140,7 +184,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         audio: true,
       })
       streamRef.current = stream
-      setHasStream(true) // triggers the useEffect above which wires up the video
+      setHasStream(true)
       return true
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Camera access denied'
@@ -178,7 +222,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     try {
       recorder = new MediaRecorder(streamRef.current, {
         mimeType,
-        videoBitsPerSecond: 500_000, // ~3.75MB/min — keeps files under Vercel limits
+        videoBitsPerSecond: 500_000,
       })
     } catch {
       setCameraError('Could not start recorder. Try a different browser.')
@@ -191,6 +235,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     }
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: mimeType })
+      const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000)
+
+      // Persist to IndexedDB immediately — survives a page refresh
+      const draftId = `${clinicId}-${Date.now()}`
+      draftIdRef.current = draftId
+      saveDraft({
+        id: draftId,
+        clinicId,
+        scriptId: selectedScriptId,
+        blob,
+        title: saveTitle || 'Untitled',
+        durationSec,
+        savedAt: Date.now(),
+      }).catch(console.error)
+
+      setElapsedSec(durationSec)
       setRecordedBlob(blob)
       stopCamera()
       setPhase('preview')
@@ -218,6 +278,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
       if (ok) startRecording()
     }
     setIsScrolling(true)
+  }
+
+  // ── Restore a draft recording from IndexedDB ─────────────────────────────────
+  function restoreDraft(draft: RecordingDraft) {
+    draftIdRef.current = draft.id
+    setRecordedBlob(draft.blob)
+    setElapsedSec(draft.durationSec)
+    setSaveTitle(draft.title)
+    setSelectedScriptId(draft.scriptId)
+    setPendingDraft(null)
+    setPhase('preview')
+  }
+
+  async function discardDraft(draft: RecordingDraft) {
+    await clearDraft(draft.id).catch(console.error)
+    setPendingDraft(null)
   }
 
   // ── Preview: wire recorded blob to video element ─────────────────────────────
@@ -303,7 +379,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         }
       )
 
-      const driveUrl =
+      const savedDriveUrl =
         driveFile.webViewLink ??
         `https://drive.google.com/file/d/${driveFile.id}/view`
 
@@ -313,7 +389,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileId: driveFile.id,
-          driveUrl,
+          driveUrl: savedDriveUrl,
           title,
           scriptId: selectedScriptId,
           duration: elapsedSec,
@@ -321,12 +397,17 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         }),
       })
       if (!confirmRes.ok) {
-        // Drive upload succeeded — still show the link even if metadata save failed
         const err = await confirmRes.json().catch(() => ({}))
         console.error('Metadata save failed:', (err as { error?: string }).error)
       }
 
-      setDriveUrl(driveUrl)
+      // Clear the IndexedDB draft — recording is now safely in Drive
+      if (draftIdRef.current) {
+        clearDraft(draftIdRef.current).catch(console.error)
+        draftIdRef.current = null
+      }
+
+      setDriveUrl(savedDriveUrl)
       setPhase('saved')
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
@@ -340,6 +421,13 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     if (timerRef.current) clearInterval(timerRef.current)
     stopRecordingFn()
     stopCamera()
+
+    // Clear the draft when user consciously discards or finishes
+    if (draftIdRef.current) {
+      clearDraft(draftIdRef.current).catch(console.error)
+      draftIdRef.current = null
+    }
+
     setRecordedBlob(null)
     setIsScrolling(false)
     setIsRecording(false)
@@ -376,6 +464,46 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
             <h1 className="text-xl font-bold text-neutral-900">{clinicName}</h1>
           </div>
         </div>
+
+        {/* Draft recovery banner */}
+        {pendingDraft && (
+          <div
+            className="flex items-center justify-between gap-4 rounded-2xl p-4"
+            style={{
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.3)',
+              boxShadow: '0 2px 12px rgba(251,191,36,0.08)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                <svg className="h-4 w-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-800">Unsaved recording found</p>
+                <p className="text-xs text-amber-600">
+                  {pendingDraft.title} · {fmtTime(pendingDraft.durationSec)} · {draftAgeLabel(pendingDraft.savedAt)}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <button
+                onClick={() => restoreDraft(pendingDraft)}
+                className="rounded-xl bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600"
+              >
+                Review
+              </button>
+              <button
+                onClick={() => discardDraft(pendingDraft)}
+                className="rounded-xl border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Script picker */}
         {recentScripts.length > 0 && (
@@ -507,6 +635,59 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         >
           {wantCamera ? 'Start Recording' : 'Open Teleprompter'}
         </button>
+
+        {/* Recordings history */}
+        <div
+          className="rounded-2xl p-5"
+          style={{
+            background: 'rgba(255,255,255,0.7)',
+            border: '1px solid rgba(255,255,255,0.85)',
+            boxShadow: '0 2px 16px rgba(0,0,0,0.05)',
+            backdropFilter: 'blur(16px)',
+          }}
+        >
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+            Past recordings
+          </p>
+
+          {loadingHistory ? (
+            <div className="flex items-center gap-2 py-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-neutral-200 border-t-violet-500" />
+              <span className="text-xs text-neutral-400">Loading…</span>
+            </div>
+          ) : savedRecordings.length === 0 ? (
+            <p className="text-sm text-neutral-400">No saved recordings yet.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {savedRecordings.map((rec) => (
+                <a
+                  key={rec.id}
+                  href={rec.drive_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-neutral-50"
+                >
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-400 group-hover:bg-violet-100">
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-neutral-800">{rec.title}</span>
+                    <span className="text-xs text-neutral-400">
+                      {rec.duration_sec ? fmtTime(rec.duration_sec) : '—'}
+                      {rec.size_bytes ? ` · ${fmtBytes(rec.size_bytes)}` : ''}
+                      {' · '}{fmtDate(rec.created_at)}
+                    </span>
+                  </span>
+                  <svg className="h-3.5 w-3.5 shrink-0 text-neutral-300 group-hover:text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -627,7 +808,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               playsInline
               autoPlay
               className="h-full w-full object-cover"
-              style={{ transform: 'scaleX(-1)' }} // mirror for natural selfie view
+              style={{ transform: 'scaleX(-1)' }}
             />
           </div>
         )}
