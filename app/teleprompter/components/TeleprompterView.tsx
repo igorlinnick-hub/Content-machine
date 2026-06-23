@@ -224,8 +224,30 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   useEffect(() => {
     if (phase !== 'preview' || !previewVideoRef.current || !recordedBlob) return
     const url = URL.createObjectURL(recordedBlob)
-    previewVideoRef.current.src = url
-    return () => URL.revokeObjectURL(url)
+    const video = previewVideoRef.current
+    video.src = url
+    video.preload = 'auto'
+
+    // MediaRecorder doesn't write duration metadata into the WebM container,
+    // so Safari shows "Live Broadcast" and disables seeking.
+    // Fix: once metadata loads, jump to a huge timestamp — the browser scans
+    // the whole file, learns the real duration, then we seek back to 0.
+    const onMeta = () => {
+      if (!isFinite(video.duration)) {
+        video.currentTime = 1e101
+        const onUpdate = () => {
+          video.removeEventListener('timeupdate', onUpdate)
+          video.currentTime = 0
+        }
+        video.addEventListener('timeupdate', onUpdate)
+      }
+    }
+    video.addEventListener('loadedmetadata', onMeta)
+
+    return () => {
+      video.removeEventListener('loadedmetadata', onMeta)
+      URL.revokeObjectURL(url)
+    }
   }, [phase, recordedBlob])
 
   // ── Upload to Drive (resumable — bypasses Vercel, no size limit) ────────────
