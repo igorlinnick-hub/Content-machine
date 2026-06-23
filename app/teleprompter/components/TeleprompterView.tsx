@@ -794,35 +794,54 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
           </div>
         )}
 
-        {/* Toolbar — takes its natural height in the flex column */}
+        {/* Toolbar — two rows so nothing overflows on phone */}
         <div
-          className="relative z-10 flex shrink-0 items-center justify-between px-5 py-3"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.70) 0%, transparent 100%)' }}
+          className="relative z-10 shrink-0 px-4 pb-2 pt-3"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 80%, transparent 100%)' }}
         >
-          <div className="flex items-center gap-3">
-            {isRecording && (
-              <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
-                REC {fmtTime(elapsedSec)}
-              </span>
-            )}
-            {!isRecording && isScrolling && (
-              <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white/70 backdrop-blur-sm">
-                Reading…
-              </span>
-            )}
-            {!isScrolling && (
-              <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
-                ⏸ Paused
-              </span>
-            )}
-            {cameraError && (
-              <span className="rounded-full bg-orange-900/70 px-2.5 py-1 text-xs text-orange-300 backdrop-blur-sm">
-                Camera off: {cameraError.slice(0, 40)}
-              </span>
-            )}
+          {/* Row 1: status badge (left) + Done/Exit (right) */}
+          <div className="mb-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isRecording && (
+                <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+                  REC {fmtTime(elapsedSec)}
+                </span>
+              )}
+              {!isRecording && isScrolling && (
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white/70 backdrop-blur-sm">
+                  Reading…
+                </span>
+              )}
+              {!isScrolling && !readyToStart && (
+                <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
+                  ⏸ Paused
+                </span>
+              )}
+              {cameraError && (
+                <span className="rounded-full bg-orange-900/70 px-2.5 py-1 text-xs text-orange-300 backdrop-blur-sm">
+                  Camera off
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                cancelAnimationFrame(rafRef.current)
+                setIsScrolling(false)
+                if (isRecording) {
+                  stopRecordingFn()
+                } else {
+                  resetToSetup()
+                }
+              }}
+              className="rounded-xl bg-white/10 px-5 py-2 text-sm font-semibold text-white/90 backdrop-blur-sm hover:bg-white/20 active:scale-95"
+            >
+              {isRecording ? 'Done' : 'Exit'}
+            </button>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Row 2: playback controls centered */}
+          <div className="flex items-center justify-center gap-3">
             {/* ◄◄ -5 s */}
             <button
               onClick={rewindScroll}
@@ -834,10 +853,10 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               </svg>
             </button>
 
-            {/* ⏸ / ▶ */}
+            {/* ⏸ / ▶ — biggest button */}
             <button
               onClick={() => setIsScrolling((v) => !v)}
-              className="flex h-13 w-13 items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 active:scale-90"
+              className="flex items-center justify-center rounded-2xl bg-white/20 text-white backdrop-blur-sm hover:bg-white/30 active:scale-90"
               title={isScrolling ? 'Pause' : 'Resume'}
               style={{ width: 52, height: 52 }}
             >
@@ -865,32 +884,17 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
             </button>
 
             {/* − speed N + */}
-            <div className="flex items-center gap-1 rounded-xl bg-white/10 px-1.5 py-1 backdrop-blur-sm">
+            <div className="flex items-center rounded-xl bg-white/10 backdrop-blur-sm">
               <button
                 onClick={() => setSpeed((v) => Math.max(15, v - 10))}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-white hover:bg-white/20 active:scale-90"
+                className="flex h-11 w-9 items-center justify-center rounded-l-xl text-lg text-white hover:bg-white/20 active:scale-90"
               >−</button>
-              <span className="min-w-[28px] text-center text-sm font-semibold text-white/80">{speed}</span>
+              <span className="min-w-[30px] text-center text-sm font-semibold text-white/80">{speed}</span>
               <button
                 onClick={() => setSpeed((v) => Math.min(120, v + 10))}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-white hover:bg-white/20 active:scale-90"
+                className="flex h-11 w-9 items-center justify-center rounded-r-xl text-lg text-white hover:bg-white/20 active:scale-90"
               >+</button>
             </div>
-
-            <button
-              onClick={() => {
-                cancelAnimationFrame(rafRef.current)
-                setIsScrolling(false)
-                if (isRecording) {
-                  stopRecordingFn()
-                } else {
-                  resetToSetup()
-                }
-              }}
-              className="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/90 backdrop-blur-sm hover:bg-white/20 active:scale-90"
-            >
-              {isRecording ? 'Done' : 'Exit'}
-            </button>
           </div>
         </div>
 
