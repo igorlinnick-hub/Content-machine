@@ -24,6 +24,7 @@ export interface StudioCard {
   view_count: number | null
   title: string | null
   style_description: string | null
+  source_url: string | null
   video_url: string | null
   thumbnail_url: string | null
   schema_beats: { name: string; text: string }[]
@@ -69,8 +70,28 @@ function VideoBox({ card }: { card: StudioCard }) {
           src={card.video_url}
         />
       ) : (
-        <div className="flex aspect-[9/16] w-full items-center justify-center rounded-xl bg-neutral-100 text-sm text-neutral-400">
-          No video
+        <div className="relative flex aspect-[9/16] w-full items-end justify-center overflow-hidden rounded-xl bg-neutral-100">
+          {card.thumbnail_url && (
+            <img
+              src={card.thumbnail_url}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          )}
+          {card.source_url ? (
+            <a
+              href={card.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="relative z-10 mb-3 rounded-lg bg-black/70 px-3 py-1.5 text-xs font-semibold text-white hover:bg-black/90"
+            >
+              View on TikTok →
+            </a>
+          ) : (
+            !card.thumbnail_url && (
+              <span className="pb-4 text-sm text-neutral-400">No video</span>
+            )
+          )}
         </div>
       )}
     </>
@@ -107,6 +128,30 @@ export function StudioFunnel({
   const [adding, setAdding] = useState(false)
   const [addError, setAddError] = useState<string | null>(null)
   const [discoverVisible, setDiscoverVisible] = useState(20)
+  const [fetching, setFetching] = useState(false)
+  const [fetchMsg, setFetchMsg] = useState<string | null>(null)
+
+  async function fetchMoreIdeas() {
+    setFetching(true)
+    setFetchMsg(null)
+    try {
+      const res = await fetch('/api/studio/fetch-more', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.ok) {
+        setFetchMsg(data.error || 'Failed to fetch')
+        return
+      }
+      setFetchMsg(`Added ${data.added} new idea${data.added !== 1 ? 's' : ''} — refresh to see them`)
+    } catch {
+      setFetchMsg('Network error')
+    } finally {
+      setFetching(false)
+    }
+  }
 
   async function addVideo() {
     const url = addUrl.trim()
@@ -247,6 +292,25 @@ export function StudioFunnel({
           {tab === 'shotlist' && 'What we film. Generate a shoot idea for each — swipe sideways for more.'}
         </p>
       </nav>
+
+      {/* Admin: fetch more TikTok ideas into Discover */}
+      {tab === 'discover' && isAdmin && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={fetchMoreIdeas}
+            disabled={fetching}
+            className="cm-btn cm-btn-ghost text-sm"
+          >
+            {fetching ? 'Fetching… (~1 min)' : '🔍 Fetch more ideas'}
+          </button>
+          {fetchMsg && (
+            <span className={`text-xs ${fetchMsg.startsWith('Added') ? 'text-emerald-600' : 'text-red-600'}`}>
+              {fetchMsg}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Admin: add your own video straight to the Shot List */}
       {tab === 'shotlist' && isAdmin && (

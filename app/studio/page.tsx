@@ -53,6 +53,7 @@ export default async function StudioPage({
         view_count: v.view_count,
         title: v.title,
         style_description: v.style_description,
+        source_url: v.source_url,
         video_url: v.video_url,
         thumbnail_url: v.thumbnail_url,
         schema_beats: (v.structure?.beats ?? []).map((b) => ({
