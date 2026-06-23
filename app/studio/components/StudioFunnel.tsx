@@ -405,23 +405,6 @@ export function StudioFunnel({
                             “{card.idea.hook}”
                           </p>
                         )}
-                        {card.idea.steps.length > 0 && (
-                          <div className="mb-3">
-                            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                              What we&apos;ll film
-                            </p>
-                            <ol className="ml-4 list-decimal flex flex-col gap-1">
-                              {card.idea.steps.map((s, i) => (
-                                <li key={i} className="text-xs text-neutral-700">
-                                  {s}
-                                </li>
-                              ))}
-                            </ol>
-                          </div>
-                        )}
-                        <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                          Script — who says what
-                        </p>
                         <RoleScript
                           roleBlocks={card.idea.role_blocks}
                           fallbackScript={card.idea.script}
