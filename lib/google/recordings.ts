@@ -76,7 +76,8 @@ export async function uploadRecording(
 export async function createUploadSession(
   clinicName: string,
   filename: string,
-  mimeType: string
+  mimeType: string,
+  clientOrigin = ''
 ): Promise<{ uploadUrl: string }> {
   const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID ?? null
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
@@ -94,6 +95,8 @@ export async function createUploadSession(
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Upload-Content-Type': mimeType,
+        // Origin tells Drive to allow CORS on the upload URL so the browser XHR can PUT directly
+        ...(clientOrigin ? { Origin: clientOrigin } : {}),
       },
       body: JSON.stringify({
         name: filename,

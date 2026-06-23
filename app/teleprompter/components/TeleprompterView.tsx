@@ -359,6 +359,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     const video = previewVideoRef.current
     video.src = url
     video.preload = 'auto'
+    video.load() // iOS Safari won't load the blob unless load() is called explicitly
 
     // MediaRecorder doesn't write duration metadata into the WebM container,
     // so Safari shows "Live Broadcast" and disables seeking.

@@ -48,8 +48,12 @@ export async function POST(req: Request) {
   const ext = body.mimeType === 'video/mp4' ? 'mp4' : 'webm'
   const filename = `${dateStr}_${safeTitle}.${ext}`
 
+  // Pass the client's Origin so Drive includes CORS headers on the upload URL.
+  // Without it, the browser's XHR PUT to Drive is blocked by CORS.
+  const clientOrigin = req.headers.get('origin') ?? req.headers.get('referer')?.replace(/\/$/, '') ?? ''
+
   try {
-    const { uploadUrl } = await createUploadSession(clinic.name, filename, body.mimeType)
+    const { uploadUrl } = await createUploadSession(clinic.name, filename, body.mimeType, clientOrigin)
     return NextResponse.json({ uploadUrl })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'failed to create upload session'
