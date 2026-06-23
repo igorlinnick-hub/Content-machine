@@ -88,6 +88,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const isRecordingRef = useRef(false)
   const startTimeRef = useRef(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Accumulates sub-pixel scroll so low speeds (< 60px/s) still advance each frame
+  const scrollAccRef = useRef(0)
 
   speedRef.current = speed
 
@@ -136,12 +138,19 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   stopRecordingRef.current = stopRecordingFn
 
   // ── RAF scroll loop ──────────────────────────────────────────────────────────
+  // Uses a sub-pixel accumulator so speeds below 60px/s still advance every frame
+  // (without it, 45px/s → 0.75px/frame → browsers round to 0 → no movement).
   const scrollLoop = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
     const total = el.scrollHeight - el.clientHeight
     if (total <= 0) return
-    el.scrollTop += speedRef.current / 60
+    scrollAccRef.current += speedRef.current / 60
+    const whole = Math.floor(scrollAccRef.current)
+    if (whole > 0) {
+      el.scrollTop += whole
+      scrollAccRef.current -= whole
+    }
     setProgress(Math.min(el.scrollTop / total, 1))
     if (el.scrollTop < total) {
       rafRef.current = requestAnimationFrame(scrollLoop)
@@ -266,9 +275,32 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     }, 500)
   }
 
+  // ── Seek helpers (used by progress bar + rewind button) ─────────────────────
+  function seekByFraction(fraction: number) {
+    const el = scrollRef.current
+    if (!el) return
+    const total = el.scrollHeight - el.clientHeight
+    if (total <= 0) return
+    el.scrollTop = Math.max(0, Math.min(total * fraction, total))
+    scrollAccRef.current = 0
+    setProgress(Math.max(0, Math.min(fraction, 1)))
+  }
+
+  function rewindScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    const total = el.scrollHeight - el.clientHeight
+    if (total <= 0) return
+    // Rewind ~4 seconds worth of scrolling at the current speed
+    el.scrollTop = Math.max(0, el.scrollTop - speedRef.current * 4)
+    scrollAccRef.current = 0
+    setProgress(el.scrollTop / total)
+  }
+
   // ── Enter reading phase ──────────────────────────────────────────────────────
   async function enterReading() {
     if (!text.trim()) return
+    scrollAccRef.current = 0
     if (scrollRef.current) scrollRef.current.scrollTop = 0
     setProgress(0)
     setPhase('reading')
@@ -743,7 +775,19 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* Rewind ~4 s */}
+            <button
+              onClick={rewindScroll}
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white backdrop-blur-sm hover:bg-white/20"
+              title="Rewind 4 s"
+            >
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/>
+              </svg>
+            </button>
+
+            {/* Pause / Play */}
             <button
               onClick={() => setIsScrolling((v) => !v)}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-white backdrop-blur-sm hover:bg-white/25"
@@ -760,15 +804,18 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
                 </svg>
               )}
             </button>
+
+            {/* Speed − / + */}
             <button
               onClick={() => setSpeed((v) => Math.max(15, v - 10))}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-sm backdrop-blur-sm hover:bg-white/20"
             >−</button>
-            <span className="text-xs text-white/50">{speed}</span>
+            <span className="min-w-[20px] text-center text-xs text-white/50">{speed}</span>
             <button
               onClick={() => setSpeed((v) => Math.min(120, v + 10))}
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-sm backdrop-blur-sm hover:bg-white/20"
             >+</button>
+
             <button
               onClick={() => {
                 cancelAnimationFrame(rafRef.current)
@@ -779,7 +826,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
                   resetToSetup()
                 }
               }}
-              className="ml-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 backdrop-blur-sm hover:bg-white/20"
+              className="ml-1 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 backdrop-blur-sm hover:bg-white/20"
             >
               {isRecording ? 'Done' : 'Exit'}
             </button>
@@ -816,11 +863,23 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
           <div style={{ height: '60vh' }} />
         </div>
 
-        {/* Progress bar */}
-        <div className="relative z-10 h-1 w-full shrink-0 bg-white/10">
+        {/* Progress bar — click anywhere to seek */}
+        <div
+          className="relative z-10 h-2 w-full shrink-0 cursor-pointer bg-white/10"
+          title="Click to seek"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            seekByFraction((e.clientX - rect.left) / rect.width)
+          }}
+        >
           <div
-            className="h-full bg-violet-400/80 transition-all duration-100"
+            className="h-full bg-violet-400/80 transition-none"
             style={{ width: `${progress * 100}%` }}
+          />
+          {/* Scrub thumb */}
+          <div
+            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow-md"
+            style={{ left: `calc(${progress * 100}% - 6px)` }}
           />
         </div>
       </div>
