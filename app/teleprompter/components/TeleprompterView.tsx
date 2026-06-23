@@ -693,13 +693,31 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // READING PHASE — fullscreen dark teleprompter
+  // READING PHASE — camera full-screen, text overlay
   // ────────────────────────────────────────────────────────────────────────────
   if (phase === 'reading') {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-neutral-950 text-white">
-        {/* Top bar */}
-        <div className="flex shrink-0 items-center justify-between px-5 py-3">
+      <div className="fixed inset-0 z-50 overflow-hidden bg-black text-white">
+        {/* Camera fills the entire screen */}
+        <video
+          ref={cameraRef}
+          muted
+          playsInline
+          autoPlay
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+            hasStream ? 'opacity-100' : 'opacity-0'
+          }`}
+          style={{ transform: 'scaleX(-1)' }}
+        />
+
+        {/* Subtle darkening so text is legible over bright backgrounds */}
+        <div className="pointer-events-none absolute inset-0 bg-black/25" />
+
+        {/* Top toolbar — floats over video */}
+        <div
+          className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-5 py-3"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%)' }}
+        >
           <div className="flex items-center gap-3">
             {isRecording && (
               <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
@@ -708,27 +726,26 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               </span>
             )}
             {!isRecording && isScrolling && (
-              <span className="rounded-full bg-neutral-800 px-2.5 py-1 text-xs text-neutral-400">
+              <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs text-white/70 backdrop-blur-sm">
                 Reading…
               </span>
             )}
             {!isScrolling && (
-              <span className="rounded-full bg-neutral-700 px-2.5 py-1 text-xs font-medium text-neutral-300">
+              <span className="rounded-full bg-white/20 px-2.5 py-1 text-xs font-medium text-white/90 backdrop-blur-sm">
                 ⏸ Paused
               </span>
             )}
             {cameraError && (
-              <span className="rounded-full bg-orange-900/70 px-2.5 py-1 text-xs text-orange-300">
+              <span className="rounded-full bg-orange-900/70 px-2.5 py-1 text-xs text-orange-300 backdrop-blur-sm">
                 Camera off: {cameraError.slice(0, 40)}
               </span>
             )}
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Pause / Play */}
             <button
               onClick={() => setIsScrolling((v) => !v)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-700 text-white hover:bg-neutral-600"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/15 text-white backdrop-blur-sm hover:bg-white/25"
               title={isScrolling ? 'Pause' : 'Resume'}
             >
               {isScrolling ? (
@@ -742,19 +759,15 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
                 </svg>
               )}
             </button>
-
-            {/* Speed controls */}
             <button
               onClick={() => setSpeed((v) => Math.max(15, v - 10))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-sm"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-sm backdrop-blur-sm hover:bg-white/20"
             >−</button>
-            <span className="text-xs text-neutral-500">{speed}</span>
+            <span className="text-xs text-white/50">{speed}</span>
             <button
               onClick={() => setSpeed((v) => Math.min(120, v + 10))}
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-800 text-sm"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-sm backdrop-blur-sm hover:bg-white/20"
             >+</button>
-
-            {/* Stop recording / finish */}
             <button
               onClick={() => {
                 cancelAnimationFrame(rafRef.current)
@@ -765,53 +778,50 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
                   resetToSetup()
                 }
               }}
-              className="ml-2 rounded-lg bg-neutral-800 px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700"
+              className="ml-2 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 backdrop-blur-sm hover:bg-white/20"
             >
               {isRecording ? 'Done' : 'Exit'}
             </button>
           </div>
         </div>
 
-        {/* Progress bar */}
-        <div className="h-0.5 w-full bg-neutral-800">
-          <div
-            className="h-full bg-violet-500 transition-all duration-100"
-            style={{ width: `${progress * 100}%` }}
-          />
-        </div>
-
-        {/* Scrolling text */}
+        {/* Scrolling text — centered over camera, fades at top and bottom edges */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-hidden px-6 py-8 sm:px-16"
-          style={{ userSelect: 'none' }}
+          className="absolute inset-x-0 z-10 overflow-hidden px-6 sm:px-16"
+          style={{
+            top: '64px',
+            bottom: '48px',
+            userSelect: 'none',
+            maskImage:
+              'linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)',
+          }}
         >
           <p
-            className="mx-auto max-w-2xl leading-relaxed text-white"
-            style={{ fontSize: fontSize, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}
+            className="mx-auto max-w-2xl text-center leading-relaxed"
+            style={{
+              fontSize: fontSize,
+              lineHeight: 1.6,
+              whiteSpace: 'pre-wrap',
+              color: 'rgba(255,255,255,0.92)',
+              textShadow:
+                '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
+            }}
           >
             {text}
           </p>
-          {/* Bottom padding so the last line can fully scroll to center */}
-          <div style={{ height: '50vh' }} />
+          <div style={{ height: '60vh' }} />
         </div>
 
-        {/* Camera PIP */}
-        {hasStream && (
+        {/* Progress bar at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 h-1 bg-white/10">
           <div
-            className="absolute bottom-6 right-5 overflow-hidden rounded-2xl shadow-2xl ring-2 ring-white/20"
-            style={{ width: 120, height: 90 }}
-          >
-            <video
-              ref={cameraRef}
-              muted
-              playsInline
-              autoPlay
-              className="h-full w-full object-cover"
-              style={{ transform: 'scaleX(-1)' }}
-            />
-          </div>
-        )}
+            className="h-full bg-violet-400/80 transition-all duration-100"
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
       </div>
     )
   }
