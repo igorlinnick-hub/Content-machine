@@ -5,6 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { loadClinicList, loadClinicSummaries, loadRecentScripts } from '@/lib/supabase/context'
 import { loadScriptTemplates } from '@/lib/posts/templates'
 import { getDailyQuestions } from '@/lib/widgets/questions'
+import { getCurrentPlanWeek } from '@/lib/content-plan'
 import { resolveAccess } from '@/lib/auth/session'
 import { DailyWidgets } from './components/DailyWidgets'
 import { ScriptGenerator } from './components/ScriptGenerator'
@@ -74,6 +75,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const questions = getDailyQuestions()
+  const currentPlanWeek = getCurrentPlanWeek()
   const [recent, activeTemplates, clinicSummaries] = await Promise.all([
     loadRecentScripts(clinicId, 15),
     loadScriptTemplates(clinicId, { activeOnly: true }),
@@ -305,7 +307,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 Generate scripts
               </h2>
             </div>
-            <ScriptGenerator clinicId={clinicId} isAdmin={showAdminTools} />
+            <ScriptGenerator clinicId={clinicId} isAdmin={showAdminTools} currentWeek={currentPlanWeek} />
           </section>
         )}
 

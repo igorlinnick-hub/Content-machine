@@ -6,9 +6,13 @@ import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
 import { TypingAnimation } from '@/app/components/ui/typing-animation'
 
+import type { PlanWeek } from '@/lib/content-plan'
+import { PILLAR_COLOR } from '@/lib/content-plan'
+
 interface ScriptGeneratorProps {
   clinicId: string
   isAdmin?: boolean
+  currentWeek?: PlanWeek
 }
 
 interface GenerateResult {
@@ -138,7 +142,7 @@ function loadScriptDraft(clinicId: string): GenerateResult | null {
   } catch { return null }
 }
 
-export function ScriptGenerator({ clinicId, isAdmin = false }: ScriptGeneratorProps) {
+export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: ScriptGeneratorProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -239,6 +243,8 @@ export function ScriptGenerator({ clinicId, isAdmin = false }: ScriptGeneratorPr
     }
   }
 
+  const weekColor = currentWeek ? PILLAR_COLOR[currentWeek.pillar] : null
+
   return (
     <div className="flex flex-col gap-5">
       <div className="cm-card flex flex-col gap-4 p-5">
@@ -251,6 +257,41 @@ export function ScriptGenerator({ clinicId, isAdmin = false }: ScriptGeneratorPr
             as="p"
           />
         </div>
+
+        {/* Current week suggestion strip */}
+        {currentWeek && weekColor && (
+          <div
+            className="flex flex-col gap-2 rounded-xl border p-3"
+            style={{ background: `${weekColor}08`, borderColor: `${weekColor}25` }}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+                style={{ background: `${weekColor}20`, color: weekColor, border: `1px solid ${weekColor}30` }}
+              >
+                Week {currentWeek.week}
+              </span>
+              <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
+              <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {currentWeek.posts.map((post) => (
+                <button
+                  key={post.num}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setTopic(post.topic)}
+                  className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
+                  style={{ background: `${weekColor}14`, color: weekColor, border: `1px solid ${weekColor}25` }}
+                  title={`Fill: ${post.topic}`}
+                >
+                  {post.topic}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <label className="flex flex-1 flex-col gap-1">
             <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
