@@ -6,6 +6,28 @@
 // drift — the test suite can assert that every plan post resolves
 // to a single, stable keyword.
 
+// ── ManyChat trigger lists (source of truth for Writer keyword selection) ──
+// These are the ONLY valid CTA keywords. Words are ALL-CAPS in the CTA stack.
+// Writer picks the best fit for the script category; slug map below overrides.
+export const MANYCHAT_CTA_CATEGORIES = {
+  mental_health: [
+    'TMS', 'Ketamine', 'SGB', 'Spravato', 'Reset', 'Clarity', 'Relief',
+    'Depression', 'Anxiety', 'PTSD', 'Trauma', 'Mood',
+  ],
+  pain_joint: [
+    'PRP', 'A2M', 'Biologics', 'Biologic', 'Regenerative', 'Cartilage',
+    'Arthritis', 'Joint', 'Shots', 'Mounjaro', 'GLP', 'Transform',
+  ],
+  wellness_vitality: [
+    'IV', 'NAD', 'NAD+', 'Peptide', 'Hormones', 'Testosterone', 'Estrogen',
+    'Thyroid', 'Infusion', 'Drip', 'Boost', 'Energy',
+  ],
+  weight_loss: [
+    'Semaglutide', 'Tirzepatide', 'Retatrutide', 'Ozempic', 'Mounjaro',
+    'GLP-1', 'Injection', 'Program', 'Results', 'Appetite', 'Metabolism',
+  ],
+} as const
+
 export const CTA_KEYWORD_BY_TOPIC_SLUG: Record<string, string> = {
   'ketamine-depression': 'RESET',
   'antidepressant-failure': 'MECHANISM',

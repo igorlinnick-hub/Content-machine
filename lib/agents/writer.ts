@@ -143,7 +143,21 @@ CTA STACK FORMAT (always 3 lines unless mental-health-acute):
   Comment → "<KEYWORD>" and we'll <what we send>.
   Book → tap the link in bio or DM us to start an evaluation.
 
-KEYWORD is a single ALL-CAPS word from the post topic — see lib/seeds/cta-keywords.ts for the deterministic 24-post map. If the topic matches a plan post, use that exact keyword.
+KEYWORD must be chosen from the ManyChat trigger list below — these are the ONLY valid keywords. Pick the single best fit for the script's category and topic. Never invent a keyword outside this list.
+
+  🧠 Mental Health:
+    TMS, Ketamine, SGB, Spravato, Reset, Clarity, Relief, Depression, Anxiety, PTSD, Trauma, Mood
+
+  🦴 Pain & Joint:
+    PRP, A2M, Biologics, Biologic, Regenerative, Cartilage, Arthritis, Joint, Shots, Mounjaro, GLP, Transform
+
+  ✨ Wellness & Vitality:
+    IV, NAD, NAD+, Peptide, Hormones, Testosterone, Estrogen, Thyroid, Infusion, Drip, Boost, Energy
+
+  ⚖️ Medical Weight Loss:
+    Semaglutide, Tirzepatide, Retatrutide, Ozempic, Mounjaro, GLP-1, Injection, Program, Results, Appetite, Metabolism
+
+  Selection logic: identify which category the script belongs to → pick the word that most specifically names the treatment or mechanism covered (e.g. a TMS script → TMS, not Mood; a peptides script → Peptide, not Boost). If topic matches the 24-post deterministic map in lib/seeds/cta-keywords.ts, that exact keyword overrides this list.
 
 MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
 When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute ideation", "active ideation", "988", "lifeline", "crisis intervention" — switch to the stripped template:
