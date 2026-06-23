@@ -3,7 +3,7 @@ import type {
   ComplianceGrade,
   ComplianceResult,
 } from '@/types'
-import { MODEL_CRITIC, callAgentJSON } from './base'
+import { MODEL_DEFAULT, callAgentJSON } from './base'
 import { factCheckScript, hasBlockingFactFinding } from './factCheck'
 
 // Compliance gate — HANDOFF-POSTS.md §16.
@@ -121,7 +121,7 @@ export async function runCompliance(
   let llmRaw: { grade: ComplianceGrade; findings: Array<Omit<ComplianceFinding, 'source'>> }
   try {
     llmRaw = await callAgentJSON({
-      model: MODEL_CRITIC,
+      model: MODEL_DEFAULT,
       systemPrompt: SYSTEM_PROMPT,
       userContent,
       cacheSystem: true,
@@ -192,7 +192,7 @@ export async function runCompliance(
   return {
     grade: finalGrade,
     findings: allFindings,
-    model: MODEL_CRITIC,
+    model: MODEL_DEFAULT,
     ruleset_version: RULESET_VERSION,
     run_at: runAt,
   }

@@ -56,7 +56,11 @@ export async function POST(req: Request) {
         let scores = await runCritic({ context, variants })
         stage('critic:done')
 
-        const needsRewrite = scores.scores.some((s) => !s.approved)
+        // Retry only if the best variant is genuinely weak (< 6.0).
+        // Old logic triggered on any !approved — wasted 30-40s even for 7.5-score
+        // scripts that missed one criterion. Compliance layer catches real issues.
+        const bestScore = Math.max(...scores.scores.map((s) => s.total_score))
+        const needsRewrite = bestScore < 6.0
         if (needsRewrite) {
           stage('start')
           const feedback = buildFeedback(scores)

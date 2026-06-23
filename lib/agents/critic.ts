@@ -4,7 +4,7 @@ import type {
   CriticOutput,
   ScriptLengthTarget,
 } from '@/types'
-import { MODEL_CRITIC, callAgentJSON } from './base'
+import { MODEL_DEFAULT, callAgentJSON } from './base'
 
 const LENGTH_BANDS: Record<ScriptLengthTarget, { min: number; max: number; label: string }> = {
   short: { min: 200, max: 220, label: '60-90s boost cut' },
@@ -84,7 +84,7 @@ export interface RunCriticParams {
 export async function runCritic(params: RunCriticParams): Promise<CriticOutput> {
   const target: ScriptLengthTarget = params.lengthTarget ?? 'short'
   return callAgentJSON<CriticOutput>({
-    model: MODEL_CRITIC,
+    model: MODEL_DEFAULT,
     systemPrompt: buildSystemPrompt(target),
     userContent: buildCriticBrief(params.context, params.variants),
     maxTokens: 8192,
