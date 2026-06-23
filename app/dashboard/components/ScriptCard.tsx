@@ -180,11 +180,12 @@ export function ScriptCard({
 
       {/* Compliance signal */}
       {compliance && !isAdmin && (grade === 'PASS' || grade === 'REVIEW') && (
-        /* Doctor: simple "checked" badge — no rule IDs, no details */
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-          <span className="font-bold">✓</span>
-          <span className="font-medium">Reviewed</span>
-        </div>
+        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Compliant
+        </span>
       )}
       {compliance && isAdmin && complianceStyle && (
         /* Admin: full details with rule IDs and corrections */
