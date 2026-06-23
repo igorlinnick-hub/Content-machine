@@ -693,12 +693,15 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   }
 
   // ────────────────────────────────────────────────────────────────────────────
-  // READING PHASE — camera full-screen, text overlay
+  // READING PHASE — camera full-screen background, text scrolls over it
   // ────────────────────────────────────────────────────────────────────────────
   if (phase === 'reading') {
     return (
-      <div className="fixed inset-0 z-50 overflow-hidden bg-black text-white">
-        {/* Camera fills the entire screen */}
+      // flex-col is load-bearing: the scroll loop needs flex-1 to give the
+      // scroll container an explicit clientHeight so scrollHeight > clientHeight
+      <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+
+        {/* Camera — absolute, sits behind everything */}
         <video
           ref={cameraRef}
           muted
@@ -709,14 +712,13 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
           }`}
           style={{ transform: 'scaleX(-1)' }}
         />
-
-        {/* Subtle darkening so text is legible over bright backgrounds */}
+        {/* Slight veil so white text pops on bright backgrounds */}
         <div className="pointer-events-none absolute inset-0 bg-black/25" />
 
-        {/* Top toolbar — floats over video */}
+        {/* Toolbar — takes its natural height in the flex column */}
         <div
-          className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-5 py-3"
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.72) 0%, transparent 100%)' }}
+          className="relative z-10 flex shrink-0 items-center justify-between px-5 py-3"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.70) 0%, transparent 100%)' }}
         >
           <div className="flex items-center gap-3">
             {isRecording && (
@@ -741,7 +743,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               </span>
             )}
           </div>
-
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsScrolling((v) => !v)}
@@ -785,18 +786,18 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
           </div>
         </div>
 
-        {/* Scrolling text — centered over camera, fades at top and bottom edges */}
+        {/* Scroll container — flex-1 gives it the remaining viewport height.
+            overflow-hidden hides the scrollbar while still allowing scrollTop
+            to be set programmatically by the RAF loop. */}
         <div
           ref={scrollRef}
-          className="absolute inset-x-0 z-10 overflow-hidden px-6 sm:px-16"
+          className="relative z-10 flex-1 overflow-hidden px-6 sm:px-16"
           style={{
-            top: '64px',
-            bottom: '48px',
             userSelect: 'none',
             maskImage:
-              'linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)',
+              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
             WebkitMaskImage:
-              'linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)',
+              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
           }}
         >
           <p
@@ -806,17 +807,17 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
               lineHeight: 1.6,
               whiteSpace: 'pre-wrap',
               color: 'rgba(255,255,255,0.92)',
-              textShadow:
-                '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
+              textShadow: '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
             }}
           >
             {text}
           </p>
+          {/* Spacer so the last line can scroll fully into view */}
           <div style={{ height: '60vh' }} />
         </div>
 
-        {/* Progress bar at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 h-1 bg-white/10">
+        {/* Progress bar */}
+        <div className="relative z-10 h-1 w-full shrink-0 bg-white/10">
           <div
             className="h-full bg-violet-400/80 transition-all duration-100"
             style={{ width: `${progress * 100}%` }}
