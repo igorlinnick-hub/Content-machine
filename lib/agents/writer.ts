@@ -364,10 +364,12 @@ function buildContextBrief(
   const examples = ctx.few_shot_library.slice(0, 5)
   if (examples.length) {
     parts.push(
-      `FEW-SHOT VOICE EXAMPLES (match this voice — do NOT copy structure):\n${examples
+      `FEW-SHOT VOICE EXAMPLES — study TONE, RHYTHM, and SENTENCE LENGTH only.\n` +
+      `⚠️ NEVER copy medical claims, procedures, treatments, or specific phrases from these examples into a script on a different topic.\n` +
+      `${examples
         .map(
           (e, idx) =>
-            `--- Example ${idx + 1}${e.topic ? ` (topic: ${e.topic})` : ''} ---\n${e.script_text}${
+            `--- Voice Example ${idx + 1}${e.topic ? ` (topic: ${e.topic})` : ''} ---\n${e.script_text}${
               e.why_good ? `\n(why it works: ${e.why_good})` : ''
             }`
         )
@@ -376,14 +378,14 @@ function buildContextBrief(
   }
 
   if (ctx.recent_picks.length) {
+    // Intentionally topic+hook ONLY — full_script is excluded.
+    // Including full scripts caused the model to copy medical claims verbatim
+    // from unrelated posts (e.g. ED procedures appearing in an SGB/PTSD script).
     parts.push(
-      `DOCTOR'S RECENT PICKS (lean toward these patterns):\n${ctx.recent_picks
+      `DOCTOR'S RECENT PICKS — topic/hook patterns that worked (match the ANGLE and HOOK SHAPE only, never copy medical claims or procedures from these):\n${ctx.recent_picks
         .slice(0, 6)
-        .map(
-          (f, idx) =>
-            `--- Pick ${idx + 1} (topic: ${f.topic ?? 'n/a'}) ---\nhook: ${f.hook ?? 'n/a'}\n${f.full_script}`
-        )
-        .join('\n\n')}`
+        .map((f) => `- topic: ${f.topic ?? 'n/a'} | hook: ${f.hook ?? 'n/a'}`)
+        .join('\n')}`
     )
   }
 
