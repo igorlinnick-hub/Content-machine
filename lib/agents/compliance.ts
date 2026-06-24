@@ -3,7 +3,7 @@ import type {
   ComplianceGrade,
   ComplianceResult,
 } from '@/types'
-import { MODEL_DEFAULT, callAgentJSON } from './base'
+import { MODEL_DEFAULT, callAgentTool } from './base'
 import { factCheckScript, hasBlockingFactFinding } from './factCheck'
 
 // Compliance gate — HANDOFF-POSTS.md §16.
@@ -115,6 +115,8 @@ export async function runCompliance(
   }
 
   // LLM pass. Context is small + cached system prompt = ~$0.005 per call.
+  // Uses callAgentTool (forced tool_use) so the API guarantees valid JSON —
+  // no text parsing, no quote-escaping bugs in correction/matched strings.
   const userContent = JSON.stringify({
     category: input.category ?? null,
     topic: input.topic ?? null,
@@ -123,12 +125,41 @@ export async function runCompliance(
 
   let llmRaw: { grade: ComplianceGrade; findings: Array<Omit<ComplianceFinding, 'source'>> }
   try {
-    llmRaw = await callAgentJSON({
+    llmRaw = await callAgentTool({
       model: MODEL_DEFAULT,
       systemPrompt: SYSTEM_PROMPT,
       userContent,
       cacheSystem: true,
       maxTokens: 2048,
+      toolName: 'compliance_grade',
+      toolDescription: 'Return the compliance grade and findings for the given script.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          grade: {
+            type: 'string',
+            enum: ['PASS', 'REWORD', 'REVIEW', 'REMOVE'],
+            description: 'Most severe grade across all findings.',
+          },
+          findings: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                rule: { type: 'string', description: 'Rule ID, e.g. R-FDA-01' },
+                severity: {
+                  type: 'string',
+                  enum: ['remove', 'reword', 'review'],
+                },
+                matched: { type: 'string', description: 'Exact excerpt that triggered.' },
+                correction: { type: 'string', description: 'One-sentence suggested fix.' },
+              },
+              required: ['rule', 'severity', 'matched', 'correction'],
+            },
+          },
+        },
+        required: ['grade', 'findings'],
+      },
     })
   } catch (e) {
     // Defensive — if the LLM fails, do not silently mark PASS. The
