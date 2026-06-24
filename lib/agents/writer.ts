@@ -132,7 +132,7 @@ SLIDE ARC (in order):
   Slide 2   Mechanism / Real cause — heading + intro + 3 bullets + close
   Slide 3   Gap slide (optional)   — "why standard care misses this" — include WHEN the post explains an insurance / 15-min-visit / equipment-cost reason standard medicine skips the better option; SKIP for how-to / multi-pathway / acute topics
   Slide 4   Think of it this way   — sticky analogy in plain prose, no bullets. e.g. "X is like Y — [the punchline]". SKIP for mental-health-acute topics (see below).
-  Slide 5   What the data shows    — bullets with sourced facts (FDA dates, trial names, %)
+  Slide 5   What the data shows    — bullets with real evidence markers (FDA approval dates, named trials, qualitative findings). NEVER invent a percentage or statistic — if you don't have a verified number, write "studies show improved outcomes for many patients" instead of making one up.
   Slide 6   Who it's for           — bullets + close
   Slide 7   Session / protocol     — optional
   Slide 8   Why it's underused     — optional
@@ -176,6 +176,7 @@ COMPLIANCE BASELINE (HARD — every variant must pass):
       Peptides (BPC-157, TB-500, CJC-1295/Ipamorelin) — NOT FDA-approved
       Exosomes — NEVER offer as a service (FDA: no approved exosome products)
   • ALWAYS label evidence stage: "Phase 2", "pilot studies", "preclinical", "investigational, not FDA-approved".
+  • NEVER invent statistics. No made-up percentages, no fabricated response rates, no invented study outcomes. If a number isn't in the verified facts above, don't write it. Use qualitative language instead: "many patients", "studies show improvement", "clinical results are promising".
   • ALWAYS produce a sources array with each non-trivial factual claim cited. Sources go in a separate "sources" field — NEVER inside the script or caption.
   • For Mental Health bucket captions, ALWAYS end the caption with: "If you or someone you know is struggling, call or text 988 — the Suicide & Crisis Lifeline."
 
