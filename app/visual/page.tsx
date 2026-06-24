@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { loadClinicList } from '@/lib/supabase/context'
 import { loadPosts } from '@/lib/visual/store'
 import { resolveAccess } from '@/lib/auth/session'
+import { getCurrentPlanWeek } from '@/lib/content-plan'
 import { PostsWorkspace } from './components/PostsWorkspace'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { PageHeader } from '@/app/components/PageHeader'
@@ -31,6 +32,7 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
   const posts = await loadPosts(clinic.id, 50)
+  const currentPlanWeek = getCurrentPlanWeek()
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-5 py-8 cm-page-bg sm:px-6 sm:py-10">
@@ -48,7 +50,7 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
         }
       />
 
-      <PostsWorkspace clinicId={clinic.id} posts={posts} />
+      <PostsWorkspace clinicId={clinic.id} posts={posts} currentWeek={currentPlanWeek} />
     </main>
   )
 }

@@ -15,10 +15,13 @@ import {
   markDone,
   type ProgressState,
 } from './GenerateProgress'
+import type { PlanWeek } from '@/lib/content-plan'
+import { PILLAR_COLOR } from '@/lib/content-plan'
 
 interface Props {
   clinicId: string
   posts: PostListItem[]
+  currentWeek?: PlanWeek
 }
 
 interface PostDetail {
@@ -52,7 +55,7 @@ interface GenerateResponse {
   length_target: 'short' | 'long'
 }
 
-export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
+export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: Props) {
   const router = useRouter()
   const [posts, setPosts] = useState<PostListItem[]>(initialPosts)
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -394,6 +397,41 @@ export function PostsWorkspace({ clinicId, posts: initialPosts }: Props) {
           New post
         </p>
         <div className="mt-3 flex flex-col gap-3">
+          {/* Current week suggestion strip */}
+          {currentWeek && (() => {
+            const color = PILLAR_COLOR[currentWeek.pillar]
+            return (
+              <div
+                className="flex flex-col gap-2 rounded-xl border p-3"
+                style={{ background: `${color}08`, borderColor: `${color}25` }}
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+                    style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}
+                  >
+                    Week {currentWeek.week}
+                  </span>
+                  <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
+                  <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {currentWeek.posts.map((post) => (
+                    <button
+                      key={post.num}
+                      type="button"
+                      disabled={generating}
+                      onClick={() => setTopic(post.topic)}
+                      className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
+                      style={{ background: `${color}14`, color, border: `1px solid ${color}25` }}
+                    >
+                      {post.topic}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
           <input
             type="text"
             value={topic}
