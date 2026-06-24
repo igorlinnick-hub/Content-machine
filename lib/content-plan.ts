@@ -120,9 +120,41 @@ export const PLAN: PlanWeek[] = [
   },
 ]
 
-// Plan started June 1 2026. Returns which week (1-8) is current, cycling every 8 weeks.
-const PLAN_START = new Date('2026-06-01T00:00:00Z')
+// Plan started June 1 2026. Posts go out Mon / Wed / Fri, 3/week.
+export const PLAN_START = new Date('2026-06-01T00:00:00Z')
+const POST_DAYS = [1, 3, 5] // Mon=1, Wed=3, Fri=5 (0=Sun)
 
+export interface ScheduledPost {
+  date: Date          // UTC midnight
+  post: PlanPost
+  week: PlanWeek
+}
+
+// Build the flat list of scheduled post dates starting from PLAN_START.
+// June 1 2026 is a Monday → posts go Mon (+0), Wed (+2), Fri (+4) each week.
+function buildSchedule(): ScheduledPost[] {
+  const schedule: ScheduledPost[] = []
+  const cursor = new Date(PLAN_START) // always Monday of current week
+
+  for (let w = 0; w < 16; w++) { // 2 full 8-week cycles
+    const planWeek = PLAN[w % 8]
+    for (let p = 0; p < 3; p++) {
+      const d = new Date(cursor)
+      d.setUTCDate(d.getUTCDate() + [0, 2, 4][p]) // Mon / Wed / Fri
+      schedule.push({ date: d, post: planWeek.posts[p], week: planWeek })
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 7)
+  }
+  return schedule
+}
+
+let _cache: ScheduledPost[] | null = null
+export function getSchedule(): ScheduledPost[] {
+  if (!_cache) _cache = buildSchedule()
+  return _cache
+}
+
+// Returns which week (1-8) is current, cycling every 8 weeks.
 export function getCurrentPlanWeek(now = new Date()): PlanWeek {
   const daysSinceStart = Math.max(
     0,

@@ -108,6 +108,11 @@ const IconCalendar = () => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5m-9-6h.008v.008H12V9.75zm0 3h.008v.008H12v-.008zm0 3h.008v.008H12v-.008zm-3-6h.008v.008H9V9.75zm0 3h.008v.008H9v-.008zm0 3h.008v.008H9v-.008zm6-6h.008v.008H15V9.75zm0 3h.008v.008H15v-.008zm0 3h.008v.008H15v-.008z" />
   </svg>
 )
+const IconClock = () => (
+  <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+)
 
 // ── Export ────────────────────────────────────────────────────────────────────
 
@@ -174,6 +179,16 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       tagColor: '#0F766E',
       iconBg: 'linear-gradient(135deg,#14b8a6,#0f766e)',
       icon: <IconCalendar />,
+      adminOnly: false,
+    },
+    {
+      title: 'Scheduler',
+      desc: 'Calendar · channels · Buffer · TikTok soon',
+      href: `/scheduler?${q}`,
+      tag: 'Schedule',
+      tagColor: '#6366f1',
+      iconBg: 'linear-gradient(135deg,#6366f1,#4f46e5)',
+      icon: <IconClock />,
       adminOnly: false,
     },
   ]
