@@ -17,6 +17,7 @@ import {
 } from './GenerateProgress'
 import type { PlanWeek } from '@/lib/content-plan'
 import { PILLAR_COLOR } from '@/lib/content-plan'
+import { ScheduleModal, type ScheduledPostRow } from '@/app/components/ScheduleModal'
 
 interface Props {
   clinicId: string
@@ -159,6 +160,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   const [photoPickerForIndex, setPhotoPickerForIndex] = useState<number | null>(
     null
   )
+  const [scheduleOpen, setScheduleOpen] = useState(false)
 
   useEffect(() => {
     if (!selectedId) {
@@ -652,6 +654,14 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       {saving ? 'Saving…' : 'Save & re-render'}
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setScheduleOpen(true)}
+                    className="cm-btn text-sm font-semibold"
+                    style={{ background: '#0EA5E9', color: 'white', border: 'none' }}
+                  >
+                    Schedule
+                  </button>
                   <a
                     href={`/api/visual/download?slideSetId=${detail.slide_set_id}`}
                     className="cm-btn cm-btn-ghost text-sm"
@@ -731,6 +741,21 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
           }
           onClose={() => setPhotoPickerForIndex(null)}
           onPicked={reloadDetail}
+        />
+      )}
+
+      {detail && (
+        <ScheduleModal
+          open={scheduleOpen}
+          onClose={() => setScheduleOpen(false)}
+          clinicId={clinicId}
+          slideSetId={detail.slide_set_id}
+          initialCaption={detail.hook ? `${detail.topic ?? ''}\n\n${detail.hook}` : (detail.topic ?? '')}
+          initialMediaUrl={detail.render_result?.outputs?.[0]?.url ?? ''}
+          onSaved={(_post: ScheduledPostRow) => {
+            // Close after short delay so user can see result
+            setTimeout(() => setScheduleOpen(false), 1800)
+          }}
         />
       )}
     </div>
