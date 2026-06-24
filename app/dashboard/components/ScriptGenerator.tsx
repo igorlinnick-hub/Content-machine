@@ -265,10 +265,7 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
             style={{ background: `${weekColor}08`, borderColor: `${weekColor}25` }}
           >
             <div className="flex items-center gap-2">
-              <span
-                className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-                style={{ background: `${weekColor}20`, color: weekColor, border: `1px solid ${weekColor}30` }}
-              >
+              <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
                 Week {currentWeek.week}
               </span>
               <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>

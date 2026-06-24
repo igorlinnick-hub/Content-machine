@@ -406,10 +406,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                 style={{ background: `${color}08`, borderColor: `${color}25` }}
               >
                 <div className="flex items-center gap-2">
-                  <span
-                    className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]"
-                    style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}
-                  >
+                  <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
                     Week {currentWeek.week}
                   </span>
                   <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
