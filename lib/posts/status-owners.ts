@@ -26,7 +26,7 @@ const STATUS_META: Record<SlideSetStatus, StatusMeta> = {
   review: {
     owner: 'human-medical',
     label: 'Needs medical review',
-    hint: 'Compliance flagged this for a human read. The medical reviewer decides whether to keep, edit, or block.',
+    hint: 'Compliance flagged items that need a human call. Read the findings below, then either proceed to Canva or regenerate.',
     chipClass: 'border-amber-200 bg-amber-50 text-amber-800',
   },
   blocked: {

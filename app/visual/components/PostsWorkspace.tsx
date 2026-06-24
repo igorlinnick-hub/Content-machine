@@ -24,6 +24,19 @@ interface Props {
   currentWeek?: PlanWeek
 }
 
+interface ComplianceFinding {
+  rule_id: string
+  verdict: string
+  offending_text?: string | null
+  suggestion?: string | null
+}
+
+interface ComplianceData {
+  grade: 'PASS' | 'REVIEW' | 'REWORD' | 'REMOVE'
+  findings: ComplianceFinding[]
+  ruleset_version?: string
+}
+
 interface PostDetail {
   slide_set_id: string
   topic: string | null
@@ -34,6 +47,7 @@ interface PostDetail {
   created_at: string
   status: SlideSetStatus
   render_result: RenderResult | null
+  compliance: ComplianceData | null
   // Effective Drive folder used by the renderer for body/cta photos.
   // Null when neither slide_set nor category has one — PhotoPicker
   // disables the re-index button in that case.
@@ -296,6 +310,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
           created_at: newItem.created_at,
           status: 'review',
           render_result: null,
+          compliance: null,
           drive_folder_id: null,
           photo_overrides: {},
         })
@@ -558,6 +573,30 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   <p className="mt-1 text-xs text-neutral-500">
                     {statusMeta(detail.status).hint}
                   </p>
+                  {/* Compliance findings — shown only when status is review */}
+                  {detail.status === 'review' && detail.compliance?.findings && detail.compliance.findings.length > 0 && (
+                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-amber-700">
+                        Compliance findings ({detail.compliance.findings.length})
+                      </p>
+                      <ul className="space-y-2">
+                        {detail.compliance.findings.map((f, i) => (
+                          <li key={i} className="text-xs text-amber-800">
+                            <span className="font-semibold">{f.rule_id}</span>
+                            {' — '}{f.verdict}
+                            {f.offending_text && (
+                              <span className="mt-0.5 block rounded bg-amber-100 px-2 py-1 font-mono text-[10px] text-amber-700">
+                                &ldquo;{f.offending_text}&rdquo;
+                              </span>
+                            )}
+                            {f.suggestion && (
+                              <span className="mt-0.5 block text-[11px] text-amber-600 italic">{f.suggestion}</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <ComposeInCanvaButton

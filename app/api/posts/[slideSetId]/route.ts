@@ -51,11 +51,13 @@ export async function GET(
 
     const { data: rrRow } = await supabase
       .from('slide_sets')
-      .select('render_result')
+      .select('render_result, compliance')
       .eq('id', slideSet.id)
       .maybeSingle()
     const render_result = (rrRow as { render_result?: Json | null } | null)
       ?.render_result ?? null
+    const compliance = (rrRow as { compliance?: Json | null } | null)
+      ?.compliance ?? null
 
     return NextResponse.json({
       slide_set_id: slideSet.id,
@@ -71,6 +73,7 @@ export async function GET(
       created_at: slideSet.created_at,
       status: slideSet.status,
       render_result,
+      compliance,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown error'
