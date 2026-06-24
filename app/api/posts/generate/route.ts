@@ -11,6 +11,7 @@ import {
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { runCaptioner } from '@/lib/agents/captioner'
+import { runComplianceRewriter } from '@/lib/agents/compliance-rewriter'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { splitScriptToPostPlan } from '@/lib/posts/splitter'
 import { createSlideSet } from '@/lib/visual/store'
@@ -128,7 +129,7 @@ async function generateOne(params: {
     const sb = scoreById.get(b.id)?.total_score ?? 0
     return sb - sa
   })
-  const winner = ranked[0]
+  let winner = ranked[0]
   if (!winner) {
     throw new Error(`writer returned no variants for length=${params.length}`)
   }
@@ -226,6 +227,30 @@ async function generateOne(params: {
       })
     } catch {
       compliance = null
+    }
+  }
+  // Auto-fix REVIEW/REWORD: run rewriter once, then recheck.
+  // Only if the recheck still returns REVIEW/REWORD/REMOVE does the
+  // human-review or blocked status apply. Same logic as agents/generate.
+  if (compliance && compliance.grade !== 'PASS' && compliance.findings.length > 0) {
+    try {
+      stage('compliance:rewriting')
+      const fixedScript = await runComplianceRewriter({
+        script: winner.script,
+        findings: compliance.findings,
+      }).catch(() => null)
+
+      if (fixedScript && fixedScript !== winner.script) {
+        winner = { ...winner, script: fixedScript }
+        const recheck = await runComplianceGate({
+          script: fixedScript,
+          category: matchedCategory?.name ?? null,
+          topic: winner.topic,
+        }).catch(() => compliance!)
+        compliance = recheck
+      }
+    } catch {
+      // swallow — keep original compliance result
     }
   }
   stage('compliance:done')
