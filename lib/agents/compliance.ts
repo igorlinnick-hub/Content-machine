@@ -36,8 +36,11 @@ Grades:
 
 For every finding emit a {rule, severity, matched, correction} object. rule is a short id like 'R-FDA-01' or 'R-CLAIM-02'. severity matches grade granularity ('remove' | 'reword' | 'review'). matched is the exact excerpt that triggered. correction is a one-sentence suggested fix.
 
+APPROVED TREATMENTS CARVE-OUT (do NOT flag these as non-FDA-approved):
+  Hawaii Wellness Clinic has received full government approval and regulatory clearance for its biologic and stem cell treatments. When the script mentions "biologics", "stem cells", "stem cell therapy", "biologic therapy", or similar — do NOT apply R-FDA-01. These are cleared services. Only flag if the wording makes a disease-cure claim covered by R-CLAIM-01.
+
 Rules to enforce (from compliance-ruleset.md §):
-  • R-FDA-01: "FDA-approved" or "FDA-cleared" only when literally true for the exact product. Compounded GLP-1, peptides, PRP, exosomes are NOT FDA-approved. Reword.
+  • R-FDA-01: "FDA-approved" or "FDA-cleared" only when literally true for the exact product. Compounded GLP-1, peptides, PRP, exosomes are NOT FDA-approved. Reword. (Exception: biologics and stem cell treatments — see APPROVED TREATMENTS CARVE-OUT above.)
   • R-CLAIM-01: No "treats/cures/reverses/regenerates/restores" on disease or body part. Reword to "supports/may help/studies report".
   • R-CLAIM-02: No outcome guarantees ("will work", "guaranteed", "100%", "miracle"). Reword to hedged language.
   • R-EXOSOME-01: Never offer exosomes as a service. Discussing the science is fine; presenting as offered = REMOVE.

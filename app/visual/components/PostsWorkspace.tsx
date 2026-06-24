@@ -25,10 +25,10 @@ interface Props {
 }
 
 interface ComplianceFinding {
-  rule_id: string
-  verdict: string
-  offending_text?: string | null
-  suggestion?: string | null
+  rule: string
+  severity: string
+  matched?: string | null
+  correction?: string | null
 }
 
 interface ComplianceData {
@@ -574,23 +574,23 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                     {statusMeta(detail.status).hint}
                   </p>
                   {/* Compliance findings — shown only when status is review */}
-                  {detail.status === 'review' && detail.compliance?.findings && detail.compliance.findings.length > 0 && (
+                  {detail.status === 'review' && detail.compliance?.findings && detail.compliance.findings.filter(f => f.rule || f.matched).length > 0 && (
                     <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-amber-700">
                         Compliance findings ({detail.compliance.findings.length})
                       </p>
                       <ul className="space-y-2">
-                        {detail.compliance.findings.map((f, i) => (
+                        {detail.compliance.findings.filter(f => f.rule || f.matched).map((f, i) => (
                           <li key={i} className="text-xs text-amber-800">
-                            <span className="font-semibold">{f.rule_id}</span>
-                            {' — '}{f.verdict}
-                            {f.offending_text && (
+                            <span className="font-semibold">{f.rule}</span>
+                            {f.severity && <span className="ml-1 text-amber-600">({f.severity})</span>}
+                            {f.matched && (
                               <span className="mt-0.5 block rounded bg-amber-100 px-2 py-1 font-mono text-[10px] text-amber-700">
-                                &ldquo;{f.offending_text}&rdquo;
+                                &ldquo;{f.matched}&rdquo;
                               </span>
                             )}
-                            {f.suggestion && (
-                              <span className="mt-0.5 block text-[11px] text-amber-600 italic">{f.suggestion}</span>
+                            {f.correction && (
+                              <span className="mt-0.5 block text-[11px] text-amber-600 italic">→ {f.correction}</span>
                             )}
                           </li>
                         ))}
