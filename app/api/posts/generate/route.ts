@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { resolveAccess } from '@/lib/auth/session'
@@ -500,6 +501,11 @@ export async function POST(req: Request) {
         // client disconnected — pipeline continues to completion
       }
     }
+
+    let resolveWork!: () => void
+    // waitUntil keeps the Vercel function alive even if the client disconnects
+    waitUntil(new Promise<void>((res) => { resolveWork = res }))
+
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
@@ -530,7 +536,8 @@ export async function POST(req: Request) {
             error: supabaseDetails ? `${msg} [${supabaseDetails}]` : msg,
           })
         } finally {
-          controller.close()
+          try { controller.close() } catch { /* already closed */ }
+          resolveWork()
         }
       },
     })

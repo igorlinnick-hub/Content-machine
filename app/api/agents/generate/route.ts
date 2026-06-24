@@ -1,3 +1,4 @@
+import { waitUntil } from '@vercel/functions'
 import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
@@ -33,6 +34,10 @@ export async function POST(req: Request) {
   const topicHint = body.topicHint?.trim() || undefined
   const encoder = new TextEncoder()
 
+  let resolveWork!: () => void
+  // waitUntil keeps the Vercel function alive even after the client disconnects
+  waitUntil(new Promise<void>((res) => { resolveWork = res }))
+
   const stream = new ReadableStream({
     async start(controller) {
       const startMs = Date.now()
@@ -42,7 +47,7 @@ export async function POST(req: Request) {
           const chunk = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
           controller.enqueue(encoder.encode(chunk))
         } catch {
-          // client disconnected — swallow so the pipeline continues to saveScripts
+          // client disconnected — pipeline continues to saveScripts
         }
       }
 
@@ -60,9 +65,6 @@ export async function POST(req: Request) {
         let scores = await runCritic({ context, variants })
         stage('critic:done')
 
-        // Retry only if the best variant is genuinely weak (< 6.0).
-        // Old logic triggered on any !approved — wasted 30-40s even for 7.5-score
-        // scripts that missed one criterion. Compliance layer catches real issues.
         const bestScore = Math.max(...scores.scores.map((s) => s.total_score))
         const needsRewrite = bestScore < 6.0
         if (needsRewrite) {
@@ -74,7 +76,6 @@ export async function POST(req: Request) {
           stage('critic:done')
         }
 
-        // compliance gate — runs on all variants in parallel
         stage('captioner:done')
         const complianceResults = await Promise.all(
           variants.variants.map((v) =>
@@ -90,8 +91,6 @@ export async function POST(req: Request) {
           )
         )
 
-        // Auto-fix REWORD variants (one retry), drop REMOVE entirely.
-        // Doctor only sees PASS/REVIEW scripts — clean by construction.
         const fixedPairs = await Promise.all(
           variants.variants.map(async (v, i): Promise<{ variant: ScriptVariant; compliance: ComplianceResult } | null> => {
             const cr = complianceResults[i]
@@ -139,7 +138,8 @@ export async function POST(req: Request) {
         const msg = e instanceof Error ? e.message : 'unknown error'
         emit('error', { error: msg })
       } finally {
-        controller.close()
+        try { controller.close() } catch { /* already closed */ }
+        resolveWork()
       }
     },
   })
