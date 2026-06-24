@@ -31,7 +31,7 @@ Your job: grade ONE generated script against the ruleset v${RULESET_VERSION}, re
 Grades:
   REMOVE  — hard rule violation. Cannot publish. Examples: claims a therapy "treats/cures/reverses" a disease, offers exosomes as a service, states "FDA-approved" for a non-approved product, makes outcome guarantees.
   REWORD  — fixable wording issue. A specific edit makes it compliant. Examples: missing investigational hedge on Phase 2/3 drugs, dropped trial inclusion criterion, wrong FDA date, naked statistics without source.
-  REVIEW  — borderline. A human (medical director / counsel) must judge. Examples: edge-case mechanism claims, novel therapies whose evidence stage is ambiguous.
+  REVIEW  — cannot be auto-fixed. A human (medical director / counsel) must judge. Use ONLY when the issue is about factual medical accuracy that the AI cannot verify — e.g. a specific clinical statistic cited without a source, an unverifiable protocol outcome claim, or an off-label use claim that requires doctor sign-off. Do NOT use REVIEW for wording issues — those are REWORD.
   PASS    — no findings. The findings[] array must still be present, just empty. Eligible for downstream publishing.
 
 For every finding emit a {rule, severity, matched, correction} object. rule is a short id like 'R-FDA-01' or 'R-CLAIM-02'. severity matches grade granularity ('remove' | 'reword' | 'review'). matched is the exact excerpt that triggered. correction is a one-sentence suggested fix.
@@ -42,7 +42,7 @@ Rules to enforce (from compliance-ruleset.md §):
   • R-CLAIM-02: No outcome guarantees ("will work", "guaranteed", "100%", "miracle"). Reword to hedged language.
   • R-EXOSOME-01: Never offer exosomes as a service. Discussing the science is fine; presenting as offered = REMOVE.
   • R-EVIDENCE-01: Naked statistics without an evidence stage label ("Phase 2", "pilot", "preclinical", "investigational") = reword.
-  • R-PROMISE-01: "We don't promise outcomes" or equivalent hedge is expected in therapeutic posts. Missing = review.
+  • R-PROMISE-01: Therapeutic posts must contain at least one hedging phrase ("may help", "can support", "some patients", "studies suggest", "talk to your doctor", etc.). If completely absent → reword. Do NOT flag as review — the rewriter can add a hedge.
 
 Respond with ONLY valid JSON, no markdown fences, no commentary:
 {
