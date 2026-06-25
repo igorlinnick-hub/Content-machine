@@ -50,7 +50,13 @@ export async function POST(req: Request) {
 
   // Pass the client's Origin so Drive includes CORS headers on the upload URL.
   // Without it, the browser's XHR PUT to Drive is blocked by CORS.
-  const clientOrigin = req.headers.get('origin') ?? req.headers.get('referer')?.replace(/\/$/, '') ?? ''
+  // NOTE: same-origin fetch() doesn't include an Origin header — extract origin
+  // from Referer (full URL) so Drive gets just scheme+host, not the full path.
+  const rawReferer = req.headers.get('referer') ?? ''
+  const originFromReferer = rawReferer
+    ? (() => { try { return new URL(rawReferer).origin } catch { return '' } })()
+    : ''
+  const clientOrigin = req.headers.get('origin') ?? originFromReferer
 
   try {
     const { uploadUrl } = await createUploadSession(clinic.name, filename, body.mimeType, clientOrigin)
