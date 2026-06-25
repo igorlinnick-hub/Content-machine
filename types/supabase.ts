@@ -576,6 +576,7 @@ export type Database = {
           compliance: Json | null
           plan_id: string | null
           render_result: Json | null
+          canva_style: number | null
         }
         Insert: {
           clinic_id?: string | null
@@ -591,6 +592,7 @@ export type Database = {
           compliance?: Json | null
           plan_id?: string | null
           render_result?: Json | null
+          canva_style?: number | null
         }
         Update: {
           clinic_id?: string | null
@@ -606,6 +608,7 @@ export type Database = {
           compliance?: Json | null
           plan_id?: string | null
           render_result?: Json | null
+          canva_style?: number | null
         }
         Relationships: [
           {

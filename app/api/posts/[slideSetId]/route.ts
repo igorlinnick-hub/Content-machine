@@ -51,13 +51,15 @@ export async function GET(
 
     const { data: rrRow } = await supabase
       .from('slide_sets')
-      .select('render_result, compliance')
+      .select('render_result, compliance, canva_style')
       .eq('id', slideSet.id)
       .maybeSingle()
     const render_result = (rrRow as { render_result?: Json | null } | null)
       ?.render_result ?? null
     const compliance = (rrRow as { compliance?: Json | null } | null)
       ?.compliance ?? null
+    const canva_style = (rrRow as { canva_style?: number | null } | null)
+      ?.canva_style ?? 1
 
     return NextResponse.json({
       slide_set_id: slideSet.id,
@@ -74,11 +76,39 @@ export async function GET(
       status: slideSet.status,
       render_result,
       compliance,
+      canva_style,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown error'
     return NextResponse.json({ error: msg }, { status: 500 })
   }
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: { slideSetId: string } }
+) {
+  const access = await resolveAccess()
+  if (!access || access.role !== 'admin') {
+    return NextResponse.json({ error: 'admin access required' }, { status: 403 })
+  }
+  let body: { canva_style?: unknown }
+  try {
+    body = (await req.json()) as { canva_style?: unknown }
+  } catch {
+    return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
+  }
+  const canva_style = Number(body.canva_style)
+  if (canva_style !== 1 && canva_style !== 2) {
+    return NextResponse.json({ error: 'canva_style must be 1 or 2' }, { status: 400 })
+  }
+  const supabase = createServerClient()
+  const { error } = await supabase
+    .from('slide_sets')
+    .update({ canva_style })
+    .eq('id', params.slideSetId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true, canva_style })
 }
 
 interface PutBody {

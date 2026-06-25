@@ -62,9 +62,10 @@ interface PlanRow {
 
 export async function composeInCanva(params: {
   slideSetId: string
+  canvaStyle?: 1 | 2
   onStage?: ComposeStageEmitter
 }): Promise<RenderResult> {
-  const { slideSetId, onStage } = params
+  const { slideSetId, canvaStyle = 1, onStage } = params
   const stage = (n: string, meta?: Record<string, unknown>) => {
     onStage?.(n, meta)
     console.log(`[compose] ${n}`)
@@ -154,7 +155,14 @@ export async function composeInCanva(params: {
 
   // ── Stage C: autofill brand template ────────────────────────────
   stage('autofill:start')
-  const brandTemplateId = process.env.CANVA_BRAND_TEMPLATE_ID!.trim()
+  const envKey = canvaStyle === 2 ? 'CANVA_BRAND_TEMPLATE_ID_2' : 'CANVA_BRAND_TEMPLATE_ID'
+  const brandTemplateId = (process.env[envKey] ?? '').trim()
+  if (!brandTemplateId) {
+    throw new ComposeError(
+      `${envKey} is not set`,
+      `Add ${envKey} to Vercel env vars and redeploy.`
+    )
+  }
   const data = buildAutofillData({
     cover: plan.cover,
     slides: plan.slides,

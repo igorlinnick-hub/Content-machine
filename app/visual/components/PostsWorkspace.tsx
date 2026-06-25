@@ -49,6 +49,7 @@ interface PostDetail {
   status: SlideSetStatus
   render_result: RenderResult | null
   compliance: ComplianceData | null
+  canva_style: 1 | 2
   // Effective Drive folder used by the renderer for body/cta photos.
   // Null when neither slide_set nor category has one — PhotoPicker
   // disables the re-index button in that case.
@@ -313,6 +314,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
           status: 'review',
           render_result: null,
           compliance: null,
+          canva_style: 1,
           drive_folder_id: null,
           photo_overrides: {},
         })
@@ -369,6 +371,16 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to refresh')
     }
+  }
+
+  async function handleStyleChange(s: 1 | 2) {
+    if (!detail || detail.canva_style === s) return
+    setDetail((d) => (d ? { ...d, canva_style: s } : d))
+    await fetch(`/api/posts/${detail.slide_set_id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ canva_style: s }),
+    }).catch(() => null)
   }
 
   async function remove() {
@@ -601,6 +613,23 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2">
+                  {/* Canva design style picker — only show when user can compose */}
+                  <div className="flex items-center rounded-xl border border-slate-200 bg-white/60 p-0.5">
+                    {([1, 2] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => handleStyleChange(s)}
+                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
+                          (detail.canva_style ?? 1) === s
+                            ? 'bg-violet-600 text-white shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Style {s}
+                      </button>
+                    ))}
+                  </div>
                   <ComposeInCanvaButton
                     status={detail.status}
                     renderResult={detail.render_result}

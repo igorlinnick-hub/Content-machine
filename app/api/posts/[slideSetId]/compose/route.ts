@@ -46,7 +46,7 @@ export async function POST(
 
   const { data: row, error: loadErr } = await supabase
     .from('slide_sets')
-    .select('id, clinic_id, status, scripts ( topic )')
+    .select('id, clinic_id, status, canva_style, scripts ( topic )')
     .eq('id', params.slideSetId)
     .maybeSingle()
   if (loadErr || !row) {
@@ -132,7 +132,9 @@ export async function POST(
   }
 
   try {
-    const result = await composeInCanva({ slideSetId: params.slideSetId })
+    const rawStyle = (row as { canva_style?: number | null }).canva_style ?? 1
+    const canvaStyle = rawStyle === 2 ? 2 : 1
+    const result = await composeInCanva({ slideSetId: params.slideSetId, canvaStyle })
     return NextResponse.json({
       ok: true,
       mode: 'inline',
