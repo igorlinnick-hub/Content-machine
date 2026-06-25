@@ -383,7 +383,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     }
   }, [phase, recordedBlob])
 
-  // ── Upload to Drive (resumable — bypasses Vercel, no size limit) ────────────
+  // ── Upload to Drive via server-side proxy (same-origin XHR — no CORS) ────────
   async function saveRecording() {
     if (!recordedBlob) return
     setPhase('saving')
@@ -391,80 +391,49 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     setUploadError(null)
 
     const title = saveTitle.trim() || 'Untitled'
+    const ext = recordedBlob.type.includes('mp4') ? 'mp4' : 'webm'
 
     try {
-      // Step 1: get a resumable session URL from our server
-      const presignRes = await fetch(`/api/studio/upload-recording/presign?clinicId=${clinicId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          mimeType: recordedBlob.type || 'video/webm',
-          scriptId: selectedScriptId,
-          duration: elapsedSec,
-        }),
-      })
-      if (!presignRes.ok) {
-        const err = await presignRes.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error ?? `Presign failed (${presignRes.status})`)
-      }
-      const { uploadUrl } = (await presignRes.json()) as { uploadUrl: string }
+      const fd = new FormData()
+      fd.append('video', recordedBlob, `recording.${ext}`)
+      fd.append('title', title)
+      if (selectedScriptId) fd.append('scriptId', selectedScriptId)
+      fd.append('duration', elapsedSec.toString())
 
-      // Step 2: upload blob directly to Google Drive (XHR for progress events)
-      const driveFile = await new Promise<{ id: string; webViewLink?: string }>(
+      const result = await new Promise<{ recording: { id: string }; driveUrl: string }>(
         (resolve, reject) => {
           const xhr = new XMLHttpRequest()
-          xhr.open('PUT', uploadUrl)
-          xhr.setRequestHeader('Content-Type', recordedBlob.type || 'video/webm')
+          xhr.open('POST', `/api/studio/upload-recording?clinicId=${clinicId}`)
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) setUploadProgress(e.loaded / e.total)
           }
           xhr.onload = () => {
             if (xhr.status >= 200 && xhr.status < 300) {
               try {
-                resolve(JSON.parse(xhr.responseText) as { id: string; webViewLink?: string })
+                resolve(JSON.parse(xhr.responseText) as { recording: { id: string }; driveUrl: string })
               } catch {
-                reject(new Error('Drive returned invalid response'))
+                reject(new Error('Server returned invalid response'))
               }
+            } else if (xhr.status === 413) {
+              reject(new Error('Recording is too large. Keep recordings under 3 minutes.'))
             } else {
-              reject(new Error(`Drive upload failed (${xhr.status})`))
+              const body = xhr.responseText ? JSON.parse(xhr.responseText) : {}
+              reject(new Error((body as { error?: string }).error ?? `Upload failed (${xhr.status})`))
             }
           }
           xhr.onerror = () => reject(new Error('Network error during upload'))
           xhr.onabort = () => reject(new Error('Upload cancelled'))
-          xhr.send(recordedBlob)
+          xhr.send(fd)
         }
       )
 
-      const savedDriveUrl =
-        driveFile.webViewLink ??
-        `https://drive.google.com/file/d/${driveFile.id}/view`
-
-      // Step 3: save metadata to Supabase
-      const confirmRes = await fetch(`/api/studio/recordings/confirm?clinicId=${clinicId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileId: driveFile.id,
-          driveUrl: savedDriveUrl,
-          title,
-          scriptId: selectedScriptId,
-          duration: elapsedSec,
-          sizeBytes: recordedBlob.size,
-        }),
-      })
-      if (!confirmRes.ok) {
-        const err = await confirmRes.json().catch(() => ({}))
-        console.error('Metadata save failed:', (err as { error?: string }).error)
-      }
-
-      // Clear the IndexedDB draft — recording is now safely in Drive
+      // Clear the IndexedDB draft — recording is safely in Drive
       if (draftIdRef.current) {
         clearDraft(draftIdRef.current).catch(console.error)
         draftIdRef.current = null
       }
 
-      setDriveUrl(savedDriveUrl)
+      setDriveUrl(result.driveUrl)
       setPhase('saved')
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
