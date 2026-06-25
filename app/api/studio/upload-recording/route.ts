@@ -43,12 +43,17 @@ export async function POST(req: Request) {
 
   const buffer = Buffer.from(await file.arrayBuffer())
 
-  const { fileId, webViewLink } = await uploadRecording(
-    clinic.name,
-    filename,
-    buffer,
-    file.type || 'video/webm'
-  )
+  let fileId: string
+  let webViewLink: string
+  try {
+    const result = await uploadRecording(clinic.name, filename, buffer, file.type || 'video/webm')
+    fileId = result.fileId
+    webViewLink = result.webViewLink
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    console.error('[upload-recording] Drive error:', msg)
+    return NextResponse.json({ error: `Drive upload failed: ${msg}` }, { status: 500 })
+  }
 
   const { data: recording, error: dbErr } = await supabase
     .from('clinic_recordings')
