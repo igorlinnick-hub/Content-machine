@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { runAnalyst } from '@/lib/agents/analyst'
 import { llmAgentsEnabled } from '@/lib/agents/disabled'
 import { saveDoctorNote, markNoteProcessed } from '@/lib/supabase/context'
+import { resolveAccess } from '@/lib/auth/session'
 import type { NoteSource } from '@/types'
 
 export const runtime = 'nodejs'
@@ -14,6 +15,9 @@ interface NotesPostBody {
 }
 
 export async function POST(req: Request) {
+  const access = await resolveAccess()
+  if (!access) return NextResponse.json({ error: 'authentication required' }, { status: 401 })
+
   let body: NotesPostBody
   try {
     body = (await req.json()) as NotesPostBody
@@ -28,6 +32,9 @@ export async function POST(req: Request) {
       { error: 'clinicId and rawText are required' },
       { status: 400 }
     )
+  }
+  if (access.role !== 'admin' && ('clinicId' in access) && access.clinicId !== clinicId) {
+    return NextResponse.json({ error: 'access denied' }, { status: 403 })
   }
 
   try {

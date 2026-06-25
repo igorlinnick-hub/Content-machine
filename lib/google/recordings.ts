@@ -1,4 +1,4 @@
-import { getDriveClient, getServiceAccountToken } from './drive'
+import { getDriveClient, getUserDriveClient, getServiceAccountToken } from './drive'
 import { Readable } from 'node:stream'
 
 export interface UploadRecordingResult {
@@ -42,7 +42,8 @@ export async function uploadRecording(
   buffer: Buffer,
   mimeType: string
 ): Promise<UploadRecordingResult> {
-  const drive = getDriveClient()
+  // Prefer user OAuth client (personal Gmail). Falls back to SA (Shared Drive / DWD setups).
+  const drive = getUserDriveClient() ?? getDriveClient()
 
   // Structure: DRIVE_RECORDINGS_ROOT_FOLDER_ID → {clinicName} → file
   // This MUST be a folder in a personal Google Drive shared with the SA (Editor).

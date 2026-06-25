@@ -29,13 +29,11 @@ function checkAuth(req: Request): boolean {
     const auth = req.headers.get('authorization') ?? ''
     if (auth === `Bearer ${cronSecret}`) return true
   }
-  const internal = process.env.TELEGRAM_WEBHOOK_SECRET
+  const internal = process.env.CONTENT_MACHINE_SECRET
   if (internal && req.headers.get('x-internal-dispatch-secret') === internal) {
     return true
   }
-  // No secrets configured at all — allow (so local dev runs). In
-  // prod CRON_SECRET should always be set.
-  return !cronSecret && !internal
+  return false
 }
 
 export async function GET(req: Request) {

@@ -5,6 +5,7 @@ import { runCritic } from '@/lib/agents/critic'
 import { runComplianceGate } from '@/lib/posts/pipeline'
 import { runComplianceRewriter } from '@/lib/agents/compliance-rewriter'
 import { disabledHttpResponse, LLM_AGENTS_DISABLED_PAYLOAD, LLM_AGENTS_DISABLED_STATUS } from '@/lib/agents/disabled'
+import { resolveAccess } from '@/lib/auth/session'
 import type { CriticOutput, ComplianceResult, ScriptVariant } from '@/types'
 
 export const runtime = 'nodejs'
@@ -16,6 +17,9 @@ interface GeneratePostBody {
 }
 
 export async function POST(req: Request) {
+  const access = await resolveAccess()
+  if (!access) return Response.json({ error: 'authentication required' }, { status: 401 })
+
   const off = await disabledHttpResponse()
   if (off) return off
 
@@ -29,6 +33,9 @@ export async function POST(req: Request) {
   const clinicId = body.clinicId?.trim()
   if (!clinicId) {
     return Response.json({ error: 'clinicId is required' }, { status: 400 })
+  }
+  if (access.role !== 'admin' && ('clinicId' in access) && access.clinicId !== clinicId) {
+    return Response.json({ error: 'access denied' }, { status: 403 })
   }
 
   const topicHint = body.topicHint?.trim() || undefined

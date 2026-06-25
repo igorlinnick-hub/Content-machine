@@ -15,11 +15,11 @@ export const dynamic = 'force-dynamic'
 // { action: 'fail', queue_id, error } so the queue row reflects it.
 //
 // Auth: same shared secret as webhook→dispatch, so a single env var
-// (TELEGRAM_WEBHOOK_SECRET) authenticates Igor's machine into the API.
+// (CONTENT_MACHINE_SECRET) authenticates Igor's machine into the API.
 
 function checkSecret(req: Request): boolean {
-  const expected = process.env.TELEGRAM_WEBHOOK_SECRET
-  if (!expected) return true
+  const expected = process.env.CONTENT_MACHINE_SECRET
+  if (!expected) return false
   return req.headers.get('x-internal-dispatch-secret') === expected
 }
 

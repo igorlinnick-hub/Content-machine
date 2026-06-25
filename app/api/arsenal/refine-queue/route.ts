@@ -11,12 +11,12 @@ export const dynamic = 'force-dynamic'
 // /api/arsenal/[id]/apply-refinement.
 //
 // Secret-gated to match the existing /api/arsenal/queue pattern so a
-// single env var (TELEGRAM_WEBHOOK_SECRET) authenticates Igor's
+// single env var (CONTENT_MACHINE_SECRET) authenticates Igor's
 // machine into all arsenal-skill endpoints.
 
 function checkSecret(req: Request): boolean {
-  const expected = process.env.TELEGRAM_WEBHOOK_SECRET
-  if (!expected) return true
+  const expected = process.env.CONTENT_MACHINE_SECRET
+  if (!expected) return false
   return req.headers.get('x-internal-dispatch-secret') === expected
 }
 

@@ -17,8 +17,8 @@ export const maxDuration = 30
 // with the extracted summary so they can confirm or drop.
 
 function checkSecret(req: Request): boolean {
-  const expected = process.env.TELEGRAM_WEBHOOK_SECRET
-  if (!expected) return true
+  const expected = process.env.CONTENT_MACHINE_SECRET
+  if (!expected) return false
   return req.headers.get('x-internal-dispatch-secret') === expected
 }
 

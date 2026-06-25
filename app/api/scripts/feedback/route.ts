@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { saveScriptFeedback } from '@/lib/supabase/context'
+import { resolveAccess } from '@/lib/auth/session'
 import type { FeedbackAction } from '@/types'
 
 export const runtime = 'nodejs'
@@ -15,6 +16,9 @@ interface FeedbackPostBody {
 }
 
 export async function POST(req: Request) {
+  const access = await resolveAccess()
+  if (!access) return NextResponse.json({ error: 'authentication required' }, { status: 401 })
+
   let body: FeedbackPostBody
   try {
     body = (await req.json()) as FeedbackPostBody
@@ -27,6 +31,9 @@ export async function POST(req: Request) {
       { error: 'clinicId and scriptId required' },
       { status: 400 }
     )
+  }
+  if (access.role !== 'admin' && ('clinicId' in access) && access.clinicId !== body.clinicId) {
+    return NextResponse.json({ error: 'access denied' }, { status: 403 })
   }
 
   if (body.action !== 'selected' && body.action !== 'rejected') {

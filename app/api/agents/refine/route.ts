@@ -7,6 +7,7 @@ import {
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
+import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
 
 export const runtime = 'nodejs'
@@ -19,6 +20,9 @@ interface RefinePostBody {
 }
 
 export async function POST(req: Request) {
+  const access = await resolveAccess()
+  if (!access) return NextResponse.json({ error: 'authentication required' }, { status: 401 })
+
   const off = await disabledHttpResponse()
   if (off) return off
   let body: RefinePostBody
@@ -35,6 +39,9 @@ export async function POST(req: Request) {
       { error: 'clinicId and scriptId are required' },
       { status: 400 }
     )
+  }
+  if (access.role !== 'admin' && ('clinicId' in access) && access.clinicId !== clinicId) {
+    return NextResponse.json({ error: 'access denied' }, { status: 403 })
   }
 
   try {

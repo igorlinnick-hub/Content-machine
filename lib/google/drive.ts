@@ -2,12 +2,22 @@ import { google } from 'googleapis'
 import type { drive_v3 } from 'googleapis'
 import { Readable } from 'node:stream'
 
-// Full Drive scope so the SA can also write — needed for the /clips
-// pipeline (creating per-clip subfolders, uploading cleaned mp4 +
-// .srt + transcript, moving the original out of Inbox). Photos
-// pipeline only reads, but we lift the scope at the auth client
-// level so we don't need two clients.
 const SCOPES = ['https://www.googleapis.com/auth/drive']
+
+// Returns an OAuth2 Drive client using the user's personal refresh token.
+// Required for personal Gmail accounts — service accounts have zero storage
+// quota and can't create files in personal Drive. Set GOOGLE_DRIVE_USER_REFRESH_TOKEN
+// (one-time setup via scripts/get-drive-token.mjs) and add Client ID/Secret:
+//   GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET
+export function getUserDriveClient(): drive_v3.Drive | null {
+  const refreshToken = process.env.GOOGLE_DRIVE_USER_REFRESH_TOKEN
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  if (!refreshToken || !clientId || !clientSecret) return null
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret)
+  oauth2.setCredentials({ refresh_token: refreshToken })
+  return google.drive({ version: 'v3', auth: oauth2 })
+}
 
 export interface Photo {
   id: string
