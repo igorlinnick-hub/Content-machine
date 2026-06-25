@@ -1131,3 +1131,78 @@ If the incoming bot needs to ask:
 6. **988 line list of trigger categories** — exhaustive list? **Recommend:** `['depression', 'anxiety', 'suicide', 'suicidal', 'self-harm', 'ptsd', 'ocd', 'mood', 'mental-health', 'bipolar']`. Easy to extend.
 
 None of these are blockers — sane defaults exist for each. Just call out the choice in the commit message.
+
+---
+
+## 24. Compliance pipeline hardening — 2026-06-25
+
+### 24.1 Current state before this session
+
+All posts were getting REVIEW grade (5 posts) or NULL compliance (7 old posts). Root cause: compliance gate was using `callAgentJSON` which failed on unescaped quotes inside `correction` strings → GATE_ERROR → forced REVIEW.
+
+### 24.2 What we fixed this session (commits on main)
+
+| Commit | What |
+|--------|------|
+| `cf5be91` | PostsWorkspace: fix ComplianceFinding field names (rule/severity/matched/correction). Biologics/stem cells carve-out in compliance.ts |
+| `f230908` | compliance.ts: switch from `callAgentJSON` to `callAgentTool` — API enforces JSON schema, eliminates GATE_ERROR permanently |
+| `fee9bf7` | canva: Style 1/2 toggle (migration 033 `canva_style` column, CANVA_BRAND_TEMPLATE_ID_2 env var) |
+| `d3b1d9c` | 3-pass auto-rewrite loop + removed "Change photo" button |
+| `d3b1d9c+` | LLM Council ran on writer compliance fix question |
+
+### 24.3 Compliance pipeline — current architecture
+
+```
+Writer (Sonnet 4.6)
+  ↓
+Critic (Sonnet 4.6)  ← now has compliance_safe criterion (6th score)
+  ↓
+Compliance Gate (callAgentTool, ruleset v2.1)
+  ↓ grade?
+  PASS   → status = ready_for_canva
+  REVIEW → status = review (human call, no rewrite)
+  REWORD → loop up to 3 rewrites → re-gate → if PASS: ready_for_canva, else: blocked
+  REMOVE → CIRCUIT BREAKER — no rewrites, status = blocked immediately
+```
+
+### 24.4 Three changes made this session (council recommendations)
+
+**Change 1 — Writer COMPLIANCE WALL** (`lib/agents/writer.ts`)
+
+Added a `COMPLIANCE WALL` block ABOVE the existing COMPLIANCE BASELINE with exact forbidden phrase patterns and their replacements. Writer now sees these as instant disqualifiers BEFORE finishing a variant, not as rules discovered at gate time.
+
+Rollback: remove the COMPLIANCE WALL block from writer.ts (leave COMPLIANCE BASELINE intact).
+
+**Change 2 — Critic compliance_safe criterion** (`lib/agents/critic.ts`)
+
+Added 6th scoring criterion `compliance_safe` (1-10). Approved = false if compliance_safe < 8. Critic now catches REMOVE-grade content BEFORE it reaches the Compliance Gate, saving the gate API call entirely.
+
+Old criteria: tone_match, no_promises, hook_quality, length_ok, science_present (5 total)
+New criteria: + compliance_safe (6 total)
+`total_score` is now average of 6.
+
+Rollback: revert critic.ts to 5 criteria, remove compliance_safe from approved condition.
+
+**Change 3 — Circuit breaker on REMOVE** (`app/api/posts/generate/route.ts`)
+
+Old: loop ran for ANY non-PASS grade (REWORD, REVIEW, REMOVE) up to 3 times.
+New: loop runs ONLY for REWORD. REMOVE breaks immediately (can't fix by rewriting). REVIEW passes through untouched (human call).
+
+This saves ~3 LLM calls per REMOVE post and avoids semantic drift from futile rewrites.
+
+Rollback: change `compliance.grade === 'REWORD'` back to `compliance.grade !== 'PASS'`.
+
+### 24.5 What's still open
+
+- **Real REMOVE post analytics**: zero real REMOVE posts in DB yet (all were GATE_ERROR). Once 20+ real REMOVE posts accumulate, extract top 5 forbidden phrase patterns and add as explicit NEVER examples in writer.ts.
+- **Full cold regeneration on REMOVE**: council recommended re-running the full writer pipeline on REMOVE instead of blocking. Not implemented — would require refactoring generate/route.ts to loop the entire 5-agent pipeline. Defer until REMOVE rate data shows it's worth the cost.
+- **Supabase migration 033** (`canva_style` column): must be run manually in Supabase SQL Editor if not already applied.
+
+### 24.6 Env vars required
+
+| Var | Value | Purpose |
+|-----|-------|---------|
+| `CANVA_BRAND_TEMPLATE_ID` | (existing) | Style 1 Canva template |
+| `CANVA_BRAND_TEMPLATE_ID_2` | `DAHLnAHrEbA` | Style 2 Canva template |
+| `ENABLE_LLM_AGENTS` | `true` | Kill switch — agents only run when this is set |
+

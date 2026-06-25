@@ -229,24 +229,29 @@ async function generateOne(params: {
       compliance = null
     }
   }
-  // Auto-fix loop: up to 3 rewrite passes until PASS.
-  // Each pass feeds the latest findings back to the rewriter, then
-  // rechecks. Stops early if grade is already PASS or rewriter returns
-  // no change. After 3 attempts the post keeps whatever grade it has
-  // (REVIEW → needs medical call, REMOVE/REWORD → blocked).
+  // Auto-fix loop: up to 3 rewrite passes for REWORD only.
+  //
+  // Circuit breaker rules:
+  //   PASS   → nothing to do
+  //   REVIEW → human call needed, rewriter can't help — pass through
+  //   REMOVE → hard structural violation, rewriter cannot fix — break immediately
+  //   REWORD → fixable wording, loop up to 3 times
+  //
+  // On REMOVE the post status will be 'blocked'. The marketer must regenerate.
   const MAX_REWRITE_ATTEMPTS = 3
-  if (compliance && compliance.grade !== 'PASS' && compliance.findings.length > 0) {
+  if (compliance && compliance.grade === 'REWORD' && compliance.findings.length > 0) {
     for (let attempt = 1; attempt <= MAX_REWRITE_ATTEMPTS; attempt++) {
-      if (compliance!.grade === 'PASS' || compliance!.findings.length === 0) break
+      if (compliance!.grade === 'PASS' || compliance!.grade === 'REMOVE') break
+      if (compliance!.findings.length === 0) break
       try {
         stage('compliance:rewriting', { attempt })
-        const fixedScript = await runComplianceRewriter({
+        const fixedScript: string | null = await runComplianceRewriter({
           script: winner.script,
           findings: compliance!.findings,
         }).catch(() => null)
         if (!fixedScript || fixedScript === winner.script) break
         winner = { ...winner, script: fixedScript }
-        const recheck = await runComplianceGate({
+        const recheck: typeof compliance = await runComplianceGate({
           script: fixedScript,
           category: matchedCategory?.name ?? null,
           topic: winner.topic,

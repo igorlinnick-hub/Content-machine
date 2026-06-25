@@ -17,15 +17,16 @@ function buildSystemPrompt(target: ScriptLengthTarget): string {
 
 The variants below were written for a ${band.label} (${target}). Their target length is ${band.min}-${band.max} words.
 
-For each variant, score five criteria on a 1-10 scale:
+For each variant, score SIX criteria on a 1-10 scale:
 - tone_match: fit with the clinic's declared tone and audience.
 - no_promises: absence of medical promises ("cure", "guaranteed", "100%", "always works", "fixes X").
 - hook_quality: how concrete and specific the hook is. Generic or abstract hooks score low.
 - length_ok: how close to ${band.min}-${band.max} words the script is. Count the words yourself — do not trust the variant's self-reported count. ${band.min}-${band.max} → 9-10. Within ±10% → 7-8. Further out → progressively lower.
 - science_present: a specific scientific fact, mechanism, or study is present and credible.
+- compliance_safe: absence of hard FDA/FTC violations. Score 1 if ANY of these are present: "treats/cures/reverses/heals [disease or condition]", "FDA-approved" for non-approved products (compounded GLP-1, peptides, PRP, exosomes are NOT FDA-approved), outcome guarantees ("will work", "guaranteed results", "you will see"), zero hedging phrases in a therapeutic post. Score 10 if none present and hedging ("may help", "studies suggest", "some patients") appears at least once.
 
-total_score = average of the five criteria, rounded to one decimal place.
-approved = true only if total_score >= 7 AND no_promises >= 8 AND the script does not violate any clinic medical_restrictions.
+total_score = average of the six criteria, rounded to one decimal place.
+approved = true only if total_score >= 7 AND no_promises >= 8 AND compliance_safe >= 8 AND the script does not violate any clinic medical_restrictions.
 
 For each variant, write feedback that is short and actionable — point to the specific sentence or rule to fix. Do not praise; focus on what would make the rewrite better. If the variant is already strong, say so in one sentence.
 
@@ -40,7 +41,8 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
         "no_promises": 9,
         "hook_quality": 7,
         "length_ok": 9,
-        "science_present": 8
+        "science_present": 8,
+        "compliance_safe": 9
       },
       "approved": true,
       "feedback": "..."

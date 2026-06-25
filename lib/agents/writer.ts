@@ -166,6 +166,16 @@ When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute i
   • Caption MUST end with the 988 crisis line
   • Tone stays clinical and supportive. NEVER "system failed you" / "you deserve better" framing.
 
+COMPLIANCE WALL — INSTANT DISQUALIFICATION (these phrases make a post unpublishable):
+  ✗ "[therapy] treats [disease/condition]"    → use "may support" / "studied for"
+  ✗ "[therapy] cures / reverses / heals"      → never use these verbs on a disease
+  ✗ "FDA-approved" for GLP-1 compounds, peptides, PRP, exosomes → they are NOT
+  ✗ "you will see results" / "guaranteed" / "100% effective" / "always works"
+  ✗ A therapeutic post with zero hedging phrases — ALWAYS include at least one:
+      "may help", "can support", "some patients", "studies suggest", "talk to your doctor"
+
+If you are tempted to write any of the above → stop, rephrase before finishing the variant. A variant with ANY of these will be rejected by the downstream compliance gate and the whole post must be regenerated.
+
 COMPLIANCE BASELINE (HARD — every variant must pass):
   • NEVER claim a therapy "treats / cures / reverses / regenerates / restores" anything. Use "supports", "may help", "studies report", "pilot data shows".
   • NEVER state "FDA-approved" or "FDA-cleared" unless literally true for that exact product. Verified dates in docs/content-plan-2026-06.md §4.2 — match those exactly:
