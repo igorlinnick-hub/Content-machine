@@ -229,18 +229,22 @@ async function generateOne(params: {
       compliance = null
     }
   }
-  // Auto-fix REVIEW/REWORD: run rewriter once, then recheck.
-  // Only if the recheck still returns REVIEW/REWORD/REMOVE does the
-  // human-review or blocked status apply. Same logic as agents/generate.
+  // Auto-fix loop: up to 3 rewrite passes until PASS.
+  // Each pass feeds the latest findings back to the rewriter, then
+  // rechecks. Stops early if grade is already PASS or rewriter returns
+  // no change. After 3 attempts the post keeps whatever grade it has
+  // (REVIEW → needs medical call, REMOVE/REWORD → blocked).
+  const MAX_REWRITE_ATTEMPTS = 3
   if (compliance && compliance.grade !== 'PASS' && compliance.findings.length > 0) {
-    try {
-      stage('compliance:rewriting')
-      const fixedScript = await runComplianceRewriter({
-        script: winner.script,
-        findings: compliance.findings,
-      }).catch(() => null)
-
-      if (fixedScript && fixedScript !== winner.script) {
+    for (let attempt = 1; attempt <= MAX_REWRITE_ATTEMPTS; attempt++) {
+      if (compliance!.grade === 'PASS' || compliance!.findings.length === 0) break
+      try {
+        stage('compliance:rewriting', { attempt })
+        const fixedScript = await runComplianceRewriter({
+          script: winner.script,
+          findings: compliance!.findings,
+        }).catch(() => null)
+        if (!fixedScript || fixedScript === winner.script) break
         winner = { ...winner, script: fixedScript }
         const recheck = await runComplianceGate({
           script: fixedScript,
@@ -248,9 +252,9 @@ async function generateOne(params: {
           topic: winner.topic,
         }).catch(() => compliance!)
         compliance = recheck
+      } catch {
+        break
       }
-    } catch {
-      // swallow — keep original compliance result
     }
   }
   stage('compliance:done')

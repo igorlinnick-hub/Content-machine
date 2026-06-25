@@ -158,15 +158,6 @@ export function SlideEditor({
           >
             {chatOpen ? 'Close AI fix' : '✦ Ask AI to fix this slide'}
           </button>
-          {onChangePhoto && slide.kind !== 'cover' && (
-            <button
-              type="button"
-              onClick={onChangePhoto}
-              className="text-[11px] font-medium text-emerald-700 hover:text-emerald-900"
-            >
-              📷 Change photo
-            </button>
-          )}
         </div>
         {warning && (
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
