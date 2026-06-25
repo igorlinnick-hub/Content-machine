@@ -44,9 +44,17 @@ export async function uploadRecording(
 ): Promise<UploadRecordingResult> {
   const drive = getDriveClient()
 
-  // Structure: DRIVE_RECORDINGS_ROOT_FOLDER_ID → Recordings → {clinicName} → file
-  // If env var not set, falls back to Drive root → Recordings → {clinicName}
-  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID ?? null
+  // Structure: DRIVE_RECORDINGS_ROOT_FOLDER_ID → {clinicName} → file
+  // This MUST be a folder in a personal Google Drive shared with the SA (Editor).
+  // Service accounts have no storage quota — files must live in a user-owned folder.
+  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID
+  if (!contentMachineId) {
+    throw new Error(
+      'DRIVE_RECORDINGS_ROOT_FOLDER_ID is not set. ' +
+      'Create a folder in your Google Drive, share it with the service account (Editor), ' +
+      'and set this env var to its folder ID.'
+    )
+  }
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
   const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName)
 
@@ -79,7 +87,14 @@ export async function createUploadSession(
   mimeType: string,
   clientOrigin = ''
 ): Promise<{ uploadUrl: string }> {
-  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID ?? null
+  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID
+  if (!contentMachineId) {
+    throw new Error(
+      'DRIVE_RECORDINGS_ROOT_FOLDER_ID is not set. ' +
+      'Create a folder in your Google Drive, share it with the service account (Editor), ' +
+      'and set this env var to its folder ID.'
+    )
+  }
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
   const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName)
 

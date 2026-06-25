@@ -29,9 +29,14 @@ function readCredentials(): { email: string; privateKey: string } {
   return { email, privateKey }
 }
 
+// If GOOGLE_DRIVE_IMPERSONATE_EMAIL is set, the SA acts on behalf of that user
+// (domain-wide delegation). Files count against that user's Drive quota instead
+// of the SA (which has zero quota). Requires DWD enabled in Google Workspace admin.
+// Alternative to Shared Drives for personal/Workspace Drive setups.
 function getAuth() {
   const { email, privateKey } = readCredentials()
-  return new google.auth.JWT({ email, key: privateKey, scopes: SCOPES })
+  const subject = process.env.GOOGLE_DRIVE_IMPERSONATE_EMAIL || undefined
+  return new google.auth.JWT({ email, key: privateKey, scopes: SCOPES, subject })
 }
 
 let _drive: drive_v3.Drive | null = null
