@@ -23,11 +23,13 @@ import {
   statusFromCompliance,
   checkServiceToken,
 } from '@/lib/posts/pipeline'
+import { getCurrentPlanContext } from '@/lib/content-plan/store'
 import type {
   ScriptLengthTarget,
   SharedContext,
   TypedSlide,
   ComplianceResult,
+  PlanContext,
 } from '@/types'
 
 export const runtime = 'nodejs'
@@ -46,6 +48,9 @@ interface Body {
   // content_plan_topics by plan_handle (e.g. "POST 18"). When set,
   // overrides topic/topicId.
   planId?: string
+  // Planned mode (90% path): pass content_plan_topics.id so the Writer
+  // receives full pillar/theme/keyword context from the editorial plan.
+  planTopicId?: string
 }
 
 interface GenerateOneResult {
@@ -89,6 +94,7 @@ async function generateOne(params: {
   pairId: string | null
   preMatchedFolderId: string | null
   planId?: string | null
+  planContext?: PlanContext | null
   onStage?: StageEmitter
 }): Promise<GenerateOneResult> {
   // If the user pasted a starting note, fold it into the topic hint so the
@@ -110,6 +116,7 @@ async function generateOne(params: {
   const writerOut = await runWriter({
     context: params.context,
     topicHint: topicHintWithNote,
+    planContext: params.planContext,
     ctaHint: params.ctaHint,
     variantCount: 3,
     lengthTarget: params.length,
@@ -391,9 +398,10 @@ export async function POST(req: Request) {
   const topicId = body.topicId?.trim()
   const freeTopic = body.topic?.trim()
   const planHandle = body.planId?.trim()
-  if (!clinicId || (!topicId && !freeTopic && !planHandle)) {
+  const planTopicId = body.planTopicId?.trim()
+  if (!clinicId || (!topicId && !freeTopic && !planHandle && !planTopicId)) {
     return NextResponse.json(
-      { error: 'clinicId and one of topicId / topic / planId required' },
+      { error: 'clinicId and one of topicId / topic / planId / planTopicId required' },
       { status: 400 }
     )
   }
@@ -413,8 +421,25 @@ export async function POST(req: Request) {
   const runPipeline = async (
     onStage: StageEmitter | undefined
   ): Promise<Record<string, unknown>> => {
+    // Resolve plan context for the 90% planned-generation path.
+    // planTopicId → full PlanContext (pillar/theme/keyword/topic).
+    // Falls back to null (ad-hoc) silently so the pipeline never stalls.
+    const planContext: PlanContext | null = planTopicId
+      ? await getCurrentPlanContext(clinicId!, planTopicId).catch(() => null)
+      : null
+
     let topicText: string
-    if (topicId) {
+    if (planTopicId) {
+      // Planned path: topic comes from the plan context. If context
+      // resolution failed, fall back to the raw topic from DB via topicId
+      // semantics (planTopicId IS a content_plan_topics.id).
+      if (planContext) {
+        topicText = planContext.topic
+      } else {
+        const planTopic = await getTopic(planTopicId)
+        topicText = planTopic?.topic ?? planTopicId
+      }
+    } else if (topicId) {
       const planTopic = await getTopic(topicId)
       if (!planTopic) {
         throw new Error('topic not found')
@@ -488,16 +513,18 @@ export async function POST(req: Request) {
           pairId,
           preMatchedFolderId: photoFolderRefs.folderId,
           planId: body.planId ?? null,
+          planContext,
           onStage,
         })
       )
     )
 
     // Mark plan topic done — link to the short script if present, otherwise long.
-    if (topicId) {
+    const doneTopicId = topicId ?? planTopicId
+    if (doneTopicId) {
       const linkScript =
         results.find((r) => r.length_target === 'short') ?? results[0]
-      await updateTopic(topicId, {
+      await updateTopic(doneTopicId, {
         status: 'done',
         last_script_id: linkScript.script_id,
       })

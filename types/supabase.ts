@@ -51,6 +51,7 @@ export type Database = {
           niche: string | null
           services: string[] | null
           tone: string | null
+          content_plan_start: string | null
         }
         Insert: {
           audience?: string | null
@@ -67,6 +68,7 @@ export type Database = {
           niche?: string | null
           services?: string[] | null
           tone?: string | null
+          content_plan_start?: string | null
         }
         Update: {
           audience?: string | null
@@ -83,6 +85,7 @@ export type Database = {
           niche?: string | null
           services?: string[] | null
           tone?: string | null
+          content_plan_start?: string | null
         }
         Relationships: [
           {
@@ -188,6 +191,47 @@ export type Database = {
           },
         ]
       }
+      content_plan_weeks: {
+        Row: {
+          id: string
+          clinic_id: string
+          week_number: number
+          theme: string
+          pillar: string
+          description: string | null
+          position: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          week_number: number
+          theme: string
+          pillar: string
+          description?: string | null
+          position?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          week_number?: number
+          theme?: string
+          pillar?: string
+          description?: string | null
+          position?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_plan_weeks_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       content_plan_topics: {
         Row: {
           id: string
@@ -200,6 +244,8 @@ export type Database = {
           created_at: string
           plan_handle: string | null
           cycle_position: number | null
+          week_id: string | null
+          keyword: string | null
         }
         Insert: {
           id?: string
@@ -212,6 +258,8 @@ export type Database = {
           created_at?: string
           plan_handle?: string | null
           cycle_position?: number | null
+          week_id?: string | null
+          keyword?: string | null
         }
         Update: {
           id?: string
@@ -224,6 +272,8 @@ export type Database = {
           created_at?: string
           plan_handle?: string | null
           cycle_position?: number | null
+          week_id?: string | null
+          keyword?: string | null
         }
         Relationships: [
           {
@@ -238,6 +288,13 @@ export type Database = {
             columns: ["last_script_id"]
             isOneToOne: false
             referencedRelation: "scripts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_plan_topics_week_id_fkey"
+            columns: ["week_id"]
+            isOneToOne: false
+            referencedRelation: "content_plan_weeks"
             referencedColumns: ["id"]
           },
         ]

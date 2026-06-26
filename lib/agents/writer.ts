@@ -4,6 +4,7 @@ import type {
   ScriptLengthTarget,
   RolePlan,
   RoleBlock,
+  PlanContext,
 } from '@/types'
 import type { ArsenalBeat } from '@/lib/arsenal/store'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
@@ -460,6 +461,9 @@ export interface RunWriterParams {
   // baseline + acute-trigger rules to the system prompt. Used by the
   // shared lib/posts/pipeline.ts and the cron entry.
   postCarouselMode?: boolean
+  // Structured plan context (90% path). When present, the Writer is
+  // locked to the week's pillar/theme/keyword. Null = ad-hoc (10% path).
+  planContext?: PlanContext | null
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
@@ -474,9 +478,29 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
   const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)
 
-  const topicSection = params.topicHint
-    ? `\n\nTOPIC FROM THE CONTENT PLAN — write ALL variants on this exact topic. Pick distinct angles, hooks, or format templates, but the underlying topic is fixed:\n"${params.topicHint.trim()}"\n`
-    : ''
+  // Build topic/plan section. planContext (90% path) injects the full
+  // editorial calendar context — week, theme, pillar, keyword. Without it
+  // (ad-hoc 10% path) we fall back to the plain topicHint string.
+  const topicSection = (() => {
+    if (params.planContext) {
+      const pc = params.planContext
+      const lines = [
+        `\n\nCONTENT PLAN CONTEXT — this post is part of the editorial schedule:`,
+        `- Week ${pc.week_number} · Theme: "${pc.theme}"`,
+        `- Pillar: "${pc.pillar}" — every variant MUST stay inside this pillar`,
+        `- Topic (fixed for all variants): "${pc.topic}"`,
+      ]
+      if (pc.keyword) {
+        lines.push(`- ManyChat KEYWORD: "${pc.keyword}" — the CTA in every variant must invite the viewer to comment with this exact word`)
+      }
+      lines.push(`\nWrite ALL variants on the topic above. Pick distinct angles, hooks, or format templates, but the topic and pillar are fixed.\n`)
+      return lines.join('\n')
+    }
+    if (params.topicHint) {
+      return `\n\nTOPIC — write ALL variants on this exact topic. Pick distinct angles, hooks, or format templates, but the underlying topic is fixed:\n"${params.topicHint.trim()}"\n`
+    }
+    return ''
+  })()
 
   const ctaSection = params.ctaHint
     ? `\n\nCTA TEMPLATE — the call-to-action block (step 4) of every variant must follow this pattern. Replace any {placeholders} with concrete text that fits the script:\n"${params.ctaHint.trim()}"\n`

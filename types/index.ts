@@ -121,6 +121,16 @@ export interface TypedSlide {
   subtext?: string | null      // secondary line — subhead under cover headline, or smaller line on cta
 }
 
+// Structured plan context injected into Writer when a post is generated
+// from the editorial calendar (90% path). Null in ad-hoc mode (10% path).
+export interface PlanContext {
+  week_number: number
+  theme: string
+  pillar: string
+  keyword: string | null
+  topic: string
+}
+
 export interface SharedContext {
   clinic_profile: ClinicProfile
   raw_insights: Insight[]

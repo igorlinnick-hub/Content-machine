@@ -6,6 +6,7 @@ import { runComplianceGate } from '@/lib/posts/pipeline'
 import { runComplianceRewriter } from '@/lib/agents/compliance-rewriter'
 import { disabledHttpResponse, LLM_AGENTS_DISABLED_PAYLOAD, LLM_AGENTS_DISABLED_STATUS } from '@/lib/agents/disabled'
 import { resolveAccess } from '@/lib/auth/session'
+import { getCurrentPlanContext } from '@/lib/content-plan/store'
 import type { CriticOutput, ComplianceResult, ScriptVariant } from '@/types'
 
 export const runtime = 'nodejs'
@@ -14,6 +15,9 @@ export const maxDuration = 300
 interface GeneratePostBody {
   clinicId: string
   topicHint?: string
+  // Planned mode (90% path): pass the content_plan_topics.id so the
+  // Writer receives the full pillar/theme/keyword context.
+  planTopicId?: string
 }
 
 export async function POST(req: Request) {
@@ -39,6 +43,13 @@ export async function POST(req: Request) {
   }
 
   const topicHint = body.topicHint?.trim() || undefined
+  const planTopicId = body.planTopicId?.trim() || undefined
+
+  // Resolve plan context: either from a specific plan topic or null (ad-hoc)
+  const planContext = planTopicId
+    ? await getCurrentPlanContext(clinicId, planTopicId).catch(() => null)
+    : null
+
   const encoder = new TextEncoder()
 
   let resolveWork!: () => void
@@ -66,7 +77,7 @@ export async function POST(req: Request) {
         const context = await loadSharedContext(clinicId)
 
         stage('start')
-        let variants = await runWriter({ context, topicHint })
+        let variants = await runWriter({ context, topicHint, planContext })
         stage('writer:done')
 
         let scores = await runCritic({ context, variants })
@@ -77,7 +88,7 @@ export async function POST(req: Request) {
         if (needsRewrite) {
           stage('start')
           const feedback = buildFeedback(scores)
-          variants = await runWriter({ context, feedback, topicHint })
+          variants = await runWriter({ context, feedback, topicHint, planContext })
           stage('writer:done')
           scores = await runCritic({ context, variants })
           stage('critic:done')

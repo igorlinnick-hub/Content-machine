@@ -15,14 +15,13 @@ import {
   markDone,
   type ProgressState,
 } from './GenerateProgress'
-import type { PlanWeek } from '@/lib/content-plan'
-import { PILLAR_COLOR } from '@/lib/content-plan'
+import { type StructuredPlanWeek, pillarColor } from '@/lib/content-plan/store'
 import { ScheduleModal, type ScheduledPostRow } from '@/app/components/ScheduleModal'
 
 interface Props {
   clinicId: string
   posts: PostListItem[]
-  currentWeek?: PlanWeek
+  currentWeek?: StructuredPlanWeek | null
 }
 
 interface ComplianceFinding {
@@ -86,6 +85,12 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
 
   const [topic, setTopic] = useState('')
   const [note, setNote] = useState('')
+  // plannedPost tracks which plan topic chip is selected (90% path).
+  // null = ad-hoc mode (free text); non-null = send planTopicId to the API.
+  const [plannedPost, setPlannedPost] = useState<{
+    id: string; topic: string; keyword: string | null
+    week_number: number; pillar: string
+  } | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
   const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
@@ -207,9 +212,12 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           clinicId,
-          topic: topic.trim(),
+          // Planned (90%): send the plan topic id so Writer gets pillar/theme/keyword context.
+          // Ad-hoc (10%): send raw topic text.
+          ...(plannedPost
+            ? { planTopicId: plannedPost.id }
+            : { topic: topic.trim() }),
           note: note.trim() || undefined,
-
         }),
       })
 
@@ -428,7 +436,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         <div className="mt-3 flex flex-col gap-3">
           {/* Current week suggestion strip */}
           {currentWeek && (() => {
-            const color = PILLAR_COLOR[currentWeek.pillar]
+            const color = pillarColor(currentWeek.pillar)
             return (
               <div
                 className="flex flex-col gap-2 rounded-xl border p-3"
@@ -436,39 +444,64 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
               >
                 <div className="flex items-center gap-2">
                   <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
-                    Week {currentWeek.week}
+                    Week {currentWeek.week_number}
                   </span>
                   <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
                   <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {currentWeek.posts.map((post) => (
-                    <button
-                      key={post.num}
-                      type="button"
-                      disabled={generating}
-                      onClick={() => setTopic(post.topic)}
-                      className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
-                      style={{ background: `${color}14`, color, border: `1px solid ${color}25` }}
-                    >
-                      {post.topic}
-                    </button>
-                  ))}
+                  {currentWeek.posts.map((post) => {
+                    const isSelected = plannedPost?.id === post.id
+                    return (
+                      <button
+                        key={post.id}
+                        type="button"
+                        disabled={generating}
+                        onClick={() => {
+                          setPlannedPost({ id: post.id, topic: post.topic, keyword: post.keyword, week_number: currentWeek.week_number, pillar: currentWeek.pillar })
+                          setTopic(post.topic)
+                        }}
+                        className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
+                        style={{
+                          background: isSelected ? `${color}28` : `${color}14`,
+                          color,
+                          border: `1px solid ${isSelected ? color : `${color}25`}`,
+                          fontWeight: isSelected ? 600 : undefined,
+                        }}
+                      >
+                        {post.topic}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             )
           })()}
-          <input
-            type="text"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="Topic — e.g. ketamine for treatment-resistant depression"
-            className="cm-input text-sm"
-            disabled={generating}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !generating && (e.metaKey || e.ctrlKey)) generate()
-            }}
-          />
+          <div className="flex flex-col gap-1">
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => {
+                setTopic(e.target.value)
+                // If user edits the text away from a planned topic, switch to ad-hoc mode
+                if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
+              }}
+              placeholder="Topic — e.g. ketamine for treatment-resistant depression"
+              className="cm-input text-sm"
+              disabled={generating}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !generating && (e.metaKey || e.ctrlKey)) generate()
+              }}
+            />
+            {plannedPost ? (
+              <p className="text-[11px] text-emerald-600">
+                📅 Planned · Week {plannedPost.week_number} · {plannedPost.pillar}
+                {plannedPost.keyword ? ` · keyword "${plannedPost.keyword}"` : ''}
+              </p>
+            ) : topic.trim() ? (
+              <p className="text-[11px] text-neutral-400">✏️ Custom topic — ad-hoc mode</p>
+            ) : null}
+          </div>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}

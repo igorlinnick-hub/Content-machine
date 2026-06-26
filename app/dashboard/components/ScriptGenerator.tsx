@@ -6,13 +6,12 @@ import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
 import { TypingAnimation } from '@/app/components/ui/typing-animation'
 
-import type { PlanWeek } from '@/lib/content-plan'
-import { PILLAR_COLOR } from '@/lib/content-plan'
+import { type StructuredPlanWeek, pillarColor } from '@/lib/content-plan/store'
 
 interface ScriptGeneratorProps {
   clinicId: string
   isAdmin?: boolean
-  currentWeek?: PlanWeek
+  currentWeek?: StructuredPlanWeek | null
 }
 
 interface GenerateResult {
@@ -148,6 +147,11 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [topic, setTopic] = useState('')
+  // plannedPost: non-null = 90% planned path, null = 10% ad-hoc
+  const [plannedPost, setPlannedPost] = useState<{
+    id: string; topic: string; keyword: string | null
+    week_number: number; pillar: string
+  } | null>(null)
   const [progress, setProgress] = useState<ScriptProgressState>(emptyProgress())
 
   // Restore last batch on mount — persists until replaced by a new generation
@@ -178,7 +182,14 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
       const res = await fetch('/api/agents/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ clinicId, topicHint: topic.trim() || undefined }),
+        body: JSON.stringify({
+          clinicId,
+          // Planned (90%): send planTopicId so Writer gets pillar/theme/keyword context.
+          // Ad-hoc (10%): send topicHint only.
+          ...(plannedPost
+            ? { planTopicId: plannedPost.id }
+            : { topicHint: topic.trim() || undefined }),
+        }),
       })
 
       if (!res.ok || !res.body) {
@@ -243,7 +254,7 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
     }
   }
 
-  const weekColor = currentWeek ? PILLAR_COLOR[currentWeek.pillar] : null
+  const weekColor = currentWeek ? pillarColor(currentWeek.pillar) : null
 
   return (
     <div className="flex flex-col gap-5">
@@ -266,25 +277,36 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
           >
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
-                Week {currentWeek.week}
+                Week {currentWeek.week_number}
               </span>
               <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
               <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {currentWeek.posts.map((post) => (
-                <button
-                  key={post.num}
-                  type="button"
-                  disabled={loading}
-                  onClick={() => setTopic(post.topic)}
-                  className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
-                  style={{ background: `${weekColor}14`, color: weekColor, border: `1px solid ${weekColor}25` }}
-                  title={`Fill: ${post.topic}`}
-                >
-                  {post.topic}
-                </button>
-              ))}
+              {currentWeek.posts.map((post) => {
+                const isSelected = plannedPost?.id === post.id
+                return (
+                  <button
+                    key={post.id}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      setPlannedPost({ id: post.id, topic: post.topic, keyword: post.keyword, week_number: currentWeek.week_number, pillar: currentWeek.pillar })
+                      setTopic(post.topic)
+                    }}
+                    className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
+                    style={{
+                      background: isSelected ? `${weekColor}28` : `${weekColor}14`,
+                      color: weekColor,
+                      border: `1px solid ${isSelected ? weekColor : `${weekColor}25`}`,
+                      fontWeight: isSelected ? 600 : undefined,
+                    }}
+                    title={`Generate: ${post.topic}${post.keyword ? ` · keyword "${post.keyword}"` : ''}`}
+                  >
+                    {post.topic}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
@@ -297,12 +319,24 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
             <input
               type="text"
               value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              onChange={(e) => {
+                setTopic(e.target.value)
+                // Typing a custom topic switches to ad-hoc mode
+                if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
+              }}
               onKeyDown={(e) => e.key === 'Enter' && !loading && onGenerate()}
               placeholder="e.g. PRP for chronic shoulder pain"
               className="cm-input text-sm"
               disabled={loading}
             />
+            {plannedPost ? (
+              <p className="text-[11px] text-emerald-600">
+                📅 Planned · Week {plannedPost.week_number} · {plannedPost.pillar}
+                {plannedPost.keyword ? ` · keyword "${plannedPost.keyword}"` : ''}
+              </p>
+            ) : topic.trim() ? (
+              <p className="text-[11px] text-neutral-400">✏️ Custom topic — ad-hoc mode</p>
+            ) : null}
           </label>
           <button
             type="button"

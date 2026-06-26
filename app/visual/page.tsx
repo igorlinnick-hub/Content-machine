@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { loadClinicList } from '@/lib/supabase/context'
 import { loadPosts } from '@/lib/visual/store'
 import { resolveAccess } from '@/lib/auth/session'
-import { getCurrentPlanWeek } from '@/lib/content-plan'
+import { getCurrentStructuredWeek } from '@/lib/content-plan/store'
 import { createServerClient } from '@/lib/supabase/server'
 import { PostsWorkspace } from './components/PostsWorkspace'
 import { TemplatesButton } from './components/TemplatesButton'
@@ -34,7 +34,7 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
   const posts = await loadPosts(clinic.id, 50)
-  const currentPlanWeek = getCurrentPlanWeek()
+  const currentPlanWeek = await getCurrentStructuredWeek(clinic.id)
 
   const supabase = createServerClient()
   const { data: rawTemplates } = await supabase
