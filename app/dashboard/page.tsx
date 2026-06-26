@@ -202,13 +202,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
               className="flex shrink-0 items-center gap-2 cm-rise"
               style={{ animationDelay: '240ms' }}
             >
-              <Link
-                href="/compliance"
-                className="rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-600 transition hover:bg-amber-100"
-                title="FDA / FTC ruleset that every post is scored against"
-              >
-                Compliance
-              </Link>
+              {!isAdminOverview && (
+                <Link
+                  href="/compliance"
+                  className="rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-600 transition hover:bg-amber-100"
+                  title="FDA / FTC ruleset that every post is scored against"
+                >
+                  Compliance
+                </Link>
+              )}
               <RoleBadge
                 role={access.role}
                 doctorName={isDoctor ? doctorDisplayName : null}

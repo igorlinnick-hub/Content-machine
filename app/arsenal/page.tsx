@@ -4,14 +4,11 @@ import { loadClinicList } from '@/lib/supabase/context'
 import { loadArsenal, loadUnresolvedIngests } from '@/lib/arsenal/store'
 import { publicUrl } from '@/lib/arsenal/storage'
 import { loadScriptTemplates } from '@/lib/posts/templates'
-import { loadTrendSources } from '@/lib/trends/sources'
 import { resolveAccess } from '@/lib/auth/session'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { PageHeader } from '@/app/components/PageHeader'
 import { ArsenalWorkspace } from './components/ArsenalWorkspace'
 import { TemplatesCanvas } from './components/TemplatesCanvas'
-import { TrendCuration } from './components/TrendCuration'
-import { BotChain } from './components/BotChain'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,11 +34,10 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
   const clinicId = searchParams.clinicId ?? clinics[0].id
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
-  const [arsenal, pendingQueue, templates, trendSources] = await Promise.all([
+  const [arsenal, pendingQueue, templates] = await Promise.all([
     loadArsenal(clinic.id, { limit: 60 }),
     loadUnresolvedIngests(clinic.id, 15),
     loadScriptTemplates(clinic.id, { activeOnly: false }),
-    loadTrendSources(clinic.id),
   ])
 
   // Decorate arsenal rows with derived public URLs so the client
@@ -124,16 +120,6 @@ export default async function ArsenalPage({ searchParams }: ArsenalPageProps) {
         />
       </section>
 
-      {/* 3. TREND SOURCES — semi-auto discovery pool for the Studio board. */}
-      <section className="flex flex-col gap-3">
-        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-700">
-          📡 Trend sources — weekly scan pool for Studio
-        </h2>
-        <TrendCuration clinicId={clinic.id} initialSources={trendSources} />
-      </section>
-
-      {/* 4. BOT CHAIN — where active templates feed (read-only map). */}
-      <BotChain activeCount={activeTemplateCount} />
     </main>
   )
 }

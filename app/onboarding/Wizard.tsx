@@ -23,6 +23,10 @@ export interface WizardProps {
   welcome?: boolean
   tokenDoctorName?: string | null
   clinicId?: string
+  // Multi-doctor: adding a new doctor to an existing brand group
+  groupId?: string
+  seedFromClinicId?: string
+  lockedBrandName?: string   // brand name from group — shown but not editable
 }
 
 const STEPS: Array<{ title: string; hint: string; cta: string }> = [
@@ -59,6 +63,9 @@ export default function Wizard({
   welcome,
   tokenDoctorName,
   clinicId,
+  groupId,
+  seedFromClinicId,
+  lockedBrandName,
 }: WizardProps) {
   const router = useRouter()
   const [phase, setPhase] = useState<'welcome' | 'wizard' | 'success'>(
@@ -75,7 +82,7 @@ export default function Wizard({
     teamUrl: string
   } | null>(null)
   const [state, setState] = useState<State>({
-    clinicName: initial?.clinicName ?? '',
+    clinicName: initial?.clinicName ?? lockedBrandName ?? '',
     fullName: initial?.fullName ?? '',
     doctorName: initial?.doctorName || tokenDoctorName || '',
     services: initial?.services ?? [],
@@ -89,7 +96,9 @@ export default function Wizard({
   const canAdvance = useMemo(() => {
     switch (step) {
       case 0:
-        return state.clinicName.trim().length > 0
+        return lockedBrandName
+          ? state.doctorName.trim().length > 0
+          : state.clinicName.trim().length > 0
       case 1:
         return state.services.length > 0
       case 2:
@@ -121,6 +130,9 @@ export default function Wizard({
           contrarian_opinions: state.contrarianOpinions,
           // Admin editing a specific clinic passes the clinicId
           ...(clinicId ? { clinic_id: clinicId } : {}),
+          // Multi-doctor: attach to existing brand group + seed templates
+          ...(groupId ? { group_id: groupId } : {}),
+          ...(seedFromClinicId ? { seed_from_clinic_id: seedFromClinicId } : {}),
         }),
       })
       const data = await res.json()
@@ -215,6 +227,7 @@ export default function Wizard({
               clinicName={state.clinicName}
               fullName={state.fullName}
               doctorName={state.doctorName}
+              lockedBrandName={lockedBrandName}
               onChange={(patch) => setState((s) => ({ ...s, ...patch }))}
             />
           )}
@@ -464,39 +477,55 @@ function Step0({
   clinicName,
   fullName,
   doctorName,
+  lockedBrandName,
   onChange,
 }: {
   clinicName: string
   fullName: string
   doctorName: string
+  lockedBrandName?: string
   onChange: (patch: Partial<State>) => void
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <Field label="Clinic name (short / internal)" required>
-        <input
-          type="text"
-          value={clinicName}
-          onChange={(e) => onChange({ clinicName: e.target.value })}
-          placeholder="e.g. HWC"
-          className="cm-input"
-        />
-      </Field>
-      <Field label="Full clinic name (shown to doctors & marketing team)">
-        <input
-          type="text"
-          value={fullName}
-          onChange={(e) => onChange({ fullName: e.target.value })}
-          placeholder="e.g. Hawaii Wellness Clinic"
-          className="cm-input"
-        />
-      </Field>
-      <Field label="Doctor name (primary face of the brand)">
+      {lockedBrandName ? (
+        /* Adding a doctor to an existing brand — brand name is locked */
+        <Field label="Brand (clinic)">
+          <div className="cm-input flex items-center gap-2 bg-neutral-50 text-neutral-400 cursor-default select-none">
+            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            {lockedBrandName}
+          </div>
+        </Field>
+      ) : (
+        <>
+          <Field label="Clinic name (short / internal)" required>
+            <input
+              type="text"
+              value={clinicName}
+              onChange={(e) => onChange({ clinicName: e.target.value })}
+              placeholder="e.g. HWC"
+              className="cm-input"
+            />
+          </Field>
+          <Field label="Full clinic name (shown to doctors & marketing team)">
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => onChange({ fullName: e.target.value })}
+              placeholder="e.g. Hawaii Wellness Clinic"
+              className="cm-input"
+            />
+          </Field>
+        </>
+      )}
+      <Field label="Doctor name" required={!!lockedBrandName}>
         <input
           type="text"
           value={doctorName}
           onChange={(e) => onChange({ doctorName: e.target.value })}
-          placeholder="e.g. Dr. Sarah Chen"
+          placeholder="e.g. Dr. Made"
           className="cm-input"
         />
       </Field>
@@ -542,7 +571,9 @@ function TagEditor({
   function commit() {
     const text = draft.trim()
     if (!text) return
-    onChange([...items, text])
+    // Auto-split on comma so pasting "Botox, Filler, Sculptra" creates 3 tags
+    const parts = text.split(',').map((s) => s.trim()).filter(Boolean)
+    onChange([...items, ...parts])
     setDraft('')
   }
 

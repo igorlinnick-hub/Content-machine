@@ -6,7 +6,7 @@ import Wizard from './Wizard'
 export const dynamic = 'force-dynamic'
 
 interface OnboardingPageProps {
-  searchParams: { welcome?: string; clinicId?: string }
+  searchParams: { welcome?: string; clinicId?: string; groupId?: string; seedFrom?: string }
 }
 
 export default async function OnboardingPage({
@@ -18,15 +18,37 @@ export default async function OnboardingPage({
   const welcome = searchParams.welcome === '1'
   const supabase = createServerClient()
 
-  // Admin with ?clinicId → edit that clinic. Admin without → create new.
+  // Admin with ?clinicId → edit that clinic. Admin without → create new (or add doctor).
   if (access.role === 'admin') {
     const editClinicId = searchParams.clinicId
-    if (!editClinicId) return <Wizard mode="create" />
+    const groupId = searchParams.groupId
+    const seedFrom = searchParams.seedFrom
+
+    // No clinicId and no groupId → fresh brand + first doctor
+    if (!editClinicId && !groupId) return <Wizard mode="create" />
+
+    // groupId present → add a new doctor to an existing brand
+    if (groupId && !editClinicId) {
+      const { data: group } = await supabase
+        .from('clinic_groups')
+        .select('name, logo_url')
+        .eq('id', groupId)
+        .single()
+
+      return (
+        <Wizard
+          mode="create"
+          groupId={groupId}
+          seedFromClinicId={seedFrom}
+          lockedBrandName={group?.name ?? undefined}
+        />
+      )
+    }
 
     const { data: clinic } = await supabase
       .from('clinics')
       .select('name, full_name, doctor_name, services, content_pillars, deep_dive_topics')
-      .eq('id', editClinicId)
+      .eq('id', editClinicId!)
       .single()
 
     if (!clinic) redirect('/dashboard')

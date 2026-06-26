@@ -10,7 +10,7 @@ async function getOrCreateFolder(
   parentId: string | null,
   name: string
 ): Promise<string> {
-  const drive = getDriveClient()
+  const drive = getUserDriveClient() ?? getDriveClient()
   const parentClause = parentId ? `'${parentId}' in parents` : `'root' in parents`
   const q = `mimeType = 'application/vnd.google-apps.folder' and name = '${name.replace(/'/g, "\\'")}' and trashed = false and ${parentClause}`
 

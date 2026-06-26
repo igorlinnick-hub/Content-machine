@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { saveInsights } from '@/lib/supabase/context'
 import { resolveAccess } from '@/lib/auth/session'
 import { createAccessToken, pickAvailableCode, slugifyForCode } from '@/lib/auth/tokens'
+import { seedDoctorFromSource } from '@/lib/clinics/seed'
 
 export const runtime = 'nodejs'
 
@@ -10,12 +11,17 @@ interface OnboardingPostBody {
   name: string
   full_name?: string | null
   doctor_name?: string
+  niche?: string
   services?: string[]
   deep_dive_topics?: string[]
   content_pillars?: string[]
   contrarian_opinions?: string[]
   // Admin editing a specific clinic by ID (PATCH only)
   clinic_id?: string
+  // Multi-doctor: attach new doctor to an existing brand group
+  group_id?: string
+  // Copy templates/categories/references from this clinic into the new one
+  seed_from_clinic_id?: string
   // Legacy / optional — no longer part of the wizard UI but still accepted
   audience?: string
   tone?: string
@@ -50,12 +56,40 @@ export async function POST(req: Request) {
 
   try {
     const supabase = createServerClient()
+
+    // Resolve group_id: use existing group or create a new one for this brand.
+    let groupId = body.group_id?.trim() || null
+    let brandName = name
+    let brandLogo: string | null = null
+
+    if (groupId) {
+      // Adding a doctor to an existing brand — inherit brand name + logo from group.
+      const { data: group } = await supabase
+        .from('clinic_groups')
+        .select('name, logo_url')
+        .eq('id', groupId)
+        .single()
+      if (group) {
+        brandName = group.name
+        brandLogo = group.logo_url ?? null
+      }
+    } else {
+      // New brand — create the group first, then attach this clinic to it.
+      const { data: newGroup, error: groupErr } = await supabase
+        .from('clinic_groups')
+        .insert({ name })
+        .select('id')
+        .single()
+      if (groupErr || !newGroup) throw groupErr ?? new Error('failed to create clinic group')
+      groupId = newGroup.id
+    }
+
     const { data, error } = await supabase
       .from('clinics')
       .insert({
-        name,
+        name: brandName,
         full_name: body.full_name ?? null,
-        niche: 'regenerative_medicine',
+        niche: body.niche?.trim() || 'regenerative_medicine',
         doctor_name: body.doctor_name?.trim() || null,
         services: sanitizeList(body.services),
         audience: body.audience?.trim() || null,
@@ -63,6 +97,8 @@ export async function POST(req: Request) {
         medical_restrictions: sanitizeList(body.medical_restrictions),
         content_pillars,
         deep_dive_topics,
+        group_id: groupId,
+        ...(brandLogo ? { logo_url: brandLogo } : {}),
       })
       .select('id, name')
       .single()
@@ -76,11 +112,18 @@ export async function POST(req: Request) {
       )
     }
 
+    // Seed templates/categories/references from an existing doctor if requested.
+    if (body.seed_from_clinic_id) {
+      await seedDoctorFromSource(data.id, body.seed_from_clinic_id).catch((e) =>
+        console.error('[onboarding] seed failed (non-fatal):', e?.message)
+      )
+    }
+
     // Bootstrap BOTH access tokens (doctor + team) with memorable
-    // slug-codes derived from the clinic name. So when admin onboards
-    // a new clinic they instantly have the 2 codes to hand off, no
-    // follow-up steps in /clinics. Codes can be edited later.
-    const slug = slugifyForCode(name)
+    // slug-codes derived from the doctor name (or clinic name). So when admin
+    // onboards a new doctor they instantly have the 2 codes to hand off.
+    const slugBase = body.doctor_name?.trim() || name
+    const slug = slugifyForCode(slugBase)
     const doctorCode = await pickAvailableCode(`${slug}-doctor`)
     const teamCode = await pickAvailableCode(`${slug}-team`)
 
@@ -101,6 +144,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       clinic: data,
+      group_id: groupId,
       // Legacy field — kept so the existing onboarding UI still works.
       token: doctorRow.token,
       doctor: {

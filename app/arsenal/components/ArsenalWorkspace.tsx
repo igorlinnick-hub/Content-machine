@@ -37,6 +37,7 @@ export function ArsenalWorkspace({
   const router = useRouter()
   const [rows, setRows] = useState(initialRows)
   const [queue, setQueue] = useState(initialQueue)
+  const [showIngest, setShowIngest] = useState(false)
 
   function patchRow(id: string, patch: Partial<DecoratedArsenalRow>): void {
     setRows((current) =>
@@ -55,15 +56,52 @@ export function ArsenalWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <IngestUrlForm
-        clinicId={clinicId}
-        onQueued={(row) => {
-          setQueue((current) => [row, ...current])
-          // Refresh from server in a beat so the new pending row hydrates
-          // with any server-side computed fields.
-          router.refresh()
-        }}
-      />
+      {/* Compact trigger — opens modal */}
+      <div className="flex items-center justify-end">
+        <button
+          type="button"
+          onClick={() => setShowIngest(true)}
+          className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white/80 px-4 py-2 text-[13px] font-medium text-neutral-600 shadow-sm transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+          Add reference video
+        </button>
+      </div>
+
+      {/* Modal */}
+      {showIngest && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowIngest(false) }}
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
+              <p className="text-sm font-semibold text-neutral-800">Add reference video</p>
+              <button
+                type="button"
+                onClick={() => setShowIngest(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5">
+              <IngestUrlForm
+                clinicId={clinicId}
+                onQueued={(row) => {
+                  setQueue((current) => [row, ...current])
+                  setShowIngest(false)
+                  router.refresh()
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {queue.length > 0 && (
         <section className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
@@ -121,14 +159,9 @@ export function ArsenalWorkspace({
         </Section>
       )}
 
-      <Section title={`Active styles (${active.length})`} accent="emerald">
-        {active.length === 0 ? (
-          <p className="rounded border border-dashed border-neutral-300 p-4 text-sm text-neutral-500">
-            No active styles yet. Confirm a draft above, or paste an
-            Instagram / YouTube / TikTok URL.
-          </p>
-        ) : (
-          active.map((r) => (
+      {active.length > 0 && (
+        <Section title={`Active styles (${active.length})`} accent="emerald">
+          {active.map((r) => (
             <ArsenalCard
               key={r.id}
               row={r}
@@ -136,9 +169,9 @@ export function ArsenalWorkspace({
               onPatch={patchRow}
               onDrop={dropRow}
             />
-          ))
-        )}
-      </Section>
+          ))}
+        </Section>
+      )}
 
       {off.length > 0 && (
         <Section title={`Off (${off.length})`} accent="neutral">

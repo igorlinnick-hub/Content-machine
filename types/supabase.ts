@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      clinic_groups: {
+        Row: {
+          id: string
+          name: string
+          logo_url: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          logo_url?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          logo_url?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       clinics: {
         Row: {
           audience: string | null
@@ -22,6 +43,7 @@ export type Database = {
           deep_dive_topics: string[] | null
           doctor_name: string | null
           full_name: string | null
+          group_id: string | null
           id: string
           logo_url: string | null
           medical_restrictions: string[] | null
@@ -37,6 +59,7 @@ export type Database = {
           deep_dive_topics?: string[] | null
           doctor_name?: string | null
           full_name?: string | null
+          group_id?: string | null
           id?: string
           logo_url?: string | null
           medical_restrictions?: string[] | null
@@ -52,6 +75,7 @@ export type Database = {
           deep_dive_topics?: string[] | null
           doctor_name?: string | null
           full_name?: string | null
+          group_id?: string | null
           id?: string
           logo_url?: string | null
           medical_restrictions?: string[] | null
@@ -60,7 +84,15 @@ export type Database = {
           services?: string[] | null
           tone?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clinics_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_groups"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       clinic_recordings: {
         Row: {

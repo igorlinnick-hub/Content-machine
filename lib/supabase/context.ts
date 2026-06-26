@@ -333,20 +333,34 @@ export async function loadClinicList(): Promise<
 }
 
 export async function loadClinicSummaries(): Promise<
-  Array<{ id: string; name: string; doctor_name: string | null; services: string[] }>
+  Array<{
+    id: string
+    name: string
+    doctor_name: string | null
+    services: string[]
+    group_id: string | null
+    group_name: string | null
+    group_logo_url: string | null
+  }>
 > {
   const supabase = createServerClient()
   const { data, error } = await supabase
     .from('clinics')
-    .select('id, name, doctor_name, services')
+    .select('id, name, doctor_name, services, group_id, clinic_groups(name, logo_url)')
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    name: r.name,
-    doctor_name: r.doctor_name ?? null,
-    services: (r.services as string[]) ?? [],
-  }))
+  return (data ?? []).map((r) => {
+    const group = Array.isArray(r.clinic_groups) ? r.clinic_groups[0] : r.clinic_groups
+    return {
+      id: r.id,
+      name: r.name,
+      doctor_name: r.doctor_name ?? null,
+      services: (r.services as string[]) ?? [],
+      group_id: (r.group_id as string | null) ?? null,
+      group_name: (group as { name?: string; logo_url?: string } | null)?.name ?? null,
+      group_logo_url: (group as { name?: string; logo_url?: string } | null)?.logo_url ?? null,
+    }
+  })
 }
 
 export async function loadClinicProfile(
