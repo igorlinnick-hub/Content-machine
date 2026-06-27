@@ -50,6 +50,7 @@ export type Database = {
           name: string
           niche: string | null
           services: string[] | null
+          social_handle: string | null
           tone: string | null
           content_plan_start: string | null
         }
@@ -67,6 +68,7 @@ export type Database = {
           name: string
           niche?: string | null
           services?: string[] | null
+          social_handle?: string | null
           tone?: string | null
           content_plan_start?: string | null
         }
@@ -84,6 +86,7 @@ export type Database = {
           name?: string
           niche?: string | null
           services?: string[] | null
+          social_handle?: string | null
           tone?: string | null
           content_plan_start?: string | null
         }

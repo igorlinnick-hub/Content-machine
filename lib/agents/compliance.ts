@@ -5,6 +5,7 @@ import type {
 } from '@/types'
 import { MODEL_DEFAULT, callAgentTool } from './base'
 import { factCheckScript, hasBlockingFactFinding } from './factCheck'
+import { getNicheProfile } from '@/lib/niche/profiles'
 
 // Compliance gate — HANDOFF-POSTS.md §16.
 //
@@ -24,30 +25,24 @@ import { factCheckScript, hasBlockingFactFinding } from './factCheck'
 
 const RULESET_VERSION = 'v2.1'
 
-const SYSTEM_PROMPT = `You are the compliance screen for Hawaii Wellness Clinic content. The clinic markets regenerative / stem-cell / exosome / PRP / GLP-1 / ketamine therapies into a regulated medical space (FDA/FTC). Wording carries real lawsuit exposure.
+// The general rules apply to ALL niches. Niche-specific blocks
+// (carve-outs, niche-only rules) are injected per call via buildCompliancePrompt.
+const GENERAL_RULES_BLOCK = `Rules to enforce (from compliance-ruleset.md §):
+  • R-FDA-01: "FDA-approved" or "FDA-cleared" only when literally true for the exact product. Reword when used incorrectly.
+  • R-CLAIM-01: No "treats/cures/reverses/regenerates/restores" on disease or body part. Reword to "supports/may help/studies report".
+  • R-CLAIM-02: No outcome guarantees ("will work", "guaranteed", "100%", "miracle"). Reword to hedged language.
+  • R-EVIDENCE-01: Naked statistics without an evidence stage label ("Phase 2", "pilot", "preclinical", "investigational") = reword.
+  • R-PROMISE-01: Therapeutic posts must contain at least one hedging phrase ("may help", "can support", "some patients", "studies suggest", "talk to your doctor", etc.). If completely absent → reword. Do NOT flag as review — the rewriter can add a hedge.`
 
-Your job: grade ONE generated script against the ruleset v${RULESET_VERSION}, return a structured verdict. You are a screen, not legal advice — never write "safe" or "compliant" in your output.
-
-Grades:
+const GRADE_BLOCK = `Grades:
   REMOVE  — hard rule violation. Cannot publish. Examples: claims a therapy "treats/cures/reverses" a disease, offers exosomes as a service, states "FDA-approved" for a non-approved product, makes outcome guarantees.
   REWORD  — fixable wording issue. A specific edit makes it compliant. Examples: missing investigational hedge on Phase 2/3 drugs, dropped trial inclusion criterion, wrong FDA date, naked statistics without source.
   REVIEW  — cannot be auto-fixed. A human (medical director / counsel) must judge. Use ONLY when the issue is about factual medical accuracy that the AI cannot verify — e.g. a specific clinical statistic cited without a source, an unverifiable protocol outcome claim, or an off-label use claim that requires doctor sign-off. Do NOT use REVIEW for wording issues — those are REWORD.
   PASS    — no findings. The findings[] array must still be present, just empty. Eligible for downstream publishing.
 
-For every finding emit a {rule, severity, matched, correction} object. rule is a short id like 'R-FDA-01' or 'R-CLAIM-02'. severity matches grade granularity ('remove' | 'reword' | 'review'). matched is the exact excerpt that triggered. correction is a one-sentence suggested fix.
+For every finding emit a {rule, severity, matched, correction} object. rule is a short id like 'R-FDA-01' or 'R-CLAIM-02'. severity matches grade granularity ('remove' | 'reword' | 'review'). matched is the exact excerpt that triggered. correction is a one-sentence suggested fix.`
 
-APPROVED TREATMENTS CARVE-OUT (do NOT flag these as non-FDA-approved):
-  Hawaii Wellness Clinic has received full government approval and regulatory clearance for its biologic and stem cell treatments. When the script mentions "biologics", "stem cells", "stem cell therapy", "biologic therapy", or similar — do NOT apply R-FDA-01. These are cleared services. Only flag if the wording makes a disease-cure claim covered by R-CLAIM-01.
-
-Rules to enforce (from compliance-ruleset.md §):
-  • R-FDA-01: "FDA-approved" or "FDA-cleared" only when literally true for the exact product. Compounded GLP-1, peptides, PRP, exosomes are NOT FDA-approved. Reword. (Exception: biologics and stem cell treatments — see APPROVED TREATMENTS CARVE-OUT above.)
-  • R-CLAIM-01: No "treats/cures/reverses/regenerates/restores" on disease or body part. Reword to "supports/may help/studies report".
-  • R-CLAIM-02: No outcome guarantees ("will work", "guaranteed", "100%", "miracle"). Reword to hedged language.
-  • R-EXOSOME-01: Never offer exosomes as a service. Discussing the science is fine; presenting as offered = REMOVE.
-  • R-EVIDENCE-01: Naked statistics without an evidence stage label ("Phase 2", "pilot", "preclinical", "investigational") = reword.
-  • R-PROMISE-01: Therapeutic posts must contain at least one hedging phrase ("may help", "can support", "some patients", "studies suggest", "talk to your doctor", etc.). If completely absent → reword. Do NOT flag as review — the rewriter can add a hedge.
-
-Respond with ONLY valid JSON, no markdown fences, no commentary:
+const RESPONSE_FORMAT_BLOCK = `Respond with ONLY valid JSON, no markdown fences, no commentary:
 {
   "grade": "REMOVE | REWORD | REVIEW | PASS",
   "findings": [
@@ -66,11 +61,39 @@ The grade MUST be the most severe across findings:
   • Else any 'review' finding → grade is REVIEW
   • Else → grade is PASS (and findings is [])`
 
+/** Build the compliance gate system prompt for the given niche. */
+function buildCompliancePrompt(niche?: string | null): string {
+  const profile = getNicheProfile(niche)
+
+  const carveOutSection = profile.complianceCarveOut
+    ? `\n${profile.complianceCarveOut}\n`
+    : ''
+
+  const nicheRules = profile.complianceNicheRules
+    ? `\n${profile.complianceNicheRules}`
+    : ''
+
+  return `You are the compliance screen for a ${profile.label} clinic's social-media content. The clinic operates in a regulated medical space (FDA/FTC). Wording carries real lawsuit exposure.
+
+Your job: grade ONE generated script against the ruleset v${RULESET_VERSION}, return a structured verdict. You are a screen, not legal advice — never write "safe" or "compliant" in your output.
+
+${GRADE_BLOCK}
+${carveOutSection}
+${GENERAL_RULES_BLOCK}${nicheRules}
+
+NICHE-SPECIFIC COMPLIANCE FACTS:
+${profile.complianceFacts}
+
+${RESPONSE_FORMAT_BLOCK}`
+}
+
 export interface RunComplianceInput {
   script: string                            // full text of the candidate post
   // Optional context — helps the model judge edge cases.
   category?: string | null                  // 'Mental Health' | 'Pain & Joint' | ...
   topic?: string | null
+  /** Clinic niche — controls which compliance ruleset block is used. */
+  niche?: string | null
   // Skip the LLM grade and return only the factCheck verdict. Used by
   // the cron / pipeline when the budget is tight, OR by tests.
   skipLLM?: boolean
@@ -117,6 +140,7 @@ export async function runCompliance(
   // LLM pass. Context is small + cached system prompt = ~$0.005 per call.
   // Uses callAgentTool (forced tool_use) so the API guarantees valid JSON —
   // no text parsing, no quote-escaping bugs in correction/matched strings.
+  const systemPrompt = buildCompliancePrompt(input.niche)
   const userContent = JSON.stringify({
     category: input.category ?? null,
     topic: input.topic ?? null,
@@ -127,7 +151,7 @@ export async function runCompliance(
   try {
     llmRaw = await callAgentTool({
       model: MODEL_DEFAULT,
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt,
       userContent,
       cacheSystem: true,
       maxTokens: 2048,

@@ -205,6 +205,8 @@ async function generateOne(params: {
   // Hard 45s cap on the gate. If Opus is slow or rate-limited, we
   // fall back to factCheck-only verdict rather than blow the route's
   // 300s budget.
+  const clinicNiche = params.context.clinic_profile.niche
+
   let compliance: ComplianceResult | null = null
   try {
     compliance = await Promise.race([
@@ -212,6 +214,7 @@ async function generateOne(params: {
         script: winner.script,
         category: matchedCategory?.name ?? null,
         topic: winner.topic,
+        niche: clinicNiche,
       }),
       new Promise<ComplianceResult>((_, reject) =>
         setTimeout(() => reject(new Error('compliance LLM timeout 45s')), 45_000)
@@ -230,6 +233,7 @@ async function generateOne(params: {
         script: winner.script,
         category: matchedCategory?.name ?? null,
         topic: winner.topic,
+        niche: clinicNiche,
         skipLLM: true,
       })
     } catch {
@@ -255,6 +259,7 @@ async function generateOne(params: {
         const fixedScript: string | null = await runComplianceRewriter({
           script: winner.script,
           findings: compliance!.findings,
+          niche: clinicNiche,
         }).catch(() => null)
         if (!fixedScript || fixedScript === winner.script) break
         winner = { ...winner, script: fixedScript }
@@ -262,6 +267,7 @@ async function generateOne(params: {
           script: fixedScript,
           category: matchedCategory?.name ?? null,
           topic: winner.topic,
+          niche: clinicNiche,
         }).catch(() => compliance!)
         compliance = recheck
       } catch {
@@ -303,10 +309,14 @@ async function generateOne(params: {
 
   try {
     stage('splitter:postplan:start')
+    const { getNicheProfile } = await import('@/lib/niche/profiles')
+    const _nicheProfile = getNicheProfile(params.context.clinic_profile.niche)
     const plan = await splitScriptToPostPlan(winner.script, {
       topic: winner.topic,
       hook: winner.hook,
       onStage: stage,
+      ctaMode: _nicheProfile.ctaMode,
+      socialHandle: params.context.clinic_profile.social_handle ?? null,
     })
     stage('splitter:postplan:done')
     const planRow = {

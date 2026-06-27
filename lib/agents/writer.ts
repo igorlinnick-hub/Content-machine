@@ -8,6 +8,7 @@ import type {
 } from '@/types'
 import type { ArsenalBeat } from '@/lib/arsenal/store'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
+import { getNicheProfile, type NicheProfile } from '@/lib/niche/profiles'
 
 // A single reference video pinned as THE format to use (Studio). When
 // present, the Writer drops the "pick one of N templates" choice and
@@ -74,9 +75,10 @@ const LENGTH_SPECS: Record<ScriptLengthTarget, LengthSpec> = {
   },
 }
 
-const SYSTEM_PROMPT_BASE = `You write scripts for a regenerative medicine doctor speaking to camera. The audience is curious ADULT PATIENTS — people considering a treatment or trying to understand what's happening with their body. NOT colleagues. NOT other doctors. NOT a peer-reviewed audience.
-
-Voice: a smart, calm doctor explaining things plainly to someone in their chair. Plain English. Short sentences. Concrete everyday comparisons. No medical jargon unless it is immediately unpacked in lay terms (e.g. "your platelets — the part of your blood that helps healing"). Banned phrases: "as a clinician", "in our practice we observe", "the literature suggests", "peer-to-peer", "from a clinical standpoint". Allowed registers: "here's what most people miss", "if you're considering this", "what this means for you", "what to look out for", "why this matters". Do NOT copy-paste a generic "educational / professional / conversational" register. The exact tone is inferred from the FEW-SHOT EXAMPLES and the DOCTOR'S RECENT PICKS.
+// The niche-persona line is the ONLY part of the base prompt that varies
+// between clinics. Everything else — voice guidance, hard rules, input spec —
+// is universal across niches.
+const SYSTEM_PROMPT_BASE_SHARED = `Voice: a smart, calm doctor explaining things plainly to someone in their chair. Plain English. Short sentences. Concrete everyday comparisons. No medical jargon unless it is immediately unpacked in lay terms (e.g. "your platelets — the part of your blood that helps healing"). Banned phrases: "as a clinician", "in our practice we observe", "the literature suggests", "peer-to-peer", "from a clinical standpoint". Allowed registers: "here's what most people miss", "if you're considering this", "what this means for you", "what to look out for", "why this matters". Do NOT copy-paste a generic "educational / professional / conversational" register. The exact tone is inferred from the FEW-SHOT EXAMPLES and the DOCTOR'S RECENT PICKS.
 
 HARD RULES:
 - No medical promises ("will cure", "guaranteed", "100%", "always works").
@@ -112,23 +114,23 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
   ]
 }`
 
+/** Build the base system prompt with niche-specific persona injected at the top. */
+function buildSystemBase(profile: NicheProfile): string {
+  return `${profile.writerPersona}\n\n${SYSTEM_PROMPT_BASE_SHARED}`
+}
+
 // Appended to the base system prompt for the POST CAROUSEL pipeline
 // (HANDOFF-POSTS.md §17.3 + §18). NOT used for video / arsenal flows.
 // Toggled via RunWriterParams.postCarouselMode.
 //
 // Locks the writer to:
-//   • the HWC content-plan structural arc (cover → mechanism → analogy
-//     → evidence → application → CTA stack)
-//   • compliance baseline from docs/content-plan-2026-06.md §4
-//   • mental-health-acute stripped template when the topic matches
-//     §18.1 triggers
+//   • structural arc (cover → mechanism → analogy → evidence → application → CTA)
+//   • niche-specific CTA mode (manychat keyword vs. booking)
+//   • niche-specific compliance baseline
+//   • mental-health-acute stripped template when the topic matches §18.1 triggers
 //   • Sources go to a separate metadata block, NEVER to the caption
-const SYSTEM_PROMPT_POSTS = `
 
-POST CAROUSEL MODE (active for this request):
-You are writing for Hawaii Wellness Clinic's Instagram carousel pipeline. Every variant MUST follow the universal structural arc below. This is non-negotiable — the editorial plan in docs/content-plan-2026-06.md §2 ships only carousels in this shape.
-
-SLIDE ARC (in order):
+const SLIDE_ARC_BLOCK = `SLIDE ARC (in order):
   Slide 1   Cover                  — title (mixed case) + hook ending with "Swipe →"
   Slide 2   Mechanism / Real cause — heading + intro + 3 bullets + close
   Slide 3   Gap slide (optional)   — "why standard care misses this" — include WHEN the post explains an insurance / 15-min-visit / equipment-cost reason standard medicine skips the better option; SKIP for how-to / multi-pathway / acute topics
@@ -137,65 +139,80 @@ SLIDE ARC (in order):
   Slide 6   Who it's for           — bullets + close
   Slide 7   Session / protocol     — optional
   Slide 8   Why it's underused     — optional
-  Final     CTA stack              — Follow + Comment "<KEYWORD>" + Book
+  Final     CTA stack              — see CTA STACK FORMAT below`
 
-CTA STACK FORMAT (always 3 lines unless mental-health-acute):
-  Follow → @hawaiiwellness for science-backed wellness, no hype.
-  Comment → "<KEYWORD>" and we'll <what we send>.
-  Book → tap the link in bio or DM us to start an evaluation.
-
-KEYWORD must be chosen from the ManyChat trigger list below — these are the ONLY valid keywords. Pick the single best fit for the script's category and topic. Never invent a keyword outside this list.
-
-  🧠 Mental Health:
-    TMS, Ketamine, SGB, Spravato, Reset, Clarity, Relief, Depression, Anxiety, PTSD, Trauma, Mood
-
-  🦴 Pain & Joint:
-    PRP, A2M, Biologics, Biologic, Regenerative, Cartilage, Arthritis, Joint, Shots, Mounjaro, GLP, Transform
-
-  ✨ Wellness & Vitality:
-    IV, NAD, NAD+, Peptide, Hormones, Testosterone, Estrogen, Thyroid, Infusion, Drip, Boost, Energy
-
-  ⚖️ Medical Weight Loss:
-    Semaglutide, Tirzepatide, Retatrutide, Ozempic, Mounjaro, GLP-1, Injection, Program, Results, Appetite, Metabolism
-
-  Selection logic: identify which category the script belongs to → pick the word that most specifically names the treatment or mechanism covered (e.g. a TMS script → TMS, not Mood; a peptides script → Peptide, not Boost). If topic matches the 24-post deterministic map in lib/seeds/cta-keywords.ts, that exact keyword overrides this list.
-
-MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
+const MENTAL_HEALTH_ACUTE_BLOCK = `MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
 When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute ideation", "active ideation", "988", "lifeline", "crisis intervention" — switch to the stripped template:
   • NO "Think of it this way" analogy slide
   • CTA = Comment "<KEYWORD>" only + crisis line
   • Caption MUST end with the 988 crisis line
-  • Tone stays clinical and supportive. NEVER "system failed you" / "you deserve better" framing.
+  • Tone stays clinical and supportive. NEVER "system failed you" / "you deserve better" framing.`
 
-COMPLIANCE WALL — INSTANT DISQUALIFICATION (these phrases make a post unpublishable):
+const COMPLIANCE_WALL_BLOCK = `COMPLIANCE WALL — INSTANT DISQUALIFICATION (these phrases make a post unpublishable):
   ✗ "[therapy] treats [disease/condition]"    → use "may support" / "studied for"
   ✗ "[therapy] cures / reverses / heals"      → never use these verbs on a disease
-  ✗ "FDA-approved" for GLP-1 compounds, peptides, PRP, exosomes → they are NOT
   ✗ "you will see results" / "guaranteed" / "100% effective" / "always works"
   ✗ A therapeutic post with zero hedging phrases — ALWAYS include at least one:
       "may help", "can support", "some patients", "studies suggest", "talk to your doctor"
 
-If you are tempted to write any of the above → stop, rephrase before finishing the variant. A variant with ANY of these will be rejected by the downstream compliance gate and the whole post must be regenerated.
+If you are tempted to write any of the above → stop, rephrase before finishing the variant. A variant with ANY of these will be rejected by the downstream compliance gate and the whole post must be regenerated.`
+
+/**
+ * Build the POST CAROUSEL system-prompt block for the given niche profile.
+ * Replaces the former SYSTEM_PROMPT_POSTS constant.
+ * clinicName is used in the intro sentence.
+ * socialHandle is the Instagram handle (without '@') or null.
+ */
+function buildSystemPosts(
+  profile: NicheProfile,
+  clinicName: string,
+  socialHandle: string | null
+): string {
+  const followLine = socialHandle
+    ? `@${socialHandle} for evidence-based ${profile.label} content, no hype.`
+    : `us for evidence-based ${profile.label} content, no hype.`
+
+  let ctaStackBlock: string
+  if (profile.ctaMode === 'manychat') {
+    ctaStackBlock = `CTA STACK FORMAT (always 3 lines unless mental-health-acute):
+  Follow → ${followLine}
+  Comment → "<KEYWORD>" and we'll <what we send>.
+  Book → tap the link in bio or DM us to start an evaluation.
+
+${profile.manychatKeywordsBlock ?? ''}`
+  } else {
+    // booking mode — no Comment KEYWORD line
+    ctaStackBlock = `CTA STACK FORMAT (always 2 lines — NO comment/keyword line for this clinic):
+  Follow → ${followLine}
+  Book → DM us or tap the link in bio to book a consultation.
+
+Do NOT include a "Comment <KEYWORD>" line. This clinic uses direct booking only.`
+  }
+
+  const goldStdLine = profile.writerGoldStandardRef
+    ? `\n${profile.writerGoldStandardRef}\n`
+    : ''
+
+  return `
+
+POST CAROUSEL MODE (active for this request):
+You are writing for ${clinicName}'s Instagram carousel pipeline. Every variant MUST follow the universal structural arc below. This is non-negotiable.
+
+${SLIDE_ARC_BLOCK}
+
+${ctaStackBlock}
+
+${MENTAL_HEALTH_ACUTE_BLOCK}
+
+${COMPLIANCE_WALL_BLOCK}
 
 COMPLIANCE BASELINE (HARD — every variant must pass):
-  • NEVER claim a therapy "treats / cures / reverses / regenerates / restores" anything. Use "supports", "may help", "studies report", "pilot data shows".
-  • NEVER state "FDA-approved" or "FDA-cleared" unless literally true for that exact product. Verified dates in docs/content-plan-2026-06.md §4.2 — match those exactly:
-      TMS — depression 2008, OCD 2018, smoking 2020, anxious depression 2021 (NOT 2020)
-      Spravato — TRD Mar 2019, MDD-w-suicidal-ideation 2020, monotherapy Jan 2025
-      SELECT trial — 17,604 adults with ESTABLISHED cardiovascular disease (do not drop "established")
-      Retatrutide — investigational, NOT FDA-approved (Phase 2 NEJM 2023; Phase 3 TRIUMPH Dec 2025)
-      Peptides (BPC-157, TB-500, CJC-1295/Ipamorelin) — NOT FDA-approved
-      Exosomes — NEVER offer as a service (FDA: no approved exosome products)
-  • ALWAYS label evidence stage: "Phase 2", "pilot studies", "preclinical", "investigational, not FDA-approved".
-  • NEVER invent statistics. No made-up percentages, no fabricated response rates, no invented study outcomes. If a number isn't in the verified facts above, don't write it. Use qualitative language instead: "many patients", "studies show improvement", "clinical results are promising".
-  • ALWAYS produce a sources array with each non-trivial factual claim cited. Sources go in a separate "sources" field — NEVER inside the script or caption.
-  • For Mental Health bucket captions, ALWAYS end the caption with: "If you or someone you know is struggling, call or text 988 — the Suicide & Crisis Lifeline."
+${profile.complianceFacts}
 
 OUTPUT SHAPE (POST CAROUSEL):
 The "script" field of each variant is the full carousel rendered as readable text — cover line + each numbered slide + CTA stack. The compliance gate reads this; downstream the splitter parses it into the slide_sets row.
-
-Use the canonical examples in docs/content-plan-2026-06.md §5 (posts 01 Ketamine, 07 Painkillers, 11 Semaglutide, 18 ED) as gold-standard tone references when relevant — these are source-checked and pass compliance v2.1.
-`
+${goldStdLine}`
+}
 
 // Appended to the base system prompt only when a pinned format requests
 // role assignment (Studio). Adds role_blocks to the schema. The model
@@ -478,6 +495,12 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
   const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)
 
+  // Resolve niche profile for this clinic. Controls CTA mode, compliance
+  // facts block, persona, and whether keyword is injected.
+  const profile = getNicheProfile(params.context.clinic_profile.niche)
+  const clinicName = params.context.clinic_profile.name
+  const socialHandle = params.context.clinic_profile.social_handle ?? null
+
   // Build topic/plan section. planContext (90% path) injects the full
   // editorial calendar context — week, theme, pillar, keyword. Without it
   // (ad-hoc 10% path) we fall back to the plain topicHint string.
@@ -490,7 +513,9 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
         `- Pillar: "${pc.pillar}" — every variant MUST stay inside this pillar`,
         `- Topic (fixed for all variants): "${pc.topic}"`,
       ]
-      if (pc.keyword) {
+      // Only inject ManyChat keyword for manychat niche. Booking niches
+      // have no comment-keyword CTA mechanic.
+      if (pc.keyword && profile.ctaMode === 'manychat') {
         lines.push(`- ManyChat KEYWORD: "${pc.keyword}" — the CTA in every variant must invite the viewer to comment with this exact word`)
       }
       lines.push(`\nWrite ALL variants on the topic above. Pick distinct angles, hooks, or format templates, but the topic and pillar are fixed.\n`)
@@ -530,8 +555,8 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
   const userContent = `${brief}${topicSection}${ctaSection}${refineSection}${steerSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
 
   const systemPrompt =
-    SYSTEM_PROMPT_BASE +
-    (params.postCarouselMode ? SYSTEM_PROMPT_POSTS : '') +
+    buildSystemBase(profile) +
+    (params.postCarouselMode ? buildSystemPosts(profile, clinicName, socialHandle) : '') +
     (roleMode ? SYSTEM_PROMPT_ROLES : '')
 
   // Back on callAgentJSON. tool_use forced thinking/effort to be

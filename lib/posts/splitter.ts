@@ -8,6 +8,7 @@ import type {
 } from '@/types'
 import { suggestCtaKeyword, isMentalHealthAcute } from '@/lib/seeds/cta-keywords'
 import { generatePhotoBriefs } from './photo-brief'
+import type { CtaMode } from '@/lib/niche/profiles'
 
 // PostPlan splitter (HANDOFF-POSTS.md §15). Owns its own Haiku call —
 // does not import lib/visual/slides.ts which emits the LEGACY
@@ -21,7 +22,7 @@ import { generatePhotoBriefs } from './photo-brief'
 // array. Cover + CTA come back as separate objects so the route writes
 // them into their own DB columns / payload fields.
 
-const SYSTEM_PROMPT = `You convert a finished Hawaii Wellness Clinic carousel SCRIPT into the canonical PostPlan JSON shape. The script you receive was already written following the HWC structural arc — your job is to PARSE it into structured slide data, NOT rewrite it.
+const SYSTEM_PROMPT = `You convert a finished clinic carousel SCRIPT into the canonical PostPlan JSON shape. The script you receive was already written following the structural arc — your job is to PARSE it into structured slide data, NOT rewrite it.
 
 Slide arc (in order):
   1. Cover               — title + hook
@@ -46,10 +47,10 @@ For the cover:
   • hook: one specific stat or framing line ending with "Swipe →"
 
 For the CTA stack:
-  • keyword: ALL-CAPS single word from the script (e.g. "VITALITY"). If not in script, infer from topic.
-  • follow_line: usually "@hawaiiwellness for science-backed wellness, no hype." OR null for mental-health-acute stripped variant
-  • comment_line: the comment "<KEYWORD>" + what we send line
-  • book_line: usually "tap the link in bio or DM us to start an evaluation." OR null for stripped variant
+  • keyword: ALL-CAPS single word from the script (e.g. "VITALITY"). If no keyword in the script, infer from topic or use "CONNECT".
+  • follow_line: the Follow line from the script, exactly as written. Null for mental-health-acute stripped variant.
+  • comment_line: the Comment "<KEYWORD>" line from the script, exactly as written. Null if no comment/keyword line is present (booking-only CTA).
+  • book_line: the Book line from the script. Null for mental-health-acute stripped variant.
   • crisis_line_in_cta: present ONLY for mental-health-acute stripped variant (988 line)
 
 For sources:
@@ -66,7 +67,7 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
   "cta": {
     "keyword": "...",
     "follow_line": "..." | null,
-    "comment_line": "...",
+    "comment_line": "..." | null,
     "book_line": "..." | null,
     "crisis_line_in_cta": null
   },
@@ -87,7 +88,15 @@ export interface SplitToPostPlanResult {
 
 export async function splitScriptToPostPlan(
   script: string,
-  context?: { topic?: string | null; hook?: string | null; onStage?: (name: string) => void }
+  context?: {
+    topic?: string | null
+    hook?: string | null
+    onStage?: (name: string) => void
+    /** CTA mode from the clinic's niche profile. Default: 'manychat' (HWC). */
+    ctaMode?: CtaMode
+    /** Instagram handle without '@'. Null → generic follow line. */
+    socialHandle?: string | null
+  }
 ): Promise<SplitToPostPlanResult> {
   if (!script.trim()) {
     throw new Error('splitScriptToPostPlan: script is empty')
@@ -144,19 +153,32 @@ export async function splitScriptToPostPlan(
     context?.topic ?? '',
     context?.hook ?? null
   )
+  const ctaMode: CtaMode = context?.ctaMode ?? 'manychat'
+  const socialHandle = context?.socialHandle ?? null
+
+  // Build the fallback follow line from the social handle.
+  // When handle is absent → generic "Follow for ..." without @.
+  const fallbackFollowLine = socialHandle
+    ? `@${socialHandle} for evidence-based wellness content, no hype.`
+    : 'Follow us for evidence-based content, no hype.'
+
   const fallbackKeyword = suggestCtaKeyword(context?.topic ?? null) ?? null
-  const keyword =
-    (ctaRaw.keyword?.toString().trim() || fallbackKeyword || 'CONNECT').toUpperCase()
+  // Booking mode doesn't use a ManyChat keyword; use a neutral placeholder
+  // so the PostPlan shape stays valid (keyword is still a non-empty string).
+  const keyword = ctaMode === 'booking'
+    ? 'BOOK'
+    : (ctaRaw.keyword?.toString().trim() || fallbackKeyword || 'CONNECT').toUpperCase()
 
   const cta: PostPlanCta = {
     keyword,
     follow_line: acute
       ? null
-      : (ctaRaw.follow_line?.trim() ||
-          '@hawaiiwellness for science-backed wellness, no hype.'),
-    comment_line:
-      ctaRaw.comment_line?.trim() ||
-      `"${keyword}" and we'll send the next step.`,
+      : (ctaRaw.follow_line?.trim() || fallbackFollowLine),
+    // Booking mode: no comment/keyword mechanic → null.
+    // Manychat mode: parse from script or synthesise fallback.
+    comment_line: ctaMode === 'booking'
+      ? null
+      : (ctaRaw.comment_line?.trim() || `"${keyword}" and we'll send the next step.`),
     book_line: acute
       ? null
       : (ctaRaw.book_line?.trim() ||

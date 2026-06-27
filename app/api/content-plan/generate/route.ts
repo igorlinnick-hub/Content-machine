@@ -37,7 +37,8 @@ export async function POST(req: Request) {
   const profile: ClinicProfile = {
     id: clinic.id,
     name: clinic.name,
-    niche: (clinic.niche ?? 'regenerative_medicine') as ClinicProfile['niche'],
+    niche: clinic.niche ?? 'regenerative_medicine',
+    social_handle: (clinic as unknown as { social_handle?: string | null }).social_handle ?? null,
     services: clinic.services ?? [],
     audience: clinic.audience ?? '',
     tone: (clinic.tone ?? 'educational') as ClinicProfile['tone'],

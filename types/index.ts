@@ -35,7 +35,10 @@ export type SlideSetStatus =
 export interface ClinicProfile {
   id: string
   name: string
-  niche: 'regenerative_medicine'
+  /** DB value, e.g. 'regenerative_medicine' | 'aesthetics'. Unknown → profiles.ts fallbacks to regenmed. */
+  niche: string
+  /** Instagram handle without '@'. Null → generic follow line (no @). */
+  social_handle: string | null
   services: string[]
   audience: string
   tone: Tone
@@ -294,9 +297,9 @@ export interface PostPlanBodySlide {
 }
 
 export interface PostPlanCta {
-  keyword: string                          // ALL-CAPS single word, e.g. 'VITALITY'
+  keyword: string                          // ALL-CAPS single word, e.g. 'VITALITY'. 'BOOK' for booking-niche.
   follow_line: string | null               // null for mental-health-acute stripped variant
-  comment_line: string
+  comment_line: string | null              // null for booking CTA mode (no ManyChat keyword mechanic)
   book_line: string | null                 // null for mental-health-acute stripped variant
   crisis_line_in_cta?: string | null       // present only when acute trigger fires
 }

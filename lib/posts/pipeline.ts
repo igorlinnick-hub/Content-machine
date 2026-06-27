@@ -21,6 +21,8 @@ export async function runComplianceGate(input: {
   script: string
   category?: string | null
   topic?: string | null
+  /** Clinic niche — routes to the correct compliance ruleset. */
+  niche?: string | null
   // Set true to skip the LLM grade (factCheck only). Used by the cron
   // when running large batches and budget matters; the marketer UI
   // path always pays for the full grade.
@@ -30,6 +32,7 @@ export async function runComplianceGate(input: {
     script: input.script,
     category: input.category,
     topic: input.topic,
+    niche: input.niche,
     skipLLM: input.skipLLM,
   })
 }

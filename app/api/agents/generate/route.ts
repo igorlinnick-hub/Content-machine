@@ -95,9 +95,10 @@ export async function POST(req: Request) {
         }
 
         stage('captioner:done')
+        const clinicNiche = context.clinic_profile.niche
         const complianceResults = await Promise.all(
           variants.variants.map((v) =>
-            runComplianceGate({ script: v.script, topic: v.topic }).catch(
+            runComplianceGate({ script: v.script, topic: v.topic, niche: clinicNiche }).catch(
               (): ComplianceResult => ({
                 grade: 'REVIEW',
                 findings: [],
@@ -115,10 +116,10 @@ export async function POST(req: Request) {
             if (!cr || cr.grade === 'REMOVE') return null
             if (cr.grade === 'PASS') return { variant: v, compliance: cr }
 
-            const fixedScript = await runComplianceRewriter({ script: v.script, findings: cr.findings }).catch(() => null)
+            const fixedScript = await runComplianceRewriter({ script: v.script, findings: cr.findings, niche: clinicNiche }).catch(() => null)
             if (!fixedScript) return { variant: v, compliance: cr }
 
-            const recheck = await runComplianceGate({ script: fixedScript, topic: v.topic }).catch((): ComplianceResult => cr)
+            const recheck = await runComplianceGate({ script: fixedScript, topic: v.topic, niche: clinicNiche }).catch((): ComplianceResult => cr)
             if (recheck.grade === 'REMOVE') return null
 
             return { variant: { ...v, script: fixedScript }, compliance: recheck }

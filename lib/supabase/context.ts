@@ -90,7 +90,8 @@ export async function loadSharedContext(clinicId: string): Promise<SharedContext
   const clinic_profile: ClinicProfile = {
     id: c.id,
     name: c.name,
-    niche: 'regenerative_medicine',
+    niche: (c.niche ?? 'regenerative_medicine'),
+    social_handle: (c as unknown as { social_handle?: string | null }).social_handle ?? null,
     services: c.services ?? [],
     audience: c.audience ?? '',
     tone: (c.tone ?? 'educational') as Tone,
@@ -380,7 +381,8 @@ export async function loadClinicProfile(
   return {
     id: data.id,
     name: data.name,
-    niche: 'regenerative_medicine',
+    niche: (data.niche ?? 'regenerative_medicine'),
+    social_handle: (data as unknown as { social_handle?: string | null }).social_handle ?? null,
     services: data.services ?? [],
     audience: data.audience ?? '',
     tone: (data.tone ?? 'educational') as Tone,
