@@ -89,10 +89,12 @@ export default async function ContentPlanPage({
               >
                 This week
               </span>
-              <span className="text-[13px] font-semibold text-neutral-800">
-                Week {currentWeek.week_number} — {currentWeek.theme}
-              </span>
-              <span className="text-[13px] text-neutral-500">{currentWeek.pillar}</span>
+              <div className="min-w-0">
+                <span className="block text-[13px] font-semibold text-neutral-800">
+                  Week {currentWeek.week_number} — {currentWeek.theme}
+                </span>
+                <span className="block truncate text-[11px] text-neutral-500">{currentWeek.pillar}</span>
+              </div>
             </div>
           )
         })()}
@@ -105,10 +107,10 @@ export default async function ContentPlanPage({
               return (
                 <div
                   key={pillar}
-                  className="flex flex-col gap-1 rounded-xl border p-3"
+                  className="flex flex-col gap-1.5 rounded-xl border p-3"
                   style={{ background: `${color}0d`, borderColor: `${color}30` }}
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color }}>
+                  <span className="line-clamp-2 text-[10px] font-bold uppercase leading-[1.4] tracking-[0.12em]" style={{ color }}>
                     {pillar}
                   </span>
                   <span className="text-xl font-bold text-neutral-900">{count}</span>
@@ -167,33 +169,34 @@ function WeekCard({
           : '0 2px 16px rgba(0,0,0,0.05)',
       }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
             Week {week.week_number}
-            {isCurrent && (
-              <span
-                className="ml-2 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
-                style={{ background: `${color}20`, color }}
-              >
-                Now
-              </span>
-            )}
-          </p>
-          <h3 className="mt-0.5 text-[17px] font-bold tracking-tight text-neutral-900">
-            {week.theme}
-          </h3>
+          </span>
+          {isCurrent && (
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.1em]"
+              style={{ background: `${color}20`, color }}
+            >
+              Now
+            </span>
+          )}
+          <span
+            className="max-w-[140px] truncate rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em]"
+            style={{
+              background: `${color}18`,
+              color,
+              border: `1px solid ${color}30`,
+            }}
+            title={week.pillar}
+          >
+            {week.pillar}
+          </span>
         </div>
-        <span
-          className="mt-0.5 shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.1em]"
-          style={{
-            background: `${color}18`,
-            color,
-            border: `1px solid ${color}30`,
-          }}
-        >
-          {week.pillar}
-        </span>
+        <h3 className="text-[15px] font-bold leading-snug tracking-tight text-neutral-900">
+          {week.theme}
+        </h3>
       </div>
 
       {week.description && (
