@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { marked } from 'marked'
 import { resolveAccess } from '@/lib/auth/session'
+import { createServerClient } from '@/lib/supabase/server'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { PageHeader } from '@/app/components/PageHeader'
 
@@ -16,12 +17,35 @@ interface ComplianceDoc {
   file: string
 }
 
-const DOCS: ComplianceDoc[] = [
+// Docs shown to regenmed clinics (the default).
+const DOCS_REGENMED: ComplianceDoc[] = [
   {
     slug: 'ruleset',
     label: 'Ruleset v2.1',
-    description: 'Machine-readable source of truth — rules that the AI critic + gate cite.',
+    description: 'Machine-readable source of truth — rules the AI critic + gate cite.',
     file: 'docs/compliance-ruleset.md',
+  },
+  {
+    slug: 'playbook',
+    label: 'Plain-language playbook',
+    description: 'Do / don\'t cheat sheet for marketers and writers.',
+    file: 'docs/compliance-playbook.md',
+  },
+  {
+    slug: 'integration',
+    label: 'Integration brief',
+    description: 'How the gate is wired into the pipeline (Writer → Critic → Gate).',
+    file: 'docs/COMPLIANCE-INTEGRATION.md',
+  },
+]
+
+// Docs shown to aesthetics clinics — no exosome/stem-cell/regenmed rules.
+const DOCS_AESTHETICS: ComplianceDoc[] = [
+  {
+    slug: 'ruleset',
+    label: 'Ruleset v1.0 — Aesthetics',
+    description: 'Rules for Botox / fillers / skin treatments. Applied by the AI gate before publish.',
+    file: 'docs/compliance-ruleset-aesthetics.md',
   },
   {
     slug: 'playbook',
@@ -42,11 +66,22 @@ interface PageProps {
 }
 
 export default async function CompliancePage({ searchParams }: PageProps) {
-  // Same access gate as the rest of the back-office: admin OR a token
-  // session (doctor/editor). Compliance is read-only — both team and
-  // doctor should be able to read it, so we don't restrict by role.
   const access = await resolveAccess()
   if (!access) redirect('/')
+
+  // Resolve niche for the current clinic so we can serve the right ruleset.
+  // Admin sees regenmed docs by default (they can switch ?clinicId to preview another).
+  let niche = 'regenerative_medicine'
+  const clinicId = access.role === 'admin' ? null : ('clinicId' in access ? access.clinicId : null)
+  if (clinicId) {
+    try {
+      const supabase = createServerClient()
+      const { data } = await supabase.from('clinics').select('niche').eq('id', clinicId).single()
+      if (data?.niche) niche = data.niche
+    } catch { /* fallback to regenmed */ }
+  }
+
+  const DOCS = niche === 'aesthetics' ? DOCS_AESTHETICS : DOCS_REGENMED
 
   const activeSlug = (DOCS.find((d) => d.slug === searchParams.doc)?.slug ?? 'ruleset') as ComplianceDoc['slug']
   const active = DOCS.find((d) => d.slug === activeSlug)!
