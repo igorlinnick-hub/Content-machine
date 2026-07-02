@@ -53,6 +53,10 @@ export type Database = {
           social_handle: string | null
           tone: string | null
           content_plan_start: string | null
+          drive_root_folder_id: string | null
+          drive_inbox_folder_id: string | null
+          drive_originals_folder_id: string | null
+          drive_finals_folder_id: string | null
         }
         Insert: {
           audience?: string | null
@@ -71,6 +75,10 @@ export type Database = {
           social_handle?: string | null
           tone?: string | null
           content_plan_start?: string | null
+          drive_root_folder_id?: string | null
+          drive_inbox_folder_id?: string | null
+          drive_originals_folder_id?: string | null
+          drive_finals_folder_id?: string | null
         }
         Update: {
           audience?: string | null
@@ -89,6 +97,10 @@ export type Database = {
           social_handle?: string | null
           tone?: string | null
           content_plan_start?: string | null
+          drive_root_folder_id?: string | null
+          drive_inbox_folder_id?: string | null
+          drive_originals_folder_id?: string | null
+          drive_finals_folder_id?: string | null
         }
         Relationships: [
           {

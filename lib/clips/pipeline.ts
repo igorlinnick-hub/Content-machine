@@ -10,6 +10,11 @@ import {
 } from './drive'
 import { transcribeAudio, type WhisperResult } from './whisper'
 import { planCuts } from './cuts'
+import { detectRetakeDrops } from './retakes'
+import {
+  getClinicDriveFolders,
+  type ClinicDriveFolders,
+} from '@/lib/google/clinicFolders'
 import { applyCuts, burnCaptions, extractAudioMp3 } from './ffmpeg'
 import { buildSrt } from './srt'
 import {
@@ -36,6 +41,7 @@ export interface ProcessClipResult {
   duration_out_sec: number
   filler_count: number
   silence_count: number
+  retake_count: number
   transcript_text: string
 }
 
@@ -52,8 +58,19 @@ export async function processClip(params: {
   clinicId: string
   inboxClip: InboxClip
   triggeredChatId?: string | null
+  // Per-clinic Drive folders. Pass explicitly when the caller already
+  // resolved them (cron); omit to resolve here; null = force legacy
+  // global env folders.
+  folders?: ClinicDriveFolders | null
 }): Promise<ProcessClipResult> {
   const { clinicId, inboxClip } = params
+
+  // Per-clinic layout when the clinic has provisioned folders,
+  // legacy global env folders otherwise (HWC today).
+  const folders =
+    params.folders !== undefined
+      ? params.folders
+      : await getClinicDriveFolders(clinicId)
 
   // Register the clip first so failures still leave a row.
   const { id: clipId } = await upsertPendingClip({
@@ -89,29 +106,40 @@ export async function processClip(params: {
     // Audio buffer no longer needed.
     await unlink(audioPath).catch(() => {})
 
-    // 4. Plan cuts.
-    const plan = planCuts(whisper.segments, whisper.duration)
+    // 4. Retake pass (Haiku, fail-open): drop abandoned takes
+    //    ("let me start over" + the flubbed line before it) so they
+    //    never reach the cut plan. On any error this returns zero
+    //    drops and the pipeline continues with filler/silence only.
+    const retakes = await detectRetakeDrops(whisper.segments)
+    const liveSegments =
+      retakes.count > 0
+        ? whisper.segments.filter((s) => !retakes.dropIds.has(s.id))
+        : whisper.segments
+
+    // 5. Plan cuts.
+    const plan = planCuts(liveSegments, whisper.duration)
     if (plan.keep.length === 0) {
       throw new Error(
         'cut planner produced 0 keep intervals — clip is all filler / silence?'
       )
     }
 
-    // 5. ffmpeg apply cuts → cut.mp4.
+    // 6. ffmpeg apply cuts → cut.mp4.
     await applyCuts(rawPath, cutPath, plan.keep)
     await unlink(rawPath).catch(() => {})
 
-    // 6. SRT from remapped intervals.
+    // 7. SRT from remapped intervals.
     const srt = buildSrt(plan.keep)
     await writeFile(srtPath, srt, 'utf8')
 
-    // 7. ffmpeg burn captions → final.mp4.
+    // 8. ffmpeg burn captions → final.mp4.
     await burnCaptions(cutPath, srtPath, finalPath)
     await unlink(cutPath).catch(() => {})
 
-    // 8. Upload artifacts to a per-clip folder under Cleaned/.
+    // 9. Upload artifacts to a per-clip folder — under the clinic's
+    //    Finals/ or the legacy global Cleaned/.
     const folderName = safeFolderName(inboxClip.name)
-    const folderId = await createClipFolder(folderName)
+    const folderId = await createClipFolder(folderName, folders?.finalsId)
 
     const finalBuf = await readFile(finalPath)
     const cleanedFileId = await uploadFileToFolder({
@@ -138,11 +166,44 @@ export async function processClip(params: {
       body: srtBuf,
     })
 
-    // 9. Move the original out of Inbox into the per-clip folder so
-    //    Inbox empties and provenance is preserved.
-    await moveFileToFolder(inboxClip.id, folderId)
+    // Word-level timestamps + the cut plan — raw material for the
+    // transcript editor (edit-by-word, ms cuts, re-render without
+    // re-transcribing). Best-effort: the cleaned clip is complete
+    // without it, so an upload failure here must not fail the clip.
+    if (whisper.words.length > 0) {
+      const editData = JSON.stringify(
+        {
+          duration: whisper.duration,
+          language: whisper.language,
+          words: whisper.words,
+          segments: whisper.segments,
+          keep: plan.keep.map((k) => ({ start: k.start, end: k.end })),
+        },
+        null,
+        1
+      )
+      await uploadFileToFolder({
+        folderId,
+        name: 'words.json',
+        mimeType: 'application/json',
+        body: Buffer.from(editData, 'utf8'),
+      }).catch((e) => {
+        console.warn(
+          `clips: words.json upload failed (non-fatal) — ${e instanceof Error ? e.message : 'unknown'}`
+        )
+      })
+    }
 
-    // 10. Mark cleaned in DB.
+    // 10. Move the original out of Inbox so it empties. Per-clinic
+    //     layout parks it in Originals/; legacy layout keeps the old
+    //     behaviour (into the per-clip folder).
+    await moveFileToFolder(
+      inboxClip.id,
+      folders ? folders.originalsId : folderId,
+      folders?.inboxId
+    )
+
+    // 11. Mark cleaned in DB.
     await markClipCleaned({
       clipId,
       driveClipFolderId: folderId,
@@ -163,6 +224,7 @@ export async function processClip(params: {
       duration_out_sec: plan.duration_out_sec,
       filler_count: plan.filler_count,
       silence_count: plan.silence_count,
+      retake_count: retakes.count,
       transcript_text: transcriptTxt,
     }
   } catch (e) {

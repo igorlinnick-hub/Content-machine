@@ -3,18 +3,21 @@ import { getDriveClient } from '@/lib/google/drive'
 
 // Drive operations specific to the /clips pipeline. The doctor
 // drops mp4/mov files in the Inbox folder; we download, process,
-// and write artifacts into a per-clip subfolder under Cleaned/.
+// and write artifacts into a per-clip subfolder.
 //
-// Folder layout (set up manually by the operator, ids in env):
+// Two folder layouts coexist:
+// 1. Legacy global (ids in env — HWC today):
 //   Clips/
 //     Inbox/        <- GOOGLE_DRIVE_CLIPS_INBOX_ID
 //     Cleaned/      <- GOOGLE_DRIVE_CLIPS_CLEANED_ID
-//       2026-05-09_TMS_intro/   (created by us, one per clip)
-//         raw.<ext>
-//         cleaned.mp4
-//         transcript.txt
-//         transcript.srt
-//         meta.json
+//       2026-05-09_TMS_intro/   (created by us, one per clip;
+//         original moved in here too)
+// 2. Per-clinic (ids on the clinics row — lib/google/clinicFolders.ts):
+//   {Clinic — Doctor}/
+//     Inbox/      <- doctor drops raw videos
+//     Originals/  <- original moved here after processing
+//     Finals/     <- per-clip folders with cleaned.mp4 + transcripts
+// Every function takes optional explicit folder ids; omitted = env.
 
 export interface InboxClip {
   id: string
@@ -38,8 +41,10 @@ export function readClipsEnv(): {
   return { inboxId, cleanedId }
 }
 
-export async function listInboxClips(): Promise<InboxClip[]> {
-  const { inboxId } = readClipsEnv()
+export async function listInboxClips(
+  explicitInboxId?: string
+): Promise<InboxClip[]> {
+  const inboxId = explicitInboxId ?? readClipsEnv().inboxId
   const drive = getDriveClient()
   const q = `'${inboxId}' in parents and (mimeType contains 'video/' or name contains '.mov') and trashed = false`
   const res = await drive.files.list({
@@ -70,8 +75,11 @@ export async function downloadDriveFileToBuffer(
   return Buffer.from(res.data as ArrayBuffer)
 }
 
-export async function createClipFolder(name: string): Promise<string> {
-  const { cleanedId } = readClipsEnv()
+export async function createClipFolder(
+  name: string,
+  explicitParentId?: string
+): Promise<string> {
+  const cleanedId = explicitParentId ?? readClipsEnv().cleanedId
   const drive = getDriveClient()
   const res = await drive.files.create({
     requestBody: {
@@ -110,13 +118,15 @@ export async function uploadFileToFolder(params: {
   return res.data.id
 }
 
-// Move the original Inbox file into the per-clip folder so the
-// Inbox stays clean and everything for one clip lives together.
+// Move the original Inbox file out of the Inbox — into the per-clip
+// folder (legacy layout) or the clinic's Originals/ (per-clinic
+// layout) — so the Inbox stays clean.
 export async function moveFileToFolder(
   fileId: string,
-  newParentId: string
+  newParentId: string,
+  explicitFromParentId?: string
 ): Promise<void> {
-  const { inboxId } = readClipsEnv()
+  const inboxId = explicitFromParentId ?? readClipsEnv().inboxId
   const drive = getDriveClient()
   await drive.files.update({
     fileId,

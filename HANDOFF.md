@@ -1473,3 +1473,76 @@ Reels/Shorts-friendly: Arial 22pt, white text, black box с alpha, bottom-center
 > Возвращаюсь в Content Machine. Прочитай HANDOFF §15-21 и memory entries. Caption generation, doctor_notes TTL, verify tools, refine_post, 1-hop delegation — деплоены. Migration 013 накачена. Следующие приоритеты: (a) daily Ops digest cron; (b) agent_action capture в learnings; (c) change_style real impl; (d) regenerate_caption tool; (e) перенос content-bot в standalone CF Worker.
 
 *Раздел создан: 2026-05-09*
+
+## 22. PRODUCT SPLIT — CLINIC WHITE-LABEL + STUDIO STANDALONE (создан 2026-07-02)
+
+Стратегический раунд: закрыта продуктовая развилка «клиника vs масс-маркет». Решение — **один движок, две обёртки**. Этот раздел — единый источник договорённостей для всех параллельных сессий: решения, детальные планы по каждому процессу, процесс апрувала постинга. Кода в этом раунде не менялось — только документация.
+
+### 22.1 Решения (зафиксировано 2026-07-01)
+
+1. **Один движок — две обёртки.** Клиника first, standalone second. Не два отдельных репозитория: одна кодовая база, любое улучшение ядра достаётся обоим продуктам.
+2. **Клиника = white-label.** Команда Игоря настраивает платформу per-clinic (темы, шаблоны, тон). Setup-by-team — это модель, не времянка. Drive остаётся (UX команды клиники). Buffer остаётся — тонкий адаптер `app/api/publish/buffer/route.ts` (~130 строк), генерация про Buffer не знает, swap на другой провайдер = соседний route-файл.
+3. **Standalone = приложение для креаторов говорящих видео** (эксперты, коучи, малый бизнес). НЕ конкурируем с шаблонными монтажёрами (Vids AI, CapCut) — их поле «красивые нарезки из фото/видео», наше — «что сказать, как снять, быстро почистить».
+4. **Флоу standalone:** чужой reel → разбор (движок studio/analyze) → сценарий под свою тему → телепромптер → авточистка (движок clips) → **правка через текст** → экспорт/постинг.
+5. **Ручной монтаж = transcript-based editing** (Descript-модель), НЕ таймлайн-редактор. UI поверх Whisper-сегментов + cut-plan: транскрипт с зачёркнутыми вырезками, tap = toggle сегмента, trim краёв. Предпросмотр — плеер перепрыгивает вырезанные диапазоны на клиенте; серверный рендер (ffmpeg) только на финальном экспорте. Решает «ИИ пропустил повтор/паузу» без постройки CapCut.
+6. **Хранение:** клиника — Google Drive (как сейчас); consumer — Supabase Storage (прямая загрузка, без Drive).
+7. **Постинг consumer поэтапно:** v1 share sheet → v2 агрегатор → v3 свои апрувалы (детали в 22.4). Instagram API личным аккаунтам недоступен в принципе — share sheet это не костыль, а стандарт категории.
+8. **Экономика consumer:** кредиты/лимиты с первого дня (урок kill switch: pay-per-use LLM сжёг бюджет на одном клиенте), paywall сразу, free-tier без кредитной карты не делаем.
+9. **Web-first.** Мобильное приложение (App Store, платежи, ревью) — только после первых денег.
+
+### 22.2 Track 1 — клиника (порядок и статусы)
+
+| # | Процесс | Статус | Детали |
+|---|---|---|---|
+| 1 | Compliance: `compliance_safe` в `CriticScore.criteria` (6 полей) + `critic.ts` → `callAgentTool` с явной JSON Schema + `MODEL_CRITIC` (opus-4-7) | ⏳ в параллельной сессии, незакоммичено | `types/index.ts`, `lib/agents/critic.ts` — НЕ трогать из других сессий |
+| 2 | Compliance Layer B гейт — `lib/agents/compliance.ts` по `docs/COMPLIANCE-INTEGRATION.md` (REMOVE/REWORD/REVIEW/PASS, блок REMOVE/REWORD перед publish) | ❌ | после п.1, та же сессия ядра |
+| 3 | Монтаж: cron-подхват Drive Inbox (вместо ручного триггера через Pax) | ✅ 2026-07-02 | `app/api/cron/clips-inbox/route.ts`, vercel.json `*/30 * * * *`; требует env `CLIPS_DEFAULT_CLINIC_ID` (нет — no-op); skip: processing/failed/cleaned (failed = retry только вручную, чтобы битый файл не жёг Whisper каждый тик); cap 3 клипа/тик + дедлайн 180s на подхват новых |
+| 4 | Монтаж: вырезание повторных дублей («ещё раз сначала», «sorry, again») — LLM-проход по Whisper-сегментам | ✅ 2026-07-02 | `lib/clips/retakes.ts` (Sonnet — решение об удалении контента, Haiku слаба, решили 2026-07-02; callAgentTool, fail-open: любая ошибка/kill switch → 0 дропов, пайплайн живёт); врезка в `pipeline.ts` шаг 4; guard: >40% дропов = галлюцинация, игнор; `retake_count` в ProcessClipResult |
+| 5 | Монтаж: Whisper chunking >25MB audio (ролики >~50 мин) | ❌ | `lib/clips/whisper.ts` |
+| 6 | Монтаж: очередь батч-обработки (Upstash) + ролики >10 мин (Cloud Run) | ❌ отложено | делать когда реально упрёмся в лимит |
+| 7 | Drive per-clinic: авто-создание папки клиники при онбординге (`{Клиника — Врач}/Inbox|Originals|Finals`) + пайплайн раскладывает по ним + `/clips` viewer в вебе | ✅ 2026-07-02 | Migration 037 (4 колонки drive_*_folder_id на clinics), `lib/google/clinicFolders.ts` (provision при POST /api/onboarding, non-fatal), `lib/clips/drive.ts` параметризован (нет колонок → легаси env-папки, HWC работает без изменений), original → Originals/, готовое → Finals/{клип}/, cron обходит ВСЕ provisioned-клиники + легаси Inbox. Новый env: `GOOGLE_DRIVE_CLINICS_ROOT_ID` (родитель папок клиник; не задан → provision no-op). Viewer: `app/clips/page.tsx` — статус/длительность/вырезки/ссылки Final-Original-Folder, view-only. Клиника свой Drive НЕ подключает — white-label |
+| 8 | Word-level таймкоды Whisper (`timestamp_granularities[]=word`) + артефакт `words.json` (words + segments + cut plan) в папку клипа | ✅ 2026-07-02 | `lib/clips/whisper.ts` (+`WhisperWord`), `pipeline.ts` (best-effort upload, не роняет клип). Сырьё для текстового редактора Track 2 п.6 — клипы с этого дня можно ре-монтировать пословно без повторной транскрибации. Цена Whisper та же |
+| 9 | Видео-бот: TG-уведомление врачу/команде «клип готов» после cron-обработки (ссылки Final/Folder) — сейчас cron тихий | ❌ | хук после `markClipCleaned` в cron-роуте → Telegram sendMessage; chat_id клиники |
+| 10 | Caption-стили пресетами: 3-4 визуальных шаблона субтитров (шрифт/размер/цвет/подложка/позиция) на выбор | ❌ | `burnCaptions` уже параметризуется одной строкой libass `force_style` (§20); пресеты в коде + колонка `caption_style` на clinics; выбор в UI. Обязательно для масс-маркета (Track 2), приятно для клиник |
+
+### 22.3 Track 2 — Studio standalone (процессы подробно)
+
+Аудит кода 2026-07-01: `lib/studio/analyze.ts` — чистый (ноль clinic-зависимостей); привязка к clinic_id сидит в DB-слое, роутах и `loadSharedContext`. Пайплайн /clips уже полностью серверный (Vercel + ffmpeg + Whisper API), Drive там только I/O-папки.
+
+| # | Процесс | Оценка | Что делать |
+|---|---|---|---|
+| 1 | Выделение движка | 2-3 дня | развязать `lib/studio/addByUrl.ts` / `slots.ts` от clinic_id → workspace_id; контекст инъекцией параметром вместо `loadSharedContext(clinicId)`; DB-insert наружу из функций |
+| 2 | Consumer auth + billing | 3-4 дня | Supabase email/OAuth (не clinic-cookie), Stripe subscription, кредиты: 1 разбор ролика = 1 кредит, N кредитов в подписке |
+| 3 | Хранилище/библиотека | 1-2 дня | загрузка видео в Supabase Storage bucket, «папка» пользователя (список, превью, удаление) |
+| 4 | Телепромптер | 1-2 дня | уже работает для клиник; отвязать от clinic-auth и Drive-иерархии (`lib/google/recordings.ts`) → workspace + Storage |
+| 5 | Авточистка видео | 1-2 дня | реюз `lib/clips/pipeline.ts` целиком; заменить только I/O-адаптер Drive→Storage; лимит ~10 мин — ок для рилсов |
+| 6 | Ручной редактор через текст | 4-6 дней | транскрипт с зачёркиванием, toggle на уровне СЛОВ (word-level таймкоды уже пишутся пайплайном — Track 1 п.8, `words.json`), trim краёв; клиентский предпросмотр skip-ranges (без серверного рендера); экспорт = пересборка ffmpeg по обновлённому cut-plan |
+| 7 | Экспорт + share sheet | ~1 день | готовый файл → системное «Поделиться» (IG/TikTok/YouTube), ноль согласований |
+| 8 | Постинг по API | этапами | см. 22.4 |
+
+### 22.4 Процесс апрувала постинга (полный, чтобы не блокировал запуск)
+
+- **Instagram/Facebook (Meta Graph API).** Только business/creator аккаунты — личные нельзя в принципе (не наш недостаток, ограничение платформы). Шаги: Meta Business verification → создать Meta App → запросить permissions (`instagram_content_publish`, `instagram_basic`, `pages_manage_posts`, `pages_read_engagement`) → App Review со скринкастами use-case → production access. Срок: недели. Rate limit: ~25 API-постов/сутки на IG-аккаунт.
+- **TikTok Content Posting API.** Отдельная заявка на developers.tiktok.com + аудит приложения; unaudited-приложения могут постить только приватно (SELF_ONLY). Срок: 1-2 недели.
+- **YouTube Data API.** Квота по умолчанию мала (upload ≈ 1600 units при default 10k/день); повышение — через audit-форму.
+- **Средний путь — агрегаторы (Ayrshare и аналоги).** Их приложения уже прошли все апрувалы; подключение = их OAuth-виджет + их API. Плюс: старт за дни. Минус: платишь per-user, дороже на объёме.
+- **Рекомендация по этапам:** v1 = share sheet (запуск не блокируется вообще) → v2 = агрегатор, когда появились платящие → v3 = собственные апрувалы Meta/TikTok при объёме (экономия на агрегаторе). Заявки на апрувалы подавать параллельно с v2 — сроки длинные, пусть идут фоном.
+
+### 22.5 Координация сессий
+
+- **Сессия ядра/compliance** владеет: `lib/agents/critic.ts`, `types/index.ts`, будущий `lib/agents/compliance.ts`. Правки там сейчас незакоммичены — другим сессиям эти файлы не трогать и не коммитить.
+- **Сессия Track 2 (standalone)** — отдельная полоса. Точки пересечения с ядром: `lib/studio/*`, `lib/clips/*` — перед правкой проверять `git status`.
+- **HANDOFF §22 — единый источник договорённостей.** Закрыл пункт таблицы — обнови статус (❌ → ✅ с датой). Новые решения — дописывать в 22.1, не переписывать историю.
+
+### 22.6 Что НЕ решено (открытые вопросы)
+
+- Название / бренд / домен standalone-продукта; юрлицо и разделение биллинга.
+- Цена подписки и размер кредитного пакета.
+- Какой агрегатор для v2-постинга (Ayrshare vs аналоги) — выбрать по ценам, когда дойдём.
+- ИИ-аватар (говорящая ИИ-модель на камеру): рекомендация Claude 2026-07-02 — НЕ делать. Ядро продукта = настоящее лицо врача/креатора (доверие); аватары = чужая гонка (HeyGen/Synthesia, дорогая пер-минутная генерация) + compliance/доверие-риск для мед-контента. Caption-стили (Track 1 п.10) закрывают «визуальное разнообразие» дешевле. Вернуться только если клиенты явно попросят.
+
+### Стартовый промпт для следующей сессии
+
+> Возвращаюсь в Content Machine. Прочитай HANDOFF §22 (product split) + §20-21. Определи свою полосу: ядро/compliance (Track 1 пп.1-2) или клиничный монтаж (Track 1 пп.3-5) или Studio standalone (Track 2). Возьми следующий ❌-пункт из таблицы своего трека, перед правкой общих файлов проверь `git status` (координация сессий — §22.5). По завершении обнови статус пункта в таблице.
+
+*Раздел создан: 2026-07-02*

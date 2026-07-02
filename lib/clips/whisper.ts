@@ -12,10 +12,21 @@ export interface WhisperSegment {
   text: string
 }
 
+// Word-level timestamps power the transcript editor (edit-by-word,
+// millisecond cuts). The cut planner still works on segments; words
+// are captured alongside so clips processed today can be re-edited
+// later without re-transcribing.
+export interface WhisperWord {
+  word: string
+  start: number
+  end: number
+}
+
 export interface WhisperResult {
   text: string
   language: string
   segments: WhisperSegment[]
+  words: WhisperWord[]
   duration: number
 }
 
@@ -35,6 +46,7 @@ export async function transcribeAudio(params: {
   fd.append('model', 'whisper-1')
   fd.append('response_format', 'verbose_json')
   fd.append('timestamp_granularities[]', 'segment')
+  fd.append('timestamp_granularities[]', 'word')
   if (params.language) fd.append('language', params.language)
 
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -51,6 +63,7 @@ export async function transcribeAudio(params: {
     language?: string
     duration?: number
     segments?: Array<{ id: number; start: number; end: number; text: string }>
+    words?: Array<{ word: string; start: number; end: number }>
   }
   return {
     text: data.text ?? '',
@@ -61,6 +74,11 @@ export async function transcribeAudio(params: {
       start: s.start,
       end: s.end,
       text: s.text.trim(),
+    })),
+    words: (data.words ?? []).map((w) => ({
+      word: w.word,
+      start: w.start,
+      end: w.end,
     })),
   }
 }

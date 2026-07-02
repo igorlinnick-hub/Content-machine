@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { listInboxClips } from '@/lib/clips/drive'
 import { processClip } from '@/lib/clips/pipeline'
+import { getClinicDriveFolders } from '@/lib/google/clinicFolders'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
@@ -46,7 +47,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const inbox = await listInboxClips()
+    // Clinic with provisioned Drive folders → its own Inbox; otherwise
+    // the legacy global Inbox from env.
+    const folders = await getClinicDriveFolders(body.clinicId)
+    const inbox = await listInboxClips(folders?.inboxId)
     const targets = body.inboxFileId
       ? inbox.filter((c) => c.id === body.inboxFileId)
       : inbox
@@ -60,6 +64,7 @@ export async function POST(req: Request) {
           clinicId: body.clinicId,
           inboxClip: clip,
           triggeredChatId: body.triggeredChatId ?? null,
+          folders,
         })
         results.push({ ok: true as const, name: clip.name, ...r })
       } catch (e) {

@@ -4,6 +4,7 @@ import { saveInsights } from '@/lib/supabase/context'
 import { resolveAccess } from '@/lib/auth/session'
 import { createAccessToken, pickAvailableCode, slugifyForCode } from '@/lib/auth/tokens'
 import { seedDoctorFromSource } from '@/lib/clinics/seed'
+import { provisionClinicDriveFolders } from '@/lib/google/clinicFolders'
 
 export const runtime = 'nodejs'
 
@@ -118,6 +119,21 @@ export async function POST(req: Request) {
         console.error('[onboarding] seed failed (non-fatal):', e?.message)
       )
     }
+
+    // Provision the clinic's Drive workspace (Inbox/Originals/Finals).
+    // Non-fatal: clinic creation succeeds even if Drive is down or
+    // GOOGLE_DRIVE_CLINICS_ROOT_ID is not set (legacy global folders
+    // keep working until provisioned).
+    await provisionClinicDriveFolders({
+      clinicId: data.id,
+      clinicName: brandName,
+      doctorName: body.doctor_name?.trim() || null,
+    }).catch((e) =>
+      console.error(
+        '[onboarding] drive provisioning failed (non-fatal):',
+        e instanceof Error ? e.message : e
+      )
+    )
 
     // Bootstrap BOTH access tokens (doctor + team) with memorable
     // slug-codes derived from the doctor name (or clinic name). So when admin

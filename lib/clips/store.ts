@@ -115,6 +115,24 @@ export async function markClipFailed(
   if (error) throw error
 }
 
+// Status lookup for the cron poller: lets it skip Inbox files that
+// are already being processed (manual trigger race) or that failed
+// (retry stays manual so a broken file doesn't re-bill every tick).
+export async function getClipStatusByInboxFile(
+  clinicId: string,
+  driveInboxFileId: string
+): Promise<ClipStatus | null> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('clips')
+    .select('status')
+    .eq('clinic_id', clinicId)
+    .eq('drive_inbox_file_id', driveInboxFileId)
+    .maybeSingle()
+  if (error) throw error
+  return (data?.status as ClipStatus | undefined) ?? null
+}
+
 export async function loadRecentClips(
   clinicId: string,
   limit = 10
