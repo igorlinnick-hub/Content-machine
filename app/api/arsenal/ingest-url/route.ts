@@ -5,18 +5,15 @@ import { detectIngestUrl, enqueueIngest } from '@/lib/arsenal/store'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Admin-only counterpart to the Telegram URL-paste path. Igor's
-// team uses this when they want to ingest a reference video without
-// switching to TG. Lands in the same queue, picked up by the same
-// local skill — only the trigger surface differs.
+// Admin-only URL ingest (the only trigger surface since Telegram was
+// removed). Lands in the arsenal queue, picked up by the local skill.
 
 interface Body {
   clinicId?: string
   url?: string
-  // Free-form question/brief — same role as the TG link+question
-  // path. When present (≥8 chars), the queue row is tagged
-  // intent='template_for_clinic' and the skill additionally writes
-  // a clinic-tailored template proposal.
+  // Free-form question/brief. When present (≥8 chars), the queue
+  // row is tagged intent='template_for_clinic' and the skill
+  // additionally writes a clinic-tailored template proposal.
   userContext?: string
 }
 

@@ -57,6 +57,7 @@ export type Database = {
           drive_inbox_folder_id: string | null
           drive_originals_folder_id: string | null
           drive_finals_folder_id: string | null
+          caption_style: string | null
         }
         Insert: {
           audience?: string | null
@@ -79,6 +80,7 @@ export type Database = {
           drive_inbox_folder_id?: string | null
           drive_originals_folder_id?: string | null
           drive_finals_folder_id?: string | null
+          caption_style?: string | null
         }
         Update: {
           audience?: string | null
@@ -101,6 +103,7 @@ export type Database = {
           drive_inbox_folder_id?: string | null
           drive_originals_folder_id?: string | null
           drive_finals_folder_id?: string | null
+          caption_style?: string | null
         }
         Relationships: [
           {
@@ -1034,6 +1037,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "clips_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          id: string
+          clinic_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          endpoint: string
+          p256dh: string
+          auth: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          endpoint?: string
+          p256dh?: string
+          auth?: string
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"

@@ -8,8 +8,8 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 // Clip pipeline runs Whisper + 2 ffmpeg passes. Allow the full
 // Vercel Pro budget — a 5-min clip lands in ~2-4 minutes; longer
-// clips fail at the 300s ceiling and the operator gets the error
-// message via Pax.
+// clips fail at the 300s ceiling and the error lands on the clip
+// row (visible in /clips).
 export const maxDuration = 300
 
 interface Body {
@@ -17,7 +17,6 @@ interface Body {
   // When provided, only this Inbox file is processed. Otherwise we
   // walk the whole Inbox in createdTime order.
   inboxFileId?: string
-  triggeredChatId?: string
 }
 
 function checkSecret(req: Request): boolean {
@@ -63,7 +62,6 @@ export async function POST(req: Request) {
         const r = await processClip({
           clinicId: body.clinicId,
           inboxClip: clip,
-          triggeredChatId: body.triggeredChatId ?? null,
           folders,
         })
         results.push({ ok: true as const, name: clip.name, ...r })

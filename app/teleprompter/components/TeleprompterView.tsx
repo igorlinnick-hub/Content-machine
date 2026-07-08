@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import PushToggle from '@/app/components/PushToggle'
 import {
   saveDraft,
   loadLatestDraft,
@@ -68,6 +69,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const [driveUrl, setDriveUrl] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  // Auto-edit: hand the saved recording to the clips cleanup pipeline
+  const [recordingId, setRecordingId] = useState<string | null>(null)
+  const [autoEdit, setAutoEdit] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [autoEditError, setAutoEditError] = useState<string | null>(null)
+  const [cleanedFileId, setCleanedFileId] = useState<string | null>(null)
   // True after entering reading phase but before doctor taps "Start Recording"
   const [readyToStart, setReadyToStart] = useState(false)
 
@@ -434,10 +440,39 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
       }
 
       setDriveUrl(result.driveUrl)
+      setRecordingId(result.recording.id)
       setPhase('saved')
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
       setPhase('preview')
+    }
+  }
+
+  // ── Auto-edit: clips cleanup pipeline on the saved recording ────────────────
+  // Copies the recording into the clinic's clips Inbox and processes
+  // it with the clinic's caption style (change it in /clips). If the
+  // request drops mid-way the copy is already in the Inbox — the cron
+  // finishes the job within 30 min.
+  async function runAutoEdit() {
+    if (!recordingId || autoEdit === 'running') return
+    setAutoEdit('running')
+    setAutoEditError(null)
+    try {
+      const res = await fetch('/api/clips/from-recording', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordingId }),
+      })
+      const body = (await res.json().catch(() => ({}))) as {
+        clip?: { cleaned_file_id?: string }
+        error?: string
+      }
+      if (!res.ok) throw new Error(body.error ?? `auto-edit failed (${res.status})`)
+      setCleanedFileId(body.clip?.cleaned_file_id ?? null)
+      setAutoEdit('done')
+    } catch (e) {
+      setAutoEditError(e instanceof Error ? e.message : 'auto-edit failed')
+      setAutoEdit('error')
     }
   }
 
@@ -461,6 +496,10 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
     setElapsedSec(0)
     setProgress(0)
     setDriveUrl(null)
+    setRecordingId(null)
+    setAutoEdit('idle')
+    setAutoEditError(null)
+    setCleanedFileId(null)
     setUploadError(null)
     setSaveTitle('')
     setReadyToStart(false)
@@ -1033,28 +1072,98 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
         </p>
       </div>
       <div className="flex w-full flex-col gap-2">
-        {driveUrl && (
+        {recordingId && autoEdit === 'idle' && (
+          <>
+            <button
+              onClick={runAutoEdit}
+              className="cm-btn cm-btn-primary w-full rounded-2xl py-3 text-sm font-semibold"
+            >
+              ✂️ Auto-edit video
+            </button>
+            <p className="text-xs text-neutral-400">
+              Cuts pauses, retakes &amp; fillers, burns captions in your
+              clinic&apos;s style — change the style in the{' '}
+              <Link href={`/clips?clinicId=${clinicId}`} className="underline">
+                video editor
+              </Link>
+              .
+            </p>
+          </>
+        )}
+        {autoEdit === 'running' && (
+          <div className="flex flex-col items-center gap-2 rounded-2xl border border-violet-100 bg-violet-50 px-4 py-4">
+            <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-violet-200 border-t-violet-600" />
+            <p className="text-sm font-medium text-violet-800">
+              Editing… usually 2–4 min
+            </p>
+            <p className="text-xs text-violet-500">
+              You can leave this page — the result lands in the video editor
+              either way.
+            </p>
+          </div>
+        )}
+        {recordingId && autoEdit === 'idle' && (
+          <PushToggle clinicId={clinicId} />
+        )}
+        {autoEdit === 'done' && (
+          <>
+            <p className="text-sm font-medium text-green-700">Clip cleaned ✓</p>
+            {cleanedFileId && (
+              <a
+                href={`https://drive.google.com/file/d/${cleanedFileId}/view`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="cm-btn cm-btn-primary w-full rounded-2xl py-3 text-sm font-semibold"
+              >
+                Open final video →
+              </a>
+            )}
+          </>
+        )}
+        {autoEdit === 'error' && (
+          <p className="text-xs text-rose-500">
+            Auto-edit failed: {autoEditError}. The clip may still finish in
+            the background — check the video editor.
+          </p>
+        )}
+        {(autoEdit === 'done' || autoEdit === 'error') && (
+          <Link
+            href={`/clips?clinicId=${clinicId}`}
+            className="w-full rounded-2xl border border-neutral-200 bg-white py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+          >
+            Open video editor
+          </Link>
+        )}
+        {driveUrl && autoEdit !== 'running' && (
           <a
             href={driveUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="cm-btn cm-btn-primary w-full rounded-2xl py-3 text-sm font-semibold"
+            className={`w-full rounded-2xl py-3 text-sm font-semibold ${
+              autoEdit === 'idle'
+                ? 'border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                : 'text-neutral-400 hover:text-neutral-600'
+            }`}
           >
-            Open in Drive →
+            Open original in Drive →
           </a>
         )}
-        <button
-          onClick={resetToSetup}
-          className="w-full rounded-2xl border border-neutral-200 bg-white py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
-        >
-          Record another
-        </button>
-        <Link
-          href={`/dashboard?clinicId=${clinicId}`}
-          className="w-full rounded-2xl py-3 text-sm text-neutral-400 hover:text-neutral-600"
-        >
-          Back to dashboard
-        </Link>
+        {autoEdit !== 'running' && (
+          <>
+            <button
+              onClick={resetToSetup}
+              className="w-full rounded-2xl border border-neutral-200 bg-white py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"
+            >
+              Record another
+            </button>
+            <Link
+              href={`/dashboard?clinicId=${clinicId}`}
+              className="w-full rounded-2xl py-3 text-sm text-neutral-400 hover:text-neutral-600"
+            >
+              Back to dashboard
+            </Link>
+          </>
+        )}
       </div>
     </div>
   )

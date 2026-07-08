@@ -22,7 +22,6 @@ export interface ClipRow {
   cleaned_file_id: string | null
   transcript_txt_file_id: string | null
   transcript_srt_file_id: string | null
-  triggered_chat_id: string | null
   error: string | null
   created_at: string
   completed_at: string | null
@@ -32,7 +31,6 @@ export async function upsertPendingClip(params: {
   clinicId: string
   driveInboxFileId: string
   driveInboxFileName: string
-  triggeredChatId?: string | null
 }): Promise<{ id: string }> {
   const supabase = createServerClient()
   const { data: existing } = await supabase
@@ -50,7 +48,6 @@ export async function upsertPendingClip(params: {
       clinic_id: params.clinicId,
       drive_inbox_file_id: params.driveInboxFileId,
       drive_inbox_file_name: params.driveInboxFileName,
-      triggered_chat_id: params.triggeredChatId ?? null,
       status: 'pending',
     })
     .select('id')
@@ -131,6 +128,26 @@ export async function getClipStatusByInboxFile(
     .maybeSingle()
   if (error) throw error
   return (data?.status as ClipStatus | undefined) ?? null
+}
+
+// Clinic's caption preset key (migration 038). Fail-open: any error
+// (including a not-yet-applied migration) returns null so the
+// pipeline falls back to the classic preset instead of failing.
+export async function getClinicCaptionStyle(
+  clinicId: string
+): Promise<string | null> {
+  try {
+    const supabase = createServerClient()
+    const { data, error } = await supabase
+      .from('clinics')
+      .select('caption_style')
+      .eq('id', clinicId)
+      .maybeSingle()
+    if (error) return null
+    return (data?.caption_style as string | undefined) ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function loadRecentClips(

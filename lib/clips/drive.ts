@@ -118,6 +118,42 @@ export async function uploadFileToFolder(params: {
   return res.data.id
 }
 
+// Copy a Drive file into a clips Inbox — the teleprompter Auto-edit
+// path: the recording stays in Recordings/ untouched, the copy walks
+// the normal Inbox pipeline. Returns the copy as an InboxClip so the
+// caller can hand it straight to processClip.
+export async function copyFileToInbox(
+  fileId: string,
+  inboxId: string
+): Promise<InboxClip> {
+  const drive = getDriveClient()
+  const src = await drive.files.get({
+    fileId,
+    fields: 'name, mimeType',
+    supportsAllDrives: true,
+  })
+  const res = await drive.files.copy({
+    fileId,
+    requestBody: {
+      name: src.data.name ?? 'recording',
+      parents: [inboxId],
+    },
+    fields: 'id, name, mimeType, size, createdTime',
+    supportsAllDrives: true,
+  })
+  if (!res.data.id) throw new Error('copyFileToInbox: no id returned')
+  return {
+    id: res.data.id,
+    name: res.data.name ?? src.data.name ?? 'recording',
+    mimeType: res.data.mimeType ?? src.data.mimeType ?? 'video/mp4',
+    size:
+      typeof res.data.size === 'string'
+        ? parseInt(res.data.size, 10) || 0
+        : 0,
+    createdTime: res.data.createdTime ?? new Date().toISOString(),
+  }
+}
+
 // Move the original Inbox file out of the Inbox — into the per-clip
 // folder (legacy layout) or the clinic's Originals/ (per-clinic
 // layout) — so the Inbox stays clean.

@@ -537,7 +537,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   ENABLE_LLM_AGENTS=true
                 </code>{' '}
                 is flipped in Vercel env vars. For urgent posts use the arsenal
-                flow in Telegram.
+                flow.
               </p>
             </div>
           ) : (

@@ -18,11 +18,13 @@ import {
 import { applyCuts, burnCaptions, extractAudioMp3 } from './ffmpeg'
 import { buildSrt } from './srt'
 import {
+  getClinicCaptionStyle,
   markClipCleaned,
   markClipFailed,
   markClipProcessing,
   upsertPendingClip,
 } from './store'
+import { resolveCaptionStyle } from './captionStyles'
 
 // Orchestrate the full clip cleanup. Caller passes one InboxClip; we
 // download → extract audio → Whisper → plan cuts → ffmpeg cut →
@@ -57,7 +59,6 @@ function safeFolderName(originalName: string): string {
 export async function processClip(params: {
   clinicId: string
   inboxClip: InboxClip
-  triggeredChatId?: string | null
   // Per-clinic Drive folders. Pass explicitly when the caller already
   // resolved them (cron); omit to resolve here; null = force legacy
   // global env folders.
@@ -77,7 +78,6 @@ export async function processClip(params: {
     clinicId,
     driveInboxFileId: inboxClip.id,
     driveInboxFileName: inboxClip.name,
-    triggeredChatId: params.triggeredChatId ?? null,
   })
   await markClipProcessing(clipId)
 
@@ -132,8 +132,12 @@ export async function processClip(params: {
     const srt = buildSrt(plan.keep)
     await writeFile(srtPath, srt, 'utf8')
 
-    // 8. ffmpeg burn captions → final.mp4.
-    await burnCaptions(cutPath, srtPath, finalPath)
+    // 8. ffmpeg burn captions → final.mp4, styled by the clinic's
+    //    caption preset (classic when unset / lookup fails).
+    const captionStyle = resolveCaptionStyle(
+      await getClinicCaptionStyle(clinicId)
+    )
+    await burnCaptions(cutPath, srtPath, finalPath, captionStyle.forceStyle)
     await unlink(cutPath).catch(() => {})
 
     // 9. Upload artifacts to a per-clip folder — under the clinic's

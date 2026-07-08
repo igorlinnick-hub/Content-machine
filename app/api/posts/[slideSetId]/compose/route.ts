@@ -25,11 +25,11 @@ export const maxDuration = 300
 //      Returns the render_result JSON.
 //
 //   2. QUEUE PATH (env vars missing):
-//      Flip status='ready_for_canva' and send a Telegram ping so an
-//      external runner can pick it up. Returns immediately with the
-//      queue status. This was the only path until the orchestrator
-//      landed; we keep it so partial config still does something
-//      useful instead of failing the request.
+//      Flip status='ready_for_canva' so an external runner can pick
+//      it up. Returns immediately with the queue status. This was
+//      the only path until the orchestrator landed; we keep it so
+//      partial config still does something useful instead of
+//      failing the request.
 //
 // Both paths refuse 'blocked' posts (compliance violations) and any
 // status that canCompose() rejects.

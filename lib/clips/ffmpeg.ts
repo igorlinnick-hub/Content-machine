@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import type { KeepInterval } from './cuts'
+import { resolveCaptionStyle } from './captionStyles'
 
 // All ffmpeg invocations the /clips pipeline needs. We run the
 // static binary via child_process.spawn — works on Vercel functions
@@ -119,30 +120,21 @@ export async function applyCuts(
   ])
 }
 
-// Burn captions onto a video. Reels-style readable defaults — bold
-// white with a thick black box, bottom-centered. force_style accepts
-// libass parameters; values must NOT contain unescaped quotes.
+// Burn captions onto a video. Style comes from the clinic's caption
+// preset (lib/clips/captionStyles.ts); omitted = classic look.
+// force_style accepts libass parameters; values must NOT contain
+// unescaped quotes.
 export async function burnCaptions(
   inputPath: string,
   srtPath: string,
-  outputPath: string
+  outputPath: string,
+  forceStyle?: string
 ): Promise<void> {
   // Escape srt path for ffmpeg's filter syntax: drive letters, colons
   // and backslashes are special. On Linux/Vercel a plain absolute
   // path works.
   const escapedSrt = srtPath.replace(/:/g, '\\:').replace(/'/g, "\\'")
-  const style = [
-    'Fontname=Arial',
-    'Fontsize=22',
-    'PrimaryColour=&H00FFFFFF',
-    'OutlineColour=&H00000000',
-    'BackColour=&H80000000',
-    'BorderStyle=3',
-    'Outline=2',
-    'Shadow=0',
-    'Alignment=2',
-    'MarginV=60',
-  ].join(',')
+  const style = forceStyle ?? resolveCaptionStyle(null).forceStyle
 
   await runFfmpeg([
     '-y',

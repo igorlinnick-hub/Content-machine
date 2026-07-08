@@ -1,15 +1,24 @@
 import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
-import { loadRecentClips, type ClipRow } from '@/lib/clips/store'
+import {
+  getClinicCaptionStyle,
+  loadRecentClips,
+  type ClipRow,
+} from '@/lib/clips/store'
 import { clipFolderUrl } from '@/lib/clips/drive'
+import { DEFAULT_CAPTION_STYLE_KEY } from '@/lib/clips/captionStyles'
+import CaptionStylePicker from './CaptionStylePicker'
+import MarkClipsSeen from './MarkClipsSeen'
+import PushToggle from '@/app/components/PushToggle'
 
 export const dynamic = 'force-dynamic'
 
-// Minimal clips viewer (HANDOFF §22.2 п.7): the team sees what the
-// autopilot did with each doctor upload — status, before/after
-// duration, links to the original / cleaned file / clip folder in
-// Drive. View-only by design; editing lives in Drive (clinic) and
-// later in the transcript editor (Track 2).
+// The video editor tab (HANDOFF §22.2 пп.7+10): caption template
+// picker (clinic default, applied by the pipeline to every new clip)
+// + the clips table — status, before/after duration, links to the
+// original / cleaned file / clip folder in Drive. Per-clip editing
+// lives in Drive (clinic) and later in the transcript editor
+// (Track 2).
 
 function driveFileUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/view`
@@ -41,17 +50,30 @@ export default async function ClipsPage({
     access.role === 'admin' ? searchParams.clinicId ?? '' : access.clinicId
 
   const clips = clinicId ? await loadRecentClips(clinicId, 50) : []
+  const captionStyle = clinicId
+    ? (await getClinicCaptionStyle(clinicId)) ?? DEFAULT_CAPTION_STYLE_KEY
+    : DEFAULT_CAPTION_STYLE_KEY
 
   return (
     <main className="min-h-screen cm-page-bg">
       <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8">
-        <header>
-          <h1 className="text-2xl font-semibold">Clips</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Doctor uploads processed by the cleanup pipeline. Originals and
-            finals live in the clinic&apos;s Drive folder.
-          </p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Video editor</h1>
+            <p className="mt-1 text-sm text-neutral-500">
+              Doctor uploads processed by the cleanup pipeline. Originals and
+              finals live in the clinic&apos;s Drive folder.
+            </p>
+          </div>
+          {clinicId ? <PushToggle clinicId={clinicId} compact /> : null}
         </header>
+
+        {clinicId ? (
+          <>
+            <MarkClipsSeen clinicId={clinicId} />
+            <CaptionStylePicker clinicId={clinicId} initial={captionStyle} />
+          </>
+        ) : null}
 
         {!clinicId ? (
           <p className="text-sm text-neutral-500">

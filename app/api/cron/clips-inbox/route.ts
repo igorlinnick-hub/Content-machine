@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { listInboxClips, type InboxClip } from '@/lib/clips/drive'
 import { processClip } from '@/lib/clips/pipeline'
+import { notifyClipCleaned } from '@/lib/clips/notify'
 import { getClipStatusByInboxFile } from '@/lib/clips/store'
 import {
   listClinicsWithDriveInbox,
@@ -16,7 +17,7 @@ export const maxDuration = 300
 
 // Cron poll for clips Inboxes (closes §20 "Что НЕ сделано" item):
 // doctor uploads to Drive get picked up automatically instead of
-// waiting for a manual Telegram trigger.
+// waiting for a manual trigger.
 //
 // Two sources, walked in one pass:
 // 1. Every clinic with a provisioned Drive workspace (migration 037,
@@ -119,11 +120,17 @@ export async function GET(req: Request) {
         const r = await processClip({
           clinicId: t.clinicId,
           inboxClip: t.clip,
-          triggeredChatId: null,
           folders: t.folders,
         })
         processedCount += 1
         results.push({ ok: true, name: t.clip.name, ...r })
+        // Web-push "clip ready" (§22.2 п.9) — the cron is otherwise
+        // silent. Best-effort, never fails the run.
+        await notifyClipCleaned({
+          clinicId: t.clinicId,
+          clipName: t.clip.name,
+          result: r,
+        })
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'unknown'
         results.push({ ok: false, name: t.clip.name, error: msg })
