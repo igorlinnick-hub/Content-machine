@@ -222,6 +222,7 @@ export interface CriticScore {
     hook_quality: number
     length_ok: number
     science_present: number
+    compliance_safe: number
   }
   approved: boolean
   feedback: string

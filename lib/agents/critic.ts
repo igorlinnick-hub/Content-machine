@@ -4,7 +4,7 @@ import type {
   CriticOutput,
   ScriptLengthTarget,
 } from '@/types'
-import { MODEL_DEFAULT, callAgentJSON } from './base'
+import { MODEL_CRITIC, callAgentTool } from './base'
 
 const LENGTH_BANDS: Record<ScriptLengthTarget, { min: number; max: number; label: string }> = {
   short: { min: 200, max: 220, label: '60-90s boost cut' },
@@ -28,27 +28,7 @@ For each variant, score SIX criteria on a 1-10 scale:
 total_score = average of the six criteria, rounded to one decimal place.
 approved = true only if total_score >= 7 AND no_promises >= 8 AND compliance_safe >= 8 AND the script does not violate any clinic medical_restrictions.
 
-For each variant, write feedback that is short and actionable — point to the specific sentence or rule to fix. Do not praise; focus on what would make the rewrite better. If the variant is already strong, say so in one sentence.
-
-Respond with ONLY valid JSON, no markdown fences, no commentary:
-{
-  "scores": [
-    {
-      "variant_id": "v1",
-      "total_score": 8.2,
-      "criteria": {
-        "tone_match": 8,
-        "no_promises": 9,
-        "hook_quality": 7,
-        "length_ok": 9,
-        "science_present": 8,
-        "compliance_safe": 9
-      },
-      "approved": true,
-      "feedback": "..."
-    }
-  ]
-}`
+For each variant, write feedback that is short and actionable — point to the specific sentence or rule to fix. Do not praise; focus on what would make the rewrite better. If the variant is already strong, say so in one sentence.`
 }
 
 function buildCriticBrief(ctx: SharedContext, variants: WriterOutput): string {
@@ -74,7 +54,39 @@ VARIANTS TO EVALUATE:
 
 ${variantsBlock}
 
-Score all variants now. Return only the JSON object.`
+Score all variants. Call the score_variants tool with all scores.`
+}
+
+const SCORE_TOOL_SCHEMA = {
+  type: 'object',
+  properties: {
+    scores: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['variant_id', 'total_score', 'criteria', 'approved', 'feedback'],
+        properties: {
+          variant_id: { type: 'string' },
+          total_score: { type: 'number' },
+          criteria: {
+            type: 'object',
+            required: ['tone_match', 'no_promises', 'hook_quality', 'length_ok', 'science_present', 'compliance_safe'],
+            properties: {
+              tone_match: { type: 'number' },
+              no_promises: { type: 'number' },
+              hook_quality: { type: 'number' },
+              length_ok: { type: 'number' },
+              science_present: { type: 'number' },
+              compliance_safe: { type: 'number' },
+            },
+          },
+          approved: { type: 'boolean' },
+          feedback: { type: 'string' },
+        },
+      },
+    },
+  },
+  required: ['scores'],
 }
 
 export interface RunCriticParams {
@@ -85,12 +97,14 @@ export interface RunCriticParams {
 
 export async function runCritic(params: RunCriticParams): Promise<CriticOutput> {
   const target: ScriptLengthTarget = params.lengthTarget ?? 'short'
-  return callAgentJSON<CriticOutput>({
-    model: MODEL_DEFAULT,
+  return callAgentTool<CriticOutput>({
+    model: MODEL_CRITIC,
     systemPrompt: buildSystemPrompt(target),
     userContent: buildCriticBrief(params.context, params.variants),
+    toolName: 'score_variants',
+    toolDescription: 'Return scores for all script variants.',
+    inputSchema: SCORE_TOOL_SCHEMA,
     maxTokens: 8192,
-    effort: 'medium',
     cacheSystem: true,
   })
 }
