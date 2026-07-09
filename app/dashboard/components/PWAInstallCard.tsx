@@ -277,20 +277,23 @@ function InstallModal({
   const [installUrl, setInstallUrl] = useState('')
   const [copied, setCopied] = useState(false)
 
-  // Load install URL + QR
+  // Load install URL + QR.
+  //
+  // SECURITY: the QR intentionally encodes ONLY the plain
+  // /dashboard URL — never an install-link token. Reason: this
+  // card renders on the admin's own dashboard while they're
+  // logged-in; if we baked in the clinic's first install-link,
+  // anyone who scanned the QR would land straight on the doctor
+  // dashboard with a valid cm_token cookie for THAT clinic (seen
+  // in the wild — the scanner ended up inside the admin's clinic
+  // as a "doctor" without ever entering a key). To share access
+  // with a real doctor, use the InstallLinkCard on /clinics —
+  // that's where explicit, named, revocable tokens live.
   useEffect(() => {
+    void clinicId
+    void isAdmin
     async function load() {
-      let url = window.location.origin + '/dashboard'
-      if (isAdmin) {
-        try {
-          const res = await fetch(`/api/admin/install-link?clinicId=${encodeURIComponent(clinicId)}`)
-          if (res.ok) {
-            const data = await res.json()
-            const first = (data.links ?? [])[0] as { url?: string } | undefined
-            if (first?.url) url = first.url
-          }
-        } catch { /* fallback to origin */ }
-      }
+      const url = window.location.origin + '/dashboard'
       setInstallUrl(url)
       try {
         const dUrl = await QRCode.toDataURL(url, { width: 180, margin: 1, color: { dark: '#111', light: '#fff' } })
