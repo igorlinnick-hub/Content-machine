@@ -31,6 +31,7 @@ interface Props {
   clinicId: string
   clinicName: string
   recentScripts: RecentScript[]
+  initialScriptId?: string | null
 }
 
 function fmtTime(sec: number) {
@@ -50,7 +51,7 @@ function fmtDate(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
-export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props) {
+export function TeleprompterView({ clinicId, clinicName, recentScripts, initialScriptId }: Props) {
   const [phase, setPhase] = useState<Phase>('setup')
   const [text, setText] = useState('')
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
@@ -96,6 +97,18 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts }: Props)
   const scrollAccRef = useRef(0)
 
   speedRef.current = speed
+
+  // Auto-select script when navigated from ScriptCard "Teleprompter →" button
+  useEffect(() => {
+    if (!initialScriptId) return
+    const match = recentScripts.find((s) => s.id === initialScriptId)
+    if (match) {
+      setText(match.body)
+      setSaveTitle(match.title)
+      setSelectedScriptId(match.id)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Check for a pending draft on mount (survives page refresh)
   useEffect(() => {

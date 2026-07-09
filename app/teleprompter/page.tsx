@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Teleprompter — Content Machine' }
 
 interface PageProps {
-  searchParams: { clinicId?: string }
+  searchParams: { clinicId?: string; scriptId?: string }
 }
 
 export default async function TeleprompterPage({ searchParams }: PageProps) {
@@ -18,6 +18,8 @@ export default async function TeleprompterPage({ searchParams }: PageProps) {
     access.role === 'admin'
       ? searchParams.clinicId ?? ''
       : access.clinicId
+
+  const initialScriptId = searchParams.scriptId ?? null
 
   if (!clinicId) redirect('/dashboard')
 
@@ -45,6 +47,7 @@ export default async function TeleprompterPage({ searchParams }: PageProps) {
       <TeleprompterView
         clinicId={clinicId}
         clinicName={clinic.full_name ?? clinic.name}
+        initialScriptId={initialScriptId}
         recentScripts={(scripts ?? []).map((s) => ({
           id: s.id,
           title: s.topic ?? 'Untitled',

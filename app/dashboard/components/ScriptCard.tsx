@@ -266,13 +266,24 @@ export function ScriptCard({
               </span>
             )}
           </div>
-          <button
-            type="button"
-            onClick={onCopy}
-            className="cm-btn cm-btn-ghost text-sm"
-          >
-            {copied ? 'Copied' : 'Copy script'}
-          </button>
+          <div className="flex items-center gap-2">
+            {clinicId && scriptId && (
+              <button
+                type="button"
+                onClick={() => router.push(`/teleprompter?clinicId=${clinicId}&scriptId=${scriptId}`)}
+                className="cm-btn text-sm border border-violet-200 text-violet-700 hover:bg-violet-50"
+              >
+                Teleprompter →
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onCopy}
+              className="cm-btn cm-btn-ghost text-sm"
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
         </div>
 
         {refineOpen && (
