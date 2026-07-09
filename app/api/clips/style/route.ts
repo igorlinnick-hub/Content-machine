@@ -45,6 +45,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const access = await resolveAccess()
   if (!access) return NextResponse.json({ error: 'auth required' }, { status: 401 })
+  // Style changes live in the admin-only video editor section.
+  if (access.role !== 'admin') {
+    return NextResponse.json({ error: 'admin required' }, { status: 403 })
+  }
 
   const clinicId = resolveClinicId(access, new URL(req.url))
   if (!clinicId) return NextResponse.json({ error: 'clinicId required' }, { status: 400 })

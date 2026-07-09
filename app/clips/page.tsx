@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
+import { createServerClient } from '@/lib/supabase/server'
 import {
   getClinicCaptionStyle,
   loadRecentClips,
@@ -10,15 +11,15 @@ import { DEFAULT_CAPTION_STYLE_KEY } from '@/lib/clips/captionStyles'
 import CaptionStylePicker from './CaptionStylePicker'
 import MarkClipsSeen from './MarkClipsSeen'
 import PushToggle from '@/app/components/PushToggle'
+import RecordingsPanel, { type RecordingRow } from './RecordingsPanel'
 
 export const dynamic = 'force-dynamic'
 
-// The video editor tab (HANDOFF §22.2 пп.7+10): caption template
-// picker (clinic default, applied by the pipeline to every new clip)
-// + the clips table — status, before/after duration, links to the
-// original / cleaned file / clip folder in Drive. Per-clip editing
-// lives in Drive (clinic) and later in the transcript editor
-// (Track 2).
+// The video editor tab — ADMIN ONLY (HANDOFF §22.2 пп.7+9-11).
+// The editing team's work queue: doctor recordings with in-app
+// preview + Auto-edit + delete, the caption template picker, and
+// the processed-clips table. Doctors never see this page — their
+// surface ends at the teleprompter upload.
 
 function driveFileUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/view`
@@ -44,15 +45,27 @@ export default async function ClipsPage({
   searchParams: { clinicId?: string }
 }) {
   const access = await resolveAccess()
-  if (!access) redirect('/')
+  if (!access || access.role !== 'admin') redirect('/')
 
-  const clinicId =
-    access.role === 'admin' ? searchParams.clinicId ?? '' : access.clinicId
+  const clinicId = searchParams.clinicId ?? ''
 
   const clips = clinicId ? await loadRecentClips(clinicId, 50) : []
   const captionStyle = clinicId
     ? (await getClinicCaptionStyle(clinicId)) ?? DEFAULT_CAPTION_STYLE_KEY
     : DEFAULT_CAPTION_STYLE_KEY
+
+  let recordings: RecordingRow[] = []
+  if (clinicId) {
+    const supabase = createServerClient()
+    const { data } = await supabase
+      .from('clinic_recordings')
+      .select('id, title, drive_file_id, duration_sec, size_bytes, created_at')
+      .eq('clinic_id', clinicId)
+      .eq('status', 'final')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    recordings = (data ?? []) as unknown as RecordingRow[]
+  }
 
   return (
     <main className="min-h-screen cm-page-bg">
@@ -71,6 +84,7 @@ export default async function ClipsPage({
         {clinicId ? (
           <>
             <MarkClipsSeen clinicId={clinicId} />
+            <RecordingsPanel clinicId={clinicId} recordings={recordings} />
             <CaptionStylePicker clinicId={clinicId} initial={captionStyle} />
           </>
         ) : null}

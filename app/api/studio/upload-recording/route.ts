@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { uploadRecording } from '@/lib/google/recordings'
+import { sendPushToClinic } from '@/lib/push/send'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -71,6 +72,15 @@ export async function POST(req: Request) {
     .single()
 
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
+
+  // Ping the editing team (§22.2 п.9): the doctor's job ends at
+  // upload — the editor picks the recording up in /clips. Best-effort.
+  const mins = duration ? `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}` : null
+  await sendPushToClinic(clinicId, {
+    title: '🎬 New recording',
+    body: `${clinic.name}: ${title}${mins ? ` (${mins})` : ''}`,
+    url: `/clips?clinicId=${clinicId}`,
+  })
 
   return NextResponse.json({ recording, driveUrl: webViewLink })
 }

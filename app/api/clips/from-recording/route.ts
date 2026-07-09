@@ -22,6 +22,10 @@ export const maxDuration = 300
 export async function POST(req: Request) {
   const access = await resolveAccess()
   if (!access) return NextResponse.json({ error: 'auth required' }, { status: 401 })
+  // The video editor section is admin-only — doctors just upload.
+  if (access.role !== 'admin') {
+    return NextResponse.json({ error: 'admin required' }, { status: 403 })
+  }
 
   // Whisper is pay-per-use — same kill switch as the process route.
   const off = await disabledHttpResponse()
@@ -46,9 +50,6 @@ export async function POST(req: Request) {
 
   if (!recording) {
     return NextResponse.json({ error: 'recording not found' }, { status: 404 })
-  }
-  if (access.role !== 'admin' && recording.clinic_id !== access.clinicId) {
-    return NextResponse.json({ error: 'forbidden' }, { status: 403 })
   }
 
   const clinicId = recording.clinic_id as string
