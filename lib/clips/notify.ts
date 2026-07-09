@@ -27,7 +27,7 @@ export async function notifyClipCleaned(params: {
     ].join(' · ')
 
     await sendPushToClinic(params.clinicId, {
-      title: '✂️ Clip ready',
+      title: 'Clip ready',
       body: `${params.clipName}\n${stats}`,
       url: `/clips?clinicId=${params.clinicId}`,
     })

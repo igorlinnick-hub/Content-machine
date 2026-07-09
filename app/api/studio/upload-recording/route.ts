@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   // upload — the editor picks the recording up in /clips. Best-effort.
   const mins = duration ? `${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}` : null
   await sendPushToClinic(clinicId, {
-    title: '🎬 New recording',
+    title: 'New recording',
     body: `${clinic.name}: ${title}${mins ? ` (${mins})` : ''}`,
     url: `/clips?clinicId=${clinicId}`,
   })

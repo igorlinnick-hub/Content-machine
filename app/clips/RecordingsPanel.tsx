@@ -146,7 +146,7 @@ export default function RecordingsPanel({
                   </div>
                 </div>
                 {state === 'done' ? (
-                  <span className="shrink-0 text-xs font-medium text-emerald-600">✓ edited</span>
+                  <span className="shrink-0 text-xs font-medium text-emerald-600">Edited</span>
                 ) : state === 'running' ? (
                   <span className="shrink-0 text-xs font-medium text-violet-600">editing…</span>
                 ) : (
@@ -189,7 +189,7 @@ export default function RecordingsPanel({
                 </div>
               ) : (editState[selected.id] ?? 'idle') === 'done' ? (
                 <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-2.5 text-sm font-medium text-emerald-700">
-                  ✓ Cleaned — see the clip in the table below
+                  Cleaned — see the clip in the table below
                 </p>
               ) : (
                 <button
@@ -197,7 +197,7 @@ export default function RecordingsPanel({
                   onClick={() => runAutoEdit(selected)}
                   className="cm-btn cm-btn-primary rounded-2xl px-5 py-2.5 text-sm font-semibold"
                 >
-                  ✂️ Auto-edit
+                  Auto-edit
                 </button>
               )}
               <span className="text-xs text-neutral-400">

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-// "🔔 Notify me when clips are ready" toggle (HANDOFF §22.2 п.9).
+// "Notify me when clips are ready" toggle (HANDOFF §22.2 п.9).
 // Registers /sw.js, asks notification permission, subscribes via the
 // Push API and stores the subscription server-side. On iPhone this
 // only works when the app is installed to the Home Screen (iOS
@@ -94,7 +94,7 @@ export default function PushToggle({
     if (compact) return null
     return (
       <p className="text-xs text-neutral-400">
-        🔔 To get &quot;clip ready&quot; notifications on iPhone, add this app
+        To get &quot;clip ready&quot; notifications on iPhone, add this app
         to your Home Screen first (Share → Add to Home Screen).
       </p>
     )
@@ -104,7 +104,7 @@ export default function PushToggle({
     if (compact) return null
     return (
       <p className="text-xs text-neutral-400">
-        🔕 Notifications are blocked for this site — enable them in browser
+        Notifications are blocked for this site — enable them in browser
         settings to get &quot;clip ready&quot; pings.
       </p>
     )
@@ -113,7 +113,7 @@ export default function PushToggle({
   if (state === 'on') {
     return (
       <span className={`text-xs font-medium text-emerald-600 ${compact ? '' : 'py-1'}`}>
-        🔔 Clip notifications on
+        Clip notifications on
       </span>
     )
   }
@@ -129,7 +129,7 @@ export default function PushToggle({
           : 'w-full rounded-2xl border border-violet-200 bg-violet-50 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60'
       }
     >
-      {state === 'busy' ? 'Enabling…' : '🔔 Notify me when clips are ready'}
+      {state === 'busy' ? 'Enabling…' : 'Notify me when clips are ready'}
     </button>
   )
 }

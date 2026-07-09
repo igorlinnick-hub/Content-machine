@@ -117,7 +117,7 @@ export default function CaptionStylePicker({
                 </span>
                 {active && (
                   <span className="text-[10px] font-medium text-violet-600">
-                    {saving === style.key ? 'Saving…' : '✓ Active'}
+                    {saving === style.key ? 'Saving…' : 'Active'}
                   </span>
                 )}
               </div>

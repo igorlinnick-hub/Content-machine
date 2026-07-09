@@ -1048,7 +1048,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       <div className="flex w-full flex-col gap-2">
         <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 text-left">
           <p className="text-sm font-medium text-violet-800">
-            🎬 The video editor has been notified
+            The video editor has been notified
           </p>
           <p className="mt-0.5 text-xs text-violet-500">
             Your recording will be cleaned up and prepared — nothing else to
