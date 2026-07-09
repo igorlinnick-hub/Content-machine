@@ -451,39 +451,152 @@ function InstallModal({
   )
 }
 
-// ── iOS direct instructions (already on the phone) ────────────────────────────
+// ── iOS bottom sheet (auto-appears on phone after QR scan) ───────────────────
 
 const IOS_STEPS = [
-  { icon: '⬆️', text: 'Tap the Share button at the bottom of Safari' },
-  { icon: '➕', text: 'Tap "Add to Home Screen"' },
-  { icon: '✅', text: 'Tap "Add" to confirm' },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 10h8M12 6v8" /><path d="M12 14v6M5 20h14" /><path d="M12 6l-3 3M12 6l3 3" />
+      </svg>
+    ),
+    title: 'Tap the Share button',
+    detail: 'The ⬆ icon at the bottom of Safari',
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3" /><path d="M12 8v8M8 12h8" />
+      </svg>
+    ),
+    title: 'Add to Home Screen',
+    detail: 'Find it in the list that slides up',
+  },
+  {
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 12l5 5L20 7" />
+      </svg>
+    ),
+    title: 'Tap Add',
+    detail: 'The app icon appears on your home screen',
+  },
 ]
 
-function IOSCard() {
-  const [visible, setVisible] = useState(0)
+function IOSBottomSheet() {
+  const [show, setShow] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  const [stepVisible, setStepVisible] = useState(0)
+
+  // Auto-appear after short delay
   useEffect(() => {
-    if (visible >= IOS_STEPS.length) return
-    const t = setTimeout(() => setVisible((n) => n + 1), 400)
+    const t = setTimeout(() => setShow(true), 700)
     return () => clearTimeout(t)
-  }, [visible])
+  }, [])
+
+  // Animate steps in after sheet appears
+  useEffect(() => {
+    if (!show || dismissed) return
+    if (stepVisible >= IOS_STEPS.length) return
+    const t = setTimeout(() => setStepVisible((n) => n + 1), stepVisible === 0 ? 350 : 280)
+    return () => clearTimeout(t)
+  }, [show, dismissed, stepVisible])
+
+  if (dismissed) return null
 
   return (
-    <section className="rounded-xl border border-sky-200 bg-sky-50 p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">Install on your phone</p>
-      <h3 className="mt-1 text-base font-semibold text-neutral-900">Add to Home Screen</h3>
-      <p className="mt-0.5 text-sm text-neutral-500">Open this page in Safari, then:</p>
-      <ol className="mt-3 flex flex-col gap-2">
-        {IOS_STEPS.map((s, i) => (
-          <li
-            key={i}
-            className={`flex items-center gap-3 transition-all duration-300 ${i < visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-2'}`}
+    <>
+      {/* Dim backdrop */}
+      <div
+        className="fixed inset-0 z-40 transition-opacity duration-500"
+        style={{
+          backgroundColor: 'rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(2px)',
+          opacity: show ? 1 : 0,
+          pointerEvents: show ? 'auto' : 'none',
+        }}
+        onClick={() => setDismissed(true)}
+      />
+
+      {/* Sheet */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white shadow-2xl"
+        style={{
+          transform: show ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'transform 0.45s cubic-bezier(0.16,1,0.3,1)',
+          paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+        }}
+      >
+        {/* Handle */}
+        <div className="flex justify-center pt-3">
+          <div className="h-1 w-10 rounded-full bg-neutral-200" />
+        </div>
+
+        <div className="px-6 pb-6 pt-4">
+          {/* App icon + title */}
+          <div className="flex items-center gap-4 mb-5">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md"
+              style={{ background: 'linear-gradient(135deg,#38bdf8,#0369a1)' }}>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="white" opacity="0.9"/>
+                <path d="M9 22V12h6v10" stroke="white" strokeWidth="1.5"/>
+              </svg>
+            </div>
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-500">Install</p>
+              <h2 className="text-xl font-bold text-neutral-900">Add to Home Screen</h2>
+              <p className="text-sm text-neutral-500">Opens fullscreen, no browser bar</p>
+            </div>
+          </div>
+
+          {/* Steps */}
+          <ol className="flex flex-col gap-3 mb-6">
+            {IOS_STEPS.map((s, i) => (
+              <li
+                key={i}
+                className="flex items-center gap-4 transition-all duration-300"
+                style={{
+                  opacity: i < stepVisible ? 1 : 0,
+                  transform: i < stepVisible ? 'translateY(0)' : 'translateY(8px)',
+                }}
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#F2F2F7]">
+                  {s.icon}
+                </div>
+                <div>
+                  <p className="text-[15px] font-semibold text-neutral-900">{s.title}</p>
+                  <p className="text-[13px] text-neutral-500">{s.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          {/* CTA */}
+          <button
+            type="button"
+            onClick={() => setDismissed(true)}
+            className="w-full rounded-2xl bg-[#007AFF] py-3.5 text-base font-semibold text-white active:opacity-80 transition-opacity"
           >
-            <span className="text-xl leading-none">{s.icon}</span>
-            <span className="text-sm text-neutral-700">{s.text}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
+            Got it
+          </button>
+        </div>
+      </div>
+
+      {/* Arrow pointing at Safari share button */}
+      <div
+        className="fixed bottom-[72px] left-1/2 z-50 -translate-x-1/2 transition-all duration-700"
+        style={{ opacity: show && stepVisible >= 1 ? 1 : 0 }}
+      >
+        <div className="flex flex-col items-center gap-1 animate-bounce">
+          <div className="rounded-full bg-[#007AFF] px-3 py-1 text-[11px] font-semibold text-white shadow-lg">
+            here
+          </div>
+          <svg width="16" height="10" viewBox="0 0 16 10" fill="#007AFF">
+            <path d="M8 10L0 0h16z"/>
+          </svg>
+        </div>
+      </div>
+    </>
   )
 }
 
@@ -514,7 +627,7 @@ export function PWAInstallCard({ clinicId, isAdmin }: Props) {
   const closeModal = useCallback(() => setModalOpen(false), [])
 
   if (installed) return null
-  if (platform === 'ios') return <IOSCard />
+  if (platform === 'ios') return <IOSBottomSheet />
 
   if (platform === 'android') {
     return (
