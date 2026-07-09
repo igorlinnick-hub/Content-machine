@@ -70,7 +70,9 @@ export function RoleBadge({ role, doctorName, variant = 'light' }: Props) {
             className="fixed z-50 w-52 overflow-hidden rounded-xl border border-neutral-100 bg-white shadow-2xl"
             style={{
               top: rect.bottom + 8,
-              right: Math.max(8, window.innerWidth - rect.right),
+              ...(rect.left < window.innerWidth / 2
+                ? { left: Math.max(8, rect.left) }
+                : { right: Math.max(8, window.innerWidth - rect.right) }),
             }}
           >
             <div className="border-b border-neutral-100 px-4 py-3">
