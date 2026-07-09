@@ -27,7 +27,7 @@ export async function GET(
   // /onboarding directly. cm_bootstrap is attached so the localStorage
   // backup picks the token up client-side (cookie may not flow into the
   // PWA on iOS < 16.4).
-  const redirectUrl = new URL('/dashboard', url.origin)
+  const redirectUrl = new URL('/install', url.origin)
   redirectUrl.searchParams.set('cm_bootstrap', token)
 
   const res = NextResponse.redirect(redirectUrl)

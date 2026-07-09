@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
 import { Logomark } from '@/app/components/Logomark'
 import { PWAInstallCard } from '@/app/dashboard/components/PWAInstallCard'
+import { StandaloneRedirect } from './StandaloneRedirect'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -13,6 +14,7 @@ export default async function InstallPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center cm-page-bg px-5 py-12">
+      <StandaloneRedirect />
       <div className="flex w-full max-w-sm flex-col gap-7">
         <div className="flex flex-col gap-2 cm-rise">
           <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-sky-500">
