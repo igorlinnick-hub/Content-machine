@@ -55,13 +55,6 @@ export function ScriptCard({
             ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: '✓', iconCls: 'text-emerald-500', label: 'Compliant', labelCls: 'text-emerald-800' }
             : null
 
-  function autoResize() {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }
-
   async function onCopy() {
     try {
       await navigator.clipboard.writeText(scriptText)
@@ -153,30 +146,15 @@ export function ScriptCard({
         )}
       </header>
 
-      {/* Hook */}
-      <p className="rounded-lg border border-sky-100 bg-sky-50 px-4 py-3 text-sm italic text-sky-900">
-        <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider not-italic text-sky-500">
-          Hook
-        </span>
-        {variant.hook}
-      </p>
-
-      {/* Script — click to edit */}
-      <div className="relative">
-        <textarea
-          ref={textareaRef}
-          value={scriptText}
-          onChange={(e) => { setScriptText(e.target.value); autoResize() }}
-          onFocus={autoResize}
-          spellCheck={false}
-          className="w-full resize-none rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-4 font-sans text-[15px] leading-relaxed text-neutral-900 outline-none transition-colors hover:border-neutral-300 focus:border-sky-300 focus:bg-white focus:ring-2 focus:ring-sky-100"
-          rows={1}
-          style={{ overflow: 'hidden' }}
-        />
-        <span className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-neutral-300 select-none">
-          click to edit
-        </span>
-      </div>
+      {/* Script */}
+      <textarea
+        ref={textareaRef}
+        value={scriptText}
+        onChange={(e) => setScriptText(e.target.value)}
+        spellCheck={false}
+        className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-4 font-sans text-[15px] leading-relaxed text-neutral-900 outline-none transition-colors hover:border-neutral-300 focus:border-neutral-400 focus:bg-white focus:ring-2 focus:ring-neutral-100"
+        style={{ minHeight: 200, maxHeight: 400, overflowY: 'auto', resize: 'none' }}
+      />
 
       {/* Compliance signal */}
       {compliance && !isAdmin && (grade === 'PASS' || grade === 'REVIEW') && (
@@ -271,7 +249,7 @@ export function ScriptCard({
               <button
                 type="button"
                 onClick={() => router.push(`/teleprompter?clinicId=${clinicId}&scriptId=${scriptId}`)}
-                className="cm-btn text-sm border border-violet-200 text-violet-700 hover:bg-violet-50"
+                className="cm-btn cm-btn-ghost text-sm"
               >
                 Teleprompter →
               </button>
