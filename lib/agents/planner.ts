@@ -20,7 +20,15 @@ Rules:
 - Write all topics in English
 - Generate a short description for each week explaining the editorial angle`
 
-export async function runPlanner(profile: ClinicProfile): Promise<PlannerOutput> {
+export interface PlannerOptions {
+  publishedContext?: string
+}
+
+export async function runPlanner(profile: ClinicProfile, opts: PlannerOptions = {}): Promise<PlannerOutput> {
+  const publishedBlock = opts.publishedContext
+    ? `\n\nPUBLISHED CONTENT HISTORY (from Instagram — use this to avoid repetition and double down on what works):\n${opts.publishedContext}`
+    : ''
+
   const userContent = `Generate an 8-week content plan for this clinic.
 
 Name: ${profile.name}
@@ -29,7 +37,7 @@ Services: ${profile.services?.join(', ') || 'n/a'}
 Content pillars: ${profile.content_pillars?.join(', ') || 'n/a'}
 Deep-dive topics: ${profile.deep_dive_topics?.join(', ') || 'n/a'}
 Audience: ${profile.audience || 'adult patients considering treatments'}
-Tone: ${profile.tone || 'educational'}`
+Tone: ${profile.tone || 'educational'}${publishedBlock}`
 
   return callAgentTool<PlannerOutput>({
     model: MODEL_DEFAULT,

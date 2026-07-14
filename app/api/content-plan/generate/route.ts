@@ -2,6 +2,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
 import { runPlanner } from '@/lib/agents/planner'
 import { replaceStructuredPlan } from '@/lib/content-plan/store'
+import { getPublishedPosts, buildPublishedContext } from '@/lib/hellometrix/published-posts'
 import type { ClinicProfile } from '@/types'
 
 export const runtime = 'nodejs'
@@ -49,7 +50,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const plan = await runPlanner(profile)
+    const publishedPosts = await getPublishedPosts(clinicId)
+    const publishedContext = buildPublishedContext(publishedPosts)
+
+    const plan = await runPlanner(profile, { publishedContext: publishedContext || undefined })
     await replaceStructuredPlan(clinicId, plan.weeks)
 
     // Set content_plan_start if not already set
