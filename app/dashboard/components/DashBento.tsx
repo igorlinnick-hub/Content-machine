@@ -166,7 +166,7 @@ export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: bo
       tagColor: '#0F766E',
       iconBg: 'linear-gradient(135deg,#14b8a6,#0f766e)',
       icon: <IconCalendar />,
-      adminOnly: false,
+      adminOnly: true,
     },
   ]
 
