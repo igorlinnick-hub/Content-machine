@@ -5,6 +5,7 @@ export interface StructuredPlanPost {
   id: string           // content_plan_topics.id
   topic: string
   keyword: string | null
+  format: string | null
   position: number
   status: 'pending' | 'done' | 'skipped'
 }
@@ -56,7 +57,7 @@ export async function loadStructuredPlan(clinicId: string): Promise<StructuredPl
 
   const { data: topics, error: topicsErr } = await supabase
     .from('content_plan_topics')
-    .select('id, week_id, topic, keyword, position, status')
+    .select('id, week_id, topic, keyword, format, position, status')
     .in('week_id', weekIds)
     .order('position', { ascending: true })
 
@@ -70,6 +71,7 @@ export async function loadStructuredPlan(clinicId: string): Promise<StructuredPl
       id: t.id,
       topic: t.topic,
       keyword: t.keyword ?? null,
+      format: (t as unknown as { format?: string | null }).format ?? null,
       position: t.position,
       status: (t.status ?? 'pending') as StructuredPlanPost['status'],
     })
@@ -131,6 +133,7 @@ export async function getCurrentPlanContext(
       pillar: week.pillar,
       keyword: data.keyword ?? null,
       topic: data.topic,
+      format: (data as unknown as { format?: string | null }).format ?? null,
     }
   }
 
@@ -147,6 +150,7 @@ export async function getCurrentPlanContext(
     pillar: currentWeek.pillar,
     keyword: firstPost.keyword,
     topic: firstPost.topic,
+    format: firstPost.format,
   }
 }
 
@@ -155,7 +159,7 @@ export interface ReplaceWeekInput {
   theme: string
   pillar: string
   description?: string | null
-  posts: Array<{ topic: string; keyword?: string | null }>
+  posts: Array<{ topic: string; keyword?: string | null; format?: string | null }>
 }
 
 export async function replaceStructuredPlan(
@@ -194,6 +198,7 @@ export async function replaceStructuredPlan(
     week_id: string
     topic: string
     keyword: string | null
+    format: string | null
     position: number
     status: 'pending'
   }> = []
@@ -207,6 +212,7 @@ export async function replaceStructuredPlan(
         week_id: weekId,
         topic: p.topic,
         keyword: p.keyword ?? null,
+        format: p.format ?? null,
         position: i,
         status: 'pending',
       })

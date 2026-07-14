@@ -132,6 +132,7 @@ export interface PlanContext {
   pillar: string
   keyword: string | null
   topic: string
+  format?: string | null
 }
 
 export interface SharedContext {

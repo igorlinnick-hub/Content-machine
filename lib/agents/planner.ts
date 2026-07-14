@@ -6,6 +6,15 @@ export interface PlannerOutput {
   weeks: ReplaceWeekInput[]
 }
 
+const FORMAT_NAMES = [
+  'System critique',
+  'Diagnostic deep-dive',
+  'Patient story',
+  'Expert secrets',
+  'Medicine philosophy',
+  'Myth-busting',
+] as const
+
 const SYSTEM_PROMPT = `You are an editorial content strategist for a medical clinic's social media (Instagram, TikTok, YouTube Shorts).
 
 Given a clinic's profile — their services, content pillars, deep-dive topics, audience, and tone — generate an 8-week content plan with exactly 3 posts per week (24 posts total).
@@ -13,7 +22,15 @@ Given a clinic's profile — their services, content pillars, deep-dive topics, 
 Rules:
 - Each week has a THEME (a specific focus area, e.g. "Botox & Facial Harmony") and a PILLAR (must be one of the clinic's content_pillars exactly as listed)
 - Rotate pillars across the 8 weeks — don't repeat the same pillar more than 2-3 times unless the clinic has fewer than 4 pillars
-- Each post has a TOPIC (the specific video/carousel topic, patient-facing, 6-12 words) and a KEYWORD (1-2 words, the ManyChat CTA trigger word for this post — should match the core treatment or mechanism)
+- Each post has a TOPIC (the specific video/carousel topic, patient-facing, 6-12 words), a KEYWORD (1-2 words, the ManyChat CTA trigger word), and a FORMAT
+- FORMAT must be one of these 6 structural templates — rotate all 6 evenly across the 24 posts (each format appears exactly 4 times):
+  1. System critique — why mainstream care fails this problem
+  2. Diagnostic deep-dive — unpack the real mechanism behind a symptom
+  3. Patient story — anonymised case the doctor sees often
+  4. Expert secrets — what the doctor tells a friend but not in a 10-min visit
+  5. Medicine philosophy — short opinionated piece on how the doctor thinks
+  6. Myth-busting — debunk 3 common misconceptions
+- Rotate formats so each week has at most 2 posts of the same format
 - Topics must be educational, mechanism-focused, or patient-question-based (not generic)
 - Each week's 3 posts should build on each other (e.g. mechanism → patient question → result/protocol)
 - Ground topics in the clinic's actual services and deep-dive topics
@@ -67,10 +84,11 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
                 maxItems: 3,
                 items: {
                   type: 'object',
-                  required: ['topic', 'keyword'],
+                  required: ['topic', 'keyword', 'format'],
                   properties: {
                     topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
                     keyword: { type: 'string', description: 'ManyChat CTA trigger keyword, 1-2 words' },
+                    format: { type: 'string', enum: [...FORMAT_NAMES], description: 'Structural format template for this post' },
                   },
                 },
               },

@@ -264,6 +264,7 @@ export type Database = {
           cycle_position: number | null
           week_id: string | null
           keyword: string | null
+          format: string | null
         }
         Insert: {
           id?: string
@@ -278,6 +279,7 @@ export type Database = {
           cycle_position?: number | null
           week_id?: string | null
           keyword?: string | null
+          format?: string | null
         }
         Update: {
           id?: string
@@ -292,6 +294,7 @@ export type Database = {
           cycle_position?: number | null
           week_id?: string | null
           keyword?: string | null
+          format?: string | null
         }
         Relationships: [
           {

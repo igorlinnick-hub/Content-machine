@@ -293,7 +293,8 @@ function buildContextBrief(
   target: ScriptLengthTarget,
   feedback?: string,
   pinnedFormat?: PinnedFormat,
-  excludeHooks?: string[]
+  excludeHooks?: string[],
+  planContext?: import('@/types').PlanContext | null
 ): string {
   const parts: string[] = []
 
@@ -324,12 +325,25 @@ function buildContextBrief(
     )
   }
 
+  // Resolve which template(s) to show. Priority:
+  // 1. pinnedFormat (Studio: reference video drives the format)
+  // 2. planContext.format (Content Plan: planner pre-assigned the format)
+  // 3. length-biased random pick from all templates
+  const planPinnedName = planContext?.format ?? null
+  const planPinnedTemplate = planPinnedName
+    ? ctx.format_templates.find((t) => t.name === planPinnedName) ?? null
+    : null
+
   if (pinnedFormat) {
-    // Studio: one format pinned to a reference video. Skip the
-    // pick-one-of-N templates block entirely.
+    // Studio: one format pinned to a reference video.
     parts.push(buildPinnedFormatBlock(pinnedFormat))
+  } else if (planPinnedTemplate) {
+    // Content Plan: planner pre-assigned a specific structural format.
+    parts.push(
+      `FORMAT — this post uses the "${planPinnedTemplate.name}" structural template. ALL variants must follow this scaffold exactly:\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
+    )
   } else {
-    // Format templates — bias toward those that match the requested length budget.
+    // Ad-hoc / fallback: offer all templates and let the model pick.
     const matchingTemplates = ctx.format_templates.filter(
       (t) => t.length_bias === null || t.length_bias === target
     )
@@ -490,7 +504,8 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     target,
     params.feedback,
     params.pinnedFormat,
-    params.excludeHooks
+    params.excludeHooks,
+    params.planContext
   )
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
   const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)
