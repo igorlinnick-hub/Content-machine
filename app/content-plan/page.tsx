@@ -21,10 +21,15 @@ export default async function ContentPlanPage({
 
   const isAdmin = access.role === 'admin'
 
-  const [plan, currentWeek] = await Promise.all([
+  const supabase = (await import('@/lib/supabase/server')).createServerClient()
+  const [{ data: clinicMeta }, plan, currentWeek] = await Promise.all([
+    clinicId
+      ? supabase.from('clinics').select('plan_status, plan_error').eq('id', clinicId).single()
+      : Promise.resolve({ data: null }),
     clinicId ? loadStructuredPlan(clinicId) : Promise.resolve([]),
     clinicId ? getCurrentStructuredWeek(clinicId) : Promise.resolve(null),
   ])
+  const planStatus = clinicMeta?.plan_status ?? null
 
   // Compute per-pillar counts from the DB plan
   const pillarCounts = new Map<string, number>()
@@ -50,7 +55,7 @@ export default async function ContentPlanPage({
             back={clinicId ? `/dashboard?clinicId=${clinicId}` : '/dashboard'}
           />
           {isAdmin && clinicId && (
-            <GeneratePlanButton clinicId={clinicId} />
+            <GeneratePlanButton clinicId={clinicId} initialStatus={planStatus} />
           )}
         </div>
 

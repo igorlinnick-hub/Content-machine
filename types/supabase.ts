@@ -58,6 +58,8 @@ export type Database = {
           drive_originals_folder_id: string | null
           drive_finals_folder_id: string | null
           caption_style: string | null
+          plan_status: string | null
+          plan_error: string | null
         }
         Insert: {
           audience?: string | null
@@ -81,6 +83,8 @@ export type Database = {
           drive_originals_folder_id?: string | null
           drive_finals_folder_id?: string | null
           caption_style?: string | null
+          plan_status?: string | null
+          plan_error?: string | null
         }
         Update: {
           audience?: string | null
@@ -104,6 +108,8 @@ export type Database = {
           drive_originals_folder_id?: string | null
           drive_finals_folder_id?: string | null
           caption_style?: string | null
+          plan_status?: string | null
+          plan_error?: string | null
         }
         Relationships: [
           {

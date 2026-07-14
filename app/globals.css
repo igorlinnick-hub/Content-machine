@@ -197,6 +197,11 @@ body {
   animation: cm-rise 0.75s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
 /* Page background — transparent, GradientBg in layout handles the animated blobs */
 .cm-page-bg {
   background: transparent;
