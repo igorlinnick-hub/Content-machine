@@ -60,6 +60,7 @@ export type Database = {
           caption_style: string | null
           plan_status: string | null
           plan_error: string | null
+          hellometrix_client_id: string | null
         }
         Insert: {
           audience?: string | null
@@ -85,6 +86,7 @@ export type Database = {
           caption_style?: string | null
           plan_status?: string | null
           plan_error?: string | null
+          hellometrix_client_id?: string | null
         }
         Update: {
           audience?: string | null
@@ -110,6 +112,7 @@ export type Database = {
           caption_style?: string | null
           plan_status?: string | null
           plan_error?: string | null
+          hellometrix_client_id?: string | null
         }
         Relationships: [
           {
