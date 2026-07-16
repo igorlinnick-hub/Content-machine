@@ -1,6 +1,7 @@
 import type { ClinicProfile } from '@/types'
 import { MODEL_DEFAULT, callAgentTool } from './base'
 import type { ReplaceWeekInput } from '@/lib/content-plan/store'
+import { MANYCHAT_CTA_CATEGORIES } from '@/lib/seeds/cta-keywords'
 
 export interface PlannerOutput {
   weeks: ReplaceWeekInput[]
@@ -22,7 +23,7 @@ Given a clinic's profile — their services, content pillars, deep-dive topics, 
 Rules:
 - Each week has a THEME (a specific focus area, e.g. "Botox & Facial Harmony") and a PILLAR (must be one of the clinic's content_pillars exactly as listed)
 - Rotate pillars across the 8 weeks — don't repeat the same pillar more than 2-3 times unless the clinic has fewer than 4 pillars
-- Each post has a TOPIC (the specific video/carousel topic, patient-facing, 6-12 words), a KEYWORD (1-2 words, the ManyChat CTA trigger word), and a FORMAT
+- Each post has a TOPIC (the specific video/carousel topic, patient-facing, 6-12 words), a KEYWORD (the ManyChat CTA trigger word — must be chosen ONLY from the lists below), and a FORMAT
 - FORMAT must be one of these 6 structural templates — rotate all 6 evenly across the 24 posts (each format appears exactly 4 times):
   1. System critique — why mainstream care fails this problem
   2. Diagnostic deep-dive — unpack the real mechanism behind a symptom
@@ -35,7 +36,14 @@ Rules:
 - Each week's 3 posts should build on each other (e.g. mechanism → patient question → result/protocol)
 - Ground topics in the clinic's actual services and deep-dive topics
 - Write all topics in English
-- Generate a short description for each week explaining the editorial angle`
+- Generate a short description for each week explaining the editorial angle
+
+VALID MANYCHAT KEYWORDS (use ONLY these — do not invent new ones):
+Mental Health pillar: ${MANYCHAT_CTA_CATEGORIES.mental_health.join(', ')}
+Pain & Joint pillar: ${MANYCHAT_CTA_CATEGORIES.pain_joint.join(', ')}
+Wellness & Vitality pillar: ${MANYCHAT_CTA_CATEGORIES.wellness_vitality.join(', ')}
+Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}
+Pick the keyword that best matches the post topic. Never invent a keyword not in these lists.`
 
 export interface PlannerOptions {
   publishedContext?: string
