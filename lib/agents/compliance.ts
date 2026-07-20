@@ -28,11 +28,20 @@ const RULESET_VERSION = 'v2.1'
 // The general rules apply to ALL niches. Niche-specific blocks
 // (carve-outs, niche-only rules) are injected per call via buildCompliancePrompt.
 const GENERAL_RULES_BLOCK = `Rules to enforce (from compliance-ruleset.md §):
+
+REGULATORY RULES:
   • R-FDA-01: "FDA-approved" or "FDA-cleared" only when literally true for the exact product. Reword when used incorrectly.
   • R-CLAIM-01: No "treats/cures/reverses/regenerates/restores" on disease or body part. Reword to "supports/may help/studies report".
   • R-CLAIM-02: No outcome guarantees ("will work", "guaranteed", "100%", "miracle"). Reword to hedged language.
   • R-EVIDENCE-01: Naked statistics without an evidence stage label ("Phase 2", "pilot", "preclinical", "investigational") = reword.
-  • R-PROMISE-01: Therapeutic posts must contain at least one hedging phrase ("may help", "can support", "some patients", "studies suggest", "talk to your doctor", etc.). If completely absent → reword. Do NOT flag as review — the rewriter can add a hedge.`
+  • R-PROMISE-01: Therapeutic posts must contain at least one hedging phrase ("may help", "can support", "some patients", "studies suggest", "talk to your doctor", etc.). If completely absent → reword. Do NOT flag as review — the rewriter can add a hedge.
+
+FACTUAL ACCURACY RULES (flag even when tone/wording is compliant):
+  • R-FACT-01: Any specific numeric statistic — a percentage, patient count, response rate, weight-loss figure, time-to-result (e.g. "83% of patients", "lost 15 lbs in 8 weeks", "response in 6 treatments") — without a named source (study name, trial acronym, journal, institution) → grade REVIEW. The number may be real but is unverifiable without attribution.
+  • R-FACT-02: Any specific year or date for an FDA approval, clinical trial result, or regulatory event (e.g. "approved in 2023", "cleared in August 2024") → grade REVIEW unless you can confirm from your training data that the date is accurate for that exact product/indication.
+  • R-FACT-03: Drug dosages, treatment schedules, or protocol specifics stated as authoritative fact (e.g. "standard dose is 2.4 mg/week", "6-week protocol", "sessions every 3 days") without a source or a "typically" / "commonly" hedge → grade REVIEW. Dosing varies by patient and prescribing guidelines change.
+  • R-CURR-01: Any claim about current availability, ongoing trial status, or "as of [year]" currency (e.g. "currently the only FDA-approved", "as of 2025, three studies show") → grade REVIEW. Information may be outdated by publication date.
+  • R-FACT-04: Any factual claim about a specific mechanism, organ, or biological process that you assess as potentially inaccurate based on established medical literature (e.g. wrong anatomy, incorrect biochemistry, outdated pathophysiology) → grade REVIEW with the specific concern in correction.`
 
 const GRADE_BLOCK = `Grades:
   REMOVE  — hard rule violation. Cannot publish. Examples: claims a therapy "treats/cures/reverses" a disease, offers exosomes as a service, states "FDA-approved" for a non-approved product, makes outcome guarantees.

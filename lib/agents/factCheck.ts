@@ -142,6 +142,39 @@ export function factCheckScript(script: string): FactFinding[] {
     })
   }
 
+  // FACT_NAKED_STATISTIC — specific numeric outcome claim without a named source.
+  // Catches patterns like "83% of patients", "lost 15 lbs", "response rate of 67%",
+  // "works in 4 weeks" when not accompanied by a study name/journal.
+  // Regex fires when a % or numeric outcome appears but no trial/source anchor follows.
+  const hasNakedPercent = /\b\d{1,3}%\s+(of\s+(patients|people|users|participants)|improvement|response|reduction|success|remission)/i.test(script)
+  const hasNakedOutcome = /\b(lost?|lose|gain|shed|drop|lose)\s+\d+\s*(lbs?|pounds?|kg|kilograms?)/i.test(script)
+  const hasSourceAnchor = /(study|trial|NEJM|journal|published|Phase\s*[123]|RCT|meta-analysis|according\s+to|research\s+shows|data\s+from)/i.test(script)
+
+  if ((hasNakedPercent || hasNakedOutcome) && !hasSourceAnchor) {
+    findings.push({
+      rule: 'FACT_NAKED_STAT',
+      severity: 'review',
+      matched: 'specific outcome statistic without named source',
+      correction:
+        'Add a source anchor (study name, trial acronym, journal, or institution) or hedge with "in some patients", "results vary". Specific numbers without attribution require human verification before publishing.',
+    })
+  }
+
+  // FACT_SPECIFIC_DOSAGE — specific drug doses stated as authoritative fact.
+  // Dosing varies by patient and may change with new guidelines.
+  if (
+    /\b\d+(\.\d+)?\s*(mg|mcg|ml|units?|IU)\s*(\/\s*(week|day|dose|injection|month))?/i.test(script) &&
+    !/(typically|commonly|usually|often|up to|starting|may vary|consult|ask your)/i.test(script)
+  ) {
+    findings.push({
+      rule: 'FACT_SPECIFIC_DOSAGE',
+      severity: 'review',
+      matched: 'specific drug dosage without hedging language',
+      correction:
+        'Specific dosages (mg/week etc.) require "typically", "commonly", or "your doctor will determine" hedge — dosing is patient-specific and changes with guidelines.',
+    })
+  }
+
   return findings
 }
 
