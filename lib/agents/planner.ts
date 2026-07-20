@@ -53,6 +53,86 @@ Wellness & Vitality pillar: ${MANYCHAT_CTA_CATEGORIES.wellness_vitality.join(', 
 Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}
 Pick the keyword that best matches the post topic. Never invent a keyword not in these lists.`
 
+// ─── Single-topic reroll ──────────────────────────────────────────
+// The marketer rejects one topic chip; generate ONE replacement that
+// still fits the same week's theme + pillar and doesn't collide with
+// anything else in the plan.
+
+const REROLL_SYSTEM_PROMPT = `You are an editorial content strategist for a medical clinic's social media.
+
+The marketer rejected ONE post topic from a weekly content plan. Generate exactly ONE replacement topic for the same week.
+
+Rules:
+- The replacement must fit the week's THEME and PILLAR
+- It must NOT duplicate or paraphrase the rejected topic, the week's other topics, or any topic listed under AVOID
+- Patient-facing, 6-12 words, educational / mechanism-focused / patient-question-based (not generic)
+- KEYWORD must be chosen ONLY from the valid ManyChat lists below, matching the pillar
+- FORMAT must be one of the 6 templates; prefer one the week doesn't already use:
+  1. System critique — why mainstream care fails this problem
+  2. Diagnostic deep-dive — unpack the real mechanism behind a symptom
+  3. Patient story — anonymised case the doctor sees often
+  4. Expert secrets — what the doctor tells a friend but not in a 10-min visit
+  5. Medicine philosophy — short opinionated piece on how the doctor thinks
+  6. Myth-busting — debunk 3 common misconceptions
+
+VALID MANYCHAT KEYWORDS (use ONLY these — do not invent new ones):
+Mental Health pillar: ${MANYCHAT_CTA_CATEGORIES.mental_health.join(', ')}
+Pain & Joint pillar: ${MANYCHAT_CTA_CATEGORIES.pain_joint.join(', ')}
+Wellness & Vitality pillar: ${MANYCHAT_CTA_CATEGORIES.wellness_vitality.join(', ')}
+Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}`
+
+export interface RerollTopicInput {
+  profile: ClinicProfile
+  week: { theme: string; pillar: string; description?: string | null }
+  /** Topics staying in this week — the replacement must complement them. */
+  keepTopics: string[]
+  /** The topic the marketer rejected. */
+  rejectedTopic: string
+  /** Other topics across the plan / recent posts — avoid collisions. */
+  avoidTopics?: string[]
+}
+
+export interface RerolledTopic {
+  topic: string
+  keyword: string
+  format: string
+}
+
+export async function rerollTopic(input: RerollTopicInput): Promise<RerolledTopic> {
+  const { profile, week } = input
+  const userContent = `Clinic: ${profile.name}
+Services: ${profile.services?.join(', ') || 'n/a'}
+Deep-dive topics: ${profile.deep_dive_topics?.join(', ') || 'n/a'}
+Audience: ${profile.audience || 'adult patients considering treatments'}
+
+Week theme: ${week.theme}
+Week pillar: ${week.pillar}
+${week.description ? `Week angle: ${week.description}` : ''}
+
+REJECTED topic (replace this, do not rephrase it): ${input.rejectedTopic}
+Topics staying in the week: ${input.keepTopics.join(' | ') || 'none'}
+AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' | ') || 'none'}`
+
+  return callAgentTool<RerolledTopic>({
+    model: MODEL_DEFAULT,
+    systemPrompt: REROLL_SYSTEM_PROMPT,
+    userContent,
+    toolName: 'submit_replacement_topic',
+    toolDescription: 'Submit the single replacement post topic',
+    inputSchema: {
+      type: 'object',
+      required: ['topic', 'keyword', 'format'],
+      properties: {
+        topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
+        keyword: { type: 'string', enum: [...ALL_VALID_KEYWORDS], description: 'ManyChat CTA trigger keyword' },
+        format: { type: 'string', enum: [...FORMAT_NAMES], description: 'Structural format template' },
+      },
+    },
+    maxTokens: 500,
+    cacheSystem: true,
+  })
+}
+
 export interface PlannerOptions {
   publishedContext?: string
 }

@@ -16,6 +16,34 @@ export function WeekCard({
   const color = pillarColor(week.pillar)
   const [skipping, setSkipping] = useState(false)
   const [hidden, setHidden] = useState(false)
+  // Local copy so a reroll can swap one topic in place without a page
+  // refresh. id of the row currently rerolling, or null.
+  const [posts, setPosts] = useState<StructuredPlanPost[]>(week.posts)
+  const [rerollingId, setRerollingId] = useState<string | null>(null)
+
+  async function reroll(topicId: string) {
+    if (rerollingId) return
+    setRerollingId(topicId)
+    try {
+      const res = await fetch('/api/content-plan/reroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.topic) {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === topicId
+              ? { ...p, topic: data.topic, keyword: data.keyword ?? null, status: 'pending' }
+              : p
+          )
+        )
+      }
+    } finally {
+      setRerollingId(null)
+    }
+  }
 
   async function skipWeek() {
     if (skipping) return
@@ -91,28 +119,48 @@ export function WeekCard({
       )}
 
       <div className="flex flex-col gap-2">
-        {week.posts.map((post: StructuredPlanPost, i: number) => (
-          <div
-            key={post.id}
-            className="flex items-center justify-between gap-3 rounded-xl px-3 py-2"
-            style={{ background: `${color}08`, border: `1px solid ${color}18` }}
-          >
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="shrink-0 text-[11px] font-bold tabular-nums" style={{ color }}>
-                {String(i + 1).padStart(2, '0')}
-              </span>
-              <span className="truncate text-[13px] text-neutral-700">{post.topic}</span>
+        {posts.map((post: StructuredPlanPost, i: number) => {
+          const isRerolling = rerollingId === post.id
+          return (
+            <div
+              key={post.id}
+              className="group flex items-center justify-between gap-3 rounded-xl px-3 py-2"
+              style={{
+                background: `${color}08`,
+                border: `1px solid ${color}18`,
+                opacity: isRerolling ? 0.55 : 1,
+              }}
+            >
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="shrink-0 text-[11px] font-bold tabular-nums" style={{ color }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span className="truncate text-[13px] text-neutral-700">
+                  {isRerolling ? 'Generating a new topic…' : post.topic}
+                </span>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {post.keyword && !isRerolling && (
+                  <span
+                    className="rounded px-2 py-0.5 font-mono text-[10px] font-semibold"
+                    style={{ background: `${color}18`, color }}
+                  >
+                    {post.keyword}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => reroll(post.id)}
+                  disabled={rerollingId !== null}
+                  title="Don't like this topic? Replace it with a new one for the same week"
+                  className="rounded-md px-1.5 py-0.5 text-[13px] leading-none text-neutral-400 opacity-0 transition hover:bg-white/70 hover:text-neutral-700 focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                >
+                  {isRerolling ? '…' : '↻'}
+                </button>
+              </div>
             </div>
-            {post.keyword && (
-              <span
-                className="shrink-0 rounded px-2 py-0.5 font-mono text-[10px] font-semibold"
-                style={{ background: `${color}18`, color }}
-              >
-                {post.keyword}
-              </span>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       {clinicId && (
