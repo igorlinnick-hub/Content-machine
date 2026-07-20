@@ -119,7 +119,11 @@ function PlanningAnimation() {
 }
 
 export function GeneratePlanButton({ clinicId, initialStatus }: Props) {
-  const [generating, setGenerating] = useState(initialStatus === 'generating')
+  const isGenerating =
+    initialStatus === 'generating' ||
+    (typeof sessionStorage !== 'undefined' &&
+      !!sessionStorage.getItem(`plan-generating-${clinicId}`))
+  const [generating, setGenerating] = useState(isGenerating)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -131,11 +135,13 @@ export function GeneratePlanButton({ clinicId, initialStatus }: Props) {
         const res = await fetch(`/api/content-plan/status?clinicId=${clinicId}`)
         const data = await res.json() as { status: string | null; error: string | null }
         if (data.status === 'error') {
+          sessionStorage.removeItem(`plan-generating-${clinicId}`)
           setError(data.error ?? 'Generation failed')
           setGenerating(false)
           stopPolling()
         } else if (!data.status) {
           // Done — refresh page to show the new plan
+          sessionStorage.removeItem(`plan-generating-${clinicId}`)
           stopPolling()
           router.refresh()
           setGenerating(false)
@@ -143,7 +149,7 @@ export function GeneratePlanButton({ clinicId, initialStatus }: Props) {
       } catch {
         // Network hiccup — keep polling
       }
-    }, 3000)
+    }, 2000)
   }
 
   function stopPolling() {
@@ -153,9 +159,9 @@ export function GeneratePlanButton({ clinicId, initialStatus }: Props) {
     }
   }
 
-  // Resume polling if page was loaded while already generating
+  // Resume polling if page was loaded while already generating (server flag or sessionStorage)
   useEffect(() => {
-    if (initialStatus === 'generating') startPolling()
+    if (generating) startPolling()
     return stopPolling
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -164,17 +170,22 @@ export function GeneratePlanButton({ clinicId, initialStatus }: Props) {
     if (!confirm('Generate an AI content plan? This will replace the current plan for this clinic.')) return
     setError(null)
     setGenerating(true)
+    // Persist generating state so navigation away + return still shows animation
+    sessionStorage.setItem(`plan-generating-${clinicId}`, '1')
 
     try {
       const res = await fetch('/api/content-plan/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ clinicId }),
+        // keepalive: browser sends this request even if the page navigates away
+        keepalive: true,
       })
       const data = await res.json()
       if (!res.ok && res.status !== 202) throw new Error(data?.error ?? `HTTP ${res.status}`)
       startPolling()
     } catch (e) {
+      sessionStorage.removeItem(`plan-generating-${clinicId}`)
       setError(e instanceof Error ? e.message : 'failed to start')
       setGenerating(false)
     }
