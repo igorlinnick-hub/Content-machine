@@ -22,7 +22,6 @@ export function ScriptCard({
   compliance,
   clinicId,
   scriptId: initialScriptId,
-  isAdmin = false,
 }: ScriptCardProps) {
   const router = useRouter()
   const [variant, setVariant] = useState<ScriptVariant>(initialVariant)
@@ -46,18 +45,6 @@ export function ScriptCard({
   const strong = typeof total === 'number' && total >= 7
 
   const grade = complianceState?.grade ?? null
-  const complianceStyle =
-    grade === 'REMOVE'
-      ? { border: 'border-red-200',    bg: 'bg-red-50',    icon: '✕', iconCls: 'text-red-500',    label: 'Cannot publish',  labelCls: 'text-red-800'    }
-      : grade === 'REWORD'
-        ? { border: 'border-orange-200', bg: 'bg-orange-50', icon: '⚠', iconCls: 'text-orange-500', label: 'Reword required', labelCls: 'text-orange-800' }
-        : grade === 'REVIEW'
-          ? { border: 'border-amber-200',  bg: 'bg-amber-50',  icon: '⚠', iconCls: 'text-amber-500',  label: 'Review needed',   labelCls: 'text-amber-800'  }
-          : grade === 'PASS'
-            // Ruleset v2.1: never say "safe"/"compliant" in user-facing
-            // output — the gate is a screen, not sign-off.
-            ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: '✓', iconCls: 'text-emerald-500', label: 'Checked · 0 findings', labelCls: 'text-emerald-800' }
-            : null
 
   async function onCopy() {
     try {
@@ -164,52 +151,13 @@ export function ScriptCard({
         style={{ minHeight: 200, maxHeight: 400, overflowY: 'auto', resize: 'none' }}
       />
 
-      {/* Compliance signal */}
-      {compliance && !isAdmin && (grade === 'PASS' || grade === 'REVIEW') && (
-        <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[12px] font-semibold text-emerald-700">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Compliant
-        </span>
-      )}
-      {compliance && isAdmin && complianceStyle && (
-        /* Admin: full details with rule IDs and corrections */
-        <div className={`rounded-xl border ${complianceStyle.border} ${complianceStyle.bg} px-4 py-3`}>
+      {/* REMOVE grade only — genuine publish block that the loop cannot auto-fix */}
+      {grade === 'REMOVE' && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <div className="flex items-center gap-2">
-            <span className={`text-base font-bold ${complianceStyle.iconCls}`}>
-              {complianceStyle.icon}
-            </span>
-            <span className={`text-sm font-semibold ${complianceStyle.labelCls}`}>
-              {complianceStyle.label}
-            </span>
-            {compliance.findings.length > 0 && (
-              <span className={`ml-auto text-xs ${complianceStyle.labelCls} opacity-70`}>
-                {compliance.findings.length} finding{compliance.findings.length !== 1 ? 's' : ''}
-              </span>
-            )}
+            <span className="text-base font-bold text-red-500">✕</span>
+            <span className="text-sm font-semibold text-red-800">Cannot publish — medical director review required</span>
           </div>
-          {compliance.findings.length > 0 && (
-            <details className="mt-2">
-              <summary className={`cursor-pointer text-xs font-medium ${complianceStyle.labelCls} opacity-80 hover:opacity-100`}>
-                Show details
-              </summary>
-              <ul className="mt-2 flex flex-col gap-2.5">
-                {compliance.findings.map((f, i) => (
-                  <li key={i} className="flex flex-col gap-0.5 text-xs">
-                    <span className={`font-semibold ${
-                      f.severity === 'remove' ? 'text-red-700' :
-                      f.severity === 'reword' ? 'text-orange-700' : 'text-amber-700'
-                    }`}>
-                      [{f.rule}] {f.severity.toUpperCase()}
-                    </span>
-                    <span className="italic text-neutral-600">&ldquo;{f.matched}&rdquo;</span>
-                    <span className="text-neutral-500">→ {f.correction}</span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
         </div>
       )}
 
