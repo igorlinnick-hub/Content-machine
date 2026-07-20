@@ -3,6 +3,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { PageHeader } from '@/app/components/PageHeader'
 import { loadStructuredPlan, getCurrentStructuredWeek, pillarColor, type StructuredPlanWeek } from '@/lib/content-plan/store'
 import { GeneratePlanButton } from './components/GeneratePlanButton'
+import { DownloadPlanPdfButton } from './components/DownloadPlanPdfButton'
 import { WeekCard } from './components/WeekCard'
 
 export const dynamic = 'force-dynamic'
@@ -55,9 +56,12 @@ export default async function ContentPlanPage({
             }
             back={clinicId ? `/dashboard?clinicId=${clinicId}` : '/dashboard'}
           />
-          {isAdmin && clinicId && (
-            <GeneratePlanButton clinicId={clinicId} initialStatus={planStatus} />
-          )}
+          <div className="flex flex-col items-end gap-2">
+            {!isEmpty && clinicId && <DownloadPlanPdfButton clinicId={clinicId} />}
+            {isAdmin && clinicId && (
+              <GeneratePlanButton clinicId={clinicId} initialStatus={planStatus} />
+            )}
+          </div>
         </div>
 
         {/* Empty state */}
