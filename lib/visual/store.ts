@@ -263,7 +263,6 @@ export async function loadPosts(
       'id, script_id, status, created_at, slides, render_result, scripts ( topic, hook, full_script, length_target, pair_id ), clinic_categories ( id, name, emoji )'
     )
     .eq('clinic_id', clinicId)
-    .not('script_id', 'is', null)
     .order('created_at', { ascending: false })
     .limit(limit)
   if (error) throw error

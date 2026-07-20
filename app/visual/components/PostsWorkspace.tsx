@@ -96,6 +96,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
   const [composing, setComposing] = useState(false)
   const [composeError, setComposeError] = useState<string | null>(null)
+  const [complianceOpen, setComplianceOpen] = useState(false)
   // Set when the marketer presses Compose so the deadline UX can
   // show "in queue ~2 min" → "longer than usual" without flooding
   // the runner with re-pings. Reset on detail change.
@@ -112,11 +113,10 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
     return () => clearInterval(id)
   }, [generating])
 
-  // Reset the queue-since timer whenever the selected post changes —
-  // otherwise the deadline UX would say "queued 5min" for a fresh row
-  // I just clicked into.
+  // Reset per-post UI state whenever the selected post changes.
   useEffect(() => {
     setQueuedAt(null)
+    setComplianceOpen(false)
   }, [selectedId])
 
   // Polling: while the row is actively moving (system/runner working),
@@ -638,136 +638,153 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
             </div>
           ) : (
             <>
-              <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-xl font-semibold text-neutral-900">
-                      {detail.topic ?? 'Untitled post'}
-                    </h2>
-                    <StatusChip status={detail.status} />
-                  </div>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {formatDate(detail.created_at)} · {detail.slides.length} slides
-                  </p>
-                  {/* Compliance findings — shown only when status is review */}
-                  {detail.status === 'review' && detail.compliance?.findings && detail.compliance.findings.filter(f => f.rule || f.matched).length > 0 && (
-                    <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-amber-700">
-                        Compliance findings ({detail.compliance.findings.length})
-                      </p>
-                      <ul className="space-y-2">
-                        {detail.compliance.findings.filter(f => f.rule || f.matched).map((f, i) => (
-                          <li key={i} className="text-xs text-amber-800">
-                            <span className="font-semibold">{f.rule}</span>
-                            {f.severity && <span className="ml-1 text-amber-600">({f.severity})</span>}
-                            {f.matched && (
-                              <span className="mt-0.5 block rounded bg-amber-100 px-2 py-1 font-mono text-[10px] text-amber-700">
-                                &ldquo;{f.matched}&rdquo;
-                              </span>
-                            )}
-                            {f.correction && (
-                              <span className="mt-0.5 block text-[11px] text-amber-600 italic">→ {f.correction}</span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
+              <header className="flex flex-col gap-3 border-b border-neutral-200 pb-4">
+                {/* Title row */}
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-xl font-semibold text-neutral-900">
+                        {detail.topic ?? 'Untitled post'}
+                      </h2>
+                      <StatusChip status={detail.status} />
                     </div>
-                  )}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {/* Canva design style picker — only show when user can compose */}
-                  <div className="flex items-center rounded-xl border border-slate-200 bg-white/60 p-0.5">
-                    {([1, 2] as const).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => handleStyleChange(s)}
-                        className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
-                          (detail.canva_style ?? 1) === s
-                            ? 'bg-violet-600 text-white shadow-sm'
-                            : 'text-slate-500 hover:text-slate-700'
-                        }`}
-                      >
-                        Style {s}
-                      </button>
-                    ))}
+                    <p className="mt-1 text-xs text-neutral-500">
+                      {formatDate(detail.created_at)} · {detail.slides.length} slides
+                    </p>
+                    {/* Compliance — collapsible chip, only when status is review */}
+                    {detail.status === 'review' && detail.compliance?.findings && detail.compliance.findings.filter(f => f.rule || f.matched).length > 0 && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          onClick={() => setComplianceOpen((o) => !o)}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
+                        >
+                          <span>⚠ {detail.compliance.findings.filter(f => f.rule || f.matched).length} compliance notes</span>
+                          <span className="text-amber-500">{complianceOpen ? '▲' : '▼'}</span>
+                        </button>
+                        {complianceOpen && (
+                          <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                            <ul className="space-y-2">
+                              {detail.compliance.findings.filter(f => f.rule || f.matched).map((f, i) => (
+                                <li key={i} className="text-xs text-amber-800">
+                                  <span className="font-semibold">{f.rule}</span>
+                                  {f.severity && <span className="ml-1 text-amber-600">({f.severity})</span>}
+                                  {f.matched && (
+                                    <span className="mt-0.5 block rounded bg-amber-100 px-2 py-1 font-mono text-[10px] text-amber-700">
+                                      &ldquo;{f.matched}&rdquo;
+                                    </span>
+                                  )}
+                                  {f.correction && (
+                                    <span className="mt-0.5 block text-[11px] text-amber-600 italic">→ {f.correction}</span>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <ComposeInCanvaButton
-                    slideSetId={detail.slide_set_id}
-                    status={detail.status}
-                    renderResult={detail.render_result}
-                    composing={composing}
-                    queuedAt={queuedAt}
-                    onCompose={async () => {
-                      setComposing(true)
-                      setComposeError(null)
-                      try {
-                        const res = await fetch(
-                          `/api/posts/${detail.slide_set_id}/compose`,
-                          { method: 'POST' }
-                        )
-                        const data = await res.json().catch(() => ({}))
-                        if (!res.ok) {
-                          throw new Error(
-                            data?.error ?? `Compose failed (HTTP ${res.status})`
+                </div>
+
+                {/* Action buttons — fixed two-row layout, never wraps */}
+                <div className="flex flex-col gap-2 sm:items-end">
+                  {/* Primary row: style + compose + schedule + save */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center rounded-xl border border-slate-200 bg-white/60 p-0.5">
+                      {([1, 2] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleStyleChange(s)}
+                          className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
+                            (detail.canva_style ?? 1) === s
+                              ? 'bg-violet-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          Style {s}
+                        </button>
+                      ))}
+                    </div>
+                    <ComposeInCanvaButton
+                      slideSetId={detail.slide_set_id}
+                      status={detail.status}
+                      renderResult={detail.render_result}
+                      composing={composing}
+                      queuedAt={queuedAt}
+                      onCompose={async () => {
+                        setComposing(true)
+                        setComposeError(null)
+                        try {
+                          const res = await fetch(
+                            `/api/posts/${detail.slide_set_id}/compose`,
+                            { method: 'POST' }
                           )
+                          const data = await res.json().catch(() => ({}))
+                          if (!res.ok) {
+                            throw new Error(
+                              data?.error ?? `Compose failed (HTTP ${res.status})`
+                            )
+                          }
+                          setQueuedAt(Date.now())
+                          setDetail((d) =>
+                            d
+                              ? { ...d, status: 'ready_for_canva' as SlideSetStatus }
+                              : d
+                          )
+                          setPosts((prev) =>
+                            prev.map((p) =>
+                              p.slide_set_id === detail.slide_set_id
+                                ? { ...p, status: 'ready_for_canva' as SlideSetStatus }
+                                : p
+                            )
+                          )
+                        } catch (e) {
+                          setComposeError(
+                            e instanceof Error ? e.message : 'compose failed'
+                          )
+                        } finally {
+                          setComposing(false)
                         }
-                        setQueuedAt(Date.now())
-                        // Optimistically flip to ready_for_canva — the
-                        // poll loop will pick up further status changes.
-                        setDetail((d) =>
-                          d
-                            ? { ...d, status: 'ready_for_canva' as SlideSetStatus }
-                            : d
-                        )
-                        setPosts((prev) =>
-                          prev.map((p) =>
-                            p.slide_set_id === detail.slide_set_id
-                              ? { ...p, status: 'ready_for_canva' as SlideSetStatus }
-                              : p
-                          )
-                        )
-                      } catch (e) {
-                        setComposeError(
-                          e instanceof Error ? e.message : 'compose failed'
-                        )
-                      } finally {
-                        setComposing(false)
-                      }
-                    }}
-                  />
-                  {dirty && (
+                      }}
+                    />
                     <button
                       type="button"
-                      onClick={save}
-                      disabled={saving}
-                      className="cm-btn cm-btn-primary text-sm"
+                      onClick={() => setScheduleOpen(true)}
+                      className="cm-btn text-sm font-semibold"
+                      style={{ background: '#0EA5E9', color: 'white', border: 'none' }}
                     >
-                      {saving ? 'Saving…' : 'Save & re-render'}
+                      Schedule
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setScheduleOpen(true)}
-                    className="cm-btn text-sm font-semibold"
-                    style={{ background: '#0EA5E9', color: 'white', border: 'none' }}
-                  >
-                    Schedule
-                  </button>
-                  <a
-                    href={`/api/visual/download?slideSetId=${detail.slide_set_id}`}
-                    className="cm-btn cm-btn-ghost text-sm"
-                  >
-                    Download PNG
-                  </a>
-                  <button
-                    type="button"
-                    onClick={remove}
-                    disabled={deleting}
-                    className="cm-btn cm-btn-ghost text-sm text-red-600"
-                  >
-                    {deleting ? 'Deleting…' : 'Delete'}
-                  </button>
+                    {dirty && (
+                      <button
+                        type="button"
+                        onClick={save}
+                        disabled={saving}
+                        className="cm-btn cm-btn-primary text-sm"
+                      >
+                        {saving ? 'Saving…' : 'Save & re-render'}
+                      </button>
+                    )}
+                  </div>
+                  {/* Secondary row: download + delete */}
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`/api/visual/download?slideSetId=${detail.slide_set_id}`}
+                      className="cm-btn cm-btn-ghost text-sm"
+                    >
+                      Download PNG
+                    </a>
+                    <button
+                      type="button"
+                      onClick={remove}
+                      disabled={deleting}
+                      className="cm-btn cm-btn-ghost text-sm text-red-600"
+                    >
+                      {deleting ? 'Deleting…' : 'Delete'}
+                    </button>
+                  </div>
                 </div>
               </header>
 

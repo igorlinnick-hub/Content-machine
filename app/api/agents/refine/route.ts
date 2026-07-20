@@ -6,6 +6,7 @@ import {
 } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
+import { convergeCompliance } from '@/lib/agents/compliance-loop'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
@@ -111,6 +112,15 @@ export async function POST(req: Request) {
       )
     }
 
+    // Same full compliance cycle as /api/agents/generate — refined
+    // versions used to skip the gate entirely and ship raw findings.
+    const converged = await convergeCompliance({
+      script: newVariant.script,
+      topic: newVariant.topic,
+      niche: context.clinic_profile.niche,
+    }).catch(() => null)
+    if (converged) newVariant.script = converged.script
+
     const saved = await saveScripts(clinicId, [
       {
         variant_id: newVariant.id,
@@ -134,6 +144,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       variant: newVariant,
       score: newScore ?? null,
+      compliance: converged?.compliance ?? null,
       scriptId: saved[0]?.id ?? null,
     })
   } catch (e) {

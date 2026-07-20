@@ -3,7 +3,7 @@ import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { runComplianceGate } from '@/lib/posts/pipeline'
-import { runComplianceRewriter } from '@/lib/agents/compliance-rewriter'
+import { convergeCompliance } from '@/lib/agents/compliance-loop'
 import { disabledHttpResponse, LLM_AGENTS_DISABLED_PAYLOAD, LLM_AGENTS_DISABLED_STATUS } from '@/lib/agents/disabled'
 import { resolveAccess } from '@/lib/auth/session'
 import { getCurrentPlanContext } from '@/lib/content-plan/store'
@@ -116,13 +116,18 @@ export async function POST(req: Request) {
             if (!cr || cr.grade === 'REMOVE') return null
             if (cr.grade === 'PASS') return { variant: v, compliance: cr }
 
-            const fixedScript = await runComplianceRewriter({ script: v.script, findings: cr.findings, niche: clinicNiche }).catch(() => null)
-            if (!fixedScript) return { variant: v, compliance: cr }
+            // Full cycle: rewrite → regrade until clean (max 3 rounds) —
+            // the doctor gets a finished script, not a findings to-do list.
+            const converged = await convergeCompliance({
+              script: v.script,
+              topic: v.topic,
+              niche: clinicNiche,
+              initial: cr,
+            }).catch(() => null)
+            if (!converged) return { variant: v, compliance: cr }
+            if (converged.compliance.grade === 'REMOVE') return null
 
-            const recheck = await runComplianceGate({ script: fixedScript, topic: v.topic, niche: clinicNiche }).catch((): ComplianceResult => cr)
-            if (recheck.grade === 'REMOVE') return null
-
-            return { variant: { ...v, script: fixedScript }, compliance: recheck }
+            return { variant: { ...v, script: converged.script }, compliance: converged.compliance }
           })
         )
         const cleanPairs = fixedPairs.filter((p): p is NonNullable<typeof p> => p !== null)

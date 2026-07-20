@@ -85,6 +85,12 @@ HARD RULES:
 - Only facts with scientific grounding. If you cannot back something, do not write it.
 - Follow the LENGTH SPEC and the FORMAT TEMPLATE you choose. Both are mandatory.
 
+FACT-ACCURACY RULES (the compliance gate flags each of these — write so it has nothing to flag):
+- No specific numeric statistic (percentage, patient count, response rate, time-to-result) unless the SAME sentence names its source (trial acronym, journal, institution) — and even then hedge the number ("roughly", "about"). No source at hand → qualitative phrasing: "many patients", "studies suggest", "a meaningful share of patients".
+- No years/dates for FDA approvals or trial results. Say "FDA-cleared for X" — never "since 2008" / "approved in 2023".
+- Dosages and protocol specifics always carry "typically" / "commonly", or stay general ("over several weeks").
+- No currency claims: "currently", "as of [year]", "the only FDA-approved". State facts without a time anchor.
+
 INPUTS YOU WILL USE:
 - content_pillars: every variant MUST map to one pillar — stay inside the clinic's territory.
 - deep_dive_topics: when you pick a topic adjacent to one of these, go deeper and more mechanism-level.

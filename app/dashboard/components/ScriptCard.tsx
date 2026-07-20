@@ -28,6 +28,9 @@ export function ScriptCard({
   const router = useRouter()
   const [variant, setVariant] = useState<ScriptVariant>(initialVariant)
   const [score] = useState<CriticScore | undefined>(initialScore)
+  const [complianceState, setComplianceState] = useState<ComplianceResult | null>(
+    compliance ?? null
+  )
   const [scriptId, setScriptId] = useState<string | undefined>(initialScriptId)
   const [scriptText, setScriptText] = useState(initialVariant.script)
   const [copied, setCopied] = useState(false)
@@ -43,7 +46,7 @@ export function ScriptCard({
   const total = score?.total_score
   const strong = typeof total === 'number' && total >= 7
 
-  const grade = compliance?.grade ?? null
+  const grade = complianceState?.grade ?? null
   const complianceStyle =
     grade === 'REMOVE'
       ? { border: 'border-red-200',    bg: 'bg-red-50',    icon: '✕', iconCls: 'text-red-500',    label: 'Cannot publish',  labelCls: 'text-red-800'    }
@@ -100,6 +103,10 @@ export function ScriptCard({
         setScriptText((data.variant as ScriptVariant).script)
       }
       if (data.scriptId) setScriptId(data.scriptId as string)
+      // Refined script went through its own compliance cycle — swap the
+      // verdict; keeping the old one would describe a script that no
+      // longer exists.
+      setComplianceState((data.compliance as ComplianceResult | null) ?? null)
       setFeedback('idle')
       setFeedbackError(null)
       setRefineNote('')
