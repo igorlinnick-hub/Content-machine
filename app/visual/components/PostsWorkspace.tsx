@@ -172,9 +172,10 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   const [postsCollapsed, setPostsCollapsed] = useState(false)
 
   // Local copy of the current week's topic chips so reroll / add-more
-  // swap chips in place without a page refresh.
+  // swap chips in place without a page refresh. Topics already turned
+  // into posts (status 'done') or skipped don't belong in the picker.
   const [weekPosts, setWeekPosts] = useState<StructuredPlanWeek['posts']>(
-    currentWeek?.posts ?? []
+    (currentWeek?.posts ?? []).filter((p) => p.status === 'pending')
   )
   const [rerollingTopicId, setRerollingTopicId] = useState<string | null>(null)
   const [addingTopic, setAddingTopic] = useState(false)
@@ -394,6 +395,12 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         })
         setDrafts(fresh.slides.slice())
         setLoading(false)
+      }
+      // The planned topic became a post — the server marked it 'done';
+      // drop its chip from the picker immediately.
+      if (plannedPost) {
+        setWeekPosts((prev) => prev.filter((p) => p.id !== plannedPost.id))
+        setPlannedPost(null)
       }
       setTopic('')
       setNote('')
@@ -876,19 +883,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       const arr = drafts.slice()
                       arr[i] = next
                       setDrafts(arr)
-                    }}
-                    onAIFix={({ slide: nextSlide, preview }) => {
-                      const arr = drafts.slice()
-                      arr[i] = nextSlide
-                      setDrafts(arr)
-                      setDetail((d) => {
-                        if (!d) return d
-                        const slides = d.slides.slice()
-                        slides[i] = nextSlide
-                        const previews = d.previews.slice()
-                        previews[i] = preview
-                        return { ...d, slides, previews }
-                      })
                     }}
                     onChangePhoto={
                       slide.kind === 'cover'
