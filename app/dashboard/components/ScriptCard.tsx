@@ -22,7 +22,6 @@ export function ScriptCard({
   compliance,
   clinicId,
   scriptId: initialScriptId,
-  siblingScriptIds,
   isAdmin = false,
 }: ScriptCardProps) {
   const router = useRouter()
