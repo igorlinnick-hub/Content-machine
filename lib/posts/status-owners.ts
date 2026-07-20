@@ -23,11 +23,14 @@ const STATUS_META: Record<SlideSetStatus, StatusMeta> = {
     hint: 'Running the compliance grade and packing the script.',
     chipClass: 'border-neutral-200 bg-neutral-50 text-neutral-700',
   },
+  // Verdict policy (2026-07-20): REWORD/REVIEW/PASS are silent in the UI —
+  // only a REMOVE grade surfaces (red "cannot publish" block). So the
+  // 'review' status presents as a normal ready-to-compose draft.
   review: {
-    owner: 'human-medical',
-    label: 'Needs medical review',
-    hint: 'Compliance flagged items that need a human call. Read the findings below, then either proceed to Canva or regenerate.',
-    chipClass: 'border-amber-200 bg-amber-50 text-amber-800',
+    owner: 'marketer',
+    label: 'Ready to compose',
+    hint: 'Script is ready. Compose in Canva to build the visuals.',
+    chipClass: 'border-neutral-200 bg-neutral-50 text-neutral-700',
   },
   blocked: {
     owner: 'marketer',

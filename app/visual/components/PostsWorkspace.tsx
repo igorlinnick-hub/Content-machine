@@ -31,13 +31,12 @@ interface ComplianceFinding {
   correction?: string | null
 }
 
+// Verdict policy (agreed 2026-07-20): only REMOVE surfaces in the UI —
+// REWORD/REVIEW/PASS stay silent. Findings live in the DB for audit.
 interface ComplianceData {
   grade: 'PASS' | 'REVIEW' | 'REWORD' | 'REMOVE'
   findings: ComplianceFinding[]
   ruleset_version?: string
-  // Set when a human pressed "Reviewed" — notes stay in the DB for the
-  // audit trail but stop rendering.
-  human_reviewed_at?: string | null
 }
 
 interface PostDetail {
@@ -99,7 +98,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
   const [composing, setComposing] = useState(false)
   const [composeError, setComposeError] = useState<string | null>(null)
-  const [complianceOpen, setComplianceOpen] = useState(false)
   // Set when the marketer presses Compose so the deadline UX can
   // show "in queue ~2 min" → "longer than usual" without flooding
   // the runner with re-pings. Reset on detail change.
@@ -119,7 +117,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   // Reset per-post UI state whenever the selected post changes.
   useEffect(() => {
     setQueuedAt(null)
-    setComplianceOpen(false)
   }, [selectedId])
 
   // Polling: while the row is actively moving (system/runner working),
@@ -397,38 +394,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
     }).catch(() => null)
   }
 
-  // Human sign-off on compliance notes — records the judgement server-
-  // side, hides the notes, and advances the row if visuals exist.
-  async function markReviewed() {
-    if (!detail) return
-    const res = await fetch(`/api/posts/${detail.slide_set_id}`, {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ reviewed: true }),
-    }).catch(() => null)
-    if (!res?.ok) return
-    const data = (await res.json().catch(() => null)) as
-      | { compliance?: ComplianceData; status?: SlideSetStatus }
-      | null
-    if (!data) return
-    setDetail((d) =>
-      d
-        ? {
-            ...d,
-            compliance: data.compliance ?? d.compliance,
-            status: data.status ?? d.status,
-          }
-        : d
-    )
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.slide_set_id === detail.slide_set_id
-          ? { ...p, status: data.status ?? p.status }
-          : p
-      )
-    )
-  }
-
   async function remove() {
     if (!selectedId) return
     if (!confirm('Delete this post permanently?')) return
@@ -681,54 +646,18 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       <h2 className="text-xl font-semibold text-neutral-900">
                         {detail.topic ?? 'Untitled post'}
                       </h2>
-                      <StatusChip
-                        status={detail.status}
-                        humanReviewed={!!detail.compliance?.human_reviewed_at}
-                      />
+                      <StatusChip status={detail.status} />
                     </div>
                     <p className="mt-1 text-xs text-neutral-500">
                       {formatDate(detail.created_at)} · {detail.slides.length} slides
                     </p>
-                    {/* Compliance — collapsible chip, only when status is review
-                        and no human has signed the notes off yet */}
-                    {detail.status === 'review' && !detail.compliance?.human_reviewed_at && detail.compliance?.findings && detail.compliance.findings.filter(f => f.rule || f.matched).length > 0 && (
-                      <div className="mt-2">
-                        <button
-                          type="button"
-                          onClick={() => setComplianceOpen((o) => !o)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                        >
-                          <span>⚠ {detail.compliance.findings.filter(f => f.rule || f.matched).length} compliance notes</span>
-                          <span className="text-amber-500">{complianceOpen ? '▲' : '▼'}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={markReviewed}
-                          title="Sign the notes off — they stop showing and the post moves on"
-                          className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                        >
-                          ✓ Reviewed
-                        </button>
-                        {complianceOpen && (
-                          <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                            <ul className="space-y-2">
-                              {detail.compliance.findings.filter(f => f.rule || f.matched).map((f, i) => (
-                                <li key={i} className="text-xs text-amber-800">
-                                  <span className="font-semibold">{f.rule}</span>
-                                  {f.severity && <span className="ml-1 text-amber-600">({f.severity})</span>}
-                                  {f.matched && (
-                                    <span className="mt-0.5 block rounded bg-amber-100 px-2 py-1 font-mono text-[10px] text-amber-700">
-                                      &ldquo;{f.matched}&rdquo;
-                                    </span>
-                                  )}
-                                  {f.correction && (
-                                    <span className="mt-0.5 block text-[11px] text-amber-600 italic">→ {f.correction}</span>
-                                  )}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                    {/* Only a hard REMOVE surfaces — everything else is silent */}
+                    {detail.compliance?.grade === 'REMOVE' && (
+                      <div className="mt-2 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2">
+                        <span className="text-sm font-bold text-red-500">✕</span>
+                        <span className="text-xs font-semibold text-red-800">
+                          Cannot publish — medical director review required
+                        </span>
                       </div>
                     )}
                   </div>
@@ -1035,25 +964,7 @@ function formatElapsed(ms: number): string {
   return `${m}m ${r.toString().padStart(2, '0')}s`
 }
 
-function StatusChip({
-  status,
-  humanReviewed = false,
-}: {
-  status: SlideSetStatus
-  humanReviewed?: boolean
-}) {
-  // After human sign-off a 'review' row shouldn't keep shouting "needs
-  // medical review" — the review happened.
-  if (status === 'review' && humanReviewed) {
-    return (
-      <span
-        className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700"
-        title="Compliance notes were signed off by a human"
-      >
-        Reviewed ✓
-      </span>
-    )
-  }
+function StatusChip({ status }: { status: SlideSetStatus }) {
   const meta = statusMeta(status)
   return (
     <span
