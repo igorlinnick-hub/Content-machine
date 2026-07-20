@@ -120,5 +120,42 @@ export async function GET(req: Request) {
     out.drive = { skipped: 'pass ?clinicId=... to test Drive per category' }
   }
 
+  // slide_sets query — pass ?slideSets=true to see the 20 most recent.
+  if (url.searchParams.get('slideSets') === 'true' && clinicId) {
+    try {
+      const supabase = createServerClient()
+      const { data, error } = await supabase
+        .from('slide_sets')
+        .select('id, clinic_id, script_id, created_at, render_result')
+        .eq('clinic_id', clinicId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      if (error) {
+        out.slide_sets = { ok: false, error: error.message }
+      } else {
+        out.slide_sets = {
+          ok: true,
+          count: data?.length ?? 0,
+          rows: (data ?? []).map((r) => ({
+            id: r.id,
+            clinic_id: r.clinic_id,
+            script_id: r.script_id,
+            created_at: r.created_at,
+            has_render: !!(r.render_result as Record<string,unknown>)?.slides,
+            canva_design_id: (r.render_result as Record<string,unknown>)?.canva_design_id ?? null,
+          })),
+        }
+      }
+      // Also count all slide_sets for this clinic regardless of script_id.
+      const { count: total } = await supabase
+        .from('slide_sets')
+        .select('id', { count: 'exact', head: true })
+        .eq('clinic_id', clinicId)
+      out.slide_sets_total = total ?? 0
+    } catch (e) {
+      out.slide_sets = { ok: false, error: e instanceof Error ? e.message : 'unknown' }
+    }
+  }
+
   return NextResponse.json(out)
 }
