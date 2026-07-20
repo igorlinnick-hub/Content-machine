@@ -510,10 +510,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
             className="cm-input resize-none text-sm"
             disabled={generating}
           />
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-neutral-600">
-              Writer + critic + slide splitter run on the backend. ~3-5 min for a finished carousel.
-            </p>
+          <div className="flex items-center justify-end gap-3">
             <button
               type="button"
               onClick={generate}

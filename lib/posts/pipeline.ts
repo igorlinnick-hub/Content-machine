@@ -42,12 +42,16 @@ export async function runComplianceGate(input: {
 // for post carousels (that legacy status implied "marketer should
 // preview as PNG", which doesn't fit the script-factory + Canva-bot
 // model).
-//
-//   REMOVE / REWORD → 'blocked'      (Canva-bot ignores; UI flags findings)
-//   REVIEW          → 'review' (human judgement; held in marketer UI)
+//   REMOVE / REWORD → 'review'        (auto-rewrite loop ran; human sees flags but flow continues)
+//   REVIEW          → 'review'
 //   PASS            → 'ready_for_canva' (Canva-bot picks up on next poll)
+//
+// 'blocked' is no longer written by this function — it remains a valid
+// DB value for legacy rows only. Compliance issues after auto-rewrite
+// land in 'review' so the Canva-bot still processes them and the marketer
+// sees yellow flags, not a hard stop.
 export function statusFromCompliance(result: ComplianceResult): SlideSetStatusV2 {
-  if (shouldBlockPublish(result)) return 'blocked'
+  if (shouldBlockPublish(result)) return 'review'
   if (result.grade === 'REVIEW') return 'review'
   return 'ready_for_canva'
 }

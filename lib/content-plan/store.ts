@@ -17,6 +17,7 @@ export interface StructuredPlanWeek {
   pillar: string
   description: string | null
   position: number
+  skipped: boolean
   posts: StructuredPlanPost[]
 }
 
@@ -45,8 +46,9 @@ export async function loadStructuredPlan(clinicId: string): Promise<StructuredPl
 
   const { data: weeks, error: weeksErr } = await supabase
     .from('content_plan_weeks')
-    .select('id, week_number, theme, pillar, description, position')
+    .select('id, week_number, theme, pillar, description, position, skipped')
     .eq('clinic_id', clinicId)
+    .eq('skipped', false)
     .order('position', { ascending: true })
     .order('week_number', { ascending: true })
 
@@ -84,6 +86,7 @@ export async function loadStructuredPlan(clinicId: string): Promise<StructuredPl
     pillar: w.pillar,
     description: w.description ?? null,
     position: w.position,
+    skipped: (w as unknown as { skipped?: boolean }).skipped ?? false,
     posts: topicsByWeek.get(w.id) ?? [],
   }))
 }
