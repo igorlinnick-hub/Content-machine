@@ -1015,6 +1015,77 @@ function formatDate(iso: string): string {
 //   blocked         → disabled (compliance fix first)
 //   ready_for_canva → "Queued for Canva…" + deadline UX (≤2min normal,
 //                     >10min "longer than usual" hint)
+// Fetches a fresh Canva URL per click — stored edit links expire ~30d.
+// On Canva API 404 (design deleted): shows inline "Re-compose" prompt.
+// On other errors: shows inline error text with Re-compose fallback.
+function OpenInCanvaButton({
+  slideSetId,
+  composing,
+  onCompose,
+}: {
+  slideSetId: string
+  composing: boolean
+  onCompose: () => void
+}) {
+  const [opening, setOpening] = useState(false)
+  const [canvaError, setCanvaError] = useState<string | null>(null)
+
+  async function handleOpen() {
+    setOpening(true)
+    setCanvaError(null)
+    try {
+      const res = await fetch(`/api/posts/${slideSetId}/canva`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCanvaError(
+          (data as { message?: string }).message ??
+            'Cannot open Canva — use Re-compose'
+        )
+        return
+      }
+      const url = (data as { url?: string }).url
+      if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    } catch {
+      setCanvaError('Canva unreachable — try again')
+    } finally {
+      setOpening(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleOpen}
+          disabled={opening || composing}
+          className="cm-btn text-sm font-semibold"
+          style={{
+            background: opening
+              ? '#a78bfa'
+              : 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
+            color: 'white',
+          }}
+        >
+          {opening ? 'Opening…' : '🎨 Open in Canva ↗'}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setCanvaError(null); onCompose() }}
+          disabled={composing}
+          className="cm-btn cm-btn-ghost text-sm"
+          title="Discard the current visuals and recompose from scratch"
+        >
+          {composing ? 'Re-composing…' : 'Re-compose'}
+        </button>
+      </div>
+      {canvaError && (
+        <p className="text-[11px] text-amber-700">{canvaError}</p>
+      )}
+    </div>
+  )
+}
+
 //   in_canva        → "Drawing carousel…"
 //   visuals_ready   → "🎨 Open in Canva ↗" + (caller will add Approve)
 //   approved/etc    → "Re-compose" (allows regenerate)
@@ -1052,33 +1123,7 @@ function ComposeInCanvaButton({
   }
 
   if (renderResult?.canva_edit_url) {
-    return (
-      <div className="flex flex-wrap gap-2">
-        {/* Deliberately NOT the stored canva_edit_url — Canva expires
-            those (~30d). The endpoint mints a fresh link per click. */}
-        <a
-          href={`/api/posts/${slideSetId}/canva`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="cm-btn text-sm font-semibold"
-          style={{
-            background: 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-            color: 'white',
-          }}
-        >
-          🎨 Open in Canva ↗
-        </a>
-        <button
-          type="button"
-          onClick={onCompose}
-          disabled={composing}
-          className="cm-btn cm-btn-ghost text-sm"
-          title="Discard the current visuals and recompose from scratch"
-        >
-          {composing ? 'Re-composing…' : 'Re-compose'}
-        </button>
-      </div>
-    )
+    return <OpenInCanvaButton slideSetId={slideSetId} composing={composing} onCompose={onCompose} />
   }
 
   return (

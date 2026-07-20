@@ -69,7 +69,11 @@ export async function GET(
       designId = (exact ?? matches[0])?.id ?? null
     }
     if (!designId) {
-      return NextResponse.redirect(rr.canva_edit_url)
+      // No design ID and no stored URL — nothing to open.
+      return NextResponse.json(
+        { error: 'design_not_found', message: 'No Canva design linked — compose the post first' },
+        { status: 404 }
+      )
     }
 
     const design = await getDesign(designId)
@@ -85,11 +89,21 @@ export async function GET(
         })
         .eq('id', params.slideSetId)
     }
-    return NextResponse.redirect(freshUrl)
+    return NextResponse.json({ url: freshUrl })
   } catch (e) {
-    // Canva unreachable / token stale — degrade to the stored URL so
-    // the button still does something predictable.
-    if (rr.canva_edit_url) return NextResponse.redirect(rr.canva_edit_url)
+    // If Canva returned 404 for the design ID, the design was deleted.
+    // Otherwise (token stale / API down) try the permanent URL by ID.
+    const status = (e as { status?: number }).status
+    if (status === 404) {
+      return NextResponse.json(
+        { error: 'design_not_found', message: 'This design was deleted from Canva — Re-compose to recreate' },
+        { status: 404 }
+      )
+    }
+    if (designId) {
+      // API unreachable but design ID known — serve the permanent URL.
+      return NextResponse.json({ url: `https://www.canva.com/design/${designId}/edit` })
+    }
     const msg = e instanceof Error ? e.message : 'canva lookup failed'
     return NextResponse.json({ error: msg }, { status: 502 })
   }
