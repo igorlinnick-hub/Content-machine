@@ -165,6 +165,73 @@ export interface AutofillResult {
   thumbnailUrl: string | null
 }
 
+// ─── Design lookup ────────────────────────────────────────────────
+// The edit_url Canva returns from any job is TEMPORARY — it expires
+// (~30 days) and is tied to the token that minted it. Stored links
+// therefore rot into Canva's 404 page. To link out reliably we keep
+// the stable design id and mint a fresh edit_url per click via
+// GET /designs/{id}.
+
+export interface DesignSummary {
+  id: string
+  title: string | null
+  editUrl: string | null
+  thumbnailUrl: string | null
+}
+
+interface DesignItem {
+  id: string
+  title?: string | null
+  urls?: { edit_url?: string; view_url?: string }
+  thumbnail?: { url?: string }
+}
+
+function toDesignSummary(d: DesignItem): DesignSummary {
+  return {
+    id: d.id,
+    title: d.title ?? null,
+    editUrl: d.urls?.edit_url ?? null,
+    thumbnailUrl: d.thumbnail?.url ?? null,
+  }
+}
+
+export async function getDesign(designId: string): Promise<DesignSummary> {
+  const res = await authedFetch(`/designs/${encodeURIComponent(designId)}`, {
+    method: 'GET',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new CanvaApiError(
+      `designs/${designId} ${res.status}: ${text.slice(0, 400)}`,
+      res.status
+    )
+  }
+  const body = (await res.json()) as { design?: DesignItem }
+  if (!body.design?.id) {
+    throw new CanvaApiError(`designs/${designId}: empty response`, 500)
+  }
+  return toDesignSummary(body.design)
+}
+
+// Title search across the workspace. Legacy render_result rows stored
+// only the (now expired) edit_url — the design id can still be
+// recovered because autofill titled every design with the post topic.
+export async function listDesigns(query: string): Promise<DesignSummary[]> {
+  const res = await authedFetch(
+    `/designs?query=${encodeURIComponent(query.slice(0, 255))}`,
+    { method: 'GET' }
+  )
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new CanvaApiError(
+      `designs search ${res.status}: ${text.slice(0, 400)}`,
+      res.status
+    )
+  }
+  const body = (await res.json()) as { items?: DesignItem[] }
+  return (body.items ?? []).filter((d) => d?.id).map(toDesignSummary)
+}
+
 export async function createAutofillDesign(
   req: AutofillRequest,
   maxWaitMs = 180_000

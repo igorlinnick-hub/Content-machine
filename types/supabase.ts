@@ -227,6 +227,7 @@ export type Database = {
           pillar: string
           description: string | null
           position: number
+          skipped: boolean
           created_at: string
         }
         Insert: {
@@ -237,6 +238,7 @@ export type Database = {
           pillar: string
           description?: string | null
           position?: number
+          skipped?: boolean
           created_at?: string
         }
         Update: {
@@ -247,6 +249,7 @@ export type Database = {
           pillar?: string
           description?: string | null
           position?: number
+          skipped?: boolean
           created_at?: string
         }
         Relationships: [

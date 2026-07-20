@@ -349,6 +349,11 @@ export interface RenderResult {
   schema_version: number
   channel: 'carousel' | 'reel' | 'story'
   canva_edit_url: string
+  // Stable Canva design id. canva_edit_url above is a TEMPORARY link
+  // (Canva expires them ~30 days) — link-outs must mint a fresh URL
+  // from this id via /api/posts/:id/canva. Optional: legacy rows
+  // predate it and get backfilled on first open.
+  canva_design_id?: string
   outputs: Array<{
     kind: 'slide' | 'cover'
     page: number              // 1-indexed; page=1 is cover/preview

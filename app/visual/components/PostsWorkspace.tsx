@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { PostListItem, RenderResultSummary } from '@/lib/visual/store'
+import type { PostListItem } from '@/lib/visual/store'
 import type { RenderResult, SlideSetStatus } from '@/types'
 import { isActivelyMoving, statusMeta } from '@/lib/posts/status-owners'
 import { SlideEditor, type UISlide } from './SlideEditor'
@@ -16,7 +16,7 @@ import {
   type ProgressState,
 } from './GenerateProgress'
 import { type StructuredPlanWeek, pillarColor } from '@/lib/content-plan/store'
-import { ScheduleModal, type ScheduledPostRow } from '@/app/components/ScheduleModal'
+import { ScheduleModal } from '@/app/components/ScheduleModal'
 
 interface Props {
   clinicId: string
@@ -167,6 +167,9 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
     null
   )
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  // Recent-posts sidebar collapse — frees the whole width for the
+  // slide editor once the marketer has picked a post.
+  const [postsCollapsed, setPostsCollapsed] = useState(false)
 
   useEffect(() => {
     if (!selectedId) {
@@ -547,46 +550,78 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         </div>
       </section>
 
-      <div className="grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
-          <header className="border-b border-neutral-200 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-              Recent posts
-            </p>
-            <p className="text-xs text-neutral-500">{posts.length} total</p>
-          </header>
-          {posts.length === 0 ? (
-            <p className="p-4 text-sm text-neutral-500">No posts yet.</p>
-          ) : (
-            <ul className="flex-1 overflow-y-auto">
-              {posts.map((p) => {
-                const active = p.slide_set_id === selectedId
-                return (
-                  <li key={p.slide_set_id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(p.slide_set_id)}
-                      className={`w-full border-b border-neutral-200 px-4 py-3 text-left transition ${
-                        active ? 'bg-sky-50' : 'hover:bg-neutral-50'
-                      }`}
-                    >
-                      <p
-                        className={`line-clamp-2 text-sm font-medium ${
-                          active ? 'text-sky-900' : 'text-neutral-900'
+      <div
+        className={`grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 ${
+          postsCollapsed
+            ? 'lg:grid-cols-[52px_minmax(0,1fr)]'
+            : 'lg:grid-cols-[260px_minmax(0,1fr)]'
+        }`}
+      >
+        {postsCollapsed ? (
+          <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col items-center overflow-hidden px-1.5 py-2">
+            <button
+              type="button"
+              onClick={() => setPostsCollapsed(false)}
+              title="Show recent posts"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700 lg:flex-col lg:gap-2 lg:py-3"
+            >
+              <span aria-hidden className="text-sm">▸</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] lg:[writing-mode:vertical-rl]">
+                Posts · {posts.length}
+              </span>
+            </button>
+          </aside>
+        ) : (
+          <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
+            <header className="flex items-start justify-between border-b border-neutral-200 px-4 py-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
+                  Recent posts
+                </p>
+                <p className="text-xs text-neutral-500">{posts.length} total</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPostsCollapsed(true)}
+                title="Hide the list"
+                className="rounded-lg border border-neutral-200 px-2 py-1 text-xs text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+              >
+                ◂
+              </button>
+            </header>
+            {posts.length === 0 ? (
+              <p className="p-4 text-sm text-neutral-500">No posts yet.</p>
+            ) : (
+              <ul className="flex-1 overflow-y-auto">
+                {posts.map((p) => {
+                  const active = p.slide_set_id === selectedId
+                  return (
+                    <li key={p.slide_set_id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(p.slide_set_id)}
+                        className={`w-full border-b border-neutral-200 px-4 py-3 text-left transition ${
+                          active ? 'bg-sky-50' : 'hover:bg-neutral-50'
                         }`}
                       >
-                        {p.topic ?? 'Untitled'}
-                      </p>
-                      <p className="mt-0.5 text-xs text-neutral-500">
-                        {formatDate(p.created_at)} · {p.slide_count} slides
-                      </p>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </aside>
+                        <p
+                          className={`line-clamp-2 text-sm font-medium ${
+                            active ? 'text-sky-900' : 'text-neutral-900'
+                          }`}
+                        >
+                          {p.topic ?? 'Untitled'}
+                        </p>
+                        <p className="mt-0.5 text-xs text-neutral-500">
+                          {formatDate(p.created_at)} · {p.slide_count} slides
+                        </p>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </aside>
+        )}
 
         <section className="flex min-w-0 flex-col gap-5">
           {!selectedId ? (
@@ -613,9 +648,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   </div>
                   <p className="mt-1 text-xs text-neutral-500">
                     {formatDate(detail.created_at)} · {detail.slides.length} slides
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    {statusMeta(detail.status).hint}
                   </p>
                   {/* Compliance findings — shown only when status is review */}
                   {detail.status === 'review' && detail.compliance?.findings && detail.compliance.findings.filter(f => f.rule || f.matched).length > 0 && (
@@ -661,6 +693,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                     ))}
                   </div>
                   <ComposeInCanvaButton
+                    slideSetId={detail.slide_set_id}
                     status={detail.status}
                     renderResult={detail.render_result}
                     composing={composing}
@@ -811,7 +844,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
           slideSetId={detail.slide_set_id}
           initialCaption={detail.hook ? `${detail.topic ?? ''}\n\n${detail.hook}` : (detail.topic ?? '')}
           initialMediaUrl={detail.render_result?.outputs?.[0]?.url ?? ''}
-          onSaved={(_post: ScheduledPostRow) => {
+          onSaved={() => {
             // Close after short delay so user can see result
             setTimeout(() => setScheduleOpen(false), 1800)
           }}
@@ -970,12 +1003,14 @@ function formatDate(iso: string): string {
 //   approved/etc    → "Re-compose" (allows regenerate)
 //   pending/review  → "🎨 Compose in Canva" (primary action)
 function ComposeInCanvaButton({
+  slideSetId,
   status,
   renderResult,
   composing,
   queuedAt,
   onCompose,
 }: {
+  slideSetId: string
   status: SlideSetStatus
   renderResult: RenderResult | null
   composing: boolean
@@ -1002,8 +1037,10 @@ function ComposeInCanvaButton({
   if (renderResult?.canva_edit_url) {
     return (
       <div className="flex flex-wrap gap-2">
+        {/* Deliberately NOT the stored canva_edit_url — Canva expires
+            those (~30d). The endpoint mints a fresh link per click. */}
         <a
-          href={renderResult.canva_edit_url}
+          href={`/api/posts/${slideSetId}/canva`}
           target="_blank"
           rel="noopener noreferrer"
           className="cm-btn text-sm font-semibold"

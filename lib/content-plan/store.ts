@@ -86,7 +86,7 @@ export async function loadStructuredPlan(clinicId: string): Promise<StructuredPl
     pillar: w.pillar,
     description: w.description ?? null,
     position: w.position,
-    skipped: (w as unknown as { skipped?: boolean }).skipped ?? false,
+    skipped: w.skipped,
     posts: topicsByWeek.get(w.id) ?? [],
   }))
 }

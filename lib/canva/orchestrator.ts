@@ -182,6 +182,7 @@ export async function composeInCanva(params: {
     schema_version: 1,
     channel: 'carousel',
     canva_edit_url: autofill.editUrl,
+    canva_design_id: autofill.designId,
     outputs: autofill.thumbnailUrl
       ? [{ kind: 'cover', page: 1, url: autofill.thumbnailUrl }]
       : [],
