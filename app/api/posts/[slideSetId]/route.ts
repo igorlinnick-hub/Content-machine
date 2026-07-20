@@ -92,17 +92,48 @@ export async function PATCH(
   if (!access || access.role !== 'admin') {
     return NextResponse.json({ error: 'admin access required' }, { status: 403 })
   }
-  let body: { canva_style?: unknown }
+  let body: { canva_style?: unknown; reviewed?: unknown }
   try {
-    body = (await req.json()) as { canva_style?: unknown }
+    body = (await req.json()) as { canva_style?: unknown; reviewed?: unknown }
   } catch {
     return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
   }
+  const supabase = createServerClient()
+
+  // Human sign-off on compliance notes. The gate's REVIEW findings are
+  // exactly the items a human must judge — this records that judgement,
+  // stops the notes from re-surfacing, and moves the row forward when
+  // visuals already exist.
+  if (body.reviewed === true) {
+    const { data: row, error: loadErr } = await supabase
+      .from('slide_sets')
+      .select('status, compliance, render_result')
+      .eq('id', params.slideSetId)
+      .maybeSingle()
+    if (loadErr || !row) {
+      return NextResponse.json(
+        { error: loadErr?.message ?? 'post not found' },
+        { status: 404 }
+      )
+    }
+    const compliance = {
+      ...((row.compliance as Record<string, unknown> | null) ?? {}),
+      human_reviewed_at: new Date().toISOString(),
+    }
+    const status =
+      row.status === 'review' && row.render_result ? 'visuals_ready' : row.status
+    const { error: updErr } = await supabase
+      .from('slide_sets')
+      .update({ compliance: compliance as Json, status })
+      .eq('id', params.slideSetId)
+    if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+    return NextResponse.json({ ok: true, compliance, status })
+  }
+
   const canva_style = Number(body.canva_style)
   if (canva_style !== 1 && canva_style !== 2) {
     return NextResponse.json({ error: 'canva_style must be 1 or 2' }, { status: 400 })
   }
-  const supabase = createServerClient()
   const { error } = await supabase
     .from('slide_sets')
     .update({ canva_style })

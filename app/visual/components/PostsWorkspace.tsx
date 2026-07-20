@@ -35,6 +35,9 @@ interface ComplianceData {
   grade: 'PASS' | 'REVIEW' | 'REWORD' | 'REMOVE'
   findings: ComplianceFinding[]
   ruleset_version?: string
+  // Set when a human pressed "Reviewed" — notes stay in the DB for the
+  // audit trail but stop rendering.
+  human_reviewed_at?: string | null
 }
 
 interface PostDetail {
@@ -394,6 +397,38 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
     }).catch(() => null)
   }
 
+  // Human sign-off on compliance notes — records the judgement server-
+  // side, hides the notes, and advances the row if visuals exist.
+  async function markReviewed() {
+    if (!detail) return
+    const res = await fetch(`/api/posts/${detail.slide_set_id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ reviewed: true }),
+    }).catch(() => null)
+    if (!res?.ok) return
+    const data = (await res.json().catch(() => null)) as
+      | { compliance?: ComplianceData; status?: SlideSetStatus }
+      | null
+    if (!data) return
+    setDetail((d) =>
+      d
+        ? {
+            ...d,
+            compliance: data.compliance ?? d.compliance,
+            status: data.status ?? d.status,
+          }
+        : d
+    )
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.slide_set_id === detail.slide_set_id
+          ? { ...p, status: data.status ?? p.status }
+          : p
+      )
+    )
+  }
+
   async function remove() {
     if (!selectedId) return
     if (!confirm('Delete this post permanently?')) return
@@ -646,13 +681,17 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       <h2 className="text-xl font-semibold text-neutral-900">
                         {detail.topic ?? 'Untitled post'}
                       </h2>
-                      <StatusChip status={detail.status} />
+                      <StatusChip
+                        status={detail.status}
+                        humanReviewed={!!detail.compliance?.human_reviewed_at}
+                      />
                     </div>
                     <p className="mt-1 text-xs text-neutral-500">
                       {formatDate(detail.created_at)} · {detail.slides.length} slides
                     </p>
-                    {/* Compliance — collapsible chip, only when status is review */}
-                    {detail.status === 'review' && detail.compliance?.findings && detail.compliance.findings.filter(f => f.rule || f.matched).length > 0 && (
+                    {/* Compliance — collapsible chip, only when status is review
+                        and no human has signed the notes off yet */}
+                    {detail.status === 'review' && !detail.compliance?.human_reviewed_at && detail.compliance?.findings && detail.compliance.findings.filter(f => f.rule || f.matched).length > 0 && (
                       <div className="mt-2">
                         <button
                           type="button"
@@ -661,6 +700,14 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                         >
                           <span>⚠ {detail.compliance.findings.filter(f => f.rule || f.matched).length} compliance notes</span>
                           <span className="text-amber-500">{complianceOpen ? '▲' : '▼'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={markReviewed}
+                          title="Sign the notes off — they stop showing and the post moves on"
+                          className="ml-1.5 inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          ✓ Reviewed
                         </button>
                         {complianceOpen && (
                           <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
@@ -988,7 +1035,25 @@ function formatElapsed(ms: number): string {
   return `${m}m ${r.toString().padStart(2, '0')}s`
 }
 
-function StatusChip({ status }: { status: SlideSetStatus }) {
+function StatusChip({
+  status,
+  humanReviewed = false,
+}: {
+  status: SlideSetStatus
+  humanReviewed?: boolean
+}) {
+  // After human sign-off a 'review' row shouldn't keep shouting "needs
+  // medical review" — the review happened.
+  if (status === 'review' && humanReviewed) {
+    return (
+      <span
+        className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-emerald-700"
+        title="Compliance notes were signed off by a human"
+      >
+        Reviewed ✓
+      </span>
+    )
+  }
   const meta = statusMeta(status)
   return (
     <span
