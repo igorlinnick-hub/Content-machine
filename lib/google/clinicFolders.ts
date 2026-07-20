@@ -1,4 +1,4 @@
-import { getDriveClient } from './drive'
+import { getDriveClient, getUserDriveClient } from './drive'
 import { createServerClient } from '@/lib/supabase/server'
 
 // Per-clinic Drive workspace (HANDOFF §22.2 п.7). On clinic creation
@@ -26,7 +26,8 @@ async function createDriveFolder(
   name: string,
   parentId: string
 ): Promise<string> {
-  const drive = getDriveClient()
+  // User OAuth first — SA has no storage quota in personal Drive.
+  const drive = getUserDriveClient() ?? getDriveClient()
   const res = await drive.files.create({
     requestBody: {
       name,

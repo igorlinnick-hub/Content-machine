@@ -1,5 +1,12 @@
 import { Readable } from 'node:stream'
-import { getDriveClient } from '@/lib/google/drive'
+import { getDriveClient, getUserDriveClient } from '@/lib/google/drive'
+
+// Prefer the user's OAuth client: service accounts have zero storage
+// quota in personal Drive, so SA uploads of cleaned.mp4 would fail.
+// Falls back to the SA for Shared-Drive / DWD setups.
+function driveClient() {
+  return getUserDriveClient() ?? getDriveClient()
+}
 
 // Drive operations specific to the /clips pipeline. The doctor
 // drops mp4/mov files in the Inbox folder; we download, process,
@@ -45,7 +52,7 @@ export async function listInboxClips(
   explicitInboxId?: string
 ): Promise<InboxClip[]> {
   const inboxId = explicitInboxId ?? readClipsEnv().inboxId
-  const drive = getDriveClient()
+  const drive = driveClient()
   const q = `'${inboxId}' in parents and (mimeType contains 'video/' or name contains '.mov') and trashed = false`
   const res = await drive.files.list({
     q,
@@ -67,7 +74,7 @@ export async function listInboxClips(
 export async function downloadDriveFileToBuffer(
   fileId: string
 ): Promise<Buffer> {
-  const drive = getDriveClient()
+  const drive = driveClient()
   const res = await drive.files.get(
     { fileId, alt: 'media', supportsAllDrives: true },
     { responseType: 'arraybuffer' }
@@ -80,7 +87,7 @@ export async function createClipFolder(
   explicitParentId?: string
 ): Promise<string> {
   const cleanedId = explicitParentId ?? readClipsEnv().cleanedId
-  const drive = getDriveClient()
+  const drive = driveClient()
   const res = await drive.files.create({
     requestBody: {
       name,
@@ -100,7 +107,7 @@ export async function uploadFileToFolder(params: {
   mimeType: string
   body: Buffer
 }): Promise<string> {
-  const drive = getDriveClient()
+  const drive = driveClient()
   const res = await drive.files.create({
     requestBody: {
       name: params.name,
@@ -126,7 +133,7 @@ export async function copyFileToInbox(
   fileId: string,
   inboxId: string
 ): Promise<InboxClip> {
-  const drive = getDriveClient()
+  const drive = driveClient()
   const src = await drive.files.get({
     fileId,
     fields: 'name, mimeType',
@@ -163,7 +170,7 @@ export async function moveFileToFolder(
   explicitFromParentId?: string
 ): Promise<void> {
   const inboxId = explicitFromParentId ?? readClipsEnv().inboxId
-  const drive = getDriveClient()
+  const drive = driveClient()
   await drive.files.update({
     fileId,
     addParents: newParentId,
