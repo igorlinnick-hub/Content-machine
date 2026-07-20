@@ -161,7 +161,7 @@ export async function GET(req: Request) {
       // Recent scripts (last 20) to catch scripts that were never composed.
       const { data: scripts, error: se } = await supabase
         .from('scripts')
-        .select('id, topic, created_at, grade')
+        .select('id, topic, created_at')
         .eq('clinic_id', clinicId)
         .order('created_at', { ascending: false })
         .limit(20)
