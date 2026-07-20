@@ -54,7 +54,9 @@ export function ScriptCard({
         : grade === 'REVIEW'
           ? { border: 'border-amber-200',  bg: 'bg-amber-50',  icon: '⚠', iconCls: 'text-amber-500',  label: 'Review needed',   labelCls: 'text-amber-800'  }
           : grade === 'PASS'
-            ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: '✓', iconCls: 'text-emerald-500', label: 'Compliant', labelCls: 'text-emerald-800' }
+            // Ruleset v2.1: never say "safe"/"compliant" in user-facing
+            // output — the gate is a screen, not sign-off.
+            ? { border: 'border-emerald-200', bg: 'bg-emerald-50', icon: '✓', iconCls: 'text-emerald-500', label: 'Checked · 0 findings', labelCls: 'text-emerald-800' }
             : null
 
   async function onCopy() {
