@@ -3,6 +3,13 @@ import { MODEL_DEFAULT, callAgentTool } from './base'
 import type { ReplaceWeekInput } from '@/lib/content-plan/store'
 import { MANYCHAT_CTA_CATEGORIES } from '@/lib/seeds/cta-keywords'
 
+const ALL_VALID_KEYWORDS = [
+  ...MANYCHAT_CTA_CATEGORIES.mental_health,
+  ...MANYCHAT_CTA_CATEGORIES.pain_joint,
+  ...MANYCHAT_CTA_CATEGORIES.wellness_vitality,
+  ...MANYCHAT_CTA_CATEGORIES.weight_loss,
+] as const
+
 export interface PlannerOutput {
   weeks: ReplaceWeekInput[]
 }
@@ -23,6 +30,7 @@ Given a clinic's profile — their services, content pillars, deep-dive topics, 
 Rules:
 - Each week has a THEME (a specific focus area, e.g. "Botox & Facial Harmony") and a PILLAR (must be one of the clinic's content_pillars exactly as listed)
 - Rotate pillars across the 8 weeks — don't repeat the same pillar more than 2-3 times unless the clinic has fewer than 4 pillars
+- If the PUBLISHED CONTENT HISTORY shows that a pillar was recently posted 2+ times, deprioritize that pillar — don't assign it to Week 1 or 2; give the audience a break from it first
 - Each post has a TOPIC (the specific video/carousel topic, patient-facing, 6-12 words), a KEYWORD (the ManyChat CTA trigger word — must be chosen ONLY from the lists below), and a FORMAT
 - FORMAT must be one of these 6 structural templates — rotate all 6 evenly across the 24 posts (each format appears exactly 4 times):
   1. System critique — why mainstream care fails this problem
@@ -95,7 +103,7 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
                   required: ['topic', 'keyword', 'format'],
                   properties: {
                     topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
-                    keyword: { type: 'string', description: 'ManyChat CTA trigger keyword, 1-2 words' },
+                    keyword: { type: 'string', enum: [...ALL_VALID_KEYWORDS], description: 'ManyChat CTA trigger keyword — must be one of the valid keywords' },
                     format: { type: 'string', enum: [...FORMAT_NAMES], description: 'Structural format template for this post' },
                   },
                 },
