@@ -44,13 +44,27 @@ export function pillarColor(pillar: string): string {
 export async function loadStructuredPlan(clinicId: string): Promise<StructuredPlanWeek[]> {
   const supabase = createServerClient()
 
-  const { data: weeks, error: weeksErr } = await supabase
+  let { data: weeks, error: weeksErr } = await supabase
     .from('content_plan_weeks')
     .select('id, week_number, theme, pillar, description, position, skipped')
     .eq('clinic_id', clinicId)
     .eq('skipped', false)
     .order('position', { ascending: true })
     .order('week_number', { ascending: true })
+
+  // 42703 = column does not exist → migration 044 not applied to this
+  // DB yet. Degrade gracefully (no week is skipped) instead of taking
+  // down every page that renders the plan.
+  if (weeksErr?.code === '42703') {
+    const retry = await supabase
+      .from('content_plan_weeks')
+      .select('id, week_number, theme, pillar, description, position')
+      .eq('clinic_id', clinicId)
+      .order('position', { ascending: true })
+      .order('week_number', { ascending: true })
+    weeksErr = retry.error
+    weeks = (retry.data ?? []).map((w) => ({ ...w, skipped: false }))
+  }
 
   if (weeksErr) throw weeksErr
   if (!weeks || weeks.length === 0) return []
