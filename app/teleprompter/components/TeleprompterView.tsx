@@ -284,7 +284,13 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       stopCamera()
       setPhase('preview')
     }
-    recorder.start(250)
+    try {
+      recorder.start(250)
+    } catch {
+      setCameraError('Could not start recorder. Try a different browser.')
+      stopCamera()
+      return
+    }
     recorderRef.current = recorder
     isRecordingRef.current = true
     setIsRecording(true)
@@ -806,6 +812,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                   Camera off
                 </span>
               )}
+              {wantCamera && hasStream && !isRecording && !readyToStart && !cameraError && (
+                <span className="rounded-full bg-orange-900/70 px-2.5 py-1 text-xs font-medium text-orange-300 backdrop-blur-sm">
+                  Not recording
+                </span>
+              )}
             </div>
             <button
               onClick={() => {
@@ -878,6 +889,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                 className="flex h-11 w-9 items-center justify-center rounded-r-xl text-lg text-white hover:bg-white/20 active:scale-90"
               >+</button>
             </div>
+
+            {/* ■ Stop & Save — ends recording, goes to preview/save screen */}
+            {isRecording && (
+              <button
+                onClick={() => {
+                  cancelAnimationFrame(rafRef.current)
+                  setIsScrolling(false)
+                  stopRecordingFn()
+                }}
+                className="flex h-11 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-bold text-white shadow-lg hover:bg-red-500 active:scale-95 sm:px-4"
+                title="Stop & save"
+              >
+                <span className="h-3 w-3 shrink-0 rounded-[3px] bg-white" />
+                <span className="hidden sm:inline">Stop &amp; Save</span>
+              </button>
+            )}
           </div>
         </div>
 
