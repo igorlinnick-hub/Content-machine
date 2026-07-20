@@ -60,11 +60,11 @@ Pick the keyword that best matches the post topic. Never invent a keyword not in
 
 const REROLL_SYSTEM_PROMPT = `You are an editorial content strategist for a medical clinic's social media.
 
-The marketer rejected ONE post topic from a weekly content plan. Generate exactly ONE replacement topic for the same week.
+Generate exactly ONE new post topic for the given week of a content plan — either REPLACING a topic the marketer rejected, or ADDING one more on top of the existing ones (the task line in the input says which).
 
 Rules:
-- The replacement must fit the week's THEME and PILLAR
-- It must NOT duplicate or paraphrase the rejected topic, the week's other topics, or any topic listed under AVOID
+- The new topic must fit the week's THEME and PILLAR
+- It must NOT duplicate or paraphrase the rejected topic (if any), the week's other topics, or any topic listed under AVOID
 - Patient-facing, 6-12 words, educational / mechanism-focused / patient-question-based (not generic)
 - KEYWORD must be chosen ONLY from the valid ManyChat lists below, matching the pillar
 - FORMAT must be one of the 6 templates; prefer one the week doesn't already use:
@@ -84,10 +84,10 @@ Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}`
 export interface RerollTopicInput {
   profile: ClinicProfile
   week: { theme: string; pillar: string; description?: string | null }
-  /** Topics staying in this week — the replacement must complement them. */
+  /** Topics staying in this week — the new one must complement them. */
   keepTopics: string[]
-  /** The topic the marketer rejected. */
-  rejectedTopic: string
+  /** The rejected topic (replace mode). Omit to ADD an extra topic. */
+  rejectedTopic?: string
   /** Other topics across the plan / recent posts — avoid collisions. */
   avoidTopics?: string[]
 }
@@ -109,7 +109,11 @@ Week theme: ${week.theme}
 Week pillar: ${week.pillar}
 ${week.description ? `Week angle: ${week.description}` : ''}
 
-REJECTED topic (replace this, do not rephrase it): ${input.rejectedTopic}
+Task: ${
+    input.rejectedTopic
+      ? `REPLACE this rejected topic (do not rephrase it): ${input.rejectedTopic}`
+      : 'ADD one more topic to this week, on top of the existing ones.'
+  }
 Topics staying in the week: ${input.keepTopics.join(' | ') || 'none'}
 AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' | ') || 'none'}`
 

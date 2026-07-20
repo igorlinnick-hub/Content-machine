@@ -171,6 +171,69 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   // slide editor once the marketer has picked a post.
   const [postsCollapsed, setPostsCollapsed] = useState(false)
 
+  // Local copy of the current week's topic chips so reroll / add-more
+  // swap chips in place without a page refresh.
+  const [weekPosts, setWeekPosts] = useState<StructuredPlanWeek['posts']>(
+    currentWeek?.posts ?? []
+  )
+  const [rerollingTopicId, setRerollingTopicId] = useState<string | null>(null)
+  const [addingTopic, setAddingTopic] = useState(false)
+
+  async function rerollPlanTopic(topicId: string) {
+    if (rerollingTopicId || addingTopic) return
+    setRerollingTopicId(topicId)
+    try {
+      const res = await fetch('/api/content-plan/reroll', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.topic) {
+        setWeekPosts((prev) =>
+          prev.map((p) =>
+            p.id === topicId ? { ...p, topic: data.topic, keyword: data.keyword ?? null } : p
+          )
+        )
+        // The rejected topic may be sitting in the input — clear it.
+        if (plannedPost?.id === topicId) {
+          setPlannedPost(null)
+          setTopic('')
+        }
+      }
+    } finally {
+      setRerollingTopicId(null)
+    }
+  }
+
+  async function addPlanTopic() {
+    if (!currentWeek || rerollingTopicId || addingTopic) return
+    setAddingTopic(true)
+    try {
+      const res = await fetch('/api/content-plan/add-topic', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ weekId: currentWeek.id }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.id && data?.topic) {
+        setWeekPosts((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            topic: data.topic,
+            keyword: data.keyword ?? null,
+            format: data.format ?? null,
+            position: data.position ?? prev.length,
+            status: 'pending',
+          },
+        ])
+      }
+    } finally {
+      setAddingTopic(false)
+    }
+  }
+
   useEffect(() => {
     if (!selectedId) {
       setDetail(null)
@@ -452,30 +515,55 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
                   <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {currentWeek.posts.map((post) => {
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {weekPosts.map((post) => {
                     const isSelected = plannedPost?.id === post.id
+                    const isRerolling = rerollingTopicId === post.id
                     return (
-                      <button
+                      <div
                         key={post.id}
-                        type="button"
-                        disabled={generating}
-                        onClick={() => {
-                          setPlannedPost({ id: post.id, topic: post.topic, keyword: post.keyword, week_number: currentWeek.week_number, pillar: currentWeek.pillar })
-                          setTopic(post.topic)
-                        }}
-                        className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
+                        className="flex items-center overflow-hidden rounded-lg"
                         style={{
                           background: isSelected ? `${color}28` : `${color}14`,
-                          color,
                           border: `1px solid ${isSelected ? color : `${color}25`}`,
-                          fontWeight: isSelected ? 600 : undefined,
+                          opacity: isRerolling ? 0.6 : 1,
                         }}
                       >
-                        {post.topic}
-                      </button>
+                        <button
+                          type="button"
+                          disabled={generating || isRerolling}
+                          onClick={() => {
+                            setPlannedPost({ id: post.id, topic: post.topic, keyword: post.keyword, week_number: currentWeek.week_number, pillar: currentWeek.pillar })
+                            setTopic(post.topic)
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
+                          style={{ color, fontWeight: isSelected ? 600 : undefined }}
+                        >
+                          {isRerolling ? 'Generating new topic…' : post.topic}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={generating || rerollingTopicId !== null || addingTopic}
+                          onClick={() => rerollPlanTopic(post.id)}
+                          title="Replace this topic with a freshly generated one (same week + theme)"
+                          className="px-1.5 py-1 text-[11px] opacity-50 transition hover:opacity-100 disabled:opacity-30"
+                          style={{ color }}
+                        >
+                          ↻
+                        </button>
+                      </div>
                     )
                   })}
+                  <button
+                    type="button"
+                    disabled={generating || addingTopic || rerollingTopicId !== null}
+                    onClick={addPlanTopic}
+                    title="Generate one more topic for this week"
+                    className="rounded-lg border border-dashed px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
+                    style={{ color, borderColor: `${color}55`, background: 'transparent' }}
+                  >
+                    {addingTopic ? 'Generating…' : '+ Add more'}
+                  </button>
                 </div>
               </div>
             )

@@ -20,6 +20,35 @@ export function WeekCard({
   // refresh. id of the row currently rerolling, or null.
   const [posts, setPosts] = useState<StructuredPlanPost[]>(week.posts)
   const [rerollingId, setRerollingId] = useState<string | null>(null)
+  const [adding, setAdding] = useState(false)
+
+  async function addTopic() {
+    if (adding || rerollingId) return
+    setAdding(true)
+    try {
+      const res = await fetch('/api/content-plan/add-topic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weekId: week.id }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.id && data?.topic) {
+        setPosts((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            topic: data.topic,
+            keyword: data.keyword ?? null,
+            format: data.format ?? null,
+            position: data.position ?? prev.length,
+            status: 'pending',
+          },
+        ])
+      }
+    } finally {
+      setAdding(false)
+    }
+  }
 
   async function reroll(topicId: string) {
     if (rerollingId) return
@@ -161,6 +190,16 @@ export function WeekCard({
             </div>
           )
         })}
+        <button
+          type="button"
+          onClick={addTopic}
+          disabled={adding || rerollingId !== null}
+          title="Generate one more topic for this week"
+          className="self-start rounded-xl border border-dashed px-3 py-1.5 text-[12px] font-semibold transition hover:opacity-80 disabled:opacity-40"
+          style={{ color, borderColor: `${color}55` }}
+        >
+          {adding ? 'Generating…' : '+ Add more'}
+        </button>
       </div>
 
       {clinicId && (
