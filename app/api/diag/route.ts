@@ -126,7 +126,7 @@ export async function GET(req: Request) {
       const supabase = createServerClient()
       const { data, error } = await supabase
         .from('slide_sets')
-        .select('id, clinic_id, script_id, created_at, render_result')
+        .select('id, clinic_id, script_id, created_at, render_result, scripts(topic)')
         .eq('clinic_id', clinicId)
         .order('created_at', { ascending: false })
         .limit(20)
@@ -136,22 +136,38 @@ export async function GET(req: Request) {
         out.slide_sets = {
           ok: true,
           count: data?.length ?? 0,
-          rows: (data ?? []).map((r) => ({
-            id: r.id,
-            clinic_id: r.clinic_id,
-            script_id: r.script_id,
-            created_at: r.created_at,
-            has_render: !!(r.render_result as Record<string,unknown>)?.slides,
-            canva_design_id: (r.render_result as Record<string,unknown>)?.canva_design_id ?? null,
-          })),
+          rows: (data ?? []).map((r) => {
+            const rr = r.render_result as Record<string,unknown> | null
+            const sc = Array.isArray(r.scripts) ? r.scripts[0] : r.scripts
+            return {
+              id: r.id,
+              topic: (sc as {topic?: string} | null)?.topic ?? null,
+              script_id: r.script_id,
+              created_at: r.created_at,
+              has_slides: !!(rr?.slides),
+              has_canva: !!(rr?.canva_edit_url || rr?.canva_design_id),
+              canva_design_id: rr?.canva_design_id ?? null,
+            }
+          }),
         }
       }
-      // Also count all slide_sets for this clinic regardless of script_id.
+      // Count all slide_sets for this clinic.
       const { count: total } = await supabase
         .from('slide_sets')
         .select('id', { count: 'exact', head: true })
         .eq('clinic_id', clinicId)
       out.slide_sets_total = total ?? 0
+
+      // Recent scripts (last 20) to catch scripts that were never composed.
+      const { data: scripts, error: se } = await supabase
+        .from('scripts')
+        .select('id, topic, created_at, grade')
+        .eq('clinic_id', clinicId)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      out.recent_scripts = se
+        ? { ok: false, error: se.message }
+        : { ok: true, count: scripts?.length ?? 0, rows: scripts ?? [] }
     } catch (e) {
       out.slide_sets = { ok: false, error: e instanceof Error ? e.message : 'unknown' }
     }
