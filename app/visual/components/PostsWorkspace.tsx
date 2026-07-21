@@ -647,26 +647,11 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
 
       <div
         className={`grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 ${
-          postsCollapsed
-            ? 'lg:grid-cols-[52px_minmax(0,1fr)]'
-            : 'lg:grid-cols-[260px_minmax(0,1fr)]'
+          postsCollapsed ? '' : 'lg:grid-cols-[260px_minmax(0,1fr)]'
         }`}
       >
-        {postsCollapsed ? (
-          <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col items-center overflow-hidden px-1.5 py-2">
-            <button
-              type="button"
-              onClick={() => setPostsCollapsed(false)}
-              title="Show recent posts"
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700 lg:flex-col lg:gap-2 lg:py-3"
-            >
-              <span aria-hidden className="text-sm">▸</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] lg:[writing-mode:vertical-rl]">
-                Posts · {posts.length}
-              </span>
-            </button>
-          </aside>
-        ) : (
+        {/* Sidebar — hidden entirely when collapsed; no awkward 52px strip */}
+        {!postsCollapsed && (
           <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
             <header className="flex items-start justify-between border-b border-neutral-200 px-4 py-3">
               <div>
@@ -719,6 +704,19 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         )}
 
         <section className="flex min-w-0 flex-col gap-5">
+          {/* Expand button — only visible when sidebar is hidden */}
+          {postsCollapsed && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setPostsCollapsed(false)}
+                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+              >
+                <span>▸</span>
+                <span>Posts · {posts.length}</span>
+              </button>
+            </div>
+          )}
           {!selectedId ? (
             <div className="cm-card flex flex-1 items-center justify-center p-8 text-sm text-neutral-500">
               Generate a post above — it will open here.
@@ -758,9 +756,43 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   </div>
                 </div>
 
-                {/* Action buttons — fixed two-row layout, never wraps */}
+                {/* Action buttons — fixed layout, never wraps */}
                 <div className="flex flex-col gap-2 sm:items-end">
-                  {/* Primary row: style + compose + schedule + save */}
+                  {/* Compose waiting chip — rendered ABOVE the button row so it
+                      never pushes Schedule out of alignment */}
+                  {(detail.status === 'ready_for_canva' || detail.status === 'in_canva') && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <ComposeWaitingChip status={detail.status} queuedAt={queuedAt} />
+                      {detail.status === 'ready_for_canva' && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setComposing(true)
+                            setComposeError(null)
+                            try {
+                              const res = await fetch(`/api/posts/${detail.slide_set_id}/compose`, { method: 'POST' })
+                              const data = await res.json().catch(() => ({}))
+                              if (!res.ok) throw new Error((data as {error?: string})?.error ?? `Compose failed (HTTP ${res.status})`)
+                              setQueuedAt(Date.now())
+                              setDetail((d) => d ? { ...d, status: 'ready_for_canva' as SlideSetStatus } : d)
+                              setPosts((prev) => prev.map((p) => p.slide_set_id === detail.slide_set_id ? { ...p, status: 'ready_for_canva' as SlideSetStatus } : p))
+                            } catch (e) {
+                              setComposeError(e instanceof Error ? e.message : 'compose failed')
+                            } finally {
+                              setComposing(false)
+                            }
+                          }}
+                          disabled={composing}
+                          className="cm-btn cm-btn-ghost text-xs"
+                          title="Skip the queue — compose right now"
+                        >
+                          {composing ? 'Starting…' : '⚡ Start now'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Primary row: style + compose + schedule + save — always same height */}
                   <div className="flex items-center gap-2">
                     <div className="flex items-center rounded-xl border border-slate-200 bg-white/60 p-0.5">
                       {([1, 2] as const).map((s) => (
@@ -795,7 +827,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                           const data = await res.json().catch(() => ({}))
                           if (!res.ok) {
                             throw new Error(
-                              data?.error ?? `Compose failed (HTTP ${res.status})`
+                              (data as {error?: string})?.error ?? `Compose failed (HTTP ${res.status})`
                             )
                           }
                           setQueuedAt(Date.now())
@@ -1177,23 +1209,12 @@ function ComposeInCanvaButton({
   }
 
   if (status === 'ready_for_canva' || status === 'in_canva') {
+    // The full ComposeWaitingChip is rendered ABOVE the button row by the
+    // parent — this slot stays compact so Schedule/Save stay on the same line.
     return (
-      <div className="flex flex-col items-start gap-1.5">
-        <ComposeWaitingChip status={status} queuedAt={queuedAt} />
-        {/* Queued rows can be kicked manually — covers rows that were
-            queued before background auto-compose existed. */}
-        {status === 'ready_for_canva' && (
-          <button
-            type="button"
-            onClick={onCompose}
-            disabled={composing}
-            className="cm-btn cm-btn-ghost text-xs"
-            title="Skip the queue — compose the visuals right now"
-          >
-            {composing ? 'Starting…' : '⚡ Start now'}
-          </button>
-        )}
-      </div>
+      <span className="text-xs font-medium text-violet-500">
+        {status === 'in_canva' ? 'In Canva…' : 'Queued…'}
+      </span>
     )
   }
 
