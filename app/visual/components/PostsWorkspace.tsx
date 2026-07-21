@@ -94,7 +94,8 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   const [drafts, setDrafts] = useState<UISlide[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  // id of the post currently being deleted from the list, or null.
+  const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const [topic, setTopic] = useState('')
@@ -487,25 +488,28 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
     }).catch(() => null)
   }
 
-  async function remove() {
-    if (!selectedId) return
+  // Delete straight from the Recent Posts list (✕ on each row).
+  async function remove(slideSetId: string) {
+    if (deleting) return
     if (!confirm('Delete this post permanently?')) return
-    setDeleting(true)
+    setDeleting(slideSetId)
     setError(null)
     try {
-      const res = await fetch(`/api/posts/${selectedId}`, { method: 'DELETE' })
+      const res = await fetch(`/api/posts/${slideSetId}`, { method: 'DELETE' })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
         throw new Error(data?.error ?? `HTTP ${res.status}`)
       }
-      const remaining = posts.filter((p) => p.slide_set_id !== selectedId)
+      const remaining = posts.filter((p) => p.slide_set_id !== slideSetId)
       setPosts(remaining)
-      setSelectedId(remaining[0]?.slide_set_id ?? null)
+      if (selectedId === slideSetId) {
+        setSelectedId(remaining[0]?.slide_set_id ?? null)
+      }
       router.refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'failed to delete')
     } finally {
-      setDeleting(false)
+      setDeleting(null)
     }
   }
 
@@ -670,7 +674,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
 
       <div className="grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Sidebar — always 260px wide; list hides on collapse, header stays */}
-        <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
+        <aside className={`cm-card flex flex-col overflow-hidden ${postsCollapsed ? 'h-fit' : 'max-h-[calc(100vh-280px)]'}`}>
           <header className="flex items-start justify-between border-b border-neutral-200 px-4 py-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
@@ -694,14 +698,18 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
               <ul className="flex-1 overflow-y-auto">
                 {posts.map((p) => {
                   const active = p.slide_set_id === selectedId
+                  const isDeleting = deleting === p.slide_set_id
                   return (
-                    <li key={p.slide_set_id}>
+                    <li
+                      key={p.slide_set_id}
+                      className={`group relative border-b border-neutral-200 transition ${
+                        active ? 'bg-sky-50' : 'hover:bg-neutral-50'
+                      } ${isDeleting ? 'opacity-50' : ''}`}
+                    >
                       <button
                         type="button"
                         onClick={() => setSelectedId(p.slide_set_id)}
-                        className={`w-full border-b border-neutral-200 px-4 py-3 text-left transition ${
-                          active ? 'bg-sky-50' : 'hover:bg-neutral-50'
-                        }`}
+                        className="w-full px-4 py-3 pr-9 text-left"
                       >
                         <p
                           className={`line-clamp-2 text-sm font-medium ${
@@ -713,6 +721,15 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                         <p className="mt-0.5 text-xs text-neutral-500">
                           {formatDate(p.created_at)} · {p.slide_count} slides
                         </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(p.slide_set_id)}
+                        disabled={deleting !== null}
+                        title="Delete this post permanently"
+                        className="absolute right-2 top-2.5 rounded-md px-1.5 py-0.5 text-sm leading-none text-neutral-300 opacity-0 transition hover:bg-red-50 hover:text-red-600 focus:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                      >
+                        {isDeleting ? '…' : '✕'}
                       </button>
                     </li>
                   )
@@ -907,7 +924,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       </button>
                     )}
                   </div>
-                  {/* Secondary row: download + delete */}
+                  {/* Secondary row: download (delete lives on the list rows) */}
                   <div className="flex items-center gap-2">
                     <a
                       href={`/api/visual/download?slideSetId=${detail.slide_set_id}`}
@@ -915,14 +932,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                     >
                       Download PNG
                     </a>
-                    <button
-                      type="button"
-                      onClick={remove}
-                      disabled={deleting}
-                      className="cm-btn cm-btn-ghost text-sm text-red-600"
-                    >
-                      {deleting ? 'Deleting…' : 'Delete'}
-                    </button>
                   </div>
                 </div>
               </header>
