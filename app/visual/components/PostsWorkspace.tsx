@@ -867,15 +867,26 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                             )
                           }
                           setQueuedAt(Date.now())
+                          // Trust the server: inline mode returns 'in_canva'
+                          // (live progress chip); queue mode returns
+                          // 'ready_for_canva' (external runner). Guessing here
+                          // made the chip flash and "stop" 4s later.
+                          const serverStatus =
+                            ((data as { status?: string }).status ?? 'in_canva') as SlideSetStatus
+                          if ((data as { mode?: string }).mode === 'queue') {
+                            setComposeError(
+                              'Canva is not configured on the server — the post is queued for the external runner. Add CANVA_* env vars in Vercel for instant compose.'
+                            )
+                          }
                           setDetail((d) =>
                             d
-                              ? { ...d, status: 'in_canva' as SlideSetStatus, compose_progress: null }
+                              ? { ...d, status: serverStatus, compose_progress: null }
                               : d
                           )
                           setPosts((prev) =>
                             prev.map((p) =>
                               p.slide_set_id === detail.slide_set_id
-                                ? { ...p, status: 'in_canva' as SlideSetStatus }
+                                ? { ...p, status: serverStatus }
                                 : p
                             )
                           )
