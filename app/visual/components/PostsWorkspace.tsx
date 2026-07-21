@@ -39,6 +39,17 @@ interface ComplianceData {
   ruleset_version?: string
 }
 
+// Written stage-by-stage by the compose orchestrator (migration 045).
+// stage 'error' carries the failure reason after a rolled-back run.
+interface ComposeProgress {
+  stage: string
+  ts?: string
+  error?: string | null
+  hint?: string | null
+  generated?: number
+  uploaded?: number
+}
+
 interface PostDetail {
   slide_set_id: string
   topic: string | null
@@ -50,6 +61,7 @@ interface PostDetail {
   status: SlideSetStatus
   render_result: RenderResult | null
   compliance: ComplianceData | null
+  compose_progress: ComposeProgress | null
   canva_style: 1 | 2
   // Effective Drive folder used by the renderer for body/cta photos.
   // Null when neither slide_set nor category has one — PhotoPicker
@@ -133,7 +145,12 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         const data = (await res.json()) as PostDetail
         setDetail((d) =>
           d && d.slide_set_id === data.slide_set_id
-            ? { ...d, status: data.status, render_result: data.render_result }
+            ? {
+                ...d,
+                status: data.status,
+                render_result: data.render_result,
+                compose_progress: data.compose_progress ?? null,
+              }
             : d
         )
         setPosts((prev) =>
@@ -388,6 +405,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
           created_at: newItem.created_at,
           status: 'review',
           render_result: null,
+          compose_progress: null,
           compliance: null,
           canva_style: 1,
           drive_folder_id: null,
@@ -395,6 +413,9 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         })
         setDrafts(fresh.slides.slice())
         setLoading(false)
+        // Pull the real status — the server may already be auto-composing
+        // (PASS → in_canva) and the poll loop should pick that up.
+        void reloadDetail(fresh.slide_set_id)
       }
       // The planned topic became a post — the server marked it 'done';
       // drop its chip from the picker immediately.
@@ -440,11 +461,13 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   }
 
   // Re-fetch post detail. Called by PhotoPicker after a successful
-  // pick so previews + photo_overrides are fresh on screen.
-  async function reloadDetail() {
-    if (!selectedId) return
+  // pick, and right after generation (the server may have auto-queued
+  // the Canva compose — the client's optimistic 'review' would hide it).
+  async function reloadDetail(id?: string) {
+    const targetId = id ?? selectedId
+    if (!targetId) return
     try {
-      const res = await fetch(`/api/posts/${selectedId}`)
+      const res = await fetch(`/api/posts/${targetId}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
       setDetail(data as PostDetail)
@@ -762,7 +785,11 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       never pushes Schedule out of alignment */}
                   {(detail.status === 'ready_for_canva' || detail.status === 'in_canva') && (
                     <div className="flex flex-wrap items-center gap-2">
-                      <ComposeWaitingChip status={detail.status} queuedAt={queuedAt} />
+                      <ComposeWaitingChip
+                        status={detail.status}
+                        queuedAt={queuedAt}
+                        progress={detail.compose_progress}
+                      />
                       {detail.status === 'ready_for_canva' && (
                         <button
                           type="button"
@@ -774,8 +801,8 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                               const data = await res.json().catch(() => ({}))
                               if (!res.ok) throw new Error((data as {error?: string})?.error ?? `Compose failed (HTTP ${res.status})`)
                               setQueuedAt(Date.now())
-                              setDetail((d) => d ? { ...d, status: 'ready_for_canva' as SlideSetStatus } : d)
-                              setPosts((prev) => prev.map((p) => p.slide_set_id === detail.slide_set_id ? { ...p, status: 'ready_for_canva' as SlideSetStatus } : p))
+                              setDetail((d) => d ? { ...d, status: 'in_canva' as SlideSetStatus } : d)
+                              setPosts((prev) => prev.map((p) => p.slide_set_id === detail.slide_set_id ? { ...p, status: 'in_canva' as SlideSetStatus } : p))
                             } catch (e) {
                               setComposeError(e instanceof Error ? e.message : 'compose failed')
                             } finally {
@@ -789,7 +816,33 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                           {composing ? 'Starting…' : '⚡ Start now'}
                         </button>
                       )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/posts/${detail.slide_set_id}/compose`, { method: 'DELETE' })
+                            if (!res.ok) return
+                            setQueuedAt(null)
+                            setDetail((d) => d ? { ...d, status: 'review' as SlideSetStatus, compose_progress: null } : d)
+                            setPosts((prev) => prev.map((p) => p.slide_set_id === detail.slide_set_id ? { ...p, status: 'review' as SlideSetStatus } : p))
+                          } catch {
+                            // poll will catch up
+                          }
+                        }}
+                        className="cm-btn cm-btn-ghost text-xs text-red-600"
+                        title="Stop this compose — the post goes back to Ready to compose"
+                      >
+                        ■ Stop
+                      </button>
                     </div>
+                  )}
+
+                  {/* Last compose failed — persistent reason from the server */}
+                  {detail.status === 'review' && detail.compose_progress?.stage === 'error' && (
+                    <p className="max-w-md rounded border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] text-red-700">
+                      Last compose failed: {detail.compose_progress.error ?? 'unknown error'}
+                      {detail.compose_progress.hint ? ` — ${detail.compose_progress.hint}` : ''}
+                    </p>
                   )}
 
                   {/* Primary row: style + compose + schedule + save — always same height */}
@@ -833,13 +886,13 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                           setQueuedAt(Date.now())
                           setDetail((d) =>
                             d
-                              ? { ...d, status: 'ready_for_canva' as SlideSetStatus }
+                              ? { ...d, status: 'in_canva' as SlideSetStatus, compose_progress: null }
                               : d
                           )
                           setPosts((prev) =>
                             prev.map((p) =>
                               p.slide_set_id === detail.slide_set_id
-                                ? { ...p, status: 'ready_for_canva' as SlideSetStatus }
+                                ? { ...p, status: 'in_canva' as SlideSetStatus }
                                 : p
                             )
                           )
@@ -961,69 +1014,52 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   )
 }
 
-// Live waiting indicator while the row sits in ready_for_canva /
-// in_canva. Three liveness signals at once so the marketer never
-// stares at a frozen pill:
-//   • Pulsing dot (HWC sky-blue heartbeat — distinct from Claude's
-//     amber Accomplishing-cursor).
-//   • Cross-faded phase text that rotates through the runner's actual
-//     pipeline ("Waking the runner…" → "Generating photos…" → etc).
-//     We don't know which phase the runner is in (no SSE from the bot
-//     yet), so we cycle on a fixed cadence — illusion of progress is
-//     fine here, and the cycle resets to phase 1 once 'in_canva'
-//     fires so the words sync with real state changes when we have
-//     them.
-//   • Diagonal shimmer sweeping across the chip background.
-// Elapsed counter is the truth-source — bypasses the "is it stuck?"
-// question. After 10 minutes we surface a "runner may be down" hint.
-const QUEUE_PHASES = [
-  'Queueing for Canva runner',
-  'Waking the runner',
-  'Generating slide photos',
-  'Uploading assets to Canva',
-  'Filling the brand template',
-]
-const IN_CANVA_PHASES = [
-  'Filling the brand template',
-  'Generating slide photos',
-  'Uploading assets to Canva',
-  'Composing slides in Canva',
-  'Finalising preview',
-]
+// Live indicator while the row sits in ready_for_canva / in_canva.
+// The label is REAL: the orchestrator writes compose_progress to the DB
+// stage-by-stage and the 4s poll delivers it here — no simulated phase
+// cycling. Elapsed counts from the current stage's server timestamp, so
+// it survives reloads and never "restarts" on return.
+const STAGE_LABELS: Record<string, string> = {
+  load: 'Loading slides',
+  photos: 'Generating slide photos',
+  upload: 'Uploading photos to Canva',
+  autofill: 'Filling the brand template',
+  save: 'Saving result',
+}
+
+function composeStageLabel(progress: ComposeProgress | null, status: SlideSetStatus): string {
+  if (!progress?.stage || progress.stage === 'error') {
+    return status === 'in_canva' ? 'Composing in Canva' : 'Waiting for compose to start'
+  }
+  const key = progress.stage.split(':')[0]
+  const base = STAGE_LABELS[key] ?? progress.stage
+  const counts =
+    typeof progress.generated === 'number'
+      ? ` (${progress.generated} photos)`
+      : typeof progress.uploaded === 'number'
+        ? ` (${progress.uploaded} uploaded)`
+        : ''
+  return base + counts
+}
 
 function ComposeWaitingChip({
   status,
   queuedAt,
+  progress,
 }: {
   status: SlideSetStatus
   queuedAt: number | null
+  progress: ComposeProgress | null
 }) {
-  const [phaseIdx, setPhaseIdx] = useState(0)
   const [, forceTick] = useState(0)
-  const phases = status === 'in_canva' ? IN_CANVA_PHASES : QUEUE_PHASES
-  const phase = phases[phaseIdx % phases.length]
 
-  // Truth-source for elapsed: queuedAt (when the marketer clicked
-  // Compose in this session) if present, else when this chip first
-  // mounted. Lets the counter survive a page refresh — if the row
-  // was already queued, we honestly show "since you opened this".
-  const startRef = useRef<number>(queuedAt ?? Date.now())
-  useEffect(() => {
-    if (queuedAt && queuedAt !== startRef.current) {
-      startRef.current = queuedAt
-    }
-  }, [queuedAt])
-
-  // Rotate the phase label every ~4s. Reset to 0 on status change so
-  // 'in_canva' starts its own cycle rather than continuing from where
-  // 'ready_for_canva' left off.
-  useEffect(() => {
-    setPhaseIdx(0)
-    const id = setInterval(() => {
-      setPhaseIdx((i) => i + 1)
-    }, 4000)
-    return () => clearInterval(id)
-  }, [status])
+  // Elapsed truth-source, best first: the server timestamp of the
+  // current stage → the click moment in this session → chip mount.
+  const mountRef = useRef<number>(Date.now())
+  const stageTs = progress?.ts ? Date.parse(progress.ts) : NaN
+  const start = Number.isFinite(stageTs)
+    ? stageTs
+    : queuedAt ?? mountRef.current
 
   // 1s tick to keep the elapsed counter live without depending on
   // poll-driven re-renders.
@@ -1032,9 +1068,11 @@ function ComposeWaitingChip({
     return () => clearInterval(id)
   }, [])
 
-  const elapsedMs = Date.now() - startRef.current
+  const label = composeStageLabel(progress, status)
+  const elapsedMs = Date.now() - start
   const elapsedLabel = formatElapsed(elapsedMs)
-  const slow = elapsedMs > 10 * 60_000
+  const inStage = Number.isFinite(stageTs)
+  const slow = elapsedMs > 5 * 60_000
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -1052,18 +1090,18 @@ function ComposeWaitingChip({
           style={{ background: '#bae6fd', boxShadow: '0 0 0 3px rgba(186, 230, 253, 0.25)' }}
         />
         <span className="relative z-10 flex flex-col leading-tight">
-          <span key={phase} className="cm-fade-swap">
-            🎨 {phase}…
+          <span key={label} className="cm-fade-swap">
+            🎨 {label}…
           </span>
           <span className="text-[10px] font-medium uppercase tracking-wider text-violet-100/90">
-            {elapsedLabel} elapsed · est. ~2 min
+            {inStage ? `${elapsedLabel} in this step` : `${elapsedLabel} elapsed`} · est. ~2 min total
           </span>
         </span>
       </div>
       {slow && (
         <span className="text-[10px] text-amber-700">
-          ⚠ Longer than usual — the Canva runner may be down. Safe to leave
-          this open; the page will catch up when it lands.
+          ⚠ This step is taking unusually long — press Stop to bail out and
+          get the Compose button back.
         </span>
       )}
     </div>

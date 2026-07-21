@@ -46,6 +46,15 @@ export class ComposeError extends Error {
   }
 }
 
+// Thrown when the marketer pressed Stop mid-run (status left 'in_canva').
+// Callers must NOT flip status on this — the cancel endpoint already did.
+export class ComposeCancelled extends Error {
+  constructor() {
+    super('compose cancelled by user')
+    this.name = 'ComposeCancelled'
+  }
+}
+
 // Lightweight stage emitter so the compose endpoint can stream
 // progress to the UI later (mirrors the generate route's onStage hook).
 export type ComposeStageEmitter = (
@@ -66,9 +75,41 @@ export async function composeInCanva(params: {
   onStage?: ComposeStageEmitter
 }): Promise<RenderResult> {
   const { slideSetId, canvaStyle = 1, onStage } = params
+  const supabase = createServerClient()
+
+  // Persist coarse progress so ANY client (poll loop) sees where the
+  // run is — the compose may be running in a background lambda with no
+  // attached browser. Best-effort: a missing column (migration 045 not
+  // applied) must never break the compose itself.
+  const writeProgress = async (stageName: string, meta?: Record<string, unknown>) => {
+    await supabase
+      .from('slide_sets')
+      .update({
+        compose_progress: {
+          stage: stageName,
+          ...(meta ?? {}),
+          ts: new Date().toISOString(),
+        } as unknown as Json,
+      } as never)
+      .eq('id', slideSetId)
+      .then(() => undefined, () => undefined)
+  }
+
+  // Cooperative cancel: the Stop endpoint flips status away from
+  // 'in_canva'; we check between expensive stages and bail out.
+  const ensureNotCancelled = async () => {
+    const { data } = await supabase
+      .from('slide_sets')
+      .select('status')
+      .eq('id', slideSetId)
+      .maybeSingle()
+    if (!data || data.status !== 'in_canva') throw new ComposeCancelled()
+  }
+
   const stage = (n: string, meta?: Record<string, unknown>) => {
     onStage?.(n, meta)
     console.log(`[compose] ${n}`)
+    void writeProgress(n, meta)
   }
 
   if (!canvaIsConfigured() || !autofillIsConfigured()) {
@@ -79,7 +120,6 @@ export async function composeInCanva(params: {
   }
 
   stage('load:start')
-  const supabase = createServerClient()
   const { data: row, error: loadErr } = await supabase
     .from('slide_sets')
     .select('id, slides, scripts(topic)')
@@ -98,6 +138,8 @@ export async function composeInCanva(params: {
   const scripts = Array.isArray(row.scripts) ? row.scripts[0] : row.scripts
   const topic = (scripts as { topic?: string | null } | null | undefined)?.topic ?? null
   stage('load:done', { slide_count: plan.slides.length })
+
+  await ensureNotCancelled()
 
   // ── Stage A: generate photos in parallel ────────────────────────
   stage('photos:start', {
@@ -128,6 +170,8 @@ export async function composeInCanva(params: {
     generated: photoResults.filter((r) => r.imageUrl !== null).length,
   })
 
+  await ensureNotCancelled()
+
   // ── Stage B: upload each generated image to Canva ───────────────
   stage('upload:start')
   const uploadResults = await Promise.all(
@@ -152,6 +196,8 @@ export async function composeInCanva(params: {
     if (u.assetId) photoAssetIds.set(u.n, u.assetId)
   }
   stage('upload:done', { uploaded: photoAssetIds.size })
+
+  await ensureNotCancelled()
 
   // ── Stage C: autofill brand template ────────────────────────────
   stage('autofill:start')
@@ -191,12 +237,14 @@ export async function composeInCanva(params: {
       uploadResults.filter((u) => u.assetId).length * 0.04, // Flux Pro est.
     ts: new Date().toISOString(),
   }
+  await ensureNotCancelled()
   const { error: updErr } = await supabase
     .from('slide_sets')
     .update({
       render_result: result as unknown as Json,
       status: 'visuals_ready',
-    })
+      compose_progress: null,
+    } as never)
     .eq('id', slideSetId)
   if (updErr) {
     throw new ComposeError(`failed to save render_result: ${updErr.message}`)

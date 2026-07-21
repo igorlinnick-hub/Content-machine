@@ -96,16 +96,27 @@ export async function autoComposeQueued(slideSetId: string): Promise<void> {
       (row as { canva_style?: number | null }).canva_style === 2 ? 2 : 1
     await composeInCanva({ slideSetId, canvaStyle })
   } catch (e) {
-    console.error(
-      `[autoCompose] ${slideSetId} failed: ${e instanceof Error ? e.message : 'unknown'}`
-    )
+    const { ComposeCancelled, ComposeError } = await import('@/lib/canva/orchestrator')
+    if (e instanceof ComposeCancelled) return // Stop pressed — status already handled
+    const msg = e instanceof Error ? e.message : 'unknown'
+    console.error(`[autoCompose] ${slideSetId} failed: ${msg}`)
     // Same failure semantics as the compose route: land in 'review' so
-    // the marketer gets a Compose button back, not a stuck spinner.
+    // the marketer gets a Compose button back, not a stuck spinner —
+    // and leave the reason in compose_progress for the UI.
     await supabase
       .from('slide_sets')
-      .update({ status: 'review' })
+      .update({
+        status: 'review',
+        compose_progress: {
+          stage: 'error',
+          error: msg,
+          hint: e instanceof ComposeError ? e.hint ?? null : null,
+          ts: new Date().toISOString(),
+        },
+      } as never)
       .eq('id', slideSetId)
       .eq('status', 'in_canva')
+      .then(() => undefined, () => undefined)
   }
 }
 

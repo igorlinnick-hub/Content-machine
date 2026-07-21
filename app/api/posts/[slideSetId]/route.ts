@@ -49,17 +49,28 @@ export async function GET(
           .maybeSingle()
       : { data: null }
 
-    const { data: rrRow } = await supabase
+    let { data: rrRow, error: rrErr } = await supabase
       .from('slide_sets')
-      .select('render_result, compliance, canva_style')
+      .select('render_result, compliance, canva_style, compose_progress')
       .eq('id', slideSet.id)
       .maybeSingle()
+    if (rrErr?.code === '42703') {
+      // Migration 045 (compose_progress) not applied yet — degrade.
+      const retry = await supabase
+        .from('slide_sets')
+        .select('render_result, compliance, canva_style')
+        .eq('id', slideSet.id)
+        .maybeSingle()
+      rrRow = retry.data as typeof rrRow
+    }
     const render_result = (rrRow as { render_result?: Json | null } | null)
       ?.render_result ?? null
     const compliance = (rrRow as { compliance?: Json | null } | null)
       ?.compliance ?? null
     const canva_style = (rrRow as { canva_style?: number | null } | null)
       ?.canva_style ?? 1
+    const compose_progress = (rrRow as { compose_progress?: Json | null } | null)
+      ?.compose_progress ?? null
 
     return NextResponse.json({
       slide_set_id: slideSet.id,
@@ -77,6 +88,7 @@ export async function GET(
       render_result,
       compliance,
       canva_style,
+      compose_progress,
     })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'unknown error'
