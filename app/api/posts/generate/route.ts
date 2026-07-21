@@ -345,6 +345,14 @@ async function generateOne(params: {
     slideSetId = slideSetRow.id
     await patchComplianceAndPlan(slideSetRow.id)
     stage('postplan:persisted')
+
+    // No external Canva-bot is deployed — compose queued rows in the
+    // background right away so "Queued for visuals" actually moves.
+    if (lifecycleStatus === 'ready_for_canva') {
+      const { autoComposeQueued } = await import('@/lib/posts/pipeline')
+      waitUntil(autoComposeQueued(slideSetRow.id))
+      stage('postplan:autocompose:queued')
+    }
   } catch (e) {
     console.error(
       `[generate] PostPlan splitter failed: ${e instanceof Error ? e.message : 'unknown'}`

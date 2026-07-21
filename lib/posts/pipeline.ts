@@ -56,6 +56,59 @@ export function statusFromCompliance(result: ComplianceResult): SlideSetStatusV2
   return 'ready_for_canva'
 }
 
+// Background auto-compose for rows that landed in 'ready_for_canva'.
+// The original design expected an external Canva-bot to poll the queue,
+// but no such runner is deployed — rows sat in "Queued for visuals"
+// forever. When the serverless orchestrator is configured, compose
+// inline right after generation (callers wrap this in waitUntil).
+// Claim is atomic (ready_for_canva → in_canva), so a marketer clicking
+// Compose at the same moment can't double-fire.
+export async function autoComposeQueued(slideSetId: string): Promise<void> {
+  const [{ canvaIsConfigured }, { autofillIsConfigured }, { composeInCanva }] =
+    await Promise.all([
+      import('@/lib/canva/oauth'),
+      import('@/lib/canva/template-map'),
+      import('@/lib/canva/orchestrator'),
+    ])
+  if (!canvaIsConfigured() || !autofillIsConfigured()) return
+
+  const { createServerClient } = await import('@/lib/supabase/server')
+  const supabase = createServerClient()
+
+  const { data: row } = await supabase
+    .from('slide_sets')
+    .select('id, status, canva_style')
+    .eq('id', slideSetId)
+    .maybeSingle()
+  if (!row || row.status !== 'ready_for_canva') return
+
+  const { data: claimed } = await supabase
+    .from('slide_sets')
+    .update({ status: 'in_canva' })
+    .eq('id', slideSetId)
+    .eq('status', 'ready_for_canva')
+    .select('id')
+    .maybeSingle()
+  if (!claimed) return
+
+  try {
+    const canvaStyle =
+      (row as { canva_style?: number | null }).canva_style === 2 ? 2 : 1
+    await composeInCanva({ slideSetId, canvaStyle })
+  } catch (e) {
+    console.error(
+      `[autoCompose] ${slideSetId} failed: ${e instanceof Error ? e.message : 'unknown'}`
+    )
+    // Same failure semantics as the compose route: land in 'review' so
+    // the marketer gets a Compose button back, not a stuck spinner.
+    await supabase
+      .from('slide_sets')
+      .update({ status: 'review' })
+      .eq('id', slideSetId)
+      .eq('status', 'in_canva')
+  }
+}
+
 // Pick the next post in the editorial rotation for a clinic. Returns the
 // content_plan_topics row whose cycle_position is smallest among rows
 // not yet attached to a ready_for_canva or published slide_set in this

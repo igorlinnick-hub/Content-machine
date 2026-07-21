@@ -1177,7 +1177,24 @@ function ComposeInCanvaButton({
   }
 
   if (status === 'ready_for_canva' || status === 'in_canva') {
-    return <ComposeWaitingChip status={status} queuedAt={queuedAt} />
+    return (
+      <div className="flex flex-col items-start gap-1.5">
+        <ComposeWaitingChip status={status} queuedAt={queuedAt} />
+        {/* Queued rows can be kicked manually — covers rows that were
+            queued before background auto-compose existed. */}
+        {status === 'ready_for_canva' && (
+          <button
+            type="button"
+            onClick={onCompose}
+            disabled={composing}
+            className="cm-btn cm-btn-ghost text-xs"
+            title="Skip the queue — compose the visuals right now"
+          >
+            {composing ? 'Starting…' : '⚡ Start now'}
+          </button>
+        )}
+      </div>
+    )
   }
 
   if (renderResult?.canva_edit_url) {
