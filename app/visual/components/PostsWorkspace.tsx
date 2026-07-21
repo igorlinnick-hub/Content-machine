@@ -668,31 +668,27 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
         </div>
       </section>
 
-      <div
-        className={`grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 ${
-          postsCollapsed ? '' : 'lg:grid-cols-[260px_minmax(0,1fr)]'
-        }`}
-      >
-        {/* Sidebar — hidden entirely when collapsed; no awkward 52px strip */}
-        {!postsCollapsed && (
-          <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
-            <header className="flex items-start justify-between border-b border-neutral-200 px-4 py-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
-                  Recent posts
-                </p>
-                <p className="text-xs text-neutral-500">{posts.length} total</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPostsCollapsed(true)}
-                title="Hide the list"
-                className="rounded-lg border border-neutral-200 px-2 py-1 text-xs text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
-              >
-                ◂
-              </button>
-            </header>
-            {posts.length === 0 ? (
+      <div className="grid min-h-[calc(100vh-280px)] grid-cols-1 gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        {/* Sidebar — always 260px wide; list hides on collapse, header stays */}
+        <aside className="cm-card flex max-h-[calc(100vh-280px)] flex-col overflow-hidden">
+          <header className="flex items-start justify-between border-b border-neutral-200 px-4 py-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-500">
+                Recent posts
+              </p>
+              <p className="text-xs text-neutral-500">{posts.length} total</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPostsCollapsed((v) => !v)}
+              title={postsCollapsed ? 'Show list' : 'Hide list'}
+              className="rounded-lg border border-neutral-200 px-2 py-1 text-xs text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+            >
+              {postsCollapsed ? '▾' : '▴'}
+            </button>
+          </header>
+          {!postsCollapsed && (
+            posts.length === 0 ? (
               <p className="p-4 text-sm text-neutral-500">No posts yet.</p>
             ) : (
               <ul className="flex-1 overflow-y-auto">
@@ -722,24 +718,11 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   )
                 })}
               </ul>
-            )}
-          </aside>
-        )}
+            )
+          )}
+        </aside>
 
         <section className="flex min-w-0 flex-col gap-5">
-          {/* Expand button — only visible when sidebar is hidden */}
-          {postsCollapsed && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setPostsCollapsed(false)}
-                className="flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
-              >
-                <span>▸</span>
-                <span>Posts · {posts.length}</span>
-              </button>
-            </div>
-          )}
           {!selectedId ? (
             <div className="cm-card flex flex-1 items-center justify-center p-8 text-sm text-neutral-500">
               Generate a post above — it will open here.
