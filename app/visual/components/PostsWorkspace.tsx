@@ -709,7 +709,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       <button
                         type="button"
                         onClick={() => setSelectedId(p.slide_set_id)}
-                        className="w-full px-4 py-3 pr-9 text-left"
+                        className="w-full px-4 py-3 pr-16 text-left"
                       >
                         <p
                           className={`line-clamp-2 text-sm font-medium ${
@@ -722,6 +722,15 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                           {formatDate(p.created_at)} · {p.slide_count} slides
                         </p>
                       </button>
+                      {/* PNG download — hover-only, left of delete */}
+                      <a
+                        href={`/api/visual/download?slideSetId=${p.slide_set_id}`}
+                        title="Download PNG"
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute right-8 top-2.5 rounded-md border border-neutral-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 opacity-0 shadow-sm transition hover:border-sky-300 hover:text-sky-600 focus:opacity-100 group-hover:opacity-100"
+                      >
+                        PNG
+                      </a>
                       <button
                         type="button"
                         onClick={() => remove(p.slide_set_id)}
@@ -762,7 +771,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                       <h2 className="text-xl font-semibold text-neutral-900">
                         {detail.topic ?? 'Untitled post'}
                       </h2>
-                      <StatusChip status={detail.status} />
                     </div>
                     <p className="mt-1 text-xs text-neutral-500">
                       {formatDate(detail.created_at)} · {detail.slides.length} slides
@@ -898,15 +906,6 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                         {saving ? 'Saving…' : 'Save & re-render'}
                       </button>
                     )}
-                  </div>
-                  {/* Secondary row: download (delete lives on the list rows) */}
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={`/api/visual/download?slideSetId=${detail.slide_set_id}`}
-                      className="cm-btn cm-btn-ghost text-sm"
-                    >
-                      Download PNG
-                    </a>
                   </div>
                 </div>
               </header>
