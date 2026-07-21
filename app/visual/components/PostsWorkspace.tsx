@@ -781,41 +781,16 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
 
                 {/* Action buttons — fixed layout, never wraps */}
                 <div className="flex flex-col gap-2 sm:items-end">
-                  {/* Compose waiting chip — rendered ABOVE the button row so it
-                      never pushes Schedule out of alignment */}
-                  {(detail.status === 'ready_for_canva' || detail.status === 'in_canva') && (
+                  {/* Compose progress chip — ONLY while a compose is actually
+                      running. An idle queued row just shows the normal
+                      Compose button below. */}
+                  {detail.status === 'in_canva' && (
                     <div className="flex flex-wrap items-center gap-2">
                       <ComposeWaitingChip
                         status={detail.status}
                         queuedAt={queuedAt}
                         progress={detail.compose_progress}
                       />
-                      {detail.status === 'ready_for_canva' && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            setComposing(true)
-                            setComposeError(null)
-                            try {
-                              const res = await fetch(`/api/posts/${detail.slide_set_id}/compose`, { method: 'POST' })
-                              const data = await res.json().catch(() => ({}))
-                              if (!res.ok) throw new Error((data as {error?: string})?.error ?? `Compose failed (HTTP ${res.status})`)
-                              setQueuedAt(Date.now())
-                              setDetail((d) => d ? { ...d, status: 'in_canva' as SlideSetStatus } : d)
-                              setPosts((prev) => prev.map((p) => p.slide_set_id === detail.slide_set_id ? { ...p, status: 'in_canva' as SlideSetStatus } : p))
-                            } catch (e) {
-                              setComposeError(e instanceof Error ? e.message : 'compose failed')
-                            } finally {
-                              setComposing(false)
-                            }
-                          }}
-                          disabled={composing}
-                          className="cm-btn cm-btn-ghost text-xs"
-                          title="Skip the queue — compose right now"
-                        >
-                          {composing ? 'Starting…' : '⚡ Start now'}
-                        </button>
-                      )}
                       <button
                         type="button"
                         onClick={async () => {
@@ -1238,15 +1213,13 @@ function ComposeInCanvaButton({
     )
   }
 
-  if (status === 'ready_for_canva' || status === 'in_canva') {
-    // The full ComposeWaitingChip is rendered ABOVE the button row by the
-    // parent — this slot stays compact so Schedule/Save stay on the same line.
-    return (
-      <span className="text-xs font-medium text-violet-500">
-        {status === 'in_canva' ? 'In Canva…' : 'Queued…'}
-      </span>
-    )
+  if (status === 'in_canva') {
+    // The live progress chip (with Stop) is rendered above the button
+    // row by the parent — nothing needed in this slot.
+    return null
   }
+  // NB: 'ready_for_canva' deliberately falls through to the primary
+  // Compose button — an idle queued row is just a composable post.
 
   if (renderResult?.canva_edit_url) {
     return <OpenInCanvaButton slideSetId={slideSetId} composing={composing} onCompose={onCompose} />
