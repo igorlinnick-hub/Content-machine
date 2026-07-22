@@ -81,10 +81,18 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   (collapses bullets); (b) correct master **per category**, never "nearest similar"
   (the `DAHM8qYZCTE` incident: Mental-Health post on ED master → ED text leaked to
   slide 7). Canva API can't add-page → every category needs a ready master.
-- **Masters:** ED `DAHK2poX3PY` (cover = AI photo), Peptides `DAHK2t13oEI` (cover =
-  brand gradient, no photo). Mental Health / Pain & Joint / Weight Loss = **no
-  master yet**. ⚠️ `lib/canva/templates.ts` lists ED `DAHMHS1wLls` / Peptides
-  `DAHMHtkFTW0` — a DIFFERENT set; reconcile against live MCP before building.
+- **Styles (picked in UI BEFORE composing, `slide_sets.canva_style` 1|2|3; picker
+  hides once visuals exist):** Style 1 → example `DAHLnAHrEbA` (Spravato, gradient
+  cover), Style 2 → `DAHLnF9b328` (Spravato Severe Depression, photo cover +
+  panels), Aesthetic (3) → `DAHMHS1wLls` (ED-style, full-bleed photo cover). The
+  runner copies the matching example and swaps photos+text only.
+- **Photo rules (BINDING, from `lib/posts/photo-brief.ts` + runbook):** use the
+  post's stored `photo_brief` — `ai` → Flux with the stored STYLE_LINE prompt
+  (dark lower third, subject upper two-thirds, no swimwear/clinical gear),
+  `stock` → Pexels (prefer dark images under the teal panel), `fallback` → NO
+  photo injection. Visually review every generated image before upload.
+- Older masters: ED `DAHK2poX3PY`, Peptides `DAHK2t13oEI` (runbook table).
+  ⚠️ `lib/canva/templates.ts` is dead code with a different set — ignore.
 - **Server bits that DO work:** `POST /api/posts/:id/compose` only sets status /
   writes progress; `/api/posts/:id/canva` mints a **fresh** Canva edit link per
   click (stored edit_url expires ~30d) and back-fills `canva_design_id`. OAuth
