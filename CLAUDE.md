@@ -1,8 +1,21 @@
 # Content Machine — project briefing
 
+## 📖 READ FIRST — how each module actually works
+
+Before any deep work, read **[HANDOFF-MODULES.md](HANDOFF-MODULES.md)** — the
+current per-module operating truth. (The 133 KB `HANDOFF.md` is history/spec; when
+they conflict, HANDOFF-MODULES wins.)
+
+**The one thing that gets forgotten:** Canva carousels are built by a **Claude +
+Canva MCP runner in-session** (copy an example/master design → swap photos + text
+per line → export), NOT by the server. Server-side auto-compose/autofill does not
+work (needs Canva Enterprise brand templates the account doesn't have). If you ever
+think "make the Compose button render it server-side" — stop and re-read the Canva
+module. The words/photo-brief come from this app; the picture comes from the runner.
+
 ## What this is
 
-AI-driven content generation system for HWC and multi-clinic via doctor install links. Next.js + TypeScript on Vercel, Supabase auth (per-doctor cookies), prompt-cached Claude (Haiku for light tasks, Opus/Sonnet for heavy), Replicate for Seedance 2.0 video pipeline, serverless Puppeteer for slide rendering (1080×1350), Telegram bot LLM router.
+AI-driven content generation system for HWC and multi-clinic via doctor install links. Next.js + TypeScript on Vercel, Supabase auth (per-doctor cookies), prompt-cached Claude (Haiku for light tasks, Opus/Sonnet for heavy), Replicate for Flux photos + Seedance video. **Canva carousels: assembled by the Claude+MCP runner (see above), not by the server.** Notifications = web push (VAPID) + in-app — **no Telegram** (removed 2026-07-06).
 
 5-agent pipeline: Analyst → Research → Writer → Critic → Diff (SharedContext object). Prompt caching cut API cost ~70-85%.
 
@@ -41,6 +54,6 @@ This project is **linked** to the crew-template at `~/Documents/Code Projects/cr
 
 ## Tech reminders
 
-- Read HANDOFF docs (§15, §16, §17, §18 mentioned in commits) before deep session.
+- **Read [HANDOFF-MODULES.md](HANDOFF-MODULES.md) first** every deep session — per-module current truth. `HANDOFF.md` §15/§16 = historical ledger.
 - 5-agent pipeline architecture — see `crew-template/skills/mine/multi-agent-verify-refine/SKILL.md` for the extracted pattern.
 - Prompt caching strategy: Haiku for light, Sonnet/Opus for heavy. See `crew-template/skills/mine/prompt-caching-cost-cut/SKILL.md`.
