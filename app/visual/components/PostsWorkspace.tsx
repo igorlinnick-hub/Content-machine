@@ -795,7 +795,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                   {/* Compose progress chip — ONLY while a compose is actually
                       running. An idle queued row just shows the normal
                       Compose button below. */}
-                  {detail.status === 'in_canva' && (
+                  {(detail.status === 'ready_for_canva' || detail.status === 'in_canva') && (
                     <div className="flex flex-wrap items-center gap-2">
                       <ComposeWaitingChip
                         status={detail.status}
@@ -880,11 +880,8 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                           // made the chip flash and "stop" 4s later.
                           const serverStatus =
                             ((data as { status?: string }).status ?? 'in_canva') as SlideSetStatus
-                          if ((data as { mode?: string }).mode === 'queue') {
-                            setComposeError(
-                              'Canva is not configured on the server — the post is queued for the external runner. Add CANVA_* env vars in Vercel for instant compose.'
-                            )
-                          }
+                          // mode 'queue' is the normal path: the local
+                          // canva-runner picks the row up within ~2 min.
                           setDetail((d) =>
                             d
                               ? { ...d, status: serverStatus, compose_progress: null }
@@ -1013,7 +1010,7 @@ const STAGE_LABELS: Record<string, string> = {
 
 function composeStageLabel(progress: ComposeProgress | null, status: SlideSetStatus): string {
   if (!progress?.stage || progress.stage === 'error') {
-    return status === 'in_canva' ? 'Composing in Canva' : 'Waiting for compose to start'
+    return status === 'in_canva' ? 'Composing in Canva' : 'Queued — runner picks this up in ~2 min'
   }
   const key = progress.stage.split(':')[0]
   const base = STAGE_LABELS[key] ?? progress.stage
@@ -1230,13 +1227,12 @@ function ComposeInCanvaButton({
     )
   }
 
-  if (status === 'in_canva') {
+  if (status === 'ready_for_canva' || status === 'in_canva') {
     // The live progress chip (with Stop) is rendered above the button
-    // row by the parent — nothing needed in this slot.
+    // row by the parent — nothing needed in this slot. Queued rows are
+    // picked up by the local canva-runner automatically.
     return null
   }
-  // NB: 'ready_for_canva' deliberately falls through to the primary
-  // Compose button — an idle queued row is just a composable post.
 
   if (renderResult?.canva_edit_url) {
     return <OpenInCanvaButton slideSetId={slideSetId} composing={composing} onCompose={onCompose} />
