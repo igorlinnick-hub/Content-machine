@@ -112,8 +112,8 @@ export async function PATCH(
   }
   const supabase = createServerClient()
   const canva_style = Number(body.canva_style)
-  if (canva_style !== 1 && canva_style !== 2) {
-    return NextResponse.json({ error: 'canva_style must be 1 or 2' }, { status: 400 })
+  if (canva_style !== 1 && canva_style !== 2 && canva_style !== 3) {
+    return NextResponse.json({ error: 'canva_style must be 1, 2 or 3' }, { status: 400 })
   }
   const { error } = await supabase
     .from('slide_sets')

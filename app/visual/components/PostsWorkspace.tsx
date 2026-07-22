@@ -62,7 +62,10 @@ interface PostDetail {
   render_result: RenderResult | null
   compliance: ComplianceData | null
   compose_progress: ComposeProgress | null
-  canva_style: 1 | 2
+  // 1 = Style 1 (photo cover), 2 = Style 2 (panel), 3 = Aesthetic.
+  // Picked BEFORE composing — the runner assembles from the matching
+  // example design. Hidden once visuals exist.
+  canva_style: 1 | 2 | 3
   // Effective Drive folder used by the renderer for body/cta photos.
   // Null when neither slide_set nor category has one — PhotoPicker
   // disables the re-index button in that case.
@@ -478,7 +481,7 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
     }
   }
 
-  async function handleStyleChange(s: 1 | 2) {
+  async function handleStyleChange(s: 1 | 2 | 3) {
     if (!detail || detail.canva_style === s) return
     setDetail((d) => (d ? { ...d, canva_style: s } : d))
     await fetch(`/api/posts/${detail.slide_set_id}`, {
@@ -830,22 +833,26 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
 
                   {/* Primary row: style + compose + schedule + save — always same height */}
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center rounded-xl border border-slate-200 bg-white/60 p-0.5">
-                      {([1, 2] as const).map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => handleStyleChange(s)}
-                          className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
-                            (detail.canva_style ?? 1) === s
-                              ? 'bg-violet-600 text-white shadow-sm'
-                              : 'text-slate-500 hover:text-slate-700'
-                          }`}
-                        >
-                          Style {s}
-                        </button>
-                      ))}
-                    </div>
+                    {/* Style is picked BEFORE composing — once visuals exist
+                        the choice is baked in, so the picker disappears. */}
+                    {!detail.render_result?.canva_edit_url && (
+                      <div className="flex items-center rounded-xl border border-slate-200 bg-white/60 p-0.5">
+                        {([1, 2, 3] as const).map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => handleStyleChange(s)}
+                            className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
+                              (detail.canva_style ?? 1) === s
+                                ? 'bg-violet-600 text-white shadow-sm'
+                                : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            {s === 3 ? 'Aesthetic' : `Style ${s}`}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <ComposeInCanvaButton
                       slideSetId={detail.slide_set_id}
                       status={detail.status}
