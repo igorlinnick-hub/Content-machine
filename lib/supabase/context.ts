@@ -512,6 +512,43 @@ export async function saveScripts(
   return (data ?? []).map((r) => ({ id: r.id, variant_id: r.variant_id ?? '' }))
 }
 
+// Keep only the newest `keep` scripts per clinic (decided 2026-07-22:
+// the teleprompter list IS the archive — anything pushed out of the
+// window is deleted for real). Scripts referenced by slide_sets
+// (posts) are never deleted; feedback rows cascade; every other FK
+// is ON DELETE SET NULL. Best-effort — callers fire-and-forget.
+export async function pruneOldScripts(
+  clinicId: string,
+  keep = 30
+): Promise<number> {
+  const supabase = createServerClient()
+  const { data: beyond } = await supabase
+    .from('scripts')
+    .select('id')
+    .eq('clinic_id', clinicId)
+    .order('created_at', { ascending: false })
+    .range(keep, keep + 199)
+  const candidates = (beyond ?? []).map((r) => r.id)
+  if (candidates.length === 0) return 0
+
+  const { data: used } = await supabase
+    .from('slide_sets')
+    .select('script_id')
+    .in('script_id', candidates)
+  const protectedIds = new Set(
+    (used ?? []).map((r) => r.script_id).filter(Boolean)
+  )
+  const deletable = candidates.filter((id) => !protectedIds.has(id))
+  if (deletable.length === 0) return 0
+
+  const { error } = await supabase.from('scripts').delete().in('id', deletable)
+  if (error) {
+    console.warn(`pruneOldScripts: delete failed — ${error.message}`)
+    return 0
+  }
+  return deletable.length
+}
+
 export async function updateScriptCaptions(params: {
   scriptId: string
   shortCaption: string

@@ -39,7 +39,7 @@ export default async function TeleprompterPage({ searchParams }: PageProps) {
       .eq('clinic_id', clinicId)
       .not('full_script', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(24),
+      .limit(30),
   ])
 
   if (!clinic) redirect('/dashboard')

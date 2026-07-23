@@ -1,5 +1,5 @@
 import { waitUntil } from '@vercel/functions'
-import { loadSharedContext, saveScripts } from '@/lib/supabase/context'
+import { loadSharedContext, saveScripts, pruneOldScripts } from '@/lib/supabase/context'
 import { runWriter } from '@/lib/agents/writer'
 import { runCritic } from '@/lib/agents/critic'
 import { runComplianceGate } from '@/lib/posts/pipeline'
@@ -158,6 +158,10 @@ export async function POST(req: Request) {
           compliance: cleanPairs.map((p) => ({ variant_id: p.variant.id, result: p.compliance })),
           saved,
         })
+
+        // The teleprompter list IS the archive: keep the newest 30
+        // scripts, hard-delete the rest (posts stay protected).
+        await pruneOldScripts(clinicId, 30).catch(() => 0)
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'unknown error'
         emit('error', { error: msg })
