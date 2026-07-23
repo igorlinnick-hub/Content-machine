@@ -7,7 +7,9 @@ set -u
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
 LOG="$HOME/Library/Application Support/HWC/canva-runner.log"
 LOCK="$HOME/.hwc-canva-runner.lock"
-ENVF="$HOME/Documents/Code Projects/Content-machine-fresh/.env.local"
+# launchd agents cannot read ~/Documents (macOS TCC) — creds live in the
+# runner's own config dir instead. install.sh keeps this file in place.
+ENVF="$HOME/Library/Application Support/HWC/canva-runner/env"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
@@ -27,7 +29,7 @@ COUNT=$(curl -s --max-time 20 "$URL/rest/v1/slide_sets?select=id&status=eq.ready
 if [ "$COUNT" != "1" ]; then exit 0; fi
 
 log "queue non-empty — starting compose runner"
-cd "$HOME/Documents/Code Projects/Content machine"
+cd "$HOME/Library/Application Support/HWC/canva-runner"
 claude -p "Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly." \
   --model sonnet \
   --allowedTools "mcp__claude_ai_Canva__*,Bash,Read,Write,Skill,ToolSearch" \
