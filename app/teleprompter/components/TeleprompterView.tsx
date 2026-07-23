@@ -17,6 +17,8 @@ interface RecentScript {
   id: string
   title: string
   body: string
+  created_at?: string | null
+  critic_score?: number | null
 }
 
 interface SavedRecording {
@@ -593,6 +595,21 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                     <span className="block truncate text-xs text-neutral-400">
                       {cleanReadingText(s.body).slice(0, 80)}…
                     </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    {s.created_at ? (
+                      <span className="block text-[11px] text-neutral-400">
+                        {new Date(s.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </span>
+                    ) : null}
+                    {s.critic_score != null ? (
+                      <span className="block text-[11px] font-medium text-emerald-600">
+                        {Number(s.critic_score).toFixed(1)}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               ))}
