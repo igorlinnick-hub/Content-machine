@@ -154,8 +154,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     if (timerRef.current) clearInterval(timerRef.current)
   }, [])
 
-  const stopRecordingRef = useRef(stopRecordingFn)
-  stopRecordingRef.current = stopRecordingFn
 
   // ── RAF scroll loop ──────────────────────────────────────────────────────────
   // Uses CSS transform: translateY on the inner text div instead of scrollTop.
@@ -178,9 +176,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     if (scrollPosRef.current < total) {
       rafRef.current = requestAnimationFrame(scrollLoop)
     } else {
+      // Text ran out — stop the scroll but KEEP RECORDING (decided
+      // 2026-07-22): the doctor may still be finishing the last
+      // lines or improvising. Recording ends only on the stop button.
       cancelAnimationFrame(rafRef.current)
       setIsScrolling(false)
-      if (isRecordingRef.current) stopRecordingRef.current()
     }
   }, [])
 
@@ -405,7 +405,113 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     }
   }, [phase, recordedBlob])
 
-  // ── Upload to Drive via server-side proxy (same-origin XHR — no CORS) ────────
+  // ── Upload straight to Google Drive (presign → PUT → confirm) ───────────────
+  // The old server-proxy path capped uploads at Vercel's 4.5MB request
+  // limit (≈3 min of webm). Direct-to-Drive has no size limit; the
+  // proxy stays as a fallback for small files if presign breaks.
+  async function uploadViaProxy(title: string): Promise<{ driveUrl: string }> {
+    const ext = recordedBlob!.type.includes('mp4') ? 'mp4' : 'webm'
+    const fd = new FormData()
+    fd.append('video', recordedBlob!, `recording.${ext}`)
+    fd.append('title', title)
+    if (selectedScriptId) fd.append('scriptId', selectedScriptId)
+    fd.append('duration', elapsedSec.toString())
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', `/api/studio/upload-recording?clinicId=${clinicId}`)
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadProgress(e.loaded / e.total)
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText) as { driveUrl: string })
+          } catch {
+            reject(new Error('Server returned invalid response'))
+          }
+        } else {
+          let msg = `Upload failed (${xhr.status})`
+          try {
+            msg = (JSON.parse(xhr.responseText) as { error?: string }).error ?? msg
+          } catch { /* non-JSON body */ }
+          reject(new Error(msg))
+        }
+      }
+      xhr.onerror = () => reject(new Error('Network error during upload'))
+      xhr.onabort = () => reject(new Error('Upload cancelled'))
+      xhr.send(fd)
+    })
+  }
+
+  async function uploadDirect(title: string): Promise<{ driveUrl: string }> {
+    const mimeType = recordedBlob!.type || 'video/webm'
+    const pres = await fetch(
+      `/api/studio/upload-recording/presign?clinicId=${clinicId}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          mimeType,
+          scriptId: selectedScriptId,
+          duration: elapsedSec,
+        }),
+      }
+    )
+    const presData = (await pres.json().catch(() => ({}))) as {
+      uploadUrl?: string
+      error?: string
+    }
+    if (!pres.ok || !presData.uploadUrl) {
+      throw new Error(presData.error ?? `presign failed (${pres.status})`)
+    }
+
+    const drive = await new Promise<{ id: string; webViewLink?: string }>(
+      (resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', presData.uploadUrl!)
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) setUploadProgress(e.loaded / e.total)
+        }
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              resolve(JSON.parse(xhr.responseText) as { id: string; webViewLink?: string })
+            } catch {
+              reject(new Error('Drive returned an invalid response'))
+            }
+          } else {
+            reject(new Error(`Drive upload failed (${xhr.status})`))
+          }
+        }
+        xhr.onerror = () => reject(new Error('Network error during upload'))
+        xhr.onabort = () => reject(new Error('Upload cancelled'))
+        xhr.send(recordedBlob)
+      }
+    )
+
+    const driveUrl =
+      drive.webViewLink ?? `https://drive.google.com/file/d/${drive.id}/view`
+    const conf = await fetch(`/api/studio/recordings/confirm?clinicId=${clinicId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileId: drive.id,
+        driveUrl,
+        title,
+        scriptId: selectedScriptId,
+        duration: elapsedSec,
+        sizeBytes: recordedBlob!.size,
+      }),
+    })
+    if (!conf.ok) {
+      const body = (await conf.json().catch(() => ({}))) as { error?: string }
+      throw new Error(body.error ?? `confirm failed (${conf.status})`)
+    }
+    return { driveUrl }
+  }
+
   async function saveRecording() {
     if (!recordedBlob) return
     setPhase('saving')
@@ -413,41 +519,21 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     setUploadError(null)
 
     const title = saveTitle.trim() || 'Untitled'
-    const ext = recordedBlob.type.includes('mp4') ? 'mp4' : 'webm'
 
     try {
-      const fd = new FormData()
-      fd.append('video', recordedBlob, `recording.${ext}`)
-      fd.append('title', title)
-      if (selectedScriptId) fd.append('scriptId', selectedScriptId)
-      fd.append('duration', elapsedSec.toString())
-
-      const result = await new Promise<{ recording: { id: string }; driveUrl: string }>(
-        (resolve, reject) => {
-          const xhr = new XMLHttpRequest()
-          xhr.open('POST', `/api/studio/upload-recording?clinicId=${clinicId}`)
-          xhr.upload.onprogress = (e) => {
-            if (e.lengthComputable) setUploadProgress(e.loaded / e.total)
-          }
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              try {
-                resolve(JSON.parse(xhr.responseText) as { recording: { id: string }; driveUrl: string })
-              } catch {
-                reject(new Error('Server returned invalid response'))
-              }
-            } else if (xhr.status === 413) {
-              reject(new Error('Recording is too large. Keep recordings under 3 minutes.'))
-            } else {
-              const body = xhr.responseText ? JSON.parse(xhr.responseText) : {}
-              reject(new Error((body as { error?: string }).error ?? `Upload failed (${xhr.status})`))
-            }
-          }
-          xhr.onerror = () => reject(new Error('Network error during upload'))
-          xhr.onabort = () => reject(new Error('Upload cancelled'))
-          xhr.send(fd)
+      let result: { driveUrl: string }
+      try {
+        result = await uploadDirect(title)
+      } catch (e) {
+        // Direct path broke (presign env / CORS) — small files can
+        // still ride the old proxy under Vercel's 4.5MB body cap.
+        if (recordedBlob.size < 4_000_000) {
+          setUploadProgress(0)
+          result = await uploadViaProxy(title)
+        } else {
+          throw e
         }
-      )
+      }
 
       // Clear the IndexedDB draft — recording is safely in Drive
       if (draftIdRef.current) {

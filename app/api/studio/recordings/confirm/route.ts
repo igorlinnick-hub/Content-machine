@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
+import { sendPushToClinic } from '@/lib/push/send'
 
 export const runtime = 'nodejs'
 
@@ -52,6 +53,22 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Same "new recording" ping the proxy upload path sends — the
+  // direct-to-Drive path lands here instead. Best-effort.
+  const { data: clinic } = await supabase
+    .from('clinics')
+    .select('name')
+    .eq('id', clinicId)
+    .maybeSingle()
+  const mins = body.duration
+    ? `${Math.floor(body.duration / 60)}:${String(body.duration % 60).padStart(2, '0')}`
+    : null
+  await sendPushToClinic(clinicId, {
+    title: 'New recording',
+    body: `${clinic?.name ?? 'Clinic'}: ${(body.title || 'Untitled').slice(0, 120)}${mins ? ` (${mins})` : ''}`,
+    url: `/clips?clinicId=${clinicId}`,
+  })
 
   return NextResponse.json({ recording })
 }
