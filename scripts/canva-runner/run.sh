@@ -23,6 +23,32 @@ URL=$(grep -m1 '^NEXT_PUBLIC_SUPABASE_URL=' "$ENVF" | cut -d= -f2- | tr -d '"')
 KEY=$(grep -m1 '^SUPABASE_SERVICE_ROLE_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
 if [ -z "$URL" ] || [ -z "$KEY" ]; then log "no supabase creds"; exit 1; fi
 
+# watchdog: a row stuck in in_canva with stale progress (>20 min) means a
+# previous runner died mid-run (network drop / crash) — requeue it so the
+# next tick retries instead of hanging forever.
+curl -s --max-time 20 "$URL/rest/v1/slide_sets?select=id,compose_progress&status=eq.in_canva" \
+  -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -c "
+import sys, json, datetime
+rows = json.load(sys.stdin)
+now = datetime.datetime.now(datetime.timezone.utc)
+for r in rows:
+    ts = ((r.get('compose_progress') or {}).get('ts') or '')
+    stale = True
+    try:
+        t = datetime.datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        stale = (now - t).total_seconds() > 1200
+    except Exception:
+        pass
+    if stale:
+        print(r['id'])
+" 2>/dev/null | while read -r RID; do
+  [ -z "$RID" ] && continue
+  log "watchdog: requeueing stale in_canva row $RID"
+  curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?id=eq.$RID&status=eq.in_canva" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+    -d '{"status":"ready_for_canva","compose_progress":null}' >/dev/null
+done
+
 # cheap queue check — no Claude spawn unless there's work
 COUNT=$(curl -s --max-time 20 "$URL/rest/v1/slide_sets?select=id&status=eq.ready_for_canva&limit=1" \
   -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))" 2>/dev/null)
