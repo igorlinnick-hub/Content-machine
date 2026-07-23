@@ -36,7 +36,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     label: 'Classic Box',
     description: 'White text on a dark box — the original look',
     forceStyle: [
-      'Fontname=Arial',
+      'Fontname=Liberation Sans',
       'Fontsize=22',
       'PrimaryColour=&H00FFFFFF',
       'OutlineColour=&H00000000',
@@ -53,7 +53,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     label: 'Clean',
     description: 'White text with a thin outline, no box',
     forceStyle: [
-      'Fontname=Arial',
+      'Fontname=Liberation Sans',
       'Fontsize=22',
       'Bold=1',
       'PrimaryColour=&H00FFFFFF',
@@ -70,7 +70,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     label: 'Big Bold',
     description: 'Large bold captions — punchy reels style',
     forceStyle: [
-      'Fontname=Arial',
+      'Fontname=Liberation Sans',
       'Fontsize=28',
       'Bold=1',
       'PrimaryColour=&H00FFFFFF',
@@ -87,7 +87,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     label: 'Yellow Pop',
     description: 'Creator-style yellow captions',
     forceStyle: [
-      'Fontname=Arial',
+      'Fontname=Liberation Sans',
       'Fontsize=24',
       'Bold=1',
       'PrimaryColour=&H0000FFFF',
@@ -106,7 +106,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
     animated: true,
     // Static fallback (no word timestamps): white text, blue outline.
     forceStyle: [
-      'Fontname=Arial',
+      'Fontname=Liberation Sans',
       'Fontsize=24',
       'Bold=1',
       'PrimaryColour=&H00FFFFFF',
@@ -118,7 +118,7 @@ export const CAPTION_STYLES: CaptionStyle[] = [
       'MarginV=60',
     ].join(','),
     ass: {
-      fontname: 'Arial',
+      fontname: 'Liberation Sans',
       fontsize: 72, // PlayRes 1080x1920 — ≈ Fontsize 24 at 360p
       // Spoken word fills ocean blue (#29B6F6 → BGR F6B629); the rest
       // of the line stays white until its moment.

@@ -27,6 +27,13 @@ const nextConfig = {
     // directory is stripped from the deploy and readFile() 500s.
     outputFileTracingIncludes: {
       '/compliance': ['./docs/**/*.md'],
+      // Vercel lambdas ship ZERO fonts — libass rendered captions as
+      // nothing (burn "succeeded", empty overlay). Bundle Liberation
+      // Sans for every route that runs the clips pipeline;
+      // lib/clips/ffmpeg.ts points libass at it via fontsdir.
+      '/api/clips/process': ['./assets/fonts/**'],
+      '/api/clips/from-recording': ['./assets/fonts/**'],
+      '/api/cron/clips-inbox': ['./assets/fonts/**'],
     },
   },
 };

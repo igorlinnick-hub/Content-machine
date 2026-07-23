@@ -1,6 +1,17 @@
 import { spawn } from 'node:child_process'
+import { join } from 'node:path'
 import type { KeepInterval } from './cuts'
 import { resolveCaptionStyle } from './captionStyles'
+
+// Bundled caption font (assets/fonts, traced into the lambda via
+// next.config outputFileTracingIncludes) — Vercel has no system
+// fonts, so libass must be pointed at ours explicitly.
+function fontsDirArg(): string {
+  const dir = join(process.cwd(), 'assets', 'fonts')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'")
+  return `fontsdir='${dir}'`
+}
 
 // All ffmpeg invocations the /clips pipeline needs. We run the
 // static binary via child_process.spawn — works on Vercel functions
@@ -82,8 +93,12 @@ export async function normalizeSource(
     '-i',
     inputPath,
     '-vf',
-    'scale=1080:1920:force_original_aspect_ratio=decrease,' +
-      'pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30',
+    // FILL the 9:16 frame, never letterbox (Igor, 2026-07-23: tiny
+    // video in a black sea is not Instagram format). Scale to cover
+    // 1080x1920, center-crop the overflow — webcam landscape becomes
+    // a full-screen talking head; phone portrait passes through.
+    'scale=1080:1920:force_original_aspect_ratio=increase,' +
+      'crop=1080:1920,setsar=1,fps=30',
     '-c:v',
     'libx264',
     '-preset',
@@ -172,7 +187,7 @@ export async function burnAssCaptions(
     '-i',
     inputPath,
     '-vf',
-    `subtitles=${escapedAss}`,
+    `subtitles=${escapedAss}:${fontsDirArg()}`,
     '-c:v',
     'libx264',
     '-preset',
@@ -210,7 +225,7 @@ export async function burnCaptions(
     '-i',
     inputPath,
     '-vf',
-    `subtitles=${escapedSrt}:force_style='${style}'`,
+    `subtitles=${escapedSrt}:${fontsDirArg()}:force_style='${style}'`,
     '-c:v',
     'libx264',
     '-preset',
