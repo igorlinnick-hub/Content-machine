@@ -54,6 +54,15 @@ COUNT=$(curl -s --max-time 20 "$URL/rest/v1/slide_sets?select=id&status=eq.ready
   -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | python3 -c "import sys,json;print(len(json.load(sys.stdin)))" 2>/dev/null)
 if [ "$COUNT" != "1" ]; then exit 0; fi
 
+# pre-flight: the Canva connector is fetched from claude.ai at session
+# start; on a flaky network (esp. first tick after wake) it can be
+# absent, and a runner without Canva tools can only fail. Skip the
+# tick and retry in 2 min instead of burning a doomed session.
+if ! claude mcp list 2>/dev/null | grep -F "claude.ai Canva" | grep -q "Connected"; then
+  log "pre-flight: Canva MCP not connected — skipping tick"
+  exit 0
+fi
+
 log "queue non-empty — starting compose runner"
 cd "$HOME/Library/Application Support/HWC/canva-runner"
 claude -p "Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly." \
