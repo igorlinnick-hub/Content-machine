@@ -86,11 +86,17 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   cover), Style 2 → `DAHLnF9b328` (Spravato Severe Depression, photo cover +
   panels), Aesthetic (3) → `DAHMHS1wLls` (ED-style, full-bleed photo cover). The
   runner copies the matching example and swaps photos+text only.
-- **Photo rules (BINDING, from `lib/posts/photo-brief.ts` + runbook):** use the
-  post's stored `photo_brief` — `ai` → Flux with the stored STYLE_LINE prompt
-  (dark lower third, subject upper two-thirds, no swimwear/clinical gear),
-  `stock` → Pexels (prefer dark images under the teal panel), `fallback` → NO
-  photo injection. Visually review every generated image before upload.
+- **Photo rules (BINDING, direction v2 — Igor 2026-07-23, in
+  `lib/posts/photo-brief.ts`):** aesthetic-first. Default visuals = 3D medical
+  renders (organs/molecules/processes, glass-like translucent, teal+amber glow)
+  and Hawaii nature — NOT people. People: max 2 slides/post, only outdoor
+  Hawaii locations, full figure medium-wide; **cover NEVER a close-up face**.
+  `stock` = real-object macro only (devices), never people. `fallback` in old
+  briefs: if the example page has a photo background, do NOT keep it (repeats
+  across posts) — generate an aesthetic no-people image instead; new briefs
+  emit `ai` for those slides. Every ai prompt keeps "dark lower third".
+  Visually review every generated image before upload; reject visible AI
+  artifacts (hands, waxy skin), close-up-face covers, unbudgeted people.
 - Older masters: ED `DAHK2poX3PY`, Peptides `DAHK2t13oEI` (runbook table).
   ⚠️ `lib/canva/templates.ts` is dead code with a different set — ignore.
 - **Server bits that DO work:** `POST /api/posts/:id/compose` only sets status /
