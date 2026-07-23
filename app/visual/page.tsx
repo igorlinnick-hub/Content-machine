@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { loadClinicList } from '@/lib/supabase/context'
 import { loadPosts } from '@/lib/visual/store'
 import { resolveAccess } from '@/lib/auth/session'
-import { getCurrentStructuredWeek } from '@/lib/content-plan/store'
+import { getCurrentStructuredWeek, loadStructuredPlan } from '@/lib/content-plan/store'
 import { createServerClient } from '@/lib/supabase/server'
 import { PostsWorkspace } from './components/PostsWorkspace'
 import { TemplatesButton } from './components/TemplatesButton'
@@ -34,7 +34,13 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
   const posts = await loadPosts(clinic.id, 50)
-  const currentPlanWeek = await getCurrentStructuredWeek(clinic.id)
+  const [planWeeks, currentPlanWeek] = await Promise.all([
+    loadStructuredPlan(clinic.id).catch(() => []),
+    getCurrentStructuredWeek(clinic.id),
+  ])
+  const currentWeekIndex = currentPlanWeek
+    ? Math.max(0, planWeeks.findIndex((w) => w.id === currentPlanWeek.id))
+    : 0
 
   const supabase = createServerClient()
   const { data: rawTemplates } = await supabase
@@ -67,7 +73,12 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
         }
       />
 
-      <PostsWorkspace clinicId={clinic.id} posts={posts} currentWeek={currentPlanWeek} />
+      <PostsWorkspace
+        clinicId={clinic.id}
+        posts={posts}
+        planWeeks={planWeeks}
+        currentWeekIndex={currentWeekIndex}
+      />
     </main>
   )
 }

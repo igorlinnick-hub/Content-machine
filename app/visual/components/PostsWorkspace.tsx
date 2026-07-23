@@ -21,7 +21,10 @@ import { ScheduleModal } from '@/app/components/ScheduleModal'
 interface Props {
   clinicId: string
   posts: PostListItem[]
-  currentWeek?: StructuredPlanWeek | null
+  // Full plan + which week is "now" — the strip lets the marketer flip
+  // between weeks with subtle ‹ › arrows and generate from any of them.
+  planWeeks?: StructuredPlanWeek[]
+  currentWeekIndex?: number
 }
 
 interface ComplianceFinding {
@@ -87,7 +90,17 @@ interface GenerateResponse {
   length_target: 'short' | 'long'
 }
 
-export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: Props) {
+export function PostsWorkspace({
+  clinicId,
+  posts: initialPosts,
+  planWeeks = [],
+  currentWeekIndex = 0,
+}: Props) {
+  // Week the strip is showing — starts at "now", arrows move it.
+  const [weekIdx, setWeekIdx] = useState(
+    Math.min(Math.max(currentWeekIndex, 0), Math.max(planWeeks.length - 1, 0))
+  )
+  const currentWeek: StructuredPlanWeek | null = planWeeks[weekIdx] ?? null
   const router = useRouter()
   const [posts, setPosts] = useState<PostListItem[]>(initialPosts)
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -200,6 +213,14 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
   )
   const [rerollingTopicId, setRerollingTopicId] = useState<string | null>(null)
   const [addingTopic, setAddingTopic] = useState(false)
+
+  // Re-sync the chips whenever the marketer flips to another week.
+  useEffect(() => {
+    setWeekPosts(
+      (planWeeks[weekIdx]?.posts ?? []).filter((p) => p.status === 'pending')
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekIdx])
 
   async function rerollPlanTopic(topicId: string) {
     if (rerollingTopicId || addingTopic) return
@@ -546,9 +567,38 @@ export function PostsWorkspace({ clinicId, posts: initialPosts, currentWeek }: P
                 style={{ background: `${color}08`, borderColor: `${color}25` }}
               >
                 <div className="flex items-center gap-2">
+                  {/* Subtle week switcher — browse the whole plan */}
+                  <button
+                    type="button"
+                    onClick={() => setWeekIdx((i) => Math.max(0, i - 1))}
+                    disabled={weekIdx === 0}
+                    title="Previous week"
+                    className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                  >
+                    ‹
+                  </button>
                   <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
                     Week {currentWeek.week_number}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setWeekIdx((i) => Math.min(planWeeks.length - 1, i + 1))}
+                    disabled={weekIdx >= planWeeks.length - 1}
+                    title="Next week"
+                    className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                  >
+                    ›
+                  </button>
+                  {weekIdx !== currentWeekIndex && (
+                    <button
+                      type="button"
+                      onClick={() => setWeekIdx(currentWeekIndex)}
+                      title="Back to the current week"
+                      className="text-[10px] font-semibold uppercase tracking-wider text-sky-500 transition hover:text-sky-700"
+                    >
+                      now
+                    </button>
+                  )}
                   <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
                   <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
                 </div>
