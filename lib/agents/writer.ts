@@ -136,16 +136,23 @@ function buildSystemBase(profile: NicheProfile): string {
 //   • mental-health-acute stripped template when the topic matches §18.1 triggers
 //   • Sources go to a separate metadata block, NEVER to the caption
 
-const SLIDE_ARC_BLOCK = `SLIDE ARC (in order):
-  Slide 1   Cover                  — title (mixed case) + hook ending with "Swipe →"
-  Slide 2   Mechanism / Real cause — heading + intro + 3 bullets + close
-  Slide 3   Gap slide (optional)   — "why standard care misses this" — include WHEN the post explains an insurance / 15-min-visit / equipment-cost reason standard medicine skips the better option; SKIP for how-to / multi-pathway / acute topics
-  Slide 4   Think of it this way   — sticky analogy in plain prose, no bullets. e.g. "X is like Y — [the punchline]". SKIP for mental-health-acute topics (see below).
-  Slide 5   What the data shows    — bullets with real evidence markers (FDA approval dates, named trials, qualitative findings). NEVER invent a percentage or statistic — if you don't have a verified number, write "studies show improved outcomes for many patients" instead of making one up.
-  Slide 6   Who it's for           — bullets + close
-  Slide 7   Session / protocol     — optional
-  Slide 8   Why it's underused     — optional
-  Final     CTA stack              — see CTA STACK FORMAT below`
+const SLIDE_ARC_BLOCK = `SLIDE ARC (in order) — WITH RHYTHM RULES (BINDING):
+Every slide carries exactly ONE idea. Vary the density — the reader must feel a
+change of pace on every swipe. Never write three same-shaped slides in a row.
+A slide that says one thing in 15 words beats a slide that says three things in 70.
+
+  Slide 1   Cover            — title ≤7 words (mixed case) + a TWO-PART hook: one concrete claim, then a short contrast or question line (e.g. "…a real regeneration tool — or just wellness hype?"). End with "Swipe →". ≤22 words total.
+  Slide 2   What it is       — plain-language definition, card rhythm: bold one-line claim → one plain explaining sentence → one bold takeaway. ≤40 words. NO bullets.
+  Slide 3   Mechanism / Real cause — heading + one-line intro + 3 bullets (each ≤10 words) + close. Densest slide of the post — still ≤65 words.
+  Slide 4   Gap (optional)   — why standard care misses this (insurance / 15-min visit / equipment cost). TWO sentences, ≤30 words. SKIP for how-to / multi-pathway / acute topics.
+  Slide 5   Think of it this way — sticky analogy, 2 short prose paragraphs, ≤45 words, no bullets. SKIP for mental-health-acute topics (see below).
+  Slide 6   What the data shows — 2-3 evidence lines with real markers (FDA clearance, named trials, qualitative findings), ≤50 words. NEVER invent a percentage or statistic — if you don't have a verified number, write "studies show improved outcomes for many patients" instead of making one up.
+  Slide 7   Who it's for     — 3 bullets, each ≤9 words, NO intro, one bold close ≤8 words. ≤40 words.
+  Slide 8   Session / protocol (optional) — ≤45 words.
+  Final     CTA stack        — see CTA STACK FORMAT below
+
+Per-post budget: body slides average ≤45 words; at least TWO slides must be
+"spare" (≤30 words). If every slide reads the same length, the post is wrong.`
 
 const MENTAL_HEALTH_ACUTE_BLOCK = `MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
 When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute ideation", "active ideation", "988", "lifeline", "crisis intervention" — switch to the stripped template:

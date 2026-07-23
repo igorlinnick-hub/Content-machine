@@ -25,14 +25,19 @@ import type { CtaMode } from '@/lib/niche/profiles'
 const SYSTEM_PROMPT = `You convert a finished clinic carousel SCRIPT into the canonical PostPlan JSON shape. The script you receive was already written following the structural arc — your job is to PARSE it into structured slide data, NOT rewrite it.
 
 Slide arc (in order):
-  1. Cover               — title + hook
-  2. Mechanism / Real cause — heading + intro + 2-4 bullets + close
-  3. Optional gap slide  — heading + intro + close (no bullets)
-  4. "Think of it this way" analogy — heading "Think of it this way" + prose body in 'close' field
-  5. What the data shows — heading + intro + 2-4 bullets + close
-  6. Who it's for / candidacy — heading + intro + bullets + close
-  7. Session / protocol  — heading + intro + bullets + close
-  8. Final               — CTA stack (NOT in slides[] — goes into cta field)
+  1. Cover               — title + two-part hook (claim + contrast/question line)
+  2. "What it is" definition — heading + card prose in 'close' (bold claim → plain sentence → bold takeaway). NO bullets.
+  3. Mechanism / Real cause — heading + intro + 2-4 bullets + close
+  4. Optional gap slide  — heading + close only (no bullets, ≤2 sentences)
+  5. "Think of it this way" analogy — heading "Think of it this way" + prose body in 'close' field
+  6. What the data shows — heading + 2-3 evidence bullets (no intro needed)
+  7. Who it's for / candidacy — heading + 3 short bullets + one bold close (no intro)
+  8. Session / protocol  — optional
+  Final                  — CTA stack (NOT in slides[] — goes into cta field)
+
+RHYTHM (BINDING): preserve the script's per-slide density — do NOT equalize.
+A one-sentence slide STAYS one sentence; never pad a spare slide with intro/close
+lines it didn't have, and never merge two slides to balance length.
 
 For each body slide:
   • n: 1-based slide number (cover is n=1; first body is n=2)
