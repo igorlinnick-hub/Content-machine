@@ -1,4 +1,9 @@
-import { getDriveClient, getUserDriveClient, getServiceAccountToken } from './drive'
+import {
+  getDriveClient,
+  getUserDriveClient,
+  getServiceAccountToken,
+  getUserAccessToken,
+} from './drive'
 import { Readable } from 'node:stream'
 
 export interface UploadRecordingResult {
@@ -99,7 +104,12 @@ export async function createUploadSession(
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
   const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName)
 
-  const token = await getServiceAccountToken()
+  // User OAuth first — the recordings root lives in the user's
+  // personal Drive, which the service account can't see (the SA
+  // token here caused "Drive session init failed (404)").
+  const token =
+    (await getUserAccessToken().catch(() => null)) ??
+    (await getServiceAccountToken())
 
   // Initiate resumable upload session via raw fetch — googleapis library
   // doesn't expose the session URI directly.

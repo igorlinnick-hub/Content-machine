@@ -19,6 +19,21 @@ export function getUserDriveClient(): drive_v3.Drive | null {
   return google.drive({ version: 'v3', auth: oauth2 })
 }
 
+// Raw access token for the user's OAuth client — for endpoints we
+// call with plain fetch (e.g. Drive resumable upload sessions) where
+// the googleapis client can't be used. Null when user OAuth env is
+// not configured.
+export async function getUserAccessToken(): Promise<string | null> {
+  const refreshToken = process.env.GOOGLE_DRIVE_USER_REFRESH_TOKEN
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
+  if (!refreshToken || !clientId || !clientSecret) return null
+  const oauth2 = new google.auth.OAuth2(clientId, clientSecret)
+  oauth2.setCredentials({ refresh_token: refreshToken })
+  const { token } = await oauth2.getAccessToken()
+  return token ?? null
+}
+
 export interface Photo {
   id: string
   name: string
