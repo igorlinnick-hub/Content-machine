@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { uploadRecording } from '@/lib/google/recordings'
 import { sendPushToClinic } from '@/lib/push/send'
+import { allowLinkView } from '@/lib/google/drive'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
@@ -72,6 +73,9 @@ export async function POST(req: Request) {
     .single()
 
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
+
+  // Link-view permission for the admin preview iframe. Best-effort.
+  await allowLinkView(fileId).catch(() => {})
 
   // Ping the editing team (§22.2 п.9): the doctor's job ends at
   // upload — the editor picks the recording up in /clips. Best-effort.

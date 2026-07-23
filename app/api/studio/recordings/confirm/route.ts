@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { sendPushToClinic } from '@/lib/push/send'
+import { allowLinkView } from '@/lib/google/drive'
 
 export const runtime = 'nodejs'
 
@@ -53,6 +54,10 @@ export async function POST(req: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Link-view permission so the admin preview iframe can play the
+  // file regardless of which Google account the browser holds.
+  await allowLinkView(body.fileId).catch(() => {})
 
   // Same "new recording" ping the proxy upload path sends — the
   // direct-to-Drive path lands here instead. Best-effort.

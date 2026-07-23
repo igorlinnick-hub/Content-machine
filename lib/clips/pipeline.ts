@@ -15,6 +15,7 @@ import {
   getClinicDriveFolders,
   type ClinicDriveFolders,
 } from '@/lib/google/clinicFolders'
+import { allowLinkView } from '@/lib/google/drive'
 import {
   applyCuts,
   burnAssCaptions,
@@ -176,6 +177,9 @@ export async function processClip(params: {
       mimeType: 'video/mp4',
       body: finalBuf,
     })
+    // Link-view permission so the Ready videos player works no matter
+    // which Google account the admin's browser holds. Best-effort.
+    await allowLinkView(cleanedFileId).catch(() => {})
 
     const transcriptTxt = whisper.text || plan.keep.map((k) => k.text).join(' ')
     const transcriptTxtBuf = Buffer.from(transcriptTxt, 'utf8')

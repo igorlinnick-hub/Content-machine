@@ -34,6 +34,20 @@ export async function getUserAccessToken(): Promise<string | null> {
   return token ?? null
 }
 
+// "Anyone with the link can view" — required for the in-app Drive
+// preview iframes (/clips): files created by the user-OAuth client
+// are private, and the viewer's browser may be signed into a
+// different Google account. Unlisted-link exposure is accepted for
+// clinic raw/cleaned videos (decided 2026-07-23).
+export async function allowLinkView(fileId: string): Promise<void> {
+  const drive = getUserDriveClient() ?? getDriveClient()
+  await drive.permissions.create({
+    fileId,
+    requestBody: { role: 'reader', type: 'anyone' },
+    supportsAllDrives: true,
+  })
+}
+
 export interface Photo {
   id: string
   name: string
