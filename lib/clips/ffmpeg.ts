@@ -120,6 +120,35 @@ export async function applyCuts(
   ])
 }
 
+// Burn an .ass subtitle file (animated karaoke captions). The style
+// lives inside the ASS itself — no force_style needed; libass renders
+// the \k word-fill natively.
+export async function burnAssCaptions(
+  inputPath: string,
+  assPath: string,
+  outputPath: string
+): Promise<void> {
+  const escapedAss = assPath.replace(/:/g, '\\:').replace(/'/g, "\\'")
+  await runFfmpeg([
+    '-y',
+    '-i',
+    inputPath,
+    '-vf',
+    `subtitles=${escapedAss}`,
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '23',
+    '-c:a',
+    'copy',
+    '-movflags',
+    '+faststart',
+    outputPath,
+  ])
+}
+
 // Burn captions onto a video. Style comes from the clinic's caption
 // preset (lib/clips/captionStyles.ts); omitted = classic look.
 // force_style accepts libass parameters; values must NOT contain

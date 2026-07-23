@@ -12,6 +12,22 @@ export interface CaptionStyle {
   label: string
   description: string
   forceStyle: string
+  /** Word-by-word karaoke animation (ASS burn via lib/clips/ass.ts).
+      Falls back to the static forceStyle burn when the transcript has
+      no word-level timestamps. */
+  animated?: boolean
+  /** ASS style for the animated burn. Colours are libass &HAABBGGRR. */
+  ass?: {
+    fontname: string
+    fontsize: number
+    primaryColour: string
+    secondaryColour: string
+    outlineColour: string
+    outline: number
+    shadow: number
+    marginV: number
+    bold: boolean
+  }
 }
 
 export const CAPTION_STYLES: CaptionStyle[] = [
@@ -82,6 +98,38 @@ export const CAPTION_STYLES: CaptionStyle[] = [
       'Alignment=2',
       'MarginV=60',
     ].join(','),
+  },
+  {
+    key: 'ocean',
+    label: 'Ocean Pop',
+    description: 'Animated word-by-word — white text, ocean-blue highlight',
+    animated: true,
+    // Static fallback (no word timestamps): white text, blue outline.
+    forceStyle: [
+      'Fontname=Arial',
+      'Fontsize=24',
+      'Bold=1',
+      'PrimaryColour=&H00FFFFFF',
+      'OutlineColour=&H00F6B629',
+      'BorderStyle=1',
+      'Outline=3',
+      'Shadow=1',
+      'Alignment=2',
+      'MarginV=60',
+    ].join(','),
+    ass: {
+      fontname: 'Arial',
+      fontsize: 72, // PlayRes 1080x1920 — ≈ Fontsize 24 at 360p
+      // Spoken word fills ocean blue (#29B6F6 → BGR F6B629); the rest
+      // of the line stays white until its moment.
+      primaryColour: '&H00F6B629',
+      secondaryColour: '&H00FFFFFF',
+      outlineColour: '&H00000000',
+      outline: 6,
+      shadow: 2,
+      marginV: 180,
+      bold: true,
+    },
   },
 ]
 

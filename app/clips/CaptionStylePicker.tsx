@@ -40,6 +40,29 @@ function CaptionPreview({ styleKey }: { styleKey: string }) {
           {PREVIEW_TEXT}
         </span>
       )
+    case 'ocean':
+      // Animated preview: words light up ocean-blue one after another,
+      // mirroring the karaoke burn.
+      return (
+        <span
+          className={`${base} text-[12px] font-extrabold text-white`}
+          style={{ textShadow: '0 0 3px #000, 2px 2px 3px #000, -2px -2px 3px #000' }}
+        >
+          {PREVIEW_TEXT.split(' ').map((w, i, arr) => (
+            <span
+              key={i}
+              style={{
+                animation: `oceanWord ${arr.length * 0.45}s linear infinite`,
+                animationDelay: `${i * 0.45}s`,
+              }}
+            >
+              {w}
+              {i < arr.length - 1 ? ' ' : ''}
+            </span>
+          ))}
+          <style>{`@keyframes oceanWord { 0%, 8% { color: #29B6F6; } 9%, 100% { color: #fff; } }`}</style>
+        </span>
+      )
     default:
       // classic — white on a semi-opaque box
       return (
@@ -93,7 +116,7 @@ export default function CaptionStylePicker({
           Applied to every new clip for this clinic
         </p>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {CAPTION_STYLES.map((style) => {
           const active = style.key === selected
           return (

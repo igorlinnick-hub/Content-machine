@@ -15,7 +15,8 @@ import {
   getClinicDriveFolders,
   type ClinicDriveFolders,
 } from '@/lib/google/clinicFolders'
-import { applyCuts, burnCaptions, extractAudioMp3 } from './ffmpeg'
+import { applyCuts, burnAssCaptions, burnCaptions, extractAudioMp3 } from './ffmpeg'
+import { buildKaraokeAss } from './ass'
 import { buildSrt } from './srt'
 import {
   getClinicCaptionStyle,
@@ -128,16 +129,26 @@ export async function processClip(params: {
     await applyCuts(rawPath, cutPath, plan.keep)
     await unlink(rawPath).catch(() => {})
 
-    // 7. SRT from remapped intervals.
+    // 7. SRT from remapped intervals (also uploaded as an artifact).
     const srt = buildSrt(plan.keep)
     await writeFile(srtPath, srt, 'utf8')
 
     // 8. ffmpeg burn captions → final.mp4, styled by the clinic's
-    //    caption preset (classic when unset / lookup fails).
+    //    caption preset (classic when unset / lookup fails). Animated
+    //    presets burn word-by-word karaoke ASS from Whisper's word
+    //    timestamps; static fallback when no words are available.
     const captionStyle = resolveCaptionStyle(
       await getClinicCaptionStyle(clinicId)
     )
-    await burnCaptions(cutPath, srtPath, finalPath, captionStyle.forceStyle)
+    if (captionStyle.animated && captionStyle.ass && whisper.words.length > 0) {
+      const assPath = srtPath.replace(/\.srt$/, '.ass')
+      const ass = buildKaraokeAss(whisper.words, plan.keep, captionStyle.ass)
+      await writeFile(assPath, ass, 'utf8')
+      await burnAssCaptions(cutPath, assPath, finalPath)
+      await unlink(assPath).catch(() => {})
+    } else {
+      await burnCaptions(cutPath, srtPath, finalPath, captionStyle.forceStyle)
+    }
     await unlink(cutPath).catch(() => {})
 
     // 9. Upload artifacts to a per-clip folder — under the clinic's
