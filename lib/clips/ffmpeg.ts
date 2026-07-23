@@ -90,7 +90,15 @@ export async function applyCuts(
     .map((_, i) => `[v${i}][a${i}]`)
     .join('')
   parts.push(
-    `${concatInputs}concat=n=${intervals.length}:v=1:a=1[outv][outa]`
+    `${concatInputs}concat=n=${intervals.length}:v=1:a=1[cv][outa]`
+  )
+  // Normalize every source to Reels 9:16 (1080x1920) — same
+  // scale+pad rule as the local video bot. Phone portrait passes
+  // through untouched; landscape/webcam sources get centered with
+  // black bars instead of shipping sideways.
+  parts.push(
+    `[cv]scale=1080:1920:force_original_aspect_ratio=decrease,` +
+      `pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[outv]`
   )
   const filter = parts.join(';')
 
