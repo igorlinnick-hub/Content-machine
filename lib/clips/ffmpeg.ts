@@ -99,16 +99,84 @@ export async function normalizeSource(
     // a full-screen talking head; phone portrait passes through.
     'scale=1080:1920:force_original_aspect_ratio=increase,' +
       'crop=1080:1920,setsar=1,fps=30',
+    // Intermediate master: near-lossless so the final encode is the
+    // only visible generation (Правила монтажа: ≤2 поколений).
     '-c:v',
     'libx264',
     '-preset',
-    'veryfast',
+    'fast',
     '-crf',
-    '23',
+    '17',
     '-c:a',
     'aac',
     '-b:a',
-    '128k',
+    '256k',
+    '-ar',
+    '48000',
+    '-max_muxing_queue_size',
+    '1024',
+    '-movflags',
+    '+faststart',
+    outputPath,
+  ])
+}
+
+// Cuts + caption burn in a SINGLE encode — the final generation.
+// (Previously cut and burn were two back-to-back CRF-23/veryfast
+// encodes on top of normalize = three visible generations; that was
+// the «пиксельная залупа».) Export per the BINDING rules: H.264
+// High, CRF 18, 30fps, AAC 256k/48kHz, faststart.
+export async function cutAndBurn(params: {
+  inputPath: string
+  outputPath: string
+  intervals: KeepInterval[]
+  subtitlePath: string
+  // libass force_style for .srt burns; omit for .ass (style inside).
+  forceStyle?: string
+}): Promise<void> {
+  const { inputPath, outputPath, intervals, subtitlePath, forceStyle } = params
+  if (intervals.length === 0) {
+    throw new Error('cutAndBurn: no intervals to keep — nothing to render')
+  }
+  const parts: string[] = []
+  for (let i = 0; i < intervals.length; i++) {
+    const { start, end } = intervals[i]
+    parts.push(
+      `[0:v]trim=start=${start.toFixed(3)}:end=${end.toFixed(3)},setpts=PTS-STARTPTS[v${i}]`,
+      `[0:a]atrim=start=${start.toFixed(3)}:end=${end.toFixed(3)},asetpts=PTS-STARTPTS[a${i}]`
+    )
+  }
+  const concatInputs = intervals.map((_, i) => `[v${i}][a${i}]`).join('')
+  parts.push(`${concatInputs}concat=n=${intervals.length}:v=1:a=1[cv][outa]`)
+
+  const escapedSub = subtitlePath.replace(/:/g, '\\:').replace(/'/g, "\\'")
+  const subFilter = forceStyle
+    ? `subtitles=${escapedSub}:${fontsDirArg()}:force_style='${forceStyle}'`
+    : `subtitles=${escapedSub}:${fontsDirArg()}`
+  parts.push(`[cv]${subFilter}[outv]`)
+
+  await runFfmpeg([
+    '-y',
+    '-i',
+    inputPath,
+    '-filter_complex',
+    parts.join(';'),
+    '-map',
+    '[outv]',
+    '-map',
+    '[outa]',
+    '-c:v',
+    'libx264',
+    '-profile:v',
+    'high',
+    '-preset',
+    'fast',
+    '-crf',
+    '18',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '256k',
     '-ar',
     '48000',
     '-max_muxing_queue_size',

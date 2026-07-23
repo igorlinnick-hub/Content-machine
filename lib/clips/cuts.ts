@@ -1,23 +1,30 @@
 import type { WhisperSegment } from './whisper'
 
-// Plan the cuts list from Whisper segments. Two kinds of cuts:
-//   1. Filler-only segments: text matches strict filler regex (um/uh/
-//      ah/er/hmm and pure variants). Drop the whole segment.
-//   2. Inter-segment silences > MIN_SILENCE_SEC. We keep the segment,
-//      but compress the gap before it to a tight FILLER_GAP_SEC.
+// Plan the cuts list from Whisper segments — SOFT cutting per the
+// BINDING editing rules (HANDOFF §22.2 «Правила монтажа», adopted
+// from the proven local video bot on 2026-07-23):
 //
-// Output is a list of "keep" intervals on the source timeline. The
-// ffmpeg pipeline then concats these intervals.
+//   - pad ±PAD_SEC around every speech region (the bot's
+//     auto-editor margin: 0.1s clipped syllables, 0.2s does not)
+//   - silences shorter than MERGE_GAP_SEC are NOT cut at all —
+//     natural pauses stay, that's what keeps the edit smooth
+//   - longer silences are cut, but the pads leave ~0.4s of
+//     breathing room across the joint (no hard jump)
+//   - fragments shorter than MIN_FRAGMENT_SEC are dropped
+//   - filler-only segments (um/uh/er…) are dropped entirely
+//
+// Output: `keep` = merged intervals for the ffmpeg concat;
+// `cues` = per-segment caption cues (source timeline) that
+// lib/clips/srt.ts remaps onto the post-cut timeline.
 
 const STRICT_FILLER_REGEX = /^[\s,.\-—]*\b(?:u+m+|u+h+|a+h+|e+r+|h+m+m+|m+h+m+)+[\s,.\-—!?]*$/i
 
-const MIN_SILENCE_SEC = 0.6
-// Replace gaps > MIN_SILENCE_SEC with a small natural pause so cuts
-// don't sound like jump-cuts. Set to 0 for hard cuts.
-const COMPRESSED_GAP_SEC = 0.15
+const PAD_SEC = 0.2
+const MERGE_GAP_SEC = 0.5
+const MIN_FRAGMENT_SEC = 0.4
 
 export interface KeepInterval {
-  // Source-video timestamps (post-Whisper, exact to Whisper's grid).
+  // Source-video timestamps.
   start: number
   end: number
   text: string
@@ -25,6 +32,9 @@ export interface KeepInterval {
 
 export interface CutsPlan {
   keep: KeepInterval[]
+  // Caption cues: one per spoken segment, source timeline. Each cue
+  // lies inside some keep interval (padding only widens).
+  cues: KeepInterval[]
   duration_in_sec: number
   duration_out_sec: number
   filler_count: number
@@ -39,11 +49,8 @@ export function planCuts(
   segments: WhisperSegment[],
   totalDuration: number
 ): CutsPlan {
-  const keep: KeepInterval[] = []
   let fillerCount = 0
-  let silenceCount = 0
 
-  // First pass: drop pure-filler segments.
   const usable = segments.filter((s) => {
     if (isPureFiller(s.text)) {
       fillerCount += 1
@@ -52,42 +59,39 @@ export function planCuts(
     return true
   })
 
-  // Second pass: collapse big gaps. Build keep intervals — for each
-  // usable segment, push (segment.start, segment.end). When a gap
-  // before the next segment exceeds MIN_SILENCE_SEC, we keep the
-  // segment as-is but the ffmpeg concat will tightly butt them
-  // together (gap collapses to 0); the COMPRESSED_GAP_SEC is
-  // achieved by extending each segment's end by half-gap.
-  for (let i = 0; i < usable.length; i++) {
-    const cur = usable[i]
-    const next = usable[i + 1]
-
-    let extendedEnd = cur.end
-    if (next) {
-      const gap = next.start - cur.end
-      if (gap > MIN_SILENCE_SEC) {
-        silenceCount += 1
-        // Keep half of COMPRESSED_GAP_SEC at the end of this segment
-        // so audio doesn't end on a hard click. The other half is
-        // implicit at the start of the next (its own pre-roll).
-        extendedEnd = cur.end + COMPRESSED_GAP_SEC / 2
-      }
+  // Pad each speech region, then merge neighbours whose (padded)
+  // gap is below the threshold — those pauses are kept verbatim.
+  const merged: KeepInterval[] = []
+  for (const s of usable) {
+    const start = Math.max(0, s.start - PAD_SEC)
+    const end = Math.min(totalDuration, s.end + PAD_SEC)
+    const prev = merged[merged.length - 1]
+    if (prev && start - prev.end < MERGE_GAP_SEC) {
+      prev.end = Math.max(prev.end, end)
+      prev.text = `${prev.text} ${s.text.trim()}`.trim()
+    } else {
+      merged.push({ start, end, text: s.text.trim() })
     }
-
-    keep.push({
-      start: Math.max(0, cur.start),
-      end: Math.min(totalDuration, extendedEnd),
-      text: cur.text,
-    })
   }
 
-  const duration_out_sec = keep.reduce((sum, k) => sum + (k.end - k.start), 0)
+  const keep = merged.filter(
+    (k) => merged.length === 1 || k.end - k.start >= MIN_FRAGMENT_SEC
+  )
+
+  const cues: KeepInterval[] = usable.map((s) => ({
+    start: s.start,
+    end: s.end,
+    text: s.text.trim(),
+  }))
+
+  const durationOut = keep.reduce((acc, k) => acc + (k.end - k.start), 0)
 
   return {
     keep,
+    cues,
     duration_in_sec: totalDuration,
-    duration_out_sec,
+    duration_out_sec: durationOut,
     filler_count: fillerCount,
-    silence_count: silenceCount,
+    silence_count: Math.max(0, keep.length - 1),
   }
 }

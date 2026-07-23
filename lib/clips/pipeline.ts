@@ -16,13 +16,7 @@ import {
   type ClinicDriveFolders,
 } from '@/lib/google/clinicFolders'
 import { allowLinkView } from '@/lib/google/drive'
-import {
-  applyCuts,
-  burnAssCaptions,
-  burnCaptions,
-  extractAudioMp3,
-  normalizeSource,
-} from './ffmpeg'
+import { cutAndBurn, extractAudioMp3, normalizeSource } from './ffmpeg'
 import { buildKaraokeAss } from './ass'
 import { buildSrt } from './srt'
 import {
@@ -93,7 +87,6 @@ export async function processClip(params: {
   const rawPath = join(work, 'raw.mp4')
   const normPath = join(work, 'norm.mp4')
   const audioPath = join(work, 'audio.mp3')
-  const cutPath = join(work, 'cut.mp4')
   const srtPath = join(work, 'transcript.srt')
   const finalPath = join(work, 'final.mp4')
 
@@ -139,18 +132,13 @@ export async function processClip(params: {
       )
     }
 
-    // 6. ffmpeg apply cuts → cut.mp4.
-    await applyCuts(normPath, cutPath, plan.keep)
-    await unlink(normPath).catch(() => {})
-
-    // 7. SRT from remapped intervals (also uploaded as an artifact).
-    const srt = buildSrt(plan.keep)
+    // 6-8. SRT (phrase-level cues remapped to the cut timeline) +
+    //    cuts + caption burn in ONE encode — the only visible
+    //    generation on top of the near-lossless normalize
+    //    (Правила монтажа: ≤2 поколений кодирования).
+    const srt = buildSrt(plan.cues, plan.keep)
     await writeFile(srtPath, srt, 'utf8')
 
-    // 8. ffmpeg burn captions → final.mp4, styled by the clinic's
-    //    caption preset (classic when unset / lookup fails). Animated
-    //    presets burn word-by-word karaoke ASS from Whisper's word
-    //    timestamps; static fallback when no words are available.
     const captionStyle = resolveCaptionStyle(
       await getClinicCaptionStyle(clinicId)
     )
@@ -158,12 +146,23 @@ export async function processClip(params: {
       const assPath = srtPath.replace(/\.srt$/, '.ass')
       const ass = buildKaraokeAss(whisper.words, plan.keep, captionStyle.ass)
       await writeFile(assPath, ass, 'utf8')
-      await burnAssCaptions(cutPath, assPath, finalPath)
+      await cutAndBurn({
+        inputPath: normPath,
+        outputPath: finalPath,
+        intervals: plan.keep,
+        subtitlePath: assPath,
+      })
       await unlink(assPath).catch(() => {})
     } else {
-      await burnCaptions(cutPath, srtPath, finalPath, captionStyle.forceStyle)
+      await cutAndBurn({
+        inputPath: normPath,
+        outputPath: finalPath,
+        intervals: plan.keep,
+        subtitlePath: srtPath,
+        forceStyle: captionStyle.forceStyle,
+      })
     }
-    await unlink(cutPath).catch(() => {})
+    await unlink(normPath).catch(() => {})
 
     // 9. Upload artifacts to a per-clip folder — under the clinic's
     //    Finals/ or the legacy global Cleaned/.

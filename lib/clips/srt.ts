@@ -1,10 +1,10 @@
 import type { KeepInterval } from './cuts'
 
-// Generate an .srt file from a list of kept intervals. After cuts
-// the source-video timestamps no longer line up with the cleaned
-// output — captions need to be REMAPPED to the post-cut timeline.
-// We do that by walking the keep list and accumulating each
-// segment's duration as the running output time.
+// Generate an .srt from per-segment caption cues. After cuts the
+// source timestamps no longer line up with the cleaned output —
+// each cue is REMAPPED onto the post-cut timeline by walking the
+// keep list. Cues stay at spoken-phrase granularity even when the
+// keep intervals merged several phrases into one uncut block.
 
 function fmt(seconds: number): string {
   const h = Math.floor(seconds / 3600)
@@ -22,19 +22,30 @@ function fmt(seconds: number): string {
   )
 }
 
-export function buildSrt(intervals: KeepInterval[]): string {
+// Map a source-timeline moment onto the output timeline. Moments
+// inside a cut gap snap to the start of the next kept region.
+function remap(t: number, keep: KeepInterval[]): number {
+  let out = 0
+  for (const k of keep) {
+    if (t < k.start) return out
+    if (t <= k.end) return out + (t - k.start)
+    out += k.end - k.start
+  }
+  return out
+}
+
+export function buildSrt(cues: KeepInterval[], keep: KeepInterval[]): string {
   const lines: string[] = []
-  let outCursor = 0
-  for (let i = 0; i < intervals.length; i++) {
-    const k = intervals[i]
-    const dur = k.end - k.start
-    const outStart = outCursor
-    const outEnd = outStart + dur
-    lines.push(String(i + 1))
-    lines.push(`${fmt(outStart)} --> ${fmt(outEnd)}`)
-    lines.push(k.text)
+  let n = 0
+  for (const cue of cues) {
+    const start = remap(cue.start, keep)
+    const end = remap(cue.end, keep)
+    if (end - start < 0.05 || !cue.text) continue
+    n += 1
+    lines.push(String(n))
+    lines.push(`${fmt(start)} --> ${fmt(end)}`)
+    lines.push(cue.text)
     lines.push('')
-    outCursor = outEnd
   }
   return lines.join('\n')
 }
