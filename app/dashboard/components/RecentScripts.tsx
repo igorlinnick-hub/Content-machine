@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { RecentScript } from '@/lib/supabase/context'
+import { cleanReadingText } from '@/lib/client/script-text'
 
 interface RecentScriptsProps {
   scripts: RecentScript[]
@@ -308,7 +309,7 @@ function ScriptModal({
             </p>
           )}
           <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.75] text-neutral-800">
-            {script.full_script}
+            {cleanReadingText(script.full_script)}
           </p>
         </div>
 

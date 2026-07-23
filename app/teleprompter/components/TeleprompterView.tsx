@@ -9,6 +9,7 @@ import {
   draftAgeLabel,
   type RecordingDraft,
 } from '@/lib/client/recording-draft'
+import { cleanReadingText } from '@/lib/client/script-text'
 
 type Phase = 'setup' | 'reading' | 'preview' | 'saving' | 'saved'
 
@@ -103,7 +104,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     if (!initialScriptId) return
     const match = recentScripts.find((s) => s.id === initialScriptId)
     if (match) {
-      setText(match.body)
+      setText(cleanReadingText(match.body))
       setSaveTitle(match.title)
       setSelectedScriptId(match.id)
     }
@@ -572,7 +573,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                 <button
                   key={s.id}
                   onClick={() => {
-                    setText(s.body)
+                    setText(cleanReadingText(s.body))
                     setSaveTitle(s.title)
                     setSelectedScriptId(s.id)
                   }}
@@ -590,7 +591,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-neutral-800">{s.title}</span>
                     <span className="block truncate text-xs text-neutral-400">
-                      {s.body.slice(0, 80)}…
+                      {cleanReadingText(s.body).slice(0, 80)}…
                     </span>
                   </span>
                 </button>
