@@ -66,6 +66,44 @@ export async function extractAudioMp3(
   ])
 }
 
+// Re-encode ANY source into a clean 30fps CFR file on the Reels 9:16
+// canvas (1080x1920, scale + centered pad — the local video bot's
+// rule) BEFORE anything else touches it. MediaRecorder webm ships
+// broken timestamps: cutting it directly produced files claiming
+// "2h44m at 0.0003 fps", which killed the caption burn ("Too many
+// packets buffered"). Whisper audio is extracted from THIS file so
+// transcript timestamps and video share one timeline.
+export async function normalizeSource(
+  inputPath: string,
+  outputPath: string
+): Promise<void> {
+  await runFfmpeg([
+    '-y',
+    '-i',
+    inputPath,
+    '-vf',
+    'scale=1080:1920:force_original_aspect_ratio=decrease,' +
+      'pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'veryfast',
+    '-crf',
+    '23',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '128k',
+    '-ar',
+    '48000',
+    '-max_muxing_queue_size',
+    '1024',
+    '-movflags',
+    '+faststart',
+    outputPath,
+  ])
+}
+
 // Apply the cut plan via ffmpeg's concat filter. Each kept interval
 // becomes one trim/atrim pair; concat stitches them. Re-encodes
 // because trim outputs uncompressed and we need a portable mp4.
@@ -90,15 +128,7 @@ export async function applyCuts(
     .map((_, i) => `[v${i}][a${i}]`)
     .join('')
   parts.push(
-    `${concatInputs}concat=n=${intervals.length}:v=1:a=1[cv][outa]`
-  )
-  // Normalize every source to Reels 9:16 (1080x1920) — same
-  // scale+pad rule as the local video bot. Phone portrait passes
-  // through untouched; landscape/webcam sources get centered with
-  // black bars instead of shipping sideways.
-  parts.push(
-    `[cv]scale=1080:1920:force_original_aspect_ratio=decrease,` +
-      `pad=1080:1920:(ow-iw)/2:(oh-ih)/2,setsar=1[outv]`
+    `${concatInputs}concat=n=${intervals.length}:v=1:a=1[outv][outa]`
   )
   const filter = parts.join(';')
 
@@ -151,6 +181,8 @@ export async function burnAssCaptions(
     '23',
     '-c:a',
     'copy',
+    '-max_muxing_queue_size',
+    '1024',
     '-movflags',
     '+faststart',
     outputPath,
@@ -187,6 +219,8 @@ export async function burnCaptions(
     '23',
     '-c:a',
     'copy',
+    '-max_muxing_queue_size',
+    '1024',
     '-movflags',
     '+faststart',
     outputPath,

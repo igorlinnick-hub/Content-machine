@@ -15,7 +15,13 @@ import {
   getClinicDriveFolders,
   type ClinicDriveFolders,
 } from '@/lib/google/clinicFolders'
-import { applyCuts, burnAssCaptions, burnCaptions, extractAudioMp3 } from './ffmpeg'
+import {
+  applyCuts,
+  burnAssCaptions,
+  burnCaptions,
+  extractAudioMp3,
+  normalizeSource,
+} from './ffmpeg'
 import { buildKaraokeAss } from './ass'
 import { buildSrt } from './srt'
 import {
@@ -84,6 +90,7 @@ export async function processClip(params: {
 
   const work = await mkdtemp(join(tmpdir(), 'clip-'))
   const rawPath = join(work, 'raw.mp4')
+  const normPath = join(work, 'norm.mp4')
   const audioPath = join(work, 'audio.mp3')
   const cutPath = join(work, 'cut.mp4')
   const srtPath = join(work, 'transcript.srt')
@@ -94,9 +101,15 @@ export async function processClip(params: {
     const rawBuf = await downloadDriveFileToBuffer(inboxClip.id)
     await writeFile(rawPath, rawBuf)
 
+    // 1b. Normalize to clean 30fps CFR on the 9:16 Reels canvas —
+    //     browser webm timestamps are broken; every later stage
+    //     (Whisper audio, trims, burn) works off this file.
+    await normalizeSource(rawPath, normPath)
+    await unlink(rawPath).catch(() => {})
+
     // 2. Extract low-bitrate mono mp3 for Whisper, then drop raw
     //    bytes from memory to save heap.
-    await extractAudioMp3(rawPath, audioPath)
+    await extractAudioMp3(normPath, audioPath)
     const audioBuf = await readFile(audioPath)
 
     // 3. Transcribe.
@@ -126,8 +139,8 @@ export async function processClip(params: {
     }
 
     // 6. ffmpeg apply cuts → cut.mp4.
-    await applyCuts(rawPath, cutPath, plan.keep)
-    await unlink(rawPath).catch(() => {})
+    await applyCuts(normPath, cutPath, plan.keep)
+    await unlink(normPath).catch(() => {})
 
     // 7. SRT from remapped intervals (also uploaded as an artifact).
     const srt = buildSrt(plan.keep)
