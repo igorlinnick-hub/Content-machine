@@ -221,6 +221,16 @@ ${profile.complianceFacts}
 
 OUTPUT SHAPE (POST CAROUSEL):
 The "script" field of each variant is the full carousel rendered as readable text — cover line + each numbered slide + CTA stack. The compliance gate reads this; downstream the splitter parses it into the slide_sets row.
+
+MINIMUM COVERAGE (HARD): a carousel is cover + at least FOUR body slides
+(mechanism, evidence, who-it's-for at minimum) + CTA. A post with fewer body
+slides is a failed variant.
+
+SOURCES (HARD): after the CTA stack, append a "SOURCES" section — one line per
+non-trivial factual claim in the post, format: "<claim> — <citation>" (journal /
+trial name / FDA action + year from the VERIFIED FACTS block). These lines are
+parsed into metadata and never rendered on slides. A post whose data slide has
+no matching source line is a failed variant.
 ${goldStdLine}`
 }
 
@@ -304,7 +314,8 @@ function buildContextBrief(
   feedback?: string,
   pinnedFormat?: PinnedFormat,
   excludeHooks?: string[],
-  planContext?: import('@/types').PlanContext | null
+  planContext?: import('@/types').PlanContext | null,
+  postCarouselMode?: boolean
 ): string {
   const parts: string[] = []
 
@@ -349,8 +360,14 @@ function buildContextBrief(
     parts.push(buildPinnedFormatBlock(pinnedFormat))
   } else if (planPinnedTemplate) {
     // Content Plan: planner pre-assigned a specific structural format.
+    // Carousel mode: the template supplies the ANGLE (how to hook, how
+    // to argue) — the SLIDE ARC still governs slide count and coverage.
+    // Following the 5-beat video scaffold literally shrank posts to 2
+    // body slides (2026-07-23 regression).
     parts.push(
-      `FORMAT — this post uses the "${planPinnedTemplate.name}" structural template. ALL variants must follow this scaffold exactly:\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
+      postCarouselMode
+        ? `FORMAT — this post uses the "${planPinnedTemplate.name}" template for its ANGLE and voice: how it hooks, what stance it takes, how it argues. Map the template's narrative beats ONTO the slide arc's slides — the SLIDE ARC governs the carousel structure, and every variant must still deliver the arc's full coverage (deep mechanism, "What the data shows" with real evidence, "Who it's for", CTA stack). Do NOT compress the post to the template's beat count.\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
+        : `FORMAT — this post uses the "${planPinnedTemplate.name}" structural template. ALL variants must follow this scaffold exactly:\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
     )
   } else {
     // Ad-hoc / fallback: offer all templates and let the model pick.
@@ -515,7 +532,8 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     params.feedback,
     params.pinnedFormat,
     params.excludeHooks,
-    params.planContext
+    params.planContext,
+    params.postCarouselMode
   )
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
   const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)
@@ -594,7 +612,9 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     systemPrompt,
     userContent,
     maxTokens: 16384,
-    effort: 'low',
+    // Carousels carry the clinic's depth bar (mechanism detail, real
+    // evidence) — worth the medium effort. Plain video scripts stay low.
+    effort: params.postCarouselMode ? 'medium' : 'low',
     cacheSystem: true,
   })
 

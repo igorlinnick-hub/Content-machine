@@ -12,8 +12,12 @@ export async function runComplianceRewriter(input: {
   /** Clinic niche — used to label the editor persona in the system prompt. */
   niche?: string | null
 }): Promise<string> {
+  // ONLY reword findings — their `correction` is replacement wording.
+  // `review` findings carry an instruction for a HUMAN reviewer
+  // ("a medical professional should verify…"); feeding those to the
+  // model pasted reviewer notes straight into post text (2026-07-23).
   const reworderFindings = input.findings.filter(
-    (f) => f.severity === 'reword' || f.severity === 'review'
+    (f) => f.severity === 'reword'
   )
   if (reworderFindings.length === 0) return input.script
 
@@ -32,7 +36,17 @@ RESOLUTION STRATEGY — the corrected script must not re-trigger the same class 
 • Dosage / protocol specifics: add "typically" / "commonly", or generalize ("over several weeks").
 • Currency claims ("currently", "as of 2025", "the only FDA-approved"): remove the currency framing; state the fact without a time anchor.
 • Missing hedge: weave one naturally into the flagged sentence ("may help", "some patients", "talk to your doctor").
-The edit must read naturally in the doctor's voice — not like a disclaimer was bolted on.`,
+The edit must read naturally in the doctor's voice — not like a disclaimer was bolted on.
+
+HARD RULES:
+• A correction may be phrased as an instruction or reviewer note. NEVER copy
+  instruction text into the script — translate it into natural, compliant
+  wording of the SAME claim.
+• Never add reviewer notes, meta commentary, editor asides, or disclaimers
+  aimed at the writer.
+• Never delete, merge, or shorten sentences that were not flagged. Every
+  slide, every SOURCES line, and every header stays exactly where it was.
+• Output length must be within ~10% of the input length.`,
     userContent: `Script:\n${input.script}\n\nApply these corrections:\n${correctionsList}`,
     toolName: 'return_corrected_script',
     toolDescription: 'Return the compliance-corrected script.',
@@ -43,7 +57,9 @@ The edit must read naturally in the doctor's voice — not like a disclaimer was
       },
       required: ['script'],
     },
-    maxTokens: 2048,
+    // Long carousels + SOURCES section exceed 2048 — truncation here
+    // silently amputated script tails.
+    maxTokens: 4096,
   })
 
   return typeof result?.script === 'string' && result.script.length > 50
