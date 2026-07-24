@@ -63,6 +63,21 @@ if ! claude mcp list 2>/dev/null | grep -F "claude.ai Canva" | grep -q "Connecte
   exit 0
 fi
 
+# pre-flight: Replicate credit. Composes need Flux photos; with an empty
+# wallet every run dies on 402 (free probe — Replicate rejects before
+# charging). Skip the tick until Igor tops up the balance.
+RTOKEN=$(grep -m1 '^REPLICATE_API_TOKEN=' "$ENVF" | cut -d= -f2- | tr -d '"')
+if [ -n "$RTOKEN" ]; then
+  RCODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 -X POST \
+    "https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions" \
+    -H "Authorization: Bearer $RTOKEN" -H "Content-Type: application/json" \
+    -d '{"input":{"prompt":"probe","aspect_ratio":"1:1"}}')
+  if [ "$RCODE" = "402" ]; then
+    log "pre-flight: Replicate credit exhausted (402) — skipping tick until top-up"
+    exit 0
+  fi
+fi
+
 log "queue non-empty — starting compose runner"
 cd "$HOME/Library/Application Support/HWC/canva-runner"
 claude -p "Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly." \
