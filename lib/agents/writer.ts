@@ -612,9 +612,11 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     systemPrompt,
     userContent,
     maxTokens: 16384,
-    // Carousels carry the clinic's depth bar (mechanism detail, real
-    // evidence) — worth the medium effort. Plain video scripts stay low.
-    effort: params.postCarouselMode ? 'medium' : 'low',
+    // effort MUST stay low here: medium+ extended thinking consumes the
+    // whole 16384 output budget on the long carousel prompt and the call
+    // dies with stop_reason=max_tokens before any text (proven again
+    // 2026-07-24). Depth comes from the prompt's hard requirements.
+    effort: 'low',
     cacheSystem: true,
   })
 
