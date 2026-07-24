@@ -21,6 +21,8 @@ export type NoteSource = 'widget' | 'voice' | 'text'
 // Migration 028 renames live 'needs_review' rows → 'review' so this
 // file is the single source of truth from 2026-06-17 onwards.
 export type SlideSetStatus =
+  | 'generating'        // system: background post pipeline running (writer→…→splitter)
+  | 'gen_failed'        // system: background generation errored — delete & retry
   | 'pending'           // system: just created, awaiting compliance grade
   | 'review'            // human/medical: compliance returned REVIEW
   | 'blocked'           // marketer: compliance REMOVE/REWORD — fix findings

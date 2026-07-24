@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
 import type { RenderResult, SlideSetStatus } from '@/types'
@@ -12,8 +12,6 @@ import {
   GenerateProgress,
   applyStageEvent,
   emptyProgressState,
-  markDone,
-  type ProgressState,
 } from './GenerateProgress'
 import { type StructuredPlanWeek, pillarColor } from '@/lib/content-plan/store'
 import { ScheduleModal } from '@/app/components/ScheduleModal'
@@ -77,19 +75,6 @@ interface PostDetail {
   photo_overrides: Record<string, string | null>
 }
 
-interface GenerateResponse {
-  slide_set_id: string | null
-  script_id: string
-  topic: string
-  hook: string
-  script: string
-  slides: UISlide[]
-  previews: string[]
-  category: { id: string; name: string; emoji: string | null } | null
-  pair_id: string | null
-  length_target: 'short' | 'long'
-}
-
 export function PostsWorkspace({
   clinicId,
   posts: initialPosts,
@@ -124,7 +109,6 @@ export function PostsWorkspace({
   } | null>(null)
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState<string | null>(null)
-  const [progress, setProgress] = useState<ProgressState>(emptyProgressState())
   const [composing, setComposing] = useState(false)
   const [composeError, setComposeError] = useState<string | null>(null)
   // Set when the marketer presses Compose so the deadline UX can
@@ -132,16 +116,21 @@ export function PostsWorkspace({
   // the runner with re-pings. Reset on detail change.
   const [queuedAt, setQueuedAt] = useState<number | null>(null)
 
-  // While generating, tick the client-side elapsedMs every 250ms so
-  // the user sees a live counter even between server stage events.
-  useEffect(() => {
-    if (!generating) return
-    const start = Date.now()
-    const id = setInterval(() => {
-      setProgress((s) => ({ ...s, elapsedMs: Date.now() - start }))
-    }, 250)
-    return () => clearInterval(id)
-  }, [generating])
+  // Stepper state for a background generation, derived from the
+  // compose_progress the pipeline persists stage-by-stage. Survives
+  // page reloads — the poll below keeps it moving.
+  const genProgressState = useMemo(() => {
+    if (!detail || detail.status !== 'generating') return null
+    const cp = detail.compose_progress as
+      | { stage?: string; elapsed_ms?: number }
+      | null
+    let s = emptyProgressState()
+    if (cp?.stage) {
+      s = applyStageEvent(s, cp.stage, cp.elapsed_ms ?? 0)
+    }
+    if (!s.active) s = { ...s, active: 'writer' }
+    return s
+  }, [detail])
 
   // Reset per-post UI state whenever the selected post changes.
   useEffect(() => {
@@ -160,6 +149,29 @@ export function PostsWorkspace({
         const res = await fetch(`/api/posts/${detail.slide_set_id}`)
         if (!res.ok) return
         const data = (await res.json()) as PostDetail
+        // Generation just finished (or failed): the row now carries the
+        // real script + slides — swap the whole detail in, not just the
+        // status fields, so the editor fills without a manual reload.
+        if (detail.status === 'generating' && data.status !== 'generating') {
+          setDetail(data)
+          setDrafts((data.slides ?? []).slice())
+          setPosts((prev) =>
+            prev.map((p) =>
+              p.slide_set_id === data.slide_set_id
+                ? {
+                    ...p,
+                    status: data.status,
+                    topic: data.topic ?? p.topic,
+                    hook: data.hook ?? p.hook,
+                    script: data.script ?? p.script,
+                    slide_count: data.slides?.length ?? p.slide_count,
+                  }
+                : p
+            )
+          )
+          router.refresh()
+          return
+        }
         setDetail((d) =>
           d && d.slide_set_id === data.slide_set_id
             ? {
@@ -313,10 +325,13 @@ export function PostsWorkspace({
     }
     setGenerating(true)
     setGenError(null)
-    setProgress(emptyProgressState())
 
     try {
-      const res = await fetch('/api/posts/generate?stream=1', {
+      // Background mode: the server creates a visible 'generating' row,
+      // responds instantly, and finishes the pipeline server-side even
+      // if this tab closes. Progress lives in compose_progress; the
+      // detail poll below renders it as a stepper.
+      const res = await fetch('/api/posts/generate?bg=1', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -329,121 +344,42 @@ export function PostsWorkspace({
           note: note.trim() || undefined,
         }),
       })
-
-      if (!res.ok || !res.body) {
-        // Most likely an early validation / kill-switch response: it's
-        // JSON, not a stream. Parse and throw.
-        let errMsg = `HTTP ${res.status}`
-        try {
-          const data = await res.json()
-          if (
-            res.status === 503 &&
-            (data?.error === 'LLM_AGENTS_DISABLED' || data?.ok === false)
-          ) {
-            errMsg = 'LLM_AGENTS_DISABLED'
-          } else if (data?.error) {
-            errMsg = data.error
-          }
-        } catch {
-          // ignore — body not JSON, keep HTTP status message
+      const data = (await res.json().catch(() => null)) as {
+        slide_set_id?: string
+        error?: string
+        ok?: boolean
+      } | null
+      if (!res.ok || !data?.slide_set_id) {
+        let errMsg = data?.error ?? `HTTP ${res.status}`
+        if (
+          res.status === 503 &&
+          (data?.error === 'LLM_AGENTS_DISABLED' || data?.ok === false)
+        ) {
+          errMsg = 'LLM_AGENTS_DISABLED'
         }
         throw new Error(errMsg)
       }
 
-      // Stream parser. SSE frames are double-newline separated, each
-      // frame has lines like "event: <name>\ndata: <json>". We
-      // accumulate buffer and flush whole frames as they arrive.
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let result: GenerateResponse | null = null
-      let streamError: string | null = null
-
-      while (true) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-
-        // Split on double newline — anything before the last \n\n is a
-        // complete frame, the trailing tail goes back into the buffer.
-        const frames = buffer.split('\n\n')
-        buffer = frames.pop() ?? ''
-        for (const frame of frames) {
-          if (!frame.trim()) continue
-          let evName = 'message'
-          let dataLine = ''
-          for (const line of frame.split('\n')) {
-            if (line.startsWith('event: ')) evName = line.slice(7).trim()
-            else if (line.startsWith('data: ')) dataLine = line.slice(6)
-          }
-          if (!dataLine) continue
-          let payload: unknown
-          try {
-            payload = JSON.parse(dataLine)
-          } catch {
-            continue
-          }
-          if (evName === 'stage') {
-            const p = payload as { name?: string; elapsed_ms?: number }
-            if (typeof p?.name === 'string') {
-              setProgress((s) =>
-                applyStageEvent(s, p.name as string, p.elapsed_ms ?? s.elapsedMs)
-              )
-            }
-          } else if (evName === 'done') {
-            result = payload as GenerateResponse
-            setProgress((s) => markDone(s, s.elapsedMs))
-          } else if (evName === 'error') {
-            streamError = (payload as { error?: string })?.error ?? 'failed'
-          }
-        }
+      const newItem: PostListItem = {
+        slide_set_id: data.slide_set_id,
+        script_id: null,
+        topic: plannedPost?.topic ?? topic.trim(),
+        hook: null,
+        script: null,
+        slide_count: 0,
+        status: 'generating',
+        created_at: new Date().toISOString(),
+        length_target: null,
+        pair_id: null,
+        category: null,
+        render_result: null,
       }
-
-      if (streamError) throw new Error(streamError)
-      if (!result) throw new Error('Stream ended without result')
-
-      const fresh = result
-      if (fresh.slide_set_id) {
-        const newItem: PostListItem = {
-          slide_set_id: fresh.slide_set_id,
-          script_id: fresh.script_id,
-          topic: fresh.topic,
-          hook: fresh.hook,
-          script: fresh.script,
-          slide_count: fresh.slides.length,
-          status: 'rendered',
-          created_at: new Date().toISOString(),
-          length_target: fresh.length_target,
-          pair_id: fresh.pair_id,
-          category: fresh.category,
-          render_result: null,
-        }
-        setPosts((prev) => [newItem, ...prev])
-        setSelectedId(fresh.slide_set_id)
-        setDetail({
-          slide_set_id: fresh.slide_set_id,
-          topic: fresh.topic,
-          hook: fresh.hook,
-          script: fresh.script,
-          slides: fresh.slides,
-          previews: fresh.previews,
-          created_at: newItem.created_at,
-          status: 'review',
-          render_result: null,
-          compose_progress: null,
-          compliance: null,
-          canva_style: 1,
-          drive_folder_id: null,
-          photo_overrides: {},
-        })
-        setDrafts(fresh.slides.slice())
-        setLoading(false)
-        // Pull the real status — the server may already be auto-composing
-        // (PASS → in_canva) and the poll loop should pick that up.
-        void reloadDetail(fresh.slide_set_id)
-      }
-      // The planned topic became a post — the server marked it 'done';
-      // drop its chip from the picker immediately.
+      setPosts((prev) => [newItem, ...prev])
+      // Selecting the row kicks the detail fetch + the isActivelyMoving
+      // poll, which flips the card to its real status when the server
+      // pipeline lands (~2-3 min).
+      setSelectedId(data.slide_set_id)
+      // The topic chip is claimed server-side right away — drop it.
       if (plannedPost) {
         setWeekPosts((prev) => prev.filter((p) => p.id !== plannedPost.id))
         setPlannedPost(null)
@@ -454,7 +390,6 @@ export function PostsWorkspace({
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'failed to generate'
       setGenError(msg)
-      setProgress((s) => ({ ...s, error: msg }))
     } finally {
       setGenerating(false)
     }
@@ -698,7 +633,6 @@ export function PostsWorkspace({
               {generating ? 'Generating…' : 'Generate'}
             </button>
           </div>
-          {generating && <GenerateProgress state={progress} />}
           {genError === 'LLM_AGENTS_DISABLED' ? (
             <div className="rounded border border-sky-200 bg-sky-50 px-3 py-3 text-xs text-sky-800">
               <p className="mb-1 font-semibold">
@@ -813,6 +747,38 @@ export function PostsWorkspace({
           ) : !detail ? (
             <div className="cm-card flex flex-1 items-center justify-center p-8 text-sm text-red-600">
               {error ?? 'Failed to load post.'}
+            </div>
+          ) : detail.status === 'generating' ? (
+            // Background generation in flight — stepper fed from the DB.
+            // Closing the tab is safe; the poll refreshes this view and
+            // swaps in the finished post automatically.
+            <div className="cm-card flex flex-col gap-4 p-6">
+              <h2 className="text-xl font-semibold text-neutral-900">
+                {detail.topic ?? 'Untitled post'}
+              </h2>
+              {genProgressState && <GenerateProgress state={genProgressState} />}
+              <p className="text-xs text-neutral-500">
+                Generation runs on the server — you can leave this page or
+                close the tab, the post will finish on its own (~2–3 min).
+              </p>
+            </div>
+          ) : detail.status === 'gen_failed' ? (
+            <div className="cm-card flex flex-col gap-3 p-6">
+              <h2 className="text-xl font-semibold text-neutral-900">
+                {detail.topic ?? 'Untitled post'}
+              </h2>
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm font-semibold text-red-800">
+                  Generation failed
+                </p>
+                <p className="mt-1 text-xs text-red-700">
+                  {detail.compose_progress?.error ?? 'Unknown error.'}
+                </p>
+                <p className="mt-2 text-xs text-red-600">
+                  The topic went back to the week picker — delete this card
+                  (✕ in the list) and generate again.
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -1035,8 +1001,9 @@ export function PostsWorkspace({
           slideSetId={detail.slide_set_id}
           initialCaption={detail.hook ? `${detail.topic ?? ''}\n\n${detail.hook}` : (detail.topic ?? '')}
           initialMediaUrl={detail.render_result?.outputs?.[0]?.url ?? ''}
-          onSaved={() => {
-            // Close after short delay so user can see result
+          onSaved={(post) => {
+            // Keep the modal open on failure so the Buffer errors stay visible
+            if (post.status === 'failed') return
             setTimeout(() => setScheduleOpen(false), 1800)
           }}
         />

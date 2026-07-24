@@ -25,19 +25,18 @@ import type { CtaMode } from '@/lib/niche/profiles'
 const SYSTEM_PROMPT = `You convert a finished clinic carousel SCRIPT into the canonical PostPlan JSON shape. The script you receive was already written following the structural arc — your job is to PARSE it into structured slide data, NOT rewrite it.
 
 Slide arc (in order):
-  1. Cover               — title + two-part hook (claim + contrast/question line)
-  2. "What it is" definition — heading + card prose in 'close' (bold claim → plain sentence → bold takeaway). NO bullets.
-  3. Mechanism / Real cause — heading + intro + 2-4 bullets + close
-  4. Optional gap slide  — heading + close only (no bullets, ≤2 sentences)
-  5. "Think of it this way" analogy — heading "Think of it this way" + prose body in 'close' field
-  6. What the data shows — heading + 2-3 evidence bullets (no intro needed)
-  7. Who it's for / candidacy — heading + 3 short bullets + one bold close (no intro)
-  8. Session / protocol  — optional
-  Final                  — CTA stack (NOT in slides[] — goes into cta field)
+  1. Cover               — title + hook (a contrast/question second line may follow the claim)
+  2. Mechanism / Real cause — heading + intro + 2-4 bullets + close
+  3. Optional gap slide  — heading + intro + close (no bullets)
+  4. "Think of it this way" analogy — heading "Think of it this way" + prose body in 'close' field
+  5. What the data shows — heading + intro + 2-4 bullets + close
+  6. Who it's for / candidacy — heading + intro + bullets + close
+  7. Session / protocol  — heading + intro + bullets + close
+  8. Final               — CTA stack (NOT in slides[] — goes into cta field)
 
-RHYTHM (BINDING): preserve the script's per-slide density — do NOT equalize.
-A one-sentence slide STAYS one sentence; never pad a spare slide with intro/close
-lines it didn't have, and never merge two slides to balance length.
+PRESERVE the script's content faithfully — never drop mechanism detail, evidence
+lines, or patient specifics to shorten a slide, and never pad a short slide with
+filler. Parse what is there. Never append "Swipe" prompts anywhere.
 
 For each body slide:
   • n: 1-based slide number (cover is n=1; first body is n=2)
@@ -49,7 +48,7 @@ For each body slide:
 
 For the cover:
   • title: mixed case headline (NOT all-caps — that was the legacy renderer)
-  • hook: one specific stat or framing line ending with "Swipe →"
+  • hook: one specific stat or framing line from the script. STRIP any trailing "Swipe →" / "swipe" prompt if the script has one — it must never appear on the post.
 
 For the CTA stack:
   • keyword: ALL-CAPS single word from the script (e.g. "VITALITY"). If no keyword in the script, infer from topic or use "CONNECT".
@@ -101,6 +100,12 @@ export async function splitScriptToPostPlan(
     ctaMode?: CtaMode
     /** Instagram handle without '@'. Null → generic follow line. */
     socialHandle?: string | null
+    /**
+     * Plan-assigned ManyChat keyword (content_plan_topics.keyword).
+     * When present it is BINDING — overrides whatever the script/LLM
+     * produced. The keyword list is curated; never let the model drift.
+     */
+    ctaKeyword?: string | null
   }
 ): Promise<SplitToPostPlanResult> {
   if (!script.trim()) {
@@ -121,10 +126,14 @@ export async function splitScriptToPostPlan(
   })
 
   // Defensive normalisation. Every field is optional in the model
-  // response (defense in depth) — coerce here.
+  // response (defense in depth) — coerce here. The hook strip is a
+  // hard guarantee: "Swipe →" tails must never reach a rendered post
+  // (Igor, 2026-07-23), even if the model ignores the prompt.
   const cover: PostPlanCover = {
     title: (raw.cover?.title ?? context?.topic ?? '').trim() || 'Untitled',
-    hook: (raw.cover?.hook ?? '').trim(),
+    hook: (raw.cover?.hook ?? '')
+      .replace(/[\s,.—–-]*swipe\s*(→|->)?\s*$/i, '')
+      .trim(),
   }
 
   const slides: PostPlanBodySlide[] = (raw.slides ?? [])
@@ -168,11 +177,29 @@ export async function splitScriptToPostPlan(
     : 'Follow us for evidence-based content, no hype.'
 
   const fallbackKeyword = suggestCtaKeyword(context?.topic ?? null) ?? null
-  // Booking mode doesn't use a ManyChat keyword; use a neutral placeholder
-  // so the PostPlan shape stays valid (keyword is still a non-empty string).
+  // Priority: plan-assigned keyword (BINDING, from the curated ManyChat
+  // list) → keyword parsed from the script → slug map → 'CONNECT'.
+  // Booking mode doesn't use a ManyChat keyword; neutral placeholder
+  // keeps the PostPlan shape valid (keyword is a non-empty string).
+  const forcedKeyword = context?.ctaKeyword?.trim()
+    ? context.ctaKeyword.trim().toUpperCase()
+    : null
   const keyword = ctaMode === 'booking'
     ? 'BOOK'
-    : (ctaRaw.keyword?.toString().trim() || fallbackKeyword || 'CONNECT').toUpperCase()
+    : (
+        forcedKeyword ||
+        ctaRaw.keyword?.toString().trim() ||
+        fallbackKeyword ||
+        'CONNECT'
+      ).toUpperCase()
+
+  // If the plan forces the keyword but the script's comment line quotes
+  // a different word, rewrite the quoted word in place.
+  const parsedCommentLine = ctaRaw.comment_line?.trim() || null
+  const commentLine =
+    parsedCommentLine && forcedKeyword
+      ? parsedCommentLine.replace(/"[A-Za-z0-9+\- ]+"/, `"${keyword}"`)
+      : parsedCommentLine
 
   const cta: PostPlanCta = {
     keyword,
@@ -183,7 +210,7 @@ export async function splitScriptToPostPlan(
     // Manychat mode: parse from script or synthesise fallback.
     comment_line: ctaMode === 'booking'
       ? null
-      : (ctaRaw.comment_line?.trim() || `"${keyword}" and we'll send the next step.`),
+      : (commentLine || `"${keyword}" and we'll send the next step.`),
     book_line: acute
       ? null
       : (ctaRaw.book_line?.trim() ||

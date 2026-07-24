@@ -252,6 +252,16 @@ export interface RenderResultSummary {
   ts: string | null
 }
 
+// Placeholder rows ('generating') have no script yet — their topic
+// lives in the stub PostPlan's cover.title until the pipeline lands.
+function coverTitleFromSlides(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const cover = (raw as { cover?: { title?: unknown } }).cover
+  return cover && typeof cover.title === 'string' && cover.title.trim()
+    ? cover.title
+    : null
+}
+
 export async function loadPosts(
   clinicId: string,
   limit = 30
@@ -278,7 +288,7 @@ export async function loadPosts(
     return {
       slide_set_id: r.id,
       script_id: r.script_id,
-      topic: s?.topic ?? null,
+      topic: s?.topic ?? coverTitleFromSlides(r.slides),
       hook: s?.hook ?? null,
       script: s?.full_script ?? null,
       slide_count: countSlides(r.slides),

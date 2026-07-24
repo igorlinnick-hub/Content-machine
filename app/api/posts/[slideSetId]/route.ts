@@ -76,7 +76,11 @@ export async function GET(
       slide_set_id: slideSet.id,
       clinic_id: slideSet.clinic_id,
       script_id: slideSet.script_id,
-      topic: scriptRow?.topic ?? null,
+      // 'generating' placeholder rows have no script yet — the topic
+      // lives in the stub cover slide until the pipeline lands.
+      topic:
+        scriptRow?.topic ??
+        (slideSet.slides[0]?.kind === 'cover' ? slideSet.slides[0].text : null),
       hook: scriptRow?.hook ?? null,
       script: scriptRow?.full_script ?? null,
       slides: slideSet.slides,

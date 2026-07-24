@@ -83,6 +83,33 @@ interface PhotoFolderRefs {
 // stage to the client so the UI can show a real-time stepper.
 type StageEmitter = (name: string, meta?: Record<string, unknown>) => void
 
+// Background-mode progress writer: persists the current pipeline stage
+// into slide_sets.compose_progress so the UI can show a live stepper
+// that survives page reloads. Best-effort — a lost progress write must
+// never kill the pipeline.
+async function setGenProgress(
+  slideSetId: string,
+  stage: string,
+  extra?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const { createServerClient } = await import('@/lib/supabase/server')
+    const supabase = createServerClient()
+    await supabase
+      .from('slide_sets')
+      .update({
+        compose_progress: {
+          stage,
+          ts: new Date().toISOString(),
+          ...(extra ?? {}),
+        },
+      } as never)
+      .eq('id', slideSetId)
+  } catch {
+    // best-effort
+  }
+}
+
 async function generateOne(params: {
   clinicId: string
   context: SharedContext
@@ -96,6 +123,9 @@ async function generateOne(params: {
   planId?: string | null
   planContext?: PlanContext | null
   onStage?: StageEmitter
+  // Background mode: pre-created 'generating' placeholder row to UPDATE
+  // with the finished PostPlan instead of inserting a fresh row.
+  targetSlideSetId?: string | null
 }): Promise<GenerateOneResult> {
   // If the user pasted a starting note, fold it into the topic hint so the
   // writer treats it as additional steering, not a separate concept.
@@ -317,6 +347,9 @@ async function generateOne(params: {
       onStage: stage,
       ctaMode: _nicheProfile.ctaMode,
       socialHandle: params.context.clinic_profile.social_handle ?? null,
+      // Plan-assigned ManyChat keyword is BINDING — the curated list
+      // lives on the content plan, the model must not drift from it.
+      ctaKeyword: params.planContext?.keyword ?? null,
     })
     stage('splitter:postplan:done')
     const planRow = {
@@ -334,29 +367,52 @@ async function generateOne(params: {
       : 'review'
     stage(`postplan:status=${lifecycleStatus} grade=${compliance?.grade ?? 'null'}`)
 
-    const slideSetRow = await createSlideSet({
-      clinicId: params.clinicId,
-      scriptId: winnerSaved.id,
-      slides: planRow as unknown as TypedSlide[],
-      driveFolderId: folderId,
-      categoryId: matchedCategory?.id ?? null,
-      status: lifecycleStatus,
-    })
-    slideSetId = slideSetRow.id
-    await patchComplianceAndPlan(slideSetRow.id)
+    if (params.targetSlideSetId) {
+      // Background mode: fill the placeholder row created at request time.
+      const { createServerClient } = await import('@/lib/supabase/server')
+      const supabase = createServerClient()
+      const { error: upErr } = await supabase
+        .from('slide_sets')
+        .update({
+          script_id: winnerSaved.id,
+          slides: JSON.parse(JSON.stringify(planRow)),
+          drive_folder_id: folderId,
+          category_id: matchedCategory?.id ?? null,
+          status: lifecycleStatus,
+          compose_progress: null,
+        } as never)
+        .eq('id', params.targetSlideSetId)
+      if (upErr) throw upErr
+      slideSetId = params.targetSlideSetId
+    } else {
+      const slideSetRow = await createSlideSet({
+        clinicId: params.clinicId,
+        scriptId: winnerSaved.id,
+        slides: planRow as unknown as TypedSlide[],
+        driveFolderId: folderId,
+        categoryId: matchedCategory?.id ?? null,
+        status: lifecycleStatus,
+      })
+      slideSetId = slideSetRow.id
+    }
+    await patchComplianceAndPlan(slideSetId)
     stage('postplan:persisted')
 
     // No external Canva-bot is deployed — compose queued rows in the
     // background right away so "Queued for visuals" actually moves.
     if (lifecycleStatus === 'ready_for_canva') {
       const { autoComposeQueued } = await import('@/lib/posts/pipeline')
-      waitUntil(autoComposeQueued(slideSetRow.id))
+      const composeTarget = slideSetId
+      waitUntil(autoComposeQueued(composeTarget))
       stage('postplan:autocompose:queued')
     }
   } catch (e) {
     console.error(
       `[generate] PostPlan splitter failed: ${e instanceof Error ? e.message : 'unknown'}`
     )
+    // In background mode a swallowed failure would strand the placeholder
+    // row in 'generating' forever — bubble up so the bg handler marks it.
+    if (params.targetSlideSetId) throw e
   }
 
   return {
@@ -436,9 +492,13 @@ export async function POST(req: Request) {
   // and the SSE branches share one source of truth. When streaming, the
   // route handler installs a stage emitter that pushes events to the
   // client; in JSON mode the emitter is undefined and stages just log.
-  const runPipeline = async (
-    onStage: StageEmitter | undefined
-  ): Promise<Record<string, unknown>> => {
+  // Topic + plan-context resolution, shared by all execution modes. The
+  // background branch runs it BEFORE responding so the placeholder row
+  // can carry the topic title from second one.
+  const resolveTopicAndContext = async (): Promise<{
+    topicText: string
+    planContext: PlanContext | null
+  }> => {
     // Resolve plan context for the 90% planned-generation path.
     // planTopicId → full PlanContext (pillar/theme/keyword/topic).
     // Falls back to null (ad-hoc) silently so the pipeline never stalls.
@@ -482,6 +542,15 @@ export async function POST(req: Request) {
     } else {
       topicText = freeTopic!
     }
+    return { topicText, planContext }
+  }
+
+  const runPipeline = async (
+    onStage: StageEmitter | undefined,
+    pre?: { topicText: string; planContext: PlanContext | null },
+    targetSlideSetId?: string | null
+  ): Promise<Record<string, unknown>> => {
+    const { topicText, planContext } = pre ?? (await resolveTopicAndContext())
 
     // Seed default templates first so loadSharedContext picks them up.
     await ensureDefaultScriptTemplates(clinicId)
@@ -519,7 +588,7 @@ export async function POST(req: Request) {
     const noteText = body.note?.trim() ? body.note.trim() : null
 
     const results = await Promise.all(
-      lengths.map((len) =>
+      lengths.map((len, i) =>
         generateOne({
           clinicId,
           context,
@@ -533,6 +602,9 @@ export async function POST(req: Request) {
           planId: body.planId ?? null,
           planContext,
           onStage,
+          // Placeholder row (bg mode) belongs to the primary length only;
+          // a secondary 'long' variant still inserts its own row.
+          targetSlideSetId: i === 0 ? (targetSlideSetId ?? null) : null,
         })
       )
     )
@@ -565,6 +637,90 @@ export async function POST(req: Request) {
       versions: results,
     }
   } // end runPipeline
+
+  // Background mode (?bg=1) — the /visual UI path. Creates a visible
+  // 'generating' placeholder row, responds immediately, and runs the
+  // whole pipeline detached via waitUntil. The user can close the tab;
+  // progress persists in compose_progress and the row flips to its
+  // real status when done ('gen_failed' + topic revert on error).
+  if (url.searchParams.get('bg') === '1') {
+    let pre: { topicText: string; planContext: PlanContext | null }
+    try {
+      pre = await resolveTopicAndContext()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'failed to resolve topic'
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
+
+    const { createServerClient } = await import('@/lib/supabase/server')
+    const supabase = createServerClient()
+    const { data: ph, error: phErr } = await supabase
+      .from('slide_sets')
+      .insert({
+        clinic_id: clinicId,
+        slides: { cover: { title: pre.topicText, hook: '' }, slides: [], cta: {} },
+        status: 'generating',
+        compose_progress: { stage: 'queued', ts: new Date().toISOString() },
+      } as never)
+      .select('id')
+      .single()
+    if (phErr || !ph) {
+      return NextResponse.json(
+        { error: phErr?.message ?? 'failed to create placeholder row' },
+        { status: 500 }
+      )
+    }
+    const phId = (ph as { id: string }).id
+
+    // Claim the plan topic NOW so its chip leaves the picker immediately
+    // and a reload can't double-generate it. Reverted on failure.
+    const claimTopicId = topicId ?? planTopicId
+    if (claimTopicId) {
+      await updateTopic(claimTopicId, { status: 'done' }).catch(() => {})
+    }
+
+    waitUntil(
+      (async () => {
+        try {
+          await runPipeline(
+            (name, meta) => {
+              void setGenProgress(phId, name, {
+                elapsed_ms: (meta as { elapsed_ms?: number } | undefined)
+                  ?.elapsed_ms,
+              })
+            },
+            pre,
+            phId
+          )
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : 'generation failed'
+          console.error('[generate] background pipeline failed:', msg, e)
+          try {
+            await supabase
+              .from('slide_sets')
+              .update({
+                status: 'gen_failed',
+                compose_progress: {
+                  stage: 'error',
+                  error: msg,
+                  ts: new Date().toISOString(),
+                },
+              } as never)
+              .eq('id', phId)
+          } catch {
+            // row update failed — nothing more we can do
+          }
+          if (claimTopicId) {
+            await updateTopic(claimTopicId, { status: 'pending' }).catch(
+              () => {}
+            )
+          }
+        }
+      })()
+    )
+
+    return NextResponse.json({ slide_set_id: phId, background: true })
+  }
 
   if (shouldStream) {
     const encoder = new TextEncoder()

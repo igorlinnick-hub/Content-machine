@@ -17,6 +17,18 @@ export interface StatusMeta {
 }
 
 const STATUS_META: Record<SlideSetStatus, StatusMeta> = {
+  generating: {
+    owner: 'system',
+    label: 'Generating…',
+    hint: 'Writer → critic → compliance → splitter are building this post. Safe to leave the page — it finishes on its own.',
+    chipClass: 'border-sky-200 bg-sky-50 text-sky-700',
+  },
+  gen_failed: {
+    owner: 'marketer',
+    label: 'Generation failed',
+    hint: 'The pipeline errored. The topic went back to the picker — delete this card and generate again.',
+    chipClass: 'border-red-200 bg-red-50 text-red-700',
+  },
   pending: {
     owner: 'system',
     label: 'Preparing…',
@@ -92,7 +104,12 @@ export function statusMeta(status: SlideSetStatus | string | null | undefined): 
 // The UI polls while this is true so the user sees status changes
 // without manually refreshing.
 export function isActivelyMoving(status: SlideSetStatus | string | null | undefined): boolean {
-  return status === 'pending' || status === 'ready_for_canva' || status === 'in_canva'
+  return (
+    status === 'generating' ||
+    status === 'pending' ||
+    status === 'ready_for_canva' ||
+    status === 'in_canva'
+  )
 }
 
 // True when the marketer can press "Compose in Canva" to queue render.
