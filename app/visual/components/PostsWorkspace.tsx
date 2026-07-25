@@ -1072,6 +1072,20 @@ function ComposeWaitingChip({
   const inStage = Number.isFinite(stageTs)
   const slow = elapsedMs > 5 * 60_000
 
+  // The runner is alive but can't work — e.g. Replicate credit ran out.
+  // Show the reason instead of an eternal "Queued" countdown; the queue
+  // resumes on its own once the blocker clears.
+  if (progress?.stage === 'blocked') {
+    return (
+      <div className="flex max-w-md items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2">
+        <span aria-hidden className="mt-0.5 text-sm">⏸</span>
+        <span className="text-xs font-medium leading-snug text-amber-800">
+          Composing is paused: {progress.error ?? 'external service unavailable'}
+        </span>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <div

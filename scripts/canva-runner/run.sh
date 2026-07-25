@@ -74,8 +74,18 @@ if [ -n "$RTOKEN" ]; then
     -d '{"input":{"prompt":"probe","aspect_ratio":"1:1"}}')
   if [ "$RCODE" = "402" ]; then
     log "pre-flight: Replicate credit exhausted (402) — skipping tick until top-up"
+    # Surface the reason on every queued row so /visual can explain the
+    # stall instead of showing an eternal "Queued" chip.
+    curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?status=eq.ready_for_canva" \
+      -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+      -d "{\"compose_progress\":{\"stage\":\"blocked\",\"error\":\"Replicate credit exhausted — top up at replicate.com/account/billing, composing resumes automatically\",\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}" >/dev/null
     exit 0
   fi
+  # Credit is back — clear stale blocked notices so the queue chip
+  # returns to its normal countdown.
+  curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?status=eq.ready_for_canva&compose_progress->>stage=eq.blocked" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+    -d '{"compose_progress":null}' >/dev/null
 fi
 
 log "queue non-empty — starting compose runner"
