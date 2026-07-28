@@ -148,11 +148,21 @@ const SLIDE_ARC_BLOCK = `SLIDE ARC (in order):
   Final     CTA stack              — see CTA STACK FORMAT below
 
 SLIDE SHAPE — VARY IT (do NOT cut depth): give consecutive slides DIFFERENT
-shapes so the carousel breathes. Rotate among: a short two-beat paragraph; a
-lead-in line + 2-3 short sub-points (each a real concrete point, never padded);
-a single vivid sentence; a full mechanism slide. Never use the same shape twice
-in a row. This governs SHAPE, not LENGTH — keep every mechanism, number and
-named study intact. Depth first, variety second.`
+shapes so the carousel breathes. Rotate among:
+  - a short two-beat paragraph;
+  - a lead-in line + 2-3 short sub-points (each a real concrete point, never padded);
+  - a single vivid sentence;
+  - a FULL mechanism slide with its detail;
+  - a CONCRETE COMPARISON — two labeled sides stating real facts, e.g.
+    "Cortisone → calms the pain fast, doesn't touch the cause." /
+    "A2M → targets the enzymes breaking the cartilage down." This is a factual
+    side-by-side, NOT the banned rhetorical antithesis bow — it names real
+    things on each side and teaches, it doesn't just flip a phrase.
+  - a RESEARCH STATEMENT — a named study stated as one crisp line instead of a
+    paragraph, e.g. "STEP trial: studied weight change over 68 weeks under
+    medical supervision." (still backed in sources[]; never invent numbers.)
+Never use the same shape twice in a row. This governs SHAPE, not LENGTH — keep
+every mechanism, number and named study intact. Depth first, variety second.`
 
 const VOICE_BLOCK = `VOICE — HOW IT SHOULD SOUND (BINDING):
 Write like the doctor is talking to ONE patient across the table — clear, warm,
