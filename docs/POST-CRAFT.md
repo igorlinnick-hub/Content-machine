@@ -115,12 +115,29 @@ A slide with little text must NOT be one floating panel over dead space. Enrich:
   reframe: a small ALL-CAPS **kicker label** ("THE CATCH", "WHAT WE SEE"), a
   large short quote, a hairline rule under it, optionally oversized quotation
   marks. Gives a premium editorial feel and breaks the panel monotony.
-- **Photo-in-photo** — a smaller framed inset image (rounded rect, thin border
-  or soft shadow) layered over the main background, showing the concrete thing
-  the slide names (organ render, device macro, patient moment). Draws from the
-  same photo direction (§5); prefer a **stock macro** for the inset when the
-  main is AI (helps hit the 60/40 mix). Keep it to one inset, off the text
-  panel, aligned to a corner or the upper third.
+- **Highlight-marker** (Igor 2026-07-28, likes it) — set ONE key heading or
+  one-line statement over a solid **brand-teal highlight block** behind the
+  text, like a highlighter swipe (ref: the "Lorem Ipsum" yellow-marker look, but
+  in HWC teal, not yellow). One punch line per post, max.
+- **Semi-transparent rounded elements are the house look** (Igor likes them):
+  soft translucent rounded panels / colour shapes in brand colour. Prefer these
+  over hard opaque boxes. The slide-4 translucent panels are the reference.
+- **Photo-in-photo — SOFT & INTEGRATED, not a stuck-on box** (Igor's slide-3
+  edit is the target; my hard purple-bordered inset is the ANTI-pattern):
+  - rounded corners, NO hard/bright border — at most a very soft edge or subtle
+    shadow, or slight transparency so it sits INTO the composition;
+  - place it at the EDGE — overlapping the text panel's top edge or tucked in a
+    corner — integrated, never floating dead-center;
+  - one inset only; showing the concrete thing the slide names (device macro,
+    organ render). Prefer a **stock macro** for the inset (helps the ~60/40 mix).
+- **Edge-placed 3D cutout** (Igor added the coral to slide 4 — "это тоже
+  логика"): a context-relevant 3D object/cutout (organ, molecule, coral, device)
+  bled into a **border/corner of the slide, NEVER over the text**. Enriches
+  context and depth without a framed box. Keep it to the edges.
+
+**Inset / element anti-patterns:** hard bright borders, an inset floating in
+dead-center over nothing, any element covering the text. Elements live at the
+edges and read as part of the scene.
 
 Ideas bank to keep exploring (Igor, "подумай что ещё"): a boxed "Fig." caption
 under an inset, a two-column split (photo left / text right), an accent colour
