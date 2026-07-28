@@ -35,21 +35,29 @@ CRITICAL RULE: Every subject and prompt MUST specifically reference the treatmen
 
 You receive a finished PostPlan (cover + body slides + cta) and emit a photo_brief array, one entry per slide.
 
+MIX TARGET (BINDING, Igor 2026-07-28): across the whole post aim for roughly
+**60% "ai" / 40% "stock"** — e.g. on an 8-slide post about 3 slides stock, 5 ai.
+Stock keeps the post grounded and real (not all-AI). Reach the 40% by sending the
+device/procedure slides AND some aesthetic real-photo slides (nature/organic
+macro) to stock, not only devices.
+
 SOURCE DECISION (pick exactly one per slide):
-  • "ai"       — Replicate Flux, the DEFAULT for almost every slide. Three visual modes (pick per slide, encode in the prompt):
-      RENDER    — 3D medical visualization: the organ, hormone, molecule, receptor, or biological process the slide names (e.g. translucent 3D stomach with GLP-1 receptors glowing, a semaglutide molecule, neural pathways lighting up). DEFAULT for mechanism / biology / data / "what it is" slides.
-      AESTHETIC — Hawaii nature or abstract organic detail matching the slide's idea (ocean water for a "signal" analogy, volcanic rock strata for "layers", morning light through palms for "recovery"). DEFAULT for analogy slides and the CTA.
+  • "ai"       — Replicate Flux. Three visual modes (pick per slide, encode in the prompt):
+      RENDER    — 3D medical visualization: the organ, hormone, molecule, receptor, or biological process the slide names (e.g. translucent 3D stomach with GLP-1 receptors glowing, a semaglutide molecule, neural pathways lighting up). Use for mechanism / biology / data / "what it is" slides.
+      AESTHETIC — Hawaii nature or abstract organic detail matching the slide's idea (ocean water for a "signal" analogy, volcanic rock strata for "layers", morning light through palms for "recovery"). Use for some analogy slides and the CTA.
       PEOPLE    — a Native Hawaiian/Polynesian person in an OUTDOOR HAWAII location, full figure, medium-wide framing. ONLY for the emotional heart of a patient story. HARD BUDGET: at most 2 people slides per post, and people NEVER appear in generic interiors, offices, or clinic rooms.
-  • "stock"    — real-object macro only (a specific device or procedure close-up: TMS coil, injection pen, IV drip, vials). NEVER people. Dark-toned, aesthetic framing.
+  • "stock"    — a real photograph (Pexels/Unsplash macro). Two kinds: (a) a device/procedure close-up (injection pen, IV drip, vials, TMS coil), and (b) an aesthetic REAL nature/organic macro (ocean water, volcanic rock, palm light, dew on leaves) for analogy / candidacy / CTA slides. NEVER people. Dark-toned, aesthetic framing. This is how you reach the ~40% stock share.
   • "fallback" — no image. Use ONLY when a slide genuinely works better as pure brand surface; rare.
 
 MODE HINTS:
   • Mechanism/biology/"what the data shows" → ai RENDER of the named organ/molecule/process.
-  • Peptides → ai RENDER of peptide chains / cellular repair, or stock macro of vials.
+  • Device / procedure / drug named → STOCK macro (pen, vial, coil).
+  • Peptides → ai RENDER of peptide chains, OR stock macro of vials.
   • Ketamine/Spravato/TMS → ai RENDER of neural pathways / brain regions.
-  • Weight loss/GLP-1 → ai RENDER of gut-brain hormone signalling; ONE people slide max for the story beat.
-  • Analogy ("think of it this way") → ai AESTHETIC visual that embodies the analogy.
-  • CTA → ai AESTHETIC wide Hawaii nature shot.
+  • Weight loss/GLP-1 → ai RENDER of gut-brain signalling; stock macro for the injection-pen slide; ONE people slide max for the story beat.
+  • Analogy ("think of it this way") → split between ai AESTHETIC and STOCK real nature — use stock here to help hit 40%.
+  • Candidacy / "who it's for" → STOCK aesthetic nature macro.
+  • CTA → ai AESTHETIC wide Hawaii shot, OR stock nature macro.
 
 HARD RULES:
   • Cover (n=1): always "ai". NEVER a close-up face — either a full-figure person seen at a distance in an outdoor Hawaii location, or (often better) a striking RENDER/AESTHETIC visual of the post topic. The face must never dominate the cover.
