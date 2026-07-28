@@ -6,6 +6,8 @@
 // a meaningful storyline ("Writer is drafting…") instead of cryptic
 // internal names.
 
+import { SparkleSpinner } from '@/app/components/ui/icons'
+
 export type ProgressStage = 'writer' | 'critic' | 'caption' | 'compliance' | 'splitter' | 'save'
 
 export interface ProgressStep {
@@ -91,8 +93,8 @@ export function GenerateProgress({ state }: { state: ProgressState }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50/40 p-5">
       <div className="flex items-baseline justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
-          Generating post
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+          <SparkleSpinner size={14} /> Generating post
         </p>
         <span className="font-mono text-[11px] text-neutral-500">
           {(state.elapsedMs / 1000).toFixed(1)}s

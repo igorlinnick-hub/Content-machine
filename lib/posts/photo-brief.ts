@@ -151,8 +151,71 @@ export async function generatePhotoBriefs(params: {
     })
   )
 
-  return normalized
+  return balanceAiStock(normalized)
 }
+
+// Deterministic 60/40 AI/stock balance (Igor 2026-07-28). The LLM ignores a
+// soft "aim for 40% stock" instruction, so enforce it in code: if too few
+// slides are stock, convert the most stock-appropriate AI slides (aesthetic
+// nature / device-macro, NEVER the cover, people, or 3D renders) into stock.
+function balanceAiStock(briefs: PostPlanPhotoBrief[]): PostPlanPhotoBrief[] {
+  const total = briefs.length
+  if (total < 4) return briefs
+  const targetStock = Math.round(total * 0.4)
+  const stockNow = briefs.filter((b) => b.source === 'stock').length
+  if (stockNow >= targetStock) return briefs
+
+  // A slide is safe to flip to stock when it is AI, not the cover (n=1), not a
+  // 3D render (keep those premium AI), and not a person shot. We detect render
+  // / people by the style line baked into the prompt.
+  const isRender = (p: string | null) =>
+    !!p && p.includes('Premium 3D medical render')
+  const isPeople = (p: string | null) =>
+    !!p && p.includes('face NOT close to camera')
+  const flippable = briefs.filter(
+    (b) => b.source === 'ai' && b.n !== 1 && !isRender(b.prompt) && !isPeople(b.prompt)
+  )
+  // Prefer flipping the LATER slides (candidacy / CTA / analogy) first.
+  flippable.sort((a, b) => b.n - a.n)
+
+  let need = targetStock - stockNow
+  const flipIds = new Set<number>()
+  for (const b of flippable) {
+    if (need <= 0) break
+    flipIds.add(b.n)
+    need--
+  }
+  return briefs.map((b) =>
+    flipIds.has(b.n)
+      ? {
+          ...b,
+          source: 'stock' as const,
+          prompt: null,
+          keywords:
+            b.keywords && b.keywords.length
+              ? b.keywords
+              : deriveStockKeywords(b.subject),
+        }
+      : b
+  )
+}
+
+// Cheap keyword derivation from a subject line for a stock lookup.
+function deriveStockKeywords(subject: string): string[] {
+  const base = subject
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !STOP.has(w))
+    .slice(0, 4)
+  const phrase = base.join(' ').trim()
+  return phrase ? [phrase, 'aesthetic macro dark teal', 'hawaii nature macro'] : ['aesthetic nature macro dark teal']
+}
+
+const STOP = new Set([
+  'the', 'and', 'with', 'that', 'this', 'your', 'from', 'what', 'when', 'slide',
+  'aesthetic', 'visual', 'backdrop', 'wellness', 'abstract',
+])
 
 function normaliseBrief(
   raw: Partial<PostPlanPhotoBrief> | undefined,

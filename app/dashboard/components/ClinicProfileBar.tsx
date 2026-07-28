@@ -7,7 +7,7 @@ interface Props {
   services: string[]
 }
 
-export function ClinicProfileBar({ clinicId, clinicName, doctorName, services }: Props) {
+export function ClinicProfileBar({ clinicId, clinicName, doctorName }: Props) {
   return (
     <div
       className="flex items-center justify-between gap-4 rounded-2xl px-5 py-3.5"
@@ -38,14 +38,6 @@ export function ClinicProfileBar({ clinicId, clinicName, doctorName, services }:
             <p className="truncate text-[11px] text-neutral-400">Dr. {doctorName}</p>
           )}
         </div>
-        {services.slice(0, 2).map((s) => (
-          <span
-            key={s}
-            className="hidden shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-sky-600 sm:inline-block"
-          >
-            {s}
-          </span>
-        ))}
       </div>
 
       {/* Edit clinic settings */}

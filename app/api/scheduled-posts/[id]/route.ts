@@ -39,6 +39,16 @@ export async function PATCH(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // We have no Buffer update mutation wired: if this post was already sent,
+  // the Buffer copy still holds the old content. Say so instead of pretending.
+  const sentChannels = Object.keys((data as { buffer_ids?: Record<string, string> }).buffer_ids ?? {})
+  if (sentChannels.length > 0) {
+    return NextResponse.json({
+      ...data,
+      buffer_warning: `Already sent to Buffer (${sentChannels.join(', ')}) — edits here do NOT update the Buffer copy. Delete and re-schedule to change what publishes.`,
+    })
+  }
   return NextResponse.json(data)
 }
 
