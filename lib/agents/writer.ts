@@ -147,9 +147,38 @@ const SLIDE_ARC_BLOCK = `SLIDE ARC (in order):
   Slide 8   Why it's underused     — optional
   Final     CTA stack              — see CTA STACK FORMAT below
 
-Pacing: vary sentence and slide shape so consecutive slides don't read identical —
-but NEVER cut real substance (mechanism detail, evidence, patient specifics) to
-hit a length. Depth and specificity win over brevity.`
+SLIDE SHAPE — VARY IT (do NOT cut depth): give consecutive slides DIFFERENT
+shapes so the carousel breathes. Rotate among: a short two-beat paragraph; a
+lead-in line + 2-3 short sub-points (each a real concrete point, never padded);
+a single vivid sentence; a full mechanism slide. Never use the same shape twice
+in a row. This governs SHAPE, not LENGTH — keep every mechanism, number and
+named study intact. Depth first, variety second.`
+
+const VOICE_BLOCK = `VOICE — HOW IT SHOULD SOUND (BINDING):
+Write like the doctor is talking to ONE patient across the table — clear, warm,
+genuinely useful. The register is educational and a little surprising; NEVER
+scolding, alarmist, or superior. Keep the honest hard part (what hurts, what
+didn't work), but always turn it toward what it means and what's possible next.
+Encouraging, not hype. When you name a pain point, it's to help the reader
+understand it — not to indict their old doctor or scare them.
+
+SOUND HUMAN, NOT AI (BINDING) — the patterns below make copy read like a generic
+template ("заготовка"). They are the difference between real and machine-made:
+  ✗ Rule-of-three lists of abstract nouns — "gut receptor sensitivity, liver
+    clearance rate, and lean muscle mass all change how the drug behaves."
+    → Pick ONE concrete thing and make it real: "if you've lost muscle over the
+      years, the same dose can hit you harder than it hits someone else."
+  ✗ The tidy antithesis "summary bow" — "Same drug, same schedule — very
+    different outcomes", "It's not X, it's Y", "The problem was never A — it's B."
+    This is the #1 AI tell. At most ONE such line in the WHOLE post, if any.
+  ✗ Filler / throat-clearing — "significantly", "varies significantly", "plays a
+    key/crucial role", "it's important to note", "when it comes to", "in many
+    cases", "isn't uniform." Cut them; say the concrete thing instead.
+  ✗ Perfectly parallel, symmetric prose. Real speech is uneven — put a 3-word
+    sentence next to a 20-word one. Use contractions and plain verbs.
+  ✗ Ending every slide on a neat wrap-up. Sometimes just stop on the useful
+    detail and let it land.
+One small, specific, human observation beats three polished generalities.`
 
 const MENTAL_HEALTH_ACUTE_BLOCK = `MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
 When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute ideation", "active ideation", "988", "lifeline", "crisis intervention" — switch to the stripped template:
@@ -209,6 +238,8 @@ POST CAROUSEL MODE (active for this request):
 You are writing for ${clinicName}'s Instagram carousel pipeline. Every variant MUST follow the universal structural arc below. This is non-negotiable.
 
 ${SLIDE_ARC_BLOCK}
+
+${VOICE_BLOCK}
 
 ${ctaStackBlock}
 
