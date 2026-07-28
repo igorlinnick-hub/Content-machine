@@ -35,21 +35,29 @@ CRITICAL RULE: Every subject and prompt MUST specifically reference the treatmen
 
 You receive a finished PostPlan (cover + body slides + cta) and emit a photo_brief array, one entry per slide.
 
+MIX TARGET (BINDING, Igor 2026-07-28): across the whole post aim for roughly
+**60% "ai" / 40% "stock"** — e.g. on an 8-slide post about 3 slides stock, 5 ai.
+Stock keeps the post grounded and real (not all-AI). Reach the 40% by sending the
+device/procedure slides AND some aesthetic real-photo slides (nature/organic
+macro) to stock, not only devices.
+
 SOURCE DECISION (pick exactly one per slide):
-  • "ai"       — Replicate Flux, the DEFAULT for almost every slide. Three visual modes (pick per slide, encode in the prompt):
-      RENDER    — 3D medical visualization: the organ, hormone, molecule, receptor, or biological process the slide names (e.g. translucent 3D stomach with GLP-1 receptors glowing, a semaglutide molecule, neural pathways lighting up). DEFAULT for mechanism / biology / data / "what it is" slides.
-      AESTHETIC — Hawaii nature or abstract organic detail matching the slide's idea (ocean water for a "signal" analogy, volcanic rock strata for "layers", morning light through palms for "recovery"). DEFAULT for analogy slides and the CTA.
+  • "ai"       — Replicate Flux. Three visual modes (pick per slide, encode in the prompt):
+      RENDER    — 3D medical visualization: the organ, hormone, molecule, receptor, or biological process the slide names (e.g. translucent 3D stomach with GLP-1 receptors glowing, a semaglutide molecule, neural pathways lighting up). Use for mechanism / biology / data / "what it is" slides.
+      AESTHETIC — Hawaii nature or abstract organic detail matching the slide's idea (ocean water for a "signal" analogy, volcanic rock strata for "layers", morning light through palms for "recovery"). Use for some analogy slides and the CTA.
       PEOPLE    — a Native Hawaiian/Polynesian person in an OUTDOOR HAWAII location, full figure, medium-wide framing. ONLY for the emotional heart of a patient story. HARD BUDGET: at most 2 people slides per post, and people NEVER appear in generic interiors, offices, or clinic rooms.
-  • "stock"    — real-object macro only (a specific device or procedure close-up: TMS coil, injection pen, IV drip, vials). NEVER people. Dark-toned, aesthetic framing.
+  • "stock"    — a real photograph (Pexels/Unsplash macro). Two kinds: (a) a device/procedure close-up (injection pen, IV drip, vials, TMS coil), and (b) an aesthetic REAL nature/organic macro (ocean water, volcanic rock, palm light, dew on leaves) for analogy / candidacy / CTA slides. NEVER people. Dark-toned, aesthetic framing. This is how you reach the ~40% stock share.
   • "fallback" — no image. Use ONLY when a slide genuinely works better as pure brand surface; rare.
 
 MODE HINTS:
   • Mechanism/biology/"what the data shows" → ai RENDER of the named organ/molecule/process.
-  • Peptides → ai RENDER of peptide chains / cellular repair, or stock macro of vials.
+  • Device / procedure / drug named → STOCK macro (pen, vial, coil).
+  • Peptides → ai RENDER of peptide chains, OR stock macro of vials.
   • Ketamine/Spravato/TMS → ai RENDER of neural pathways / brain regions.
-  • Weight loss/GLP-1 → ai RENDER of gut-brain hormone signalling; ONE people slide max for the story beat.
-  • Analogy ("think of it this way") → ai AESTHETIC visual that embodies the analogy.
-  • CTA → ai AESTHETIC wide Hawaii nature shot.
+  • Weight loss/GLP-1 → ai RENDER of gut-brain signalling; stock macro for the injection-pen slide; ONE people slide max for the story beat.
+  • Analogy ("think of it this way") → split between ai AESTHETIC and STOCK real nature — use stock here to help hit 40%.
+  • Candidacy / "who it's for" → STOCK aesthetic nature macro.
+  • CTA → ai AESTHETIC wide Hawaii shot, OR stock nature macro.
 
 HARD RULES:
   • Cover (n=1): always "ai". NEVER a close-up face — either a full-figure person seen at a distance in an outdoor Hawaii location, or (often better) a striking RENDER/AESTHETIC visual of the post topic. The face must never dominate the cover.
@@ -143,8 +151,71 @@ export async function generatePhotoBriefs(params: {
     })
   )
 
-  return normalized
+  return balanceAiStock(normalized)
 }
+
+// Deterministic 60/40 AI/stock balance (Igor 2026-07-28). The LLM ignores a
+// soft "aim for 40% stock" instruction, so enforce it in code: if too few
+// slides are stock, convert the most stock-appropriate AI slides (aesthetic
+// nature / device-macro, NEVER the cover, people, or 3D renders) into stock.
+function balanceAiStock(briefs: PostPlanPhotoBrief[]): PostPlanPhotoBrief[] {
+  const total = briefs.length
+  if (total < 4) return briefs
+  const targetStock = Math.round(total * 0.4)
+  const stockNow = briefs.filter((b) => b.source === 'stock').length
+  if (stockNow >= targetStock) return briefs
+
+  // A slide is safe to flip to stock when it is AI, not the cover (n=1), not a
+  // 3D render (keep those premium AI), and not a person shot. We detect render
+  // / people by the style line baked into the prompt.
+  const isRender = (p: string | null) =>
+    !!p && p.includes('Premium 3D medical render')
+  const isPeople = (p: string | null) =>
+    !!p && p.includes('face NOT close to camera')
+  const flippable = briefs.filter(
+    (b) => b.source === 'ai' && b.n !== 1 && !isRender(b.prompt) && !isPeople(b.prompt)
+  )
+  // Prefer flipping the LATER slides (candidacy / CTA / analogy) first.
+  flippable.sort((a, b) => b.n - a.n)
+
+  let need = targetStock - stockNow
+  const flipIds = new Set<number>()
+  for (const b of flippable) {
+    if (need <= 0) break
+    flipIds.add(b.n)
+    need--
+  }
+  return briefs.map((b) =>
+    flipIds.has(b.n)
+      ? {
+          ...b,
+          source: 'stock' as const,
+          prompt: null,
+          keywords:
+            b.keywords && b.keywords.length
+              ? b.keywords
+              : deriveStockKeywords(b.subject),
+        }
+      : b
+  )
+}
+
+// Cheap keyword derivation from a subject line for a stock lookup.
+function deriveStockKeywords(subject: string): string[] {
+  const base = subject
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !STOP.has(w))
+    .slice(0, 4)
+  const phrase = base.join(' ').trim()
+  return phrase ? [phrase, 'aesthetic macro dark teal', 'hawaii nature macro'] : ['aesthetic nature macro dark teal']
+}
+
+const STOP = new Set([
+  'the', 'and', 'with', 'that', 'this', 'your', 'from', 'what', 'when', 'slide',
+  'aesthetic', 'visual', 'backdrop', 'wellness', 'abstract',
+])
 
 function normaliseBrief(
   raw: Partial<PostPlanPhotoBrief> | undefined,
