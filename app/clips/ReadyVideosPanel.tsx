@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ClipRow } from '@/lib/clips/store'
 
 // Ready videos (HANDOFF §22.2): every processed clip, watchable
@@ -32,9 +33,23 @@ function folderUrl(folderId: string): string {
 }
 
 export default function ReadyVideosPanel({ clips }: { clips: ClipRow[] }) {
+  const router = useRouter()
   const firstReady = clips.find((c) => c.status === 'cleaned' && c.cleaned_file_id)
   const [selectedId, setSelectedId] = useState<string | null>(firstReady?.id ?? null)
+  const [removing, setRemoving] = useState<string | null>(null)
   const selected = clips.find((c) => c.id === selectedId) ?? null
+
+  async function removeClipRow(clip: ClipRow) {
+    if (removing) return
+    if (!window.confirm('Remove this entry from the list?')) return
+    setRemoving(clip.id)
+    try {
+      const res = await fetch(`/api/clips/${clip.id}`, { method: 'DELETE' })
+      if (res.ok) router.refresh()
+    } finally {
+      setRemoving(null)
+    }
+  }
 
   if (clips.length === 0) {
     return (
@@ -86,6 +101,21 @@ export default function ReadyVideosPanel({ clips }: { clips: ClipRow[] }) {
                   >
                     {clip.status}
                   </span>
+                  {clip.status !== 'cleaned' ? (
+                    <button
+                      type="button"
+                      className="shrink-0 rounded p-0.5 text-neutral-300 hover:bg-rose-50 hover:text-rose-500"
+                      title="Remove from list"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeClipRow(clip)
+                      }}
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  ) : null}
                 </div>
                 <div className="mt-0.5 text-xs text-neutral-400">
                   {new Date(clip.created_at).toLocaleDateString('en-US', {

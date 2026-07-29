@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { waitUntil } from '@vercel/functions'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
 import { copyFileToInbox, readClipsEnv } from '@/lib/clips/drive'
@@ -73,14 +74,20 @@ export async function POST(req: Request) {
       recording.drive_file_id as string,
       inboxId
     )
-    const result = await processClip({ clinicId, inboxClip, folders })
-    // Web-push ping too — the doctor may have left the page while
-    // the pipeline ran. Best-effort.
-    await notifyClipCleaned({
-      clinicId,
-      clipName: inboxClip.name,
-      result,
-    })
+    // waitUntil keeps the pipeline alive even if the admin closes or
+    // refreshes the page mid-run — without it Vercel killed the
+    // invocation and the clip row hung in 'processing' forever.
+    const work = (async () => {
+      const result = await processClip({ clinicId, inboxClip, folders })
+      await notifyClipCleaned({
+        clinicId,
+        clipName: inboxClip.name,
+        result,
+      })
+      return result
+    })()
+    waitUntil(work.catch(() => {}))
+    const result = await work
     return NextResponse.json({ ok: true, clip: result })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'processing failed'
