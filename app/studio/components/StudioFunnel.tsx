@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { RoleBlock } from '@/types'
 import { RoleScript } from './RoleScript'
+import { Sparkle, SparkleSpinner } from '@/app/components/ui/icons'
 
 type Status = 'candidate' | 'liked' | 'shotlist' | 'rejected'
 type Tab = 'discover' | 'liked' | 'shotlist' | 'trash'
@@ -403,7 +404,7 @@ export function StudioFunnel({
                       disabled={busy[card.id]}
                       className="cm-btn cm-btn-primary flex-1 text-xs"
                     >
-                      ⭐ Add to Shot List
+                      <Sparkle size={15} twin /> Add to Shot List
                     </button>
                   ) : (
                     <span className="flex-1 text-center text-[11px] text-neutral-400">
@@ -499,12 +500,12 @@ export function StudioFunnel({
                     className="cm-btn cm-btn-primary w-full text-xs"
                   >
                     {busy[card.id]
-                      ? 'Thinking…'
+                      ? <><SparkleSpinner size={14} /> Thinking…</>
                       : card.idea
                         ? tweaks[card.id]?.trim()
-                          ? '✨ Redo with this'
-                          : '✨ Regenerate idea'
-                        : '✨ Generate idea'}
+                          ? <><Sparkle size={15} twin /> Redo with this</>
+                          : <><Sparkle size={15} twin /> Regenerate idea</>
+                        : <><Sparkle size={15} twin /> Generate idea</>}
                   </button>
 
                   <div className="rounded-xl bg-neutral-50 p-3">

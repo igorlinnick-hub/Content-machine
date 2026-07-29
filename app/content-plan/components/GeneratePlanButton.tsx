@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Sparkle, SparkleSpinner } from '@/app/components/ui/icons'
 
 interface Props {
   clinicId: string
@@ -54,9 +55,7 @@ function PlanningAnimation() {
         <div className="relative flex h-10 w-10 shrink-0 items-center justify-center">
           <span className="absolute inset-0 animate-ping rounded-full bg-violet-400 opacity-20" />
           <span className="absolute inset-1 animate-pulse rounded-full bg-violet-200 opacity-40" />
-          <svg className="relative h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-          </svg>
+          <SparkleSpinner size={20} className="relative text-violet-600" />
         </div>
         <div>
           <p className="text-[13px] font-semibold text-neutral-800">
@@ -202,7 +201,7 @@ export function GeneratePlanButton({ clinicId, initialStatus }: Props) {
         onClick={handleGenerate}
         className="shrink-0 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700"
       >
-        ✨ Generate plan with AI
+        <Sparkle size={15} twin /> Generate plan with AI
       </button>
       {error && (
         <p className="text-[11px] text-red-500">{error}</p>

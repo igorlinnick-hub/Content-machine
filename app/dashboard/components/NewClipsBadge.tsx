@@ -47,7 +47,14 @@ export default function NewClipsBadge({ clinicId }: { clinicId: string }) {
 
   if (count === 0) return null
   return (
-    <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-bold text-rose-600"
+      style={{
+        background: 'rgba(244,63,94,0.14)',
+        border: '1px solid rgba(244,63,94,0.32)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.4)',
+      }}
+    >
       {count} new
     </span>
   )

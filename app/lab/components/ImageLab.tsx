@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { SparkleSpinner } from '@/app/components/ui/icons'
 
 interface ImageLabProps {
   clinicId: string
@@ -126,7 +127,7 @@ export function ImageLab({
             disabled={busy || !prompt.trim()}
             className="cm-btn cm-btn-primary text-sm"
           >
-            {busy ? 'Generating…' : `Generate ${num > 1 ? `×${num}` : ''}`}
+            {busy ? <><SparkleSpinner size={14} /> Generating…</> : `Generate ${num > 1 ? `×${num}` : ''}`}
           </button>
         </div>
 
