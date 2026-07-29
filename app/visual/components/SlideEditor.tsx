@@ -1,6 +1,9 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
+import { useState } from 'react'
+import { Sparkle, SparkleSpinner } from '@/app/components/ui/icons'
+
 export type SlideKind = 'cover' | 'body' | 'cta'
 
 export interface UISlide {
@@ -10,12 +13,25 @@ export interface UISlide {
   subtext?: string | null
 }
 
+// Result of a per-slide regenerate. The parent owns the fetch (it holds
+// slideSetId + drafts); the editor only drives the little UI around it.
+export interface RegenResult {
+  ok: boolean
+  warning?: string | null
+  error?: string
+}
+
 interface Props {
   slideSetId: string
   index: number
   slide: UISlide
   preview: string | null
   onSlideChange: (next: UISlide) => void
+  // Regenerate THIS slide's text via the writer. Empty instruction =
+  // a fresh rewrite with the same meaning; a note steers the rewrite
+  // ("shorter", "add the stat", "warmer"). Returns ok/warning/error so
+  // the editor can surface exactly what happened — never silent.
+  onRegenerate?: (instruction: string) => Promise<RegenResult>
   // Opens the PhotoPicker modal in the parent. Only fired for body/cta
   // slides — the classic cover layout doesn't render a photo. Parent
   // owns the modal lifecycle (knows the drive folder + current
@@ -23,17 +39,118 @@ interface Props {
   onChangePhoto?: () => void
 }
 
-export function SlideEditor({ index, slide, preview, onSlideChange }: Props) {
+export function SlideEditor({ index, slide, preview, onSlideChange, onRegenerate }: Props) {
   const kindLabel =
     slide.kind === 'cover' ? 'Cover' : slide.kind === 'cta' ? 'CTA' : 'Body'
 
+  // Regenerate UI state — local to this slide card.
+  const [guideOpen, setGuideOpen] = useState(false)
+  const [instruction, setInstruction] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [warning, setWarning] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  async function regen(note: string) {
+    if (!onRegenerate || busy) return
+    setBusy(true)
+    setWarning(null)
+    setError(null)
+    const res = await onRegenerate(note)
+    setBusy(false)
+    if (!res.ok) {
+      setError(res.error ?? 'Regenerate failed')
+      return
+    }
+    setWarning(res.warning ?? null)
+    setGuideOpen(false)
+    setInstruction('')
+  }
+
   return (
     <li className="cm-card overflow-hidden p-3">
-      <div className="mb-2 text-xs text-neutral-500">
-        <span className="font-semibold uppercase tracking-wider">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
           Slide {index + 1} · {kindLabel}
         </span>
+
+        {/* Regenerate toolbar — the button lives above every slide.
+            While rewriting: just the sparkle animation, nothing else. */}
+        {onRegenerate && (
+          busy ? (
+            <SparkleSpinner size={15} className="text-sky-500" />
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => regen('')}
+                className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-semibold text-sky-700 transition hover:border-sky-300 hover:bg-sky-100"
+                title="Rewrite this slide's text with a fresh take"
+              >
+                <Sparkle size={12} twin /> Regenerate
+              </button>
+              <button
+                type="button"
+                onClick={() => setGuideOpen((v) => !v)}
+                className={`rounded-full px-2 py-1 text-[11px] font-medium transition ${
+                  guideOpen
+                    ? 'bg-neutral-200 text-neutral-700'
+                    : 'text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600'
+                }`}
+                title="Guide the rewrite with a note"
+              >
+                Guide
+              </button>
+            </div>
+          )
+        )}
       </div>
+
+      {/* Optional instruction box */}
+      {guideOpen && !busy && (
+        <div className="mb-2 flex flex-col gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-2.5">
+          <input
+            type="text"
+            value={instruction}
+            onChange={(e) => setInstruction(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); regen(instruction) }
+            }}
+            autoFocus
+            placeholder="How should it change? e.g. shorter · punchier · add the stat"
+            className="cm-input text-sm"
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => regen(instruction)}
+              className="inline-flex items-center gap-1 rounded-md bg-sky-500 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-sky-600"
+            >
+              <Sparkle size={12} /> Regenerate with note
+            </button>
+            <button
+              type="button"
+              onClick={() => { setGuideOpen(false); setInstruction('') }}
+              className="rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 hover:bg-neutral-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Regenerate feedback — warning (rewrite happened but agent
+          overrode the note) or a hard error. Never silent. */}
+      {warning && (
+        <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] text-amber-800">
+          {warning}
+        </div>
+      )}
+      {error && (
+        <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[11px] text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px]">
         <div className="flex flex-col gap-2">
           <label className="flex flex-col gap-1">

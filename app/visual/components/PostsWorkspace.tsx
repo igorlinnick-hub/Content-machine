@@ -13,8 +13,9 @@ import {
   applyStageEvent,
   emptyProgressState,
 } from './GenerateProgress'
-import { type StructuredPlanWeek, pillarColor } from '@/lib/content-plan/store'
+import { type StructuredPlanWeek } from '@/lib/content-plan/store'
 import { ScheduleModal } from '@/app/components/ScheduleModal'
+import { Sparkle, SparkleSpinner } from '@/app/components/ui/icons'
 
 interface Props {
   clinicId: string
@@ -225,6 +226,9 @@ export function PostsWorkspace({
   )
   const [rerollingTopicId, setRerollingTopicId] = useState<string | null>(null)
   const [addingTopic, setAddingTopic] = useState(false)
+  // Autonomy-first: the form always opens on a ready-to-generate plan
+  // topic. `manualMode` is the escape hatch — the "Blank post" custom form.
+  const [manualMode, setManualMode] = useState(false)
 
   // Re-sync the chips whenever the marketer flips to another week.
   useEffect(() => {
@@ -233,6 +237,41 @@ export function PostsWorkspace({
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekIdx])
+
+  // Index of the currently-loaded plan topic within this week's queue.
+  const plannedIdx = weekPosts.findIndex((p) => p.id === plannedPost?.id)
+
+  function selectPlanTopic(post: StructuredPlanWeek['posts'][number]) {
+    if (!currentWeek) return
+    setManualMode(false)
+    setPlannedPost({
+      id: post.id,
+      topic: post.topic,
+      keyword: post.keyword,
+      week_number: currentWeek.week_number,
+      pillar: currentWeek.pillar,
+    })
+    setTopic(post.topic)
+    // Auto-fill the starting note with the week's angle so the marketer
+    // has orientation instead of a blank box. Editable / clearable.
+    setNote(currentWeek.description ?? '')
+  }
+
+  function cyclePlanTopic(dir: 1 | -1) {
+    if (!weekPosts.length) return
+    const base = plannedIdx < 0 ? 0 : plannedIdx
+    const nextIdx = (base + dir + weekPosts.length) % weekPosts.length
+    selectPlanTopic(weekPosts[nextIdx])
+  }
+
+  // Auto-load the next ready topic whenever the selection is empty or stale
+  // (first mount, week switch, or right after the current one was generated),
+  // so the marketer never faces an empty form — unless they chose Blank post.
+  useEffect(() => {
+    if (manualMode || !weekPosts.length) return
+    if (!plannedPost || plannedIdx < 0) selectPlanTopic(weekPosts[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekPosts, weekIdx, manualMode])
 
   async function rerollPlanTopic(topicId: string) {
     if (rerollingTopicId || addingTopic) return
@@ -420,6 +459,51 @@ export function PostsWorkspace({
     }
   }
 
+  // Regenerate ONE slide's text via the writer (slide-fixer). The
+  // endpoint reloads the slide set from the DB, rewrites the targeted
+  // slide, and persists it — so we only swap that one slide in both
+  // `drafts` and `detail.slides`, preserving any unsaved edits to the
+  // other slides. Returns a structured result so SlideEditor can show
+  // the warning / error inline (never silent).
+  const DEFAULT_REGEN =
+    'Rewrite this slide with fresh, sharper wording. Keep the same meaning, the same slide kind, and stay compliant — specific and punchy, no vague claims.'
+  async function regenerateSlide(
+    index: number,
+    instruction: string
+  ): Promise<{ ok: boolean; warning?: string | null; error?: string }> {
+    if (!detail) return { ok: false, error: 'No post loaded' }
+    try {
+      const res = await fetch(`/api/posts/${detail.slide_set_id}/slide-refine`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          index,
+          instruction: instruction.trim() || DEFAULT_REGEN,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.slide) {
+        return { ok: false, error: data?.error ?? `HTTP ${res.status}` }
+      }
+      const newSlide = data.slide as UISlide
+      setDrafts((prev) => {
+        const arr = prev.slice()
+        arr[index] = newSlide
+        return arr
+      })
+      // Endpoint already persisted this slide → mirror it into detail so
+      // the dirty check doesn't flag this slide as unsaved.
+      setDetail((d) =>
+        d
+          ? { ...d, slides: d.slides.map((s, i) => (i === index ? newSlide : s)) }
+          : d
+      )
+      return { ok: true, warning: (data.warning as string | null) ?? null }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Regenerate failed' }
+    }
+  }
+
   // Re-fetch post detail. Called by PhotoPicker after a successful
   // pick, and right after generation (the server may have auto-queued
   // the Canva compose — the client's optimistic 'review' would hide it).
@@ -493,9 +577,11 @@ export function PostsWorkspace({
           New post
         </p>
         <div className="mt-3 flex flex-col gap-3">
-          {/* Current week suggestion strip */}
-          {currentWeek && (() => {
-            const color = pillarColor(currentWeek.pillar)
+          {/* Current week — one pre-filled topic at a time (hidden in Blank mode) */}
+          {!manualMode && currentWeek && weekPosts.length > 0 && (() => {
+            // Whole strip (frame + arrows + topic + reroll + Next topic) uses
+            // the sky accent, not the pillar colour — one consistent blue.
+            const color = '#0EA5E9'
             return (
               <div
                 className="flex flex-col gap-2 rounded-xl border p-3"
@@ -535,56 +621,47 @@ export function PostsWorkspace({
                     </button>
                   )}
                   <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
-                  <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {weekPosts.map((post) => {
-                    const isSelected = plannedPost?.id === post.id
-                    const isRerolling = rerollingTopicId === post.id
-                    return (
-                      <div
-                        key={post.id}
-                        className="flex items-center overflow-hidden rounded-lg"
-                        style={{
-                          background: isSelected ? `${color}28` : `${color}14`,
-                          border: `1px solid ${isSelected ? color : `${color}25`}`,
-                          opacity: isRerolling ? 0.6 : 1,
-                        }}
-                      >
-                        <button
-                          type="button"
-                          disabled={generating || isRerolling}
-                          onClick={() => {
-                            setPlannedPost({ id: post.id, topic: post.topic, keyword: post.keyword, week_number: currentWeek.week_number, pillar: currentWeek.pillar })
-                            setTopic(post.topic)
-                          }}
-                          className="px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
-                          style={{ color, fontWeight: isSelected ? 600 : undefined }}
-                        >
-                          {isRerolling ? 'Generating new topic…' : post.topic}
-                        </button>
-                        <button
-                          type="button"
-                          disabled={generating || rerollingTopicId !== null || addingTopic}
-                          onClick={() => rerollPlanTopic(post.id)}
-                          title="Replace this topic with a freshly generated one (same week + theme)"
-                          className="px-1.5 py-1 text-[11px] opacity-50 transition hover:opacity-100 disabled:opacity-30"
-                          style={{ color }}
-                        >
-                          ↻
-                        </button>
-                      </div>
-                    )
-                  })}
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    disabled={generating || addingTopic || rerollingTopicId !== null}
-                    onClick={addPlanTopic}
-                    title="Generate one more topic for this week"
-                    className="rounded-lg border border-dashed px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
-                    style={{ color, borderColor: `${color}55`, background: 'transparent' }}
+                    disabled={generating || rerollingTopicId !== null || weekPosts.length < 2}
+                    onClick={() => cyclePlanTopic(-1)}
+                    title="Previous topic"
+                    className="shrink-0 px-1 text-[15px] leading-none transition hover:opacity-100 disabled:opacity-20"
+                    style={{ color }}
                   >
-                    {addingTopic ? 'Generating…' : '+ Add more'}
+                    ‹
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12.5px] font-semibold" style={{ color }}>
+                      {rerollingTopicId && plannedPost?.id === rerollingTopicId
+                        ? 'Generating new topic…'
+                        : plannedPost?.topic ?? weekPosts[0]?.topic}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={generating || rerollingTopicId !== null || !plannedPost}
+                    onClick={() => plannedPost && rerollPlanTopic(plannedPost.id)}
+                    title="Fresh take on this topic (same week + theme)"
+                    className="shrink-0 px-1.5 py-1 text-[13px] opacity-50 transition hover:opacity-100 disabled:opacity-30"
+                    style={{ color }}
+                  >
+                    ↻
+                  </button>
+                  <button
+                    type="button"
+                    disabled={generating || rerollingTopicId !== null || addingTopic}
+                    onClick={() => {
+                      if (plannedIdx >= weekPosts.length - 1) addPlanTopic()
+                      else cyclePlanTopic(1)
+                    }}
+                    title="Move to the next ready topic (generates a fresh one at the end)"
+                    className="shrink-0 rounded-lg border px-3 py-1 text-[11px] font-semibold transition hover:opacity-80 disabled:opacity-50"
+                    style={{ color, borderColor: `${color}55`, background: `${color}14` }}
+                  >
+                    {addingTopic ? 'Generating…' : 'Next topic ›'}
                   </button>
                 </div>
               </div>
@@ -606,14 +683,6 @@ export function PostsWorkspace({
                 if (e.key === 'Enter' && !generating && (e.metaKey || e.ctrlKey)) generate()
               }}
             />
-            {plannedPost ? (
-              <p className="text-[11px] text-emerald-600">
-                📅 Planned · Week {plannedPost.week_number} · {plannedPost.pillar}
-                {plannedPost.keyword ? ` · keyword "${plannedPost.keyword}"` : ''}
-              </p>
-            ) : topic.trim() ? (
-              <p className="text-[11px] text-neutral-400">✏️ Custom topic — ad-hoc mode</p>
-            ) : null}
           </div>
           <textarea
             value={note}
@@ -922,8 +991,7 @@ export function PostsWorkspace({
                     <button
                       type="button"
                       onClick={() => setScheduleOpen(true)}
-                      className="cm-btn text-sm font-semibold"
-                      style={{ background: '#0EA5E9', color: 'white', border: 'none' }}
+                      className="cm-btn cm-btn-sky text-sm font-semibold"
                     >
                       Schedule
                     </button>
@@ -966,6 +1034,7 @@ export function PostsWorkspace({
                       arr[i] = next
                       setDrafts(arr)
                     }}
+                    onRegenerate={(instruction) => regenerateSlide(i, instruction)}
                     onChangePhoto={
                       slide.kind === 'cover'
                         ? undefined
@@ -1103,7 +1172,7 @@ function ComposeWaitingChip({
         />
         <span className="relative z-10 flex flex-col leading-tight">
           <span key={label} className="cm-fade-swap">
-            🎨 {label}…
+            <SparkleSpinner size={13} className="inline-block align-[-0.125em]" /> {label}…
           </span>
           <span className="text-[10px] font-medium uppercase tracking-wider text-violet-100/90">
             {inStage ? `${elapsedLabel} in this step` : `${elapsedLabel} elapsed`} · est. ~2 min total
@@ -1199,24 +1268,9 @@ function OpenInCanvaButton({
           type="button"
           onClick={handleOpen}
           disabled={opening || composing}
-          className="cm-btn text-sm font-semibold"
-          style={{
-            background: opening
-              ? '#a78bfa'
-              : 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-            color: 'white',
-          }}
+          className="cm-btn cm-btn-violet text-sm font-semibold"
         >
-          {opening ? 'Opening…' : '🎨 Open in Canva ↗'}
-        </button>
-        <button
-          type="button"
-          onClick={() => { setCanvaError(null); onCompose() }}
-          disabled={composing}
-          className="cm-btn cm-btn-ghost text-sm"
-          title="Discard the current visuals and recompose from scratch"
-        >
-          {composing ? 'Re-composing…' : 'Re-compose'}
+          {opening ? <><SparkleSpinner size={14} /> Opening…</> : <><Sparkle size={15} twin /> Open in Canva ↗</>}
         </button>
       </div>
       {canvaError && (
@@ -1253,7 +1307,7 @@ function ComposeInCanvaButton({
         title="Compliance blocked this post — fix the findings first"
         className="cm-btn cm-btn-ghost text-sm opacity-60"
       >
-        🎨 Compose in Canva
+        <Sparkle size={15} twin /> Compose in Canva
       </button>
     )
   }
@@ -1274,15 +1328,9 @@ function ComposeInCanvaButton({
       type="button"
       onClick={onCompose}
       disabled={composing}
-      className="cm-btn text-sm font-semibold"
-      style={{
-        background: composing
-          ? '#a78bfa'
-          : 'linear-gradient(135deg, #7c3aed 0%, #6366f1 100%)',
-        color: 'white',
-      }}
+      className="cm-btn cm-btn-violet text-sm font-semibold"
     >
-      {composing ? 'Queuing…' : '🎨 Compose in Canva'}
+      {composing ? <><SparkleSpinner size={14} /> Queuing…</> : <><Sparkle size={15} twin /> Compose in Canva</>}
     </button>
   )
 }

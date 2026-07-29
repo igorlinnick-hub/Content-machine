@@ -52,6 +52,17 @@ This project is **linked** to the crew-template at `~/Documents/Code Projects/cr
 
 `~/Documents/Code Projects/crew-template/archetypes/content-machine/` — check `improvements.md` (when populated) for known fixes. Right now archetype is at v0.1 alpha with 1 audited instance; the queue grows after next audit.
 
+## Post craft (carousels)
+
+**[docs/POST-CRAFT.md](docs/POST-CRAFT.md) is binding for any carousel work** —
+the craft bible for voice/tone (educational, warm, anti-AI-slop), the
+slide-shape catalog (comparison, research statement, checklist, numbered path,
+analogy+takeaway, pull-quote), spacing rules (blank line between every item —
+no walls), design elements (dividers, `✓`/`①` markers, photo-in-photo, magazine
+treatment, panel-fit), and photo direction (aesthetic-first, ~60/40 AI/stock,
+no close-up-face covers). The writer/splitter own the text rules; the
+`canva-compose-runner` skill owns the layout/design rules.
+
 ## Tech reminders
 
 - **Read [HANDOFF-MODULES.md](HANDOFF-MODULES.md) first** every deep session — per-module current truth. `HANDOFF.md` §15/§16 = historical ledger.

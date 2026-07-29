@@ -267,14 +267,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             href={`/dashboard?clinicId=${clinicId}&tab=input`}
             active={tab === 'input'}
           />
-          {showAdminTools && (
-            <Link
-              href={`/studio?clinicId=${clinicId}`}
-              className="ml-auto rounded-xl px-4 py-1.5 text-sm font-medium text-sky-600 transition hover:bg-white/60"
-            >
-              Studio
-            </Link>
-          )}
         </nav>}
 
         {!isAdminOverview && isDoctor && profileIncomplete && tab === 'generate' && (

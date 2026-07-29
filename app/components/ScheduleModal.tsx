@@ -40,7 +40,15 @@ export interface ScheduleModalProps {
   initialChannels?: ChannelId[]
   initialScheduledAt?: string
   editId?: string          // if set → PATCH mode
+  bufferIds?: Record<string, string>  // edit mode: channels already sent to Buffer
   onSaved?: (post: ScheduledPostRow) => void
+}
+
+export interface ChannelResult {
+  channel: string
+  postId?: string
+  status?: string
+  error?: string
 }
 
 export interface ScheduledPostRow {
@@ -62,7 +70,7 @@ export function ScheduleModal({
   initialCaption = '', initialMediaUrl = '',
   initialChannels = ['instagram', 'facebook'],
   initialScheduledAt = '',
-  editId, onSaved,
+  editId, bufferIds, onSaved,
 }: ScheduleModalProps) {
   const [caption,     setCaption]     = useState(initialCaption)
   const [mediaUrl,    setMediaUrl]    = useState(initialMediaUrl)
@@ -71,6 +79,10 @@ export function ScheduleModal({
   const [loading,     setLoading]     = useState(false)
   const [result,      setResult]      = useState<string | null>(null)
   const [resultOk,    setResultOk]    = useState(false)
+  const [channelResults, setChannelResults] = useState<ChannelResult[] | null>(null)
+  const [warning,     setWarning]     = useState<string | null>(null)
+
+  const alreadySent = Object.keys(bufferIds ?? {})
 
   // Sync props when modal re-opens for a different post
   useEffect(() => {
@@ -80,6 +92,8 @@ export function ScheduleModal({
       setChannels(new Set(initialChannels))
       setScheduledAt(initialScheduledAt)
       setResult(null)
+      setChannelResults(null)
+      setWarning(null)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, slideSetId, editId])
@@ -97,7 +111,7 @@ export function ScheduleModal({
 
   async function submit() {
     if (!caption.trim()) { setResult('Caption required'); setResultOk(false); return }
-    setLoading(true); setResult(null)
+    setLoading(true); setResult(null); setChannelResults(null); setWarning(null)
 
     try {
       const url    = editId ? `/api/scheduled-posts/${editId}` : '/api/scheduled-posts'
@@ -111,15 +125,38 @@ export function ScheduleModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const data = await res.json()
+      const data = await res.json() as ScheduledPostRow & {
+        buffer_results?: ChannelResult[]
+        buffer_warning?: string
+        error?: string
+      }
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
 
-      setResultOk(true)
-      const chLabels = Array.from(channels).map(c => CHANNEL_CONFIG[c].label).join(', ')
-      const sent = Object.keys((data as ScheduledPostRow).buffer_ids ?? {})
-      setResult(sent.length
-        ? `Sent to Buffer: ${sent.join(', ')}`
-        : `Saved as draft · Channels: ${chLabels}`)
+      const results = data.buffer_results ?? []
+      const sentCount   = results.filter(r => r.postId).length
+      const failedCount = results.filter(r => r.error).length
+
+      setChannelResults(results.length ? results : null)
+      if (data.buffer_warning) setWarning(data.buffer_warning)
+
+      if (editId) {
+        setResultOk(true)
+        setResult('Updated')
+      } else if (results.length === 0 || failedCount === 0) {
+        setResultOk(true)
+        setResult(sentCount > 0
+          ? (scheduledAt ? 'Scheduled in Buffer' : 'Draft created in Buffer')
+          : 'Saved as local draft')
+      } else if (sentCount > 0) {
+        setResultOk(true)
+        setResult('Partially sent — some channels failed:')
+      } else {
+        // Every channel failed. The row is saved locally, but nothing will publish.
+        setResultOk(false)
+        setResult(scheduledAt
+          ? 'NOT scheduled — Buffer rejected every channel. Saved locally as failed:'
+          : 'Saved locally, but Buffer rejected every channel:')
+      }
       onSaved?.(data as ScheduledPostRow)
     } catch (e) {
       setResultOk(false)
@@ -153,6 +190,16 @@ export function ScheduleModal({
         </div>
 
         <div className="flex flex-col gap-4">
+          {/* Already-in-Buffer warning (edit mode) */}
+          {alreadySent.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+              <span className="font-semibold">Already sent to Buffer</span>
+              {' '}({alreadySent.map(c => CHANNEL_CONFIG[c as ChannelId]?.label ?? c).join(', ')}).
+              Edits here update only this app — the Buffer copy stays as sent.
+              To change what publishes, remove the post and schedule it again.
+            </div>
+          )}
+
           {/* Caption */}
           <div>
             <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
@@ -230,7 +277,42 @@ export function ScheduleModal({
           {/* Result */}
           {result && (
             <div className={`rounded-xl px-3 py-2 text-[12px] ${resultOk ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-              {result}
+              <p className="font-medium">{result}</p>
+
+              {/* Per-channel Buffer outcome — no silent failures */}
+              {channelResults && channelResults.length > 0 && (
+                <ul className="mt-1.5 flex flex-col gap-1">
+                  {channelResults.map(r => {
+                    const cfg = CHANNEL_CONFIG[r.channel as ChannelId]
+                    return (
+                      <li key={r.channel} className="flex items-start gap-1.5">
+                        <span
+                          className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-white"
+                          style={{ background: cfg?.color ?? '#666' }}
+                        >
+                          {cfg?.icon}
+                        </span>
+                        {r.postId ? (
+                          <span className="text-green-700">
+                            <span className="font-semibold">{cfg?.label ?? r.channel}</span> — sent to Buffer
+                          </span>
+                        ) : (
+                          <span className="text-red-600">
+                            <span className="font-semibold">{cfg?.label ?? r.channel}</span> — {r.error ?? 'failed'}
+                          </span>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* Buffer sync warning (edit of an already-sent post) */}
+          {warning && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+              {warning}
             </div>
           )}
 

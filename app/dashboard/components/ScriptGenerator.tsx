@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
 import { TypingAnimation } from '@/app/components/ui/typing-animation'
+import { SparkleSpinner } from '@/app/components/ui/icons'
 
 import { type StructuredPlanWeek, pillarColor } from '@/lib/content-plan/store'
 
@@ -74,8 +75,8 @@ function ScriptProgress({ state }: { state: ScriptProgressState }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50/40 p-5">
       <div className="flex items-baseline justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
-          Generating scripts
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+          <SparkleSpinner size={14} /> Generating scripts
         </p>
         <span className="font-mono text-[11px] text-neutral-500">
           {(state.elapsedMs / 1000).toFixed(1)}s
@@ -280,7 +281,6 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
                 Week {currentWeek.week_number}
               </span>
               <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
-              <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {currentWeek.posts.map((post) => {
@@ -329,14 +329,6 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
               className="cm-input text-sm"
               disabled={loading}
             />
-            {plannedPost ? (
-              <p className="text-[11px] text-emerald-600">
-                📅 Planned · Week {plannedPost.week_number} · {plannedPost.pillar}
-                {plannedPost.keyword ? ` · keyword "${plannedPost.keyword}"` : ''}
-              </p>
-            ) : topic.trim() ? (
-              <p className="text-[11px] text-neutral-400">✏️ Custom topic — ad-hoc mode</p>
-            ) : null}
           </label>
           <button
             type="button"
@@ -344,7 +336,7 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
             disabled={loading}
             className="cm-btn cm-btn-primary text-base sm:px-7 sm:py-3"
           >
-            {loading ? 'Generating…' : 'Generate 3 variants'}
+            {loading ? <><SparkleSpinner size={16} /> Generating…</> : 'Generate 3 variants'}
           </button>
         </div>
       </div>

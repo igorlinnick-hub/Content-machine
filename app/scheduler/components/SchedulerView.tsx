@@ -4,16 +4,41 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { PILLAR_COLOR, getSchedule, getCurrentPlanWeek, type ScheduledPost } from '@/lib/content-plan'
 import { ScheduleModal, CHANNEL_CONFIG, type ScheduledPostRow, type ChannelId } from '@/app/components/ScheduleModal'
+import { Sparkle } from '@/app/components/ui/icons'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type ViewMode = 'calendar' | 'list'
 
-interface Channel {
-  id: ChannelId
-  name: string
-  handle: string
-  status: 'connected' | 'pending'
+// Mirrors /api/publish/buffer/health response — real connector state,
+// verified against the live Buffer account (never hardcoded).
+interface ChannelHealthInfo {
+  status: 'connected' | 'not_found' | 'unverified' | 'not_configured' | 'disconnected'
+  name?: string
+  username?: string
+  avatar?: string
+  error?: string
+}
+interface BufferHealthInfo {
+  token: 'ok' | 'missing' | 'invalid'
+  verification: 'full' | 'token_only' | 'none'
+  channels: Record<string, ChannelHealthInfo>
+  error?: string
+}
+
+const HEALTH_DOT: Record<ChannelHealthInfo['status'], string> = {
+  connected:      '#22c55e',
+  unverified:     '#f59e0b',
+  not_configured: '#9ca3af',
+  not_found:      '#ef4444',
+  disconnected:   '#ef4444',
+}
+const HEALTH_LABEL: Record<ChannelHealthInfo['status'], string> = {
+  connected:      'Connected',
+  unverified:     'Token OK — channel not verified',
+  not_configured: 'Not connected',
+  not_found:      'Channel ID not in Buffer account',
+  disconnected:   'Buffer disconnected',
 }
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -74,70 +99,102 @@ function fmtTime(iso: string) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-// Buffer-style chip: platform circle + time + tiny thumbnail
-function PostChip({
+// Derived display state: never show "published" unless we actually know it.
+// 'sent' = Buffer accepted the post and its due time has passed.
+function postDisplayState(post: ScheduledPostRow): 'failed' | 'published' | 'sent' | 'scheduled' | 'draft' {
+  if (post.status === 'failed') return 'failed'
+  if (post.status === 'published') return 'published'
+  const inBuffer = Object.keys(post.buffer_ids ?? {}).length > 0
+  const duePassed = post.scheduled_at ? new Date(post.scheduled_at).getTime() < Date.now() : false
+  if (post.status === 'scheduled' && inBuffer && duePassed) return 'sent'
+  if (post.status === 'scheduled') return 'scheduled'
+  return 'draft'
+}
+
+// Buffer-style calendar card: media thumbnail + channel avatars + time + status
+function PostCard({
   post,
   onClick,
 }: {
   post: ScheduledPostRow
   onClick: () => void
 }) {
+  const [imgOk, setImgOk] = useState(true)
   const channels = (post.channels ?? []) as ChannelId[]
-  const firstCh  = channels[0]
-  const cfg      = firstCh ? CHANNEL_CONFIG[firstCh] : null
+  const state = postDisplayState(post)
+
+  const channelIcons = (
+    <div className="flex items-center">
+      {channels.slice(0, 3).map(ch => (
+        <span
+          key={ch}
+          className="-ml-1 first:ml-0 flex h-[18px] w-[18px] items-center justify-center rounded-full text-white shadow ring-2 ring-white"
+          style={{ background: CHANNEL_CONFIG[ch]?.color ?? '#666' }}
+          title={CHANNEL_CONFIG[ch]?.label}
+        >
+          <span className="scale-[0.7]">{ICON_MAP[ch]}</span>
+        </span>
+      ))}
+    </div>
+  )
 
   return (
     <button
       onClick={onClick}
-      className="group flex w-full items-center gap-1.5 overflow-hidden rounded-md px-1.5 py-1 text-left transition hover:brightness-95"
-      style={{ background: cfg ? `${cfg.color}12` : '#f3f4f6', borderLeft: `3px solid ${cfg?.color ?? '#d1d5db'}` }}
+      className={`group w-full overflow-hidden rounded-lg border bg-white text-left shadow-sm transition hover:shadow-md ${
+        state === 'failed' ? 'border-red-300' : 'border-neutral-200 hover:border-neutral-300'
+      }`}
     >
-      {/* Platform icons row */}
-      <div className="flex shrink-0 items-center">
-        {channels.slice(0, 3).map(ch => (
-          <span
-            key={ch}
-            className="-ml-0.5 first:ml-0 flex h-4 w-4 items-center justify-center rounded-full text-white shadow-sm ring-1 ring-white"
-            style={{ background: CHANNEL_CONFIG[ch]?.color ?? '#666', fontSize: 8 }}
-            title={CHANNEL_CONFIG[ch]?.label}
-          >
-            {ICON_MAP[ch]}
-          </span>
-        ))}
+      {post.media_url && imgOk ? (
+        <div className="relative h-16 w-full bg-neutral-100">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.media_url}
+            alt=""
+            onError={() => setImgOk(false)}
+            className={`h-full w-full object-cover ${state === 'draft' ? 'opacity-70' : ''}`}
+          />
+          <div className="absolute bottom-1 left-1.5">{channelIcons}</div>
+          {post.scheduled_at && (
+            <span className="absolute right-1 top-1 rounded bg-black/65 px-1 py-px text-[9px] font-semibold tabular-nums text-white">
+              {fmtTime(post.scheduled_at)}
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-center justify-between px-1.5 pt-1.5">
+          {channelIcons}
+          {post.scheduled_at && (
+            <span className="text-[9px] font-semibold tabular-nums text-neutral-500">
+              {fmtTime(post.scheduled_at)}
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="px-1.5 pb-1.5 pt-1">
+        <p className="truncate text-[10px] font-medium leading-tight text-neutral-700">{post.caption}</p>
+        <p className={`mt-0.5 text-[9px] font-semibold ${
+          state === 'failed'    ? 'text-red-600' :
+          state === 'published' ? 'text-blue-600' :
+          state === 'sent'      ? 'text-green-600' :
+          state === 'scheduled' ? 'text-sky-600' :
+          'text-neutral-400'
+        }`}>
+          {state === 'failed'    && '⚠ Failed — not in Buffer'}
+          {state === 'published' && '✓ Published'}
+          {state === 'sent'      && '✓ Sent via Buffer'}
+          {state === 'scheduled' && 'Scheduled'}
+          {state === 'draft'     && 'Draft'}
+        </p>
       </div>
-
-      {/* Time */}
-      {post.scheduled_at && (
-        <span className="shrink-0 text-[10px] font-semibold tabular-nums" style={{ color: cfg?.color ?? '#374151' }}>
-          {fmtTime(post.scheduled_at)}
-        </span>
-      )}
-
-      {/* Caption preview */}
-      <span className="min-w-0 flex-1 truncate text-[10px] text-neutral-600">
-        {post.caption}
-      </span>
-
-      {/* Thumbnail */}
-      {post.media_url && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={post.media_url}
-          alt=""
-          className="h-6 w-6 shrink-0 rounded object-cover opacity-90"
-        />
-      )}
     </button>
   )
 }
 
 // ── Main SchedulerView component ──────────────────────────────────────────────
 
-const CHANNELS: Channel[] = [
-  { id: 'instagram', name: 'Instagram',  handle: '@hawaiiwellnessclinic', status: 'connected' },
-  { id: 'facebook',  name: 'Facebook',   handle: 'Hawaii Wellness Clinic',  status: 'connected' },
-  { id: 'tiktok',    name: 'TikTok',     handle: '@hawaiiwellnessclinic', status: 'pending' },
-]
+const CHANNEL_IDS: ChannelId[] = ['instagram', 'facebook', 'tiktok']
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -154,6 +211,20 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
   // Real scheduled posts from DB
   const [dbPosts, setDbPosts] = useState<ScheduledPostRow[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
+
+  // Live Buffer connector health — checked against the Buffer API on mount
+  const [health, setHealth] = useState<BufferHealthInfo | null>(null)
+  const [healthLoading, setHealthLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    fetch('/api/publish/buffer/health')
+      .then(r => (r.ok ? (r.json() as Promise<BufferHealthInfo>) : null))
+      .then(h => { if (alive) setHealth(h) })
+      .catch(() => { if (alive) setHealth(null) })
+      .finally(() => { if (alive) setHealthLoading(false) })
+    return () => { alive = false }
+  }, [])
 
   // Schedule modal
   const [modalOpen,    setModalOpen]    = useState(false)
@@ -244,12 +315,19 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
       const exists = prev.find(p => p.id === post.id)
       return exists ? prev.map(p => p.id === post.id ? post : p) : [post, ...prev]
     })
-    setTimeout(() => setModalOpen(false), 1500)
+    // Keep the modal open on failure so the Buffer errors stay visible
+    if (post.status !== 'failed') setTimeout(() => setModalOpen(false), 1500)
   }
 
   async function deletePost(id: string) {
-    if (!confirm('Remove this scheduled post?')) return
-    await fetch(`/api/scheduled-posts/${id}`, { method: 'DELETE' })
+    const post = dbPosts.find(p => p.id === id)
+    const sent = Object.keys(post?.buffer_ids ?? {})
+    const msg = sent.length > 0
+      ? `This post was already sent to Buffer (${sent.join(', ')}).\n\nDeleting it here does NOT remove it from Buffer — it will still publish unless you also delete it inside Buffer.\n\nRemove from this app anyway?`
+      : 'Remove this scheduled post?'
+    if (!confirm(msg)) return
+    const res = await fetch(`/api/scheduled-posts/${id}`, { method: 'DELETE' })
+    if (!res.ok) { alert('Delete failed — post kept.'); return }
     setDbPosts(prev => prev.filter(p => p.id !== id))
   }
 
@@ -302,6 +380,26 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
         </div>
       </header>
 
+      {/* ── Buffer disconnect banner — never fail silently ── */}
+      {health && health.token !== 'ok' && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2">
+          <svg className="h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <p className="text-[12px] font-medium text-red-700">
+            Buffer is not connected ({health.token === 'missing' ? 'BUFFER_TOKEN is not set' : 'token rejected by Buffer'}).
+            Posts will only be saved as local drafts — <span className="font-bold">nothing will publish</span>.
+          </p>
+        </div>
+      )}
+      {health && health.token === 'ok' && health.verification === 'token_only' && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2">
+          <p className="text-[12px] text-amber-700">
+            Buffer token is valid, but channel verification is unavailable — channel IDs could not be checked against the live account.
+          </p>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── Sidebar ── */}
@@ -317,24 +415,42 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
               <span className={`text-[13px] font-medium ${activeChannels.size === 3 ? 'text-sky-600' : 'text-neutral-700'}`}>All Channels</span>
             </button>
 
-            {CHANNELS.map(ch => {
-              const active = activeChannels.has(ch.id)
-              const cfg    = CHANNEL_CONFIG[ch.id]
+            {CHANNEL_IDS.map(id => {
+              const active = activeChannels.has(id)
+              const cfg    = CHANNEL_CONFIG[id]
+              const ch     = health?.channels?.[id]
+              const status = ch?.status
+              const handle = ch?.username ? `@${ch.username}` : ch?.name
+              const line   = healthLoading
+                ? 'Checking…'
+                : status
+                  ? (status === 'connected' && handle ? handle : HEALTH_LABEL[status])
+                  : 'Status unknown'
+              const dot    = healthLoading ? '#d1d5db' : status ? HEALTH_DOT[status] : '#d1d5db'
               return (
-                <button key={ch.id} onClick={() => toggleChannel(ch.id)}
+                <button key={id} onClick={() => toggleChannel(id)}
+                  title={ch?.error ?? (status === 'connected' ? `${cfg.label} verified in Buffer` : undefined)}
                   className={`flex w-full items-center gap-3 px-4 py-2 text-left transition ${active ? 'bg-sky-50' : 'hover:bg-neutral-50'}`}
                 >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white"
-                    style={{ background: cfg.color, opacity: active ? 1 : 0.3 }}>
-                    {ICON_MAP[ch.id]}
+                  <div className="relative shrink-0">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full text-white"
+                      style={{ background: cfg.color, opacity: active ? 1 : 0.3 }}>
+                      {ICON_MAP[id]}
+                    </div>
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${healthLoading ? 'animate-pulse' : ''}`}
+                      style={{ background: dot }}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className={`text-[13px] font-medium ${active ? 'text-neutral-900' : 'text-neutral-400'}`}>{ch.name}</p>
-                    <p className="truncate text-[11px] text-neutral-400">{ch.handle}</p>
+                    <p className={`text-[13px] font-medium ${active ? 'text-neutral-900' : 'text-neutral-400'}`}>{cfg.label}</p>
+                    <p className={`truncate text-[11px] ${
+                      status === 'connected' ? 'text-neutral-400' :
+                      status === 'not_found' || status === 'disconnected' ? 'text-red-500' :
+                      status === 'unverified' ? 'text-amber-600' :
+                      'text-neutral-400'
+                    }`}>{line}</p>
                   </div>
-                  {ch.status === 'pending' && (
-                    <span className="shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] font-semibold text-neutral-400">Soon</span>
-                  )}
                 </button>
               )
             })}
@@ -342,7 +458,7 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
             <div className="mx-4 my-4 border-t border-neutral-100" />
             <p className="mb-2 px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">Generate</p>
             <Link href={`/visual${q}`} className="flex items-center gap-3 px-4 py-2 text-[13px] text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition">
-              <span className="text-base">🎨</span> Carousel post
+              <Sparkle size={14} /> Carousel post
             </Link>
             <Link href={`/dashboard${q}`} className="flex items-center gap-3 px-4 py-2 text-[13px] text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition">
               <span className="text-base">✍️</span> Video script
@@ -406,12 +522,12 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
                           key={di}
                           onMouseEnter={() => setHoveredDay(dateStr)}
                           onMouseLeave={() => setHoveredDay(null)}
-                          className={`group relative flex flex-col gap-1 p-1.5 ${di < 6 ? 'border-r border-neutral-100' : ''} ${!isMonth ? 'bg-neutral-50/60' : 'bg-white'} ${isHovered && isMonth ? 'bg-sky-50/20' : ''} transition-colors`}
-                          style={{ minHeight: 90 }}
+                          className={`group relative flex flex-col gap-1.5 p-2 ${di < 6 ? 'border-r border-neutral-100' : ''} ${!isMonth ? 'bg-neutral-50/60' : 'bg-white'} ${isHovered && isMonth ? 'bg-sky-50/20' : ''} transition-colors`}
+                          style={{ minHeight: 150 }}
                         >
                           {/* Day number */}
                           <div className="flex items-center justify-between px-0.5">
-                            <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-medium ${
+                            <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-semibold ${
                               isToday ? 'bg-sky-500 text-white' : isMonth ? 'text-neutral-700' : 'text-neutral-300'
                             }`}>
                               {day.getUTCDate()}
@@ -419,9 +535,9 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
                             {isHovered && isMonth && (
                               <button
                                 onClick={() => openNew(dateStr)}
-                                className="flex h-4 w-4 items-center justify-center rounded text-neutral-300 opacity-0 hover:bg-sky-100 hover:text-sky-500 group-hover:opacity-100 transition"
+                                className="flex h-5 w-5 items-center justify-center rounded text-neutral-300 opacity-0 hover:bg-sky-100 hover:text-sky-500 group-hover:opacity-100 transition"
                               >
-                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                                 </svg>
                               </button>
@@ -429,9 +545,9 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
                           </div>
 
                           {/* Real scheduled posts */}
-                          <div className="flex flex-col gap-0.5">
+                          <div className="flex flex-col gap-1.5">
                             {realPosts.map(p => (
-                              <PostChip key={p.id} post={p} onClick={() => openEdit(p)} />
+                              <PostCard key={p.id} post={p} onClick={() => openEdit(p)} />
                             ))}
 
                             {/* Content-plan placeholders (dimmed) — only shown when no real posts */}
@@ -499,11 +615,18 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] font-semibold text-neutral-700">{dateLabel}</span>
                             {timeLabel && <span className="text-[11px] text-neutral-400">{timeLabel}</span>}
-                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                              p.status === 'scheduled' ? 'bg-green-100 text-green-700' :
-                              p.status === 'published' ? 'bg-blue-100 text-blue-700' :
-                              'bg-neutral-100 text-neutral-500'
-                            }`}>{p.status}</span>
+                            {(() => {
+                              const state = postDisplayState(p)
+                              return (
+                                <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
+                                  state === 'failed'    ? 'bg-red-100 text-red-700' :
+                                  state === 'sent'      ? 'bg-green-100 text-green-700' :
+                                  state === 'published' ? 'bg-blue-100 text-blue-700' :
+                                  state === 'scheduled' ? 'bg-sky-100 text-sky-700' :
+                                  'bg-neutral-100 text-neutral-500'
+                                }`}>{state === 'sent' ? 'sent via buffer' : state}</span>
+                              )
+                            })()}
                           </div>
 
                           {/* Caption */}
@@ -551,6 +674,7 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
         onClose={() => setModalOpen(false)}
         clinicId={clinicId}
         editId={editPost?.id}
+        bufferIds={editPost?.buffer_ids}
         initialCaption={editPost?.caption ?? ''}
         initialMediaUrl={editPost?.media_url ?? ''}
         initialChannels={(editPost?.channels as ChannelId[]) ?? ['instagram', 'facebook']}
