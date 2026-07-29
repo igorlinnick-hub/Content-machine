@@ -13,58 +13,56 @@ import type {
 // into actual bytes — Replicate Flux for 'ai', Drive folder lookup
 // for 'drive', Unsplash for 'stock', brand surface for 'fallback'.
 //
-// Photo direction v2 (Igor, 2026-07-23): aesthetic-first, people-light.
-// Most slides carry premium 3D medical renders (organs, processes,
-// molecules) or aesthetic Hawaii nature — NOT people. People appear on
-// at most 1-2 slides per post, always in outdoor Hawaii locations,
-// never generic interiors, and NEVER as a close-up face on the cover.
-// safety_tolerance:6 is enforced at Replicate call time, not in the
-// prompt string.
+// Photo direction v3 (Igor, 2026-07-29): CONTEXT-FIRST + real Hawaii
+// photography. Every image must match what the slide actually talks
+// about — no random abstraction. Source priority: real photo (Canva
+// stock library, esp. Hawaii nature + people + device macros) →
+// contextual 3D medical render → photoreal Flux. People are WELCOME on
+// up to ~half the slides (natural Hawaiian/Polynesian scenes), just
+// NEVER a close-up face (cover included). BANNED: abstract
+// gold-crystal / marble / generic "organic texture" backgrounds — they
+// read as filler, not content. safety_tolerance:6 is enforced at
+// Replicate call time. See docs/POST-CRAFT.md §5.
 const PEOPLE_LINE =
-  'Cinematic editorial photograph, Native Hawaiian or Polynesian subject in an outdoor Hawaii location (ocean, beach, palms, volcanic coast, lush garden), medium-wide framing showing the full figure, face NOT close to camera, soft natural light, muted teal and warm amber colour grade, premium wellness brand photography, photoreal, 35mm, high detail. No text overlay.'
+  'Cinematic editorial photograph, Native Hawaiian or Polynesian subject in a natural Hawaii setting relevant to the slide (ocean, beach, palms, volcanic coast, garden, or a warm real-life moment), medium-wide framing showing the full figure or upper body, face NOT close to camera, soft natural light, muted teal and warm amber colour grade, premium wellness brand photography, photoreal, 35mm, high detail. No text overlay.'
 
 const RENDER_LINE =
   'Premium 3D medical render, glass-like translucent anatomy, deep teal background with warm amber glow accents, cinematic studio lighting, ultra high detail, aesthetic scientific visualization in the style of high-end pharma advertising. No text overlay, no people.'
 
+// Real Hawaii place/nature — a REAL photograph look, never abstract.
 const AESTHETIC_LINE =
-  'Cinematic aesthetic photograph, Hawaii nature or abstract organic detail, muted teal and warm amber colour grade, soft directional light, premium wellness brand look, high detail. No people, no text overlay.'
+  'Cinematic photoreal photograph of a real, recognisable Hawaii scene relevant to the slide (coastline, ocean surface, palms, volcanic rock, lush greenery), muted teal and warm amber colour grade, soft natural light, premium wellness brand look, 35mm, high detail. A real place — NOT an abstract texture or gold-crystal pattern. No people, no text overlay.'
 
-const SYSTEM_PROMPT = `You decide what visual each slide in an HWC Instagram carousel should show. The clinic's look is AESTHETIC-FIRST: premium 3D medical renders and Hawaii nature imagery, with people used sparingly.
+const SYSTEM_PROMPT = `You decide what visual each slide in an HWC Instagram carousel should show. The clinic's look is CONTEXT-FIRST + real Hawaii photography: every image must MATCH what the slide is actually about, and real-photo looks (people, Hawaii places, device macros) are preferred over abstraction. Renders are for biology/mechanism only.
 
-CRITICAL RULE: Every subject and prompt MUST specifically reference the treatment, condition, or mechanism named in that slide's heading. Generic descriptions like "HWC patient wellness moment" or "doctor and patient talking" are WRONG.
+CRITICAL RULE: Every subject and prompt MUST specifically reference the treatment, condition, or mechanism named in that slide's heading. Generic or abstract fillers ("HWC patient wellness moment", a gold-crystal / marble / generic organic texture) are WRONG. If the slide is about a joint, show the joint; about a drug, show the pen/vial; about a decision, show a real person or place — not a pretty abstraction.
 
 You receive a finished PostPlan (cover + body slides + cta) and emit a photo_brief array, one entry per slide.
 
-MIX TARGET (BINDING, Igor 2026-07-28): across the whole post aim for roughly
-**60% "ai" / 40% "stock"** — e.g. on an 8-slide post about 3 slides stock, 5 ai.
-Stock keeps the post grounded and real (not all-AI). Reach the 40% by sending the
-device/procedure slides AND some aesthetic real-photo slides (nature/organic
-macro) to stock, not only devices.
+MIX TARGET (BINDING): across the whole post aim for roughly **60% "ai" / 40% "stock"**. Here "stock" means a REAL-PHOTO look (photoreal Flux — real people, real Hawaii scenes, real device macros), the opposite of an abstract render. Reach the 40% via the people slides, the Hawaii-place slides, and the device/procedure slides.
 
 SOURCE DECISION (pick exactly one per slide):
-  • "ai"       — Replicate Flux. Three visual modes (pick per slide, encode in the prompt):
-      RENDER    — 3D medical visualization: the organ, hormone, molecule, receptor, or biological process the slide names (e.g. translucent 3D stomach with GLP-1 receptors glowing, a semaglutide molecule, neural pathways lighting up). Use for mechanism / biology / data / "what it is" slides.
-      AESTHETIC — Hawaii nature or abstract organic detail matching the slide's idea (ocean water for a "signal" analogy, volcanic rock strata for "layers", morning light through palms for "recovery"). Use for some analogy slides and the CTA.
-      PEOPLE    — a Native Hawaiian/Polynesian person in an OUTDOOR HAWAII location, full figure, medium-wide framing. ONLY for the emotional heart of a patient story. HARD BUDGET: at most 2 people slides per post, and people NEVER appear in generic interiors, offices, or clinic rooms.
-  • "stock"    — a real photograph (Pexels/Unsplash macro). Two kinds: (a) a device/procedure close-up (injection pen, IV drip, vials, TMS coil), and (b) an aesthetic REAL nature/organic macro (ocean water, volcanic rock, palm light, dew on leaves) for analogy / candidacy / CTA slides. NEVER people. Dark-toned, aesthetic framing. This is how you reach the ~40% stock share.
-  • "fallback" — no image. Use ONLY when a slide genuinely works better as pure brand surface; rare.
+  • "ai"       — Replicate Flux. Two render/art modes for when a real photo won't serve:
+      RENDER    — 3D medical visualization of the organ/hormone/molecule/receptor/process the slide names (translucent 3D stomach with GLP-1 receptors, a molecule, neural pathways). Use for mechanism / biology / "what it is" slides.
+      PEOPLE    — a Native Hawaiian/Polynesian person in a natural Hawaii setting relevant to the slide, full figure or upper body, medium-wide, face NOT close. People are WELCOME on up to ~HALF the slides — patient-story beats, candidacy, "who it's for", emotional turns. Natural scenes, not studio portraits.
+  • "stock"    — a REAL photograph (photoreal look): (a) a device/procedure macro (injection pen, IV drip, vials, coil); (b) a real Hawaii place/nature scene matching the slide (coastline, ocean, palms, volcanic rock); (c) a real candid person moment when a photo beats a render. This carries the ~40% real-photo share. NEVER abstract.
+  • "fallback" — no image. Rare; only when a slide truly works as pure brand surface.
 
 MODE HINTS:
-  • Mechanism/biology/"what the data shows" → ai RENDER of the named organ/molecule/process.
-  • Device / procedure / drug named → STOCK macro (pen, vial, coil).
-  • Peptides → ai RENDER of peptide chains, OR stock macro of vials.
-  • Ketamine/Spravato/TMS → ai RENDER of neural pathways / brain regions.
-  • Weight loss/GLP-1 → ai RENDER of gut-brain signalling; stock macro for the injection-pen slide; ONE people slide max for the story beat.
-  • Analogy ("think of it this way") → split between ai AESTHETIC and STOCK real nature — use stock here to help hit 40%.
-  • Candidacy / "who it's for" → STOCK aesthetic nature macro.
-  • CTA → ai AESTHETIC wide Hawaii shot, OR stock nature macro.
+  • Mechanism / biology / "what the data shows" → ai RENDER of the named organ/molecule/process.
+  • Device / procedure / drug named → STOCK device macro (pen, vial, coil).
+  • Patient story / emotional beat → PEOPLE (ai) or a real candid STOCK person.
+  • Candidacy / "who it's for" → PEOPLE or a real Hawaii place STOCK.
+  • Analogy ("think of it this way") → STOCK real Hawaii scene that embodies the analogy (not abstract).
+  • CTA → STOCK wide Hawaii coastline, or PEOPLE outdoors.
 
 HARD RULES:
-  • Cover (n=1): always "ai". NEVER a close-up face — either a full-figure person seen at a distance in an outdoor Hawaii location, or (often better) a striking RENDER/AESTHETIC visual of the post topic. The face must never dominate the cover.
-  • At most 2 slides in the whole post may contain people; 0 is fine.
+  • Cover (n=1): "ai" or "stock". NEVER a close-up face — a full-figure/mid person at a distance in a Hawaii setting, or a striking RENDER/real Hawaii visual of the topic. The face must never dominate the cover.
+  • People may appear on up to ~HALF the slides; NEVER a close-up face on any slide.
+  • NO abstract backgrounds (gold-crystal, marble, generic "organic texture") anywhere — always a concrete, on-topic subject.
   • Every ai prompt MUST include "dark lower third" — the teal text panel overlays there. For PEOPLE mode also include "subject in upper two-thirds of frame".
   • Never put clinical equipment in a PEOPLE prompt — devices go to "stock" macro or RENDER.
-  • Never use vague subjects: always name the specific condition, treatment, molecule, or story from the slide.
+  • Never use vague subjects: always name the specific condition, treatment, molecule, place, or story from the slide.
 
 Style line to append verbatim to each ai prompt, by mode:
   RENDER    → "${RENDER_LINE}"
@@ -75,8 +73,9 @@ Respond with ONLY valid JSON, no markdown fences:
 {
   "photo_brief": [
     { "n": 1, "source": "ai", "subject": "...", "prompt": "<specific subject sentence>, dark lower third. ${RENDER_LINE}", "keywords": null },
-    { "n": 2, "source": "stock", "subject": "...", "prompt": null, "keywords": ["specific device", "specific procedure"] },
-    { "n": 7, "source": "ai", "subject": "CTA — Hawaii nature backdrop", "prompt": "<aesthetic Hawaii scene>, dark lower third. ${AESTHETIC_LINE}", "keywords": null }
+    { "n": 2, "source": "stock", "subject": "injection pen macro", "prompt": null, "keywords": ["semaglutide injection pen", "medical pen macro"] },
+    { "n": 4, "source": "ai", "subject": "Native Hawaiian patient on the coast", "prompt": "<specific person + scene>, subject in upper two-thirds of frame, dark lower third. ${PEOPLE_LINE}", "keywords": null },
+    { "n": 7, "source": "stock", "subject": "CTA — real Hawaii coastline", "prompt": null, "keywords": ["hawaii coastline golden hour", "turquoise ocean volcanic rock"] }
   ]
 }`
 
@@ -129,30 +128,94 @@ export async function generatePhotoBriefs(params: {
     subject: params.cover.title ?? params.topic ?? 'HWC patient — editorial wellness portrait',
   }))
 
-  // Body slides — heuristic default is an aesthetic no-people visual,
-  // never a person (people are budgeted by the LLM brief, max 2/post).
+  // Body slides — heuristic default is an on-topic visual keyed to the
+  // slide heading (v3: never abstract). The LLM brief decides people vs
+  // render vs stock; this is only the fallback when it's missing.
   for (const slide of params.slides) {
     const found = briefs.find((b) => b?.n === slide.n)
     const heuristic = {
       source: 'ai' as const,
-      subject: slide.heading ?? slide.intro ?? 'Abstract wellness visual',
+      subject: slide.heading ?? slide.intro ?? 'On-topic Hawaii scene',
     }
     normalized.push(normaliseBrief(found, slide.n, heuristic))
   }
 
-  // CTA slide — aesthetic Hawaii nature, no people. Fallback here made
-  // every post reuse the example design's own background photo.
+  // CTA slide — real Hawaii coastline (v3: real photo, not abstract).
+  // Fallback here made every post reuse the example's own background.
   const ctaN = params.slides.length + 2
   const ctaFound = briefs.find((b) => b?.n === ctaN)
   normalized.push(
     normaliseBrief(ctaFound, ctaN, {
       source: 'ai',
-      subject: 'CTA — aesthetic Hawaii nature backdrop',
+      subject: 'CTA — real Hawaii coastline',
     })
   )
 
-  return normalized
+  return balanceAiStock(normalized)
 }
+
+// Deterministic 60/40 AI/stock balance (Igor 2026-07-28). The LLM ignores a
+// soft "aim for 40% stock" instruction, so enforce it in code: if too few
+// slides are stock, convert the most stock-appropriate AI slides (aesthetic
+// nature / device-macro, NEVER the cover, people, or 3D renders) into stock.
+function balanceAiStock(briefs: PostPlanPhotoBrief[]): PostPlanPhotoBrief[] {
+  const total = briefs.length
+  if (total < 4) return briefs
+  const targetStock = Math.round(total * 0.4)
+  const stockNow = briefs.filter((b) => b.source === 'stock').length
+  if (stockNow >= targetStock) return briefs
+
+  // A slide is safe to flip to stock when it is AI, not the cover (n=1), not a
+  // 3D render (keep those premium AI), and not a person shot. We detect render
+  // / people by the style line baked into the prompt.
+  const isRender = (p: string | null | undefined) =>
+    !!p && p.includes('Premium 3D medical render')
+  const isPeople = (p: string | null | undefined) =>
+    !!p && p.includes('face NOT close to camera')
+  const flippable = briefs.filter(
+    (b) => b.source === 'ai' && b.n !== 1 && !isRender(b.prompt) && !isPeople(b.prompt)
+  )
+  // Prefer flipping the LATER slides (candidacy / CTA / analogy) first.
+  flippable.sort((a, b) => b.n - a.n)
+
+  let need = targetStock - stockNow
+  const flipIds = new Set<number>()
+  for (const b of flippable) {
+    if (need <= 0) break
+    flipIds.add(b.n)
+    need--
+  }
+  return briefs.map((b) =>
+    flipIds.has(b.n)
+      ? {
+          ...b,
+          source: 'stock' as const,
+          prompt: null,
+          keywords:
+            b.keywords && b.keywords.length
+              ? b.keywords
+              : deriveStockKeywords(b.subject),
+        }
+      : b
+  )
+}
+
+// Cheap keyword derivation from a subject line for a stock lookup.
+function deriveStockKeywords(subject: string): string[] {
+  const base = subject
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3 && !STOP.has(w))
+    .slice(0, 4)
+  const phrase = base.join(' ').trim()
+  return phrase ? [phrase, 'aesthetic macro dark teal', 'hawaii nature macro'] : ['aesthetic nature macro dark teal']
+}
+
+const STOP = new Set([
+  'the', 'and', 'with', 'that', 'this', 'your', 'from', 'what', 'when', 'slide',
+  'aesthetic', 'visual', 'backdrop', 'wellness', 'abstract',
+])
 
 function normaliseBrief(
   raw: Partial<PostPlanPhotoBrief> | undefined,
