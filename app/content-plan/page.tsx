@@ -5,6 +5,7 @@ import { loadStructuredPlan, getCurrentStructuredWeek, pillarColor, type Structu
 import { GeneratePlanButton } from './components/GeneratePlanButton'
 import { DownloadPlanPdfButton } from './components/DownloadPlanPdfButton'
 import { WeekCard } from './components/WeekCard'
+import { Sparkle } from '@/app/components/ui/icons'
 
 export const dynamic = 'force-dynamic'
 
@@ -71,7 +72,7 @@ export default async function ContentPlanPage({
             <div>
               <p className="text-base font-semibold text-neutral-800">No content plan yet</p>
               <p className="mt-1 text-sm text-neutral-500">
-                Click &ldquo;✨ Generate plan with AI&rdquo; to create an 8-week editorial plan
+                Click &ldquo;<Sparkle size={13} className="inline-block align-[-0.125em]" /> Generate plan with AI&rdquo; to create an 8-week editorial plan
                 tailored to this clinic&apos;s pillars and services.
               </p>
             </div>
