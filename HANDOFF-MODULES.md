@@ -83,9 +83,11 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   slide 7). Canva API can't add-page → every category needs a ready master.
 - **Styles (picked in UI BEFORE composing, `slide_sets.canva_style` 1|2|3; picker
   hides once visuals exist):** Style 1 → example `DAHLnAHrEbA` (Spravato, gradient
-  cover), Style 2 → `DAHLnF9b328` (Spravato Severe Depression, photo cover +
-  panels), Aesthetic (3) → `DAHMHS1wLls` (ED-style, full-bleed photo cover). The
-  runner copies the matching example and swaps photos+text only.
+  cover — WIP, still refining), Style 2 → `DAHQnsEktf0` (cartilage reference with
+  design elements baked in — dividers, ✓ checklist, ①②③ path, bold takeaways,
+  soft edge inset; retired old `DAHLnF9b328` on 2026-07-29), Aesthetic (3) →
+  `DAHMHS1wLls` (ED-style, full-bleed photo cover). The runner copies the
+  matching example and swaps photos+text only.
 - **Photo rules (BINDING, direction v2 — Igor 2026-07-23, in
   `lib/posts/photo-brief.ts`):** aesthetic-first. Default visuals = 3D medical
   renders (organs/molecules/processes, glass-like translucent, teal+amber glow)

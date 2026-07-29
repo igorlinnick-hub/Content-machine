@@ -144,27 +144,69 @@ under an inset, a two-column split (photo left / text right), an accent colour
 block behind a single word, a big drop-cap opening a prose slide, a subtle
 grain/newsprint texture on an editorial slide. Try one per post, never all.
 
+Reference (2026-07-28, "красота"): DAHQnsEktf0 slides — 7 (`①②③` numbered path
++ dividers), 6 (`✓` checklist), 4 (analogy + divider + bold takeaway), 3
+(kicker + comparison + soft edge inset). Copy those layouts.
+
+### 4a. ADAPTIVE FILL — by slide type (binding, Igor 2026-07-29)
+
+When a slide has little text and leaves empty space, DON'T leave a dead panel.
+Decide by slide type (in this order of preference):
+
+| Slide type | Fill it with |
+|---|---|
+| Mechanism / biology | denser text is fine (keep depth) + on-topic render; no gap |
+| Comparison | two labeled sides + hairline divider between them |
+| Research / "data shows" | 2-3 spaced research lines + a device/real-photo edge inset |
+| Analogy | short analogy + divider + **bold takeaway** line |
+| Candidacy / "who it's for" | `✓` checklist with blank-line spacing |
+| Next step / protocol | `①②③` numbered path with thin dividers |
+| Sparse / palate-cleanser | one vivid line + a real Hawaii photo filling the frame |
+
+Rules: (1) **never a large empty coloured void** — grow the panel to hug content
+or add ONE element; (2) more text is acceptable to fill space (Igor) as long as
+depth/specificity aren't sacrificed and it's not padding; (3) **~one special
+element per post**, not on every slide; (4) vary — no two consecutive slides the
+same shape or layout.
+
 ---
 
-## 5. PHOTO DIRECTION (binding — v2 + 60/40)
+## 5. PHOTO DIRECTION (binding — v3, 2026-07-29; supersedes v2)
 
-Aesthetic-first, people-light. See `lib/posts/photo-brief.ts` for the machine
-rules; the human/runner rules:
+**CONTEXT-FIRST, real Hawaii, people welcome.** v2 was "aesthetic-first,
+people-light" — v3 corrects it: every image must MATCH what the slide is about,
+real-photo looks beat abstraction, and people are fine. See
+`lib/posts/photo-brief.ts` for the machine rules; the human/runner rules:
 
-- **Default visuals** = premium **3D medical renders** (organs, molecules,
-  processes — glass-like translucent, deep teal + warm amber glow) and **Hawaii
-  nature / abstract organic** detail. NOT people.
-- **People**: max 2 slides per post (0 is fine), only **outdoor Hawaii**
-  locations, full figure, medium-wide. The **cover is NEVER a close-up face**.
-- **Mix: ~60% AI-generated / ~40% stock** across a post (Igor 2026-07-28).
-  Stock = real-object macro (device, injection pen, vials) or aesthetic nature;
-  never stock people. Use stock especially for the concrete/device and
-  photo-in-photo insets; AI for renders and Hawaii scenes.
-- Flux `black-forest-labs/flux-1.1-pro-ultra`, 4:5, safety_tolerance 6.
-- Every AI prompt keeps "dark lower third" (the teal text panel overlays there).
-- **Visual review every image** before upload; reject: close-up-face covers,
-  visible AI artifacts (hands, waxy skin), unbudgeted people, swimwear, text in
-  image, or a reused example-design background repeating across posts.
+- **Context is the #1 rule.** The image shows the slide's actual subject — a
+  joint slide shows a joint, a drug slide shows the pen/vial, a decision slide
+  shows a real person or place. If you can't say in one line how the image
+  relates to the copy, it's wrong.
+- **BANNED: abstract backgrounds** — gold-crystal, marble, generic "organic
+  texture" (the DAHQuMaSYFI p3/p4 anti-pattern). They read as filler.
+- **Source priority:** real photo (photoreal) → contextual 3D render → nothing
+  abstract. Three kinds of image:
+  - **RENDER** (AI) — 3D medical viz of the named organ/molecule/process. For
+    mechanism / biology / "what it is".
+  - **PEOPLE** (AI or stock) — Native Hawaiian/Polynesian, natural Hawaii scene,
+    full figure or upper body, **face NEVER close to camera**. WELCOME on up to
+    **~half the slides** (patient story, candidacy, emotional beats).
+  - **STOCK / photoreal** — a real-photo look: device macro (pen/vial/coil), a
+    real Hawaii place (coastline, ocean, palms, volcanic rock), or a candid
+    person. Carries the ~40% real-photo share.
+- **Mix: ~60% AI (renders + AI people) / ~40% stock (photoreal real photos).**
+  Enforced in code by `balanceAiStock`.
+- **Canva stock caveat:** the Canva MCP has **no stock-search tool** (gate
+  check 2026-07-29), so the runner cannot auto-pull real Canva stock. Automated
+  "stock" = **photoreal Flux** (real-looking, not abstract). TRUE Canva stock =
+  a manual swap in the editor, or a future Pexels/Unsplash adapter.
+- **Cover** = full-figure/mid person at a distance in a Hawaii setting, OR a
+  render / real Hawaii visual of the topic. **NEVER a close-up face.**
+- Flux `black-forest-labs/flux-1.1-pro-ultra`, 4:5, safety_tolerance 6. Every AI
+  prompt keeps "dark lower third"; PEOPLE also "subject in upper two-thirds".
+- **Visual review every image**; reject: abstract/off-topic backgrounds,
+  close-up-face covers, AI artifacts (hands, waxy skin), swimwear, text in image,
+  a reused example-design background repeating across posts.
 
 ---
 
