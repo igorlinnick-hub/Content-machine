@@ -4,10 +4,16 @@
 <dict>
   <key>Label</key>
   <string>com.hwc.canva-runner</string>
+  <!-- Run through a LOGIN shell (zsh -lc) so the job inherits the full user
+       environment (profile, PATH, keychain-adjacent context). Under a bare
+       launchd env the `claude` CLI could not load the claude.ai Canva MCP
+       connector, so every poller compose failed while manual runs (from a
+       login shell) worked. The login shell closes that gap. -->
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/bash</string>
-    <string>/Users/igorlinnik/Library/Application Support/HWC/canva-runner/run.sh</string>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <string>exec /bin/bash "$HOME/Library/Application Support/HWC/canva-runner/run.sh"</string>
   </array>
   <key>EnvironmentVariables</key>
   <dict>
