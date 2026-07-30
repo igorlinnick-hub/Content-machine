@@ -23,15 +23,17 @@ import type {
 // gold-crystal / marble / generic "organic texture" backgrounds — they
 // read as filler, not content. safety_tolerance:6 is enforced at
 // Replicate call time. See docs/POST-CRAFT.md §5.
+const NEG = 'No text, no lettering, no watermark, no logo, no blank label placeholder, no distorted or extra limbs, no uncanny faces, not abstract.'
+
 const PEOPLE_LINE =
-  'Cinematic editorial photograph, Native Hawaiian or Polynesian subject in a natural Hawaii setting relevant to the slide (ocean, beach, palms, volcanic coast, garden, or a warm real-life moment), medium-wide framing showing the full figure or upper body, face NOT close to camera, soft natural light, muted teal and warm amber colour grade, premium wellness brand photography, photoreal, 35mm, high detail. No text overlay.'
+  'Cinematic editorial photograph, Native Hawaiian or Polynesian subject in a natural Hawaii setting relevant to the slide (ocean, beach, palms, volcanic coast, garden, or a warm real-life moment), medium-wide or environmental framing showing the full figure or upper body from behind or three-quarter, face NOT close to camera and never a portrait, soft natural light, muted teal and warm amber colour grade, premium wellness brand photography, photoreal, 35mm, high detail. ' + NEG
 
 const RENDER_LINE =
-  'Premium 3D medical render, glass-like translucent anatomy, deep teal background with warm amber glow accents, cinematic studio lighting, ultra high detail, aesthetic scientific visualization in the style of high-end pharma advertising. No text overlay, no people.'
+  'Premium 3D medical render, anatomically correct and true to the named structure, glass-like translucent anatomy, deep teal background with warm amber glow accents, cinematic studio lighting, shallow depth of field, ultra high detail, aesthetic scientific visualization in the style of high-end pharma advertising. ' + NEG + ' No people.'
 
 // Real Hawaii place/nature — a REAL photograph look, never abstract.
 const AESTHETIC_LINE =
-  'Cinematic photoreal photograph of a real, recognisable Hawaii scene relevant to the slide (coastline, ocean surface, palms, volcanic rock, lush greenery), muted teal and warm amber colour grade, soft natural light, premium wellness brand look, 35mm, high detail. A real place — NOT an abstract texture or gold-crystal pattern. No people, no text overlay.'
+  'Cinematic photoreal photograph of a real, recognisable Hawaii scene relevant to the slide (coastline, ocean surface, palms, volcanic rock, lush greenery), muted teal and warm amber colour grade, soft natural light, premium wellness brand look, 35mm, high detail. A real place — NOT an abstract texture, gold-crystal or marble pattern. No people. ' + NEG
 
 const SYSTEM_PROMPT = `You decide what visual each slide in an HWC Instagram carousel should show. The clinic's look is CONTEXT-FIRST + real Hawaii photography: every image must MATCH what the slide is actually about, and real-photo looks (people, Hawaii places, device macros) are preferred over abstraction. Renders are for biology/mechanism only.
 
@@ -217,6 +219,23 @@ const STOP = new Set([
   'aesthetic', 'visual', 'backdrop', 'wellness', 'abstract',
 ])
 
+// Context-aware style-line pick for the fallback path (when the LLM brief
+// omitted a per-slide prompt). Default is RENDER — most body slides are
+// biology/mechanism, and a medical render is the safe on-context choice.
+// AESTHETIC (real Hawaii scene) is reserved for analogy / CTA; PEOPLE for
+// candidacy / patient-story headings. This fixes the v3 miss where every
+// fallback slide became a generic Hawaii scene (Igor 2026-07-29).
+function styleLineForSubject(subject: string): string {
+  const s = subject.toLowerCase()
+  if (/\b(who|candidacy|candidate|patient|story|worth exploring|for you|right for)\b/.test(s)) {
+    return PEOPLE_LINE
+  }
+  if (/\b(think of it|analogy|imagine|like a|cta|follow|comment|book|coastline|hawaii|nature|next step)\b/.test(s)) {
+    return AESTHETIC_LINE
+  }
+  return RENDER_LINE
+}
+
 function normaliseBrief(
   raw: Partial<PostPlanPhotoBrief> | undefined,
   n: number,
@@ -234,7 +253,7 @@ function normaliseBrief(
     source === 'ai'
       ? typeof raw?.prompt === 'string' && raw.prompt.trim().length > 0
         ? raw.prompt.trim()
-        : `${subject}, dark lower third. ${AESTHETIC_LINE}`
+        : `${subject}, dark lower third. ${styleLineForSubject(subject)}`
       : null
   const keywords =
     source === 'stock'

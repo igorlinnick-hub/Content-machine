@@ -122,22 +122,12 @@ A slide with little text must NOT be one floating panel over dead space. Enrich:
 - **Semi-transparent rounded elements are the house look** (Igor likes them):
   soft translucent rounded panels / colour shapes in brand colour. Prefer these
   over hard opaque boxes. The slide-4 translucent panels are the reference.
-- **Photo-in-photo — SOFT & INTEGRATED, not a stuck-on box** (Igor's slide-3
-  edit is the target; my hard purple-bordered inset is the ANTI-pattern):
-  - rounded corners, NO hard/bright border — at most a very soft edge or subtle
-    shadow, or slight transparency so it sits INTO the composition;
-  - place it at the EDGE — overlapping the text panel's top edge or tucked in a
-    corner — integrated, never floating dead-center;
-  - one inset only; showing the concrete thing the slide names (device macro,
-    organ render). Prefer a **stock macro** for the inset (helps the ~60/40 mix).
-- **Edge-placed 3D cutout** (Igor added the coral to slide 4 — "это тоже
-  логика"): a context-relevant 3D object/cutout (organ, molecule, coral, device)
-  bled into a **border/corner of the slide, NEVER over the text**. Enriches
-  context and depth without a framed box. Keep it to the edges.
-
-**Inset / element anti-patterns:** hard bright borders, an inset floating in
-dead-center over nothing, any element covering the text. Elements live at the
-edges and read as part of the scene.
+**REMOVED — extra images are OUT of the chain (Igor 2026-07-29).** Photo-in-photo
+insets, edge-placed 3D cutouts, and split / two-image layouts are banned — they
+came out crooked, ugly, or blank (NAD+ p4 split + p7 blank-label). Use **exactly
+ONE full-bleed background image per slide, nothing layered on top.** The
+TEXT/decor elements above (dividers, ✓, ①②③, kicker, bold takeaway,
+highlight-marker, translucent panels) are what Igor likes — extra IMAGES are not.
 
 Ideas bank to keep exploring (Igor, "подумай что ещё"): a boxed "Fig." caption
 under an inset, a two-column split (photo left / text right), an accent colour
