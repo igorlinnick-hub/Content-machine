@@ -143,6 +143,25 @@ async function generateOne(params: {
   }
 
   stage('start')
+
+  // Plan (b) — per-post research retrieval. Pull real, current PubMed studies
+  // for THIS topic and hand them to the Writer as live evidence. Fail-open:
+  // returns '' on any error/no-result and the Writer uses the static facts.
+  let studiesBlock = ''
+  try {
+    const { fetchStudiesForTopic, studiesPromptBlock } = await import(
+      '@/lib/posts/studies'
+    )
+    const studies = await fetchStudiesForTopic({
+      topic: params.planContext?.topic ?? params.topicText,
+      keyword: params.planContext?.keyword ?? null,
+    })
+    studiesBlock = studiesPromptBlock(studies)
+    stage(`research:done count=${studies.length}`)
+  } catch {
+    stage('research:skipped')
+  }
+
   const writerOut = await runWriter({
     context: params.context,
     topicHint: topicHintWithNote,
@@ -151,6 +170,7 @@ async function generateOne(params: {
     variantCount: 3,
     lengthTarget: params.length,
     postCarouselMode: true,
+    studiesBlock,
   })
   stage('writer:done')
   const criticOut = await runCritic({
@@ -192,30 +212,11 @@ async function generateOne(params: {
     throw new Error('failed to save winner script')
   }
 
-  // Caption — runs only on the winner. Cheap (Haiku) + small. Errors
-  // here don't block the slide pipeline; we just leave captions null
-  // and the operator can re-trigger from the bot if needed.
+  // Caption declared here, GENERATED after the compliance rewrite loop so it
+  // reflects the FINAL (possibly reworded) winner script, not the draft
+  // (Igor 2026-07-30 — caption↔compliance ordering fix).
   let shortCaption: string | null = null
   let longCaption: string | null = null
-  try {
-    const captions = await runCaptioner({
-      topic: winner.topic,
-      hook: winner.hook,
-      script: winner.script,
-      clinic: params.context.clinic_profile,
-    })
-    shortCaption = captions.short_caption?.trim() || null
-    longCaption = captions.long_caption?.trim() || null
-    if (shortCaption && longCaption) {
-      await updateScriptCaptions({
-        scriptId: winnerSaved.id,
-        shortCaption,
-        longCaption,
-      })
-    }
-  } catch {
-    // Caption failure is recoverable — keep going.
-  }
 
   const finalMatch = matchCategory(
     `${winner.topic} ${winner.script.slice(0, 400)}`,
@@ -224,8 +225,6 @@ async function generateOne(params: {
   const matchedCategory = finalMatch?.category ?? null
   const folderId =
     params.preMatchedFolderId || matchedCategory?.drive_folder_id || null
-
-  stage('captioner:done')
 
   // Compliance gate runs on the winner BEFORE rendering. The verdict
   // is stored on the slide_sets row alongside the rendered preview;
@@ -306,6 +305,29 @@ async function generateOne(params: {
     }
   }
   stage('compliance:done')
+
+  // Caption NOW — on the final (post-compliance) winner script. Cheap (Haiku),
+  // non-blocking; on failure captions stay null and the operator can retrigger.
+  try {
+    const captions = await runCaptioner({
+      topic: winner.topic,
+      hook: winner.hook,
+      script: winner.script,
+      clinic: params.context.clinic_profile,
+    })
+    shortCaption = captions.short_caption?.trim() || null
+    longCaption = captions.long_caption?.trim() || null
+    if (shortCaption && longCaption) {
+      await updateScriptCaptions({
+        scriptId: winnerSaved.id,
+        shortCaption,
+        longCaption,
+      })
+    }
+  } catch {
+    // Caption failure is recoverable — keep going.
+  }
+  stage('captioner:done')
 
   let slides: TypedSlide[] = []
   let previews: string[] = []

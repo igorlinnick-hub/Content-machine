@@ -563,6 +563,11 @@ export interface RunWriterParams {
   // Structured plan context (90% path). When present, the Writer is
   // locked to the week's pillar/theme/keyword. Null = ad-hoc (10% path).
   planContext?: PlanContext | null
+  // Per-post PubMed studies (plan (b), 2026-07-30). Real current evidence
+  // retrieved for THIS topic; injected as a prompt block so the "data"
+  // slide cites live studies, not the model's static memory. Empty when
+  // retrieval found nothing → falls back to the static VERIFIED FACTS.
+  studiesBlock?: string
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
@@ -636,7 +641,10 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
       ? `\n\nUSER TWEAK — adjust the idea to honour this request (keep the same pinned format):\n"${params.studioSteer.trim()}"\n`
       : ''
 
-  const userContent = `${brief}${topicSection}${ctaSection}${refineSection}${steerSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
+  const studiesSection =
+    params.studiesBlock && params.studiesBlock.trim() ? params.studiesBlock : ''
+
+  const userContent = `${brief}${topicSection}${studiesSection}${ctaSection}${refineSection}${steerSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
 
   const systemPrompt =
     buildSystemBase(profile) +
