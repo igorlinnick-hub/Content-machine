@@ -129,14 +129,13 @@ ONE full-bleed background image per slide, nothing layered on top.** The
 TEXT/decor elements above (dividers, ✓, ①②③, kicker, bold takeaway,
 highlight-marker, translucent panels) are what Igor likes — extra IMAGES are not.
 
-Ideas bank to keep exploring (Igor, "подумай что ещё"): a boxed "Fig." caption
-under an inset, a two-column split (photo left / text right), an accent colour
-block behind a single word, a big drop-cap opening a prose slide, a subtle
-grain/newsprint texture on an editorial slide. Try one per post, never all.
+Ideas bank (TEXT/decor only — no extra images): an accent colour block behind a
+single word, a big drop-cap opening a prose slide, a subtle grain/newsprint
+texture on an editorial slide. Try one per post, never all.
 
 Reference (2026-07-28, "красота"): DAHQnsEktf0 slides — 7 (`①②③` numbered path
 + dividers), 6 (`✓` checklist), 4 (analogy + divider + bold takeaway), 3
-(kicker + comparison + soft edge inset). Copy those layouts.
+(kicker + comparison). Copy those layouts (text/decor only).
 
 ### 4a. ADAPTIVE FILL — by slide type (binding, Igor 2026-07-29)
 
