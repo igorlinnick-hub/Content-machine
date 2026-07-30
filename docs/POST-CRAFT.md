@@ -185,12 +185,15 @@ real-photo looks beat abstraction, and people are fine. See
     person. Carries the ~40% real-photo share.
 - **Mix: ~60% AI (renders + AI people) / ~40% stock (photoreal real photos).**
   Enforced in code by `balanceAiStock`.
-- **Canva stock caveat:** the Canva MCP has **no stock-search tool** (gate
-  check 2026-07-29), so the runner cannot auto-pull real Canva stock. Automated
-  "stock" = **photoreal Flux** (real-looking, not abstract). TRUE Canva stock =
-  a manual swap in the editor, or a future Pexels/Unsplash adapter.
-- **Cover** = full-figure/mid person at a distance in a Hawaii setting, OR a
-  render / real Hawaii visual of the topic. **NEVER a close-up face.**
+- **Stock = real photos from Pexels (Igor 2026-07-30).** The Canva MCP has no
+  stock-search tool, so the runner fetches real stock from the **Pexels free
+  API** (`PEXELS_API_KEY` in the runner env) by the slide's keywords, and only
+  falls back to photoreal Flux if the key is missing or nothing fits. Prefer
+  REAL photos over AI everywhere a photo works (people, Hawaii places, devices);
+  reserve AI for the 3D medical RENDERS only.
+- **Cover (page 1): NO photo.** Keep the template's clean branded cover
+  (gradient / brand surface), like the old designs — never inject a photo or
+  render on the cover (Igor 2026-07-30). Only the cover text changes.
 - Flux `black-forest-labs/flux-1.1-pro-ultra`, 4:5, safety_tolerance 6. Every AI
   prompt keeps "dark lower third"; PEOPLE also "subject in upper two-thirds".
 - **Device photos:** no blank white label placeholders (the NAD+ p7 bug) — prompt a label-less bag/bottle or a drip-chamber / IV-line / hand-holding-pen close-up, not a front-on labelled bag.

@@ -59,8 +59,9 @@ MODE HINTS:
   • CTA → STOCK wide Hawaii coastline, or PEOPLE outdoors.
 
 HARD RULES:
-  • Cover (n=1): "ai" or "stock". NEVER a close-up face — a full-figure/mid person at a distance in a Hawaii setting, or a striking RENDER/real Hawaii visual of the topic. The face must never dominate the cover.
-  • People may appear on up to ~HALF the slides; NEVER a close-up face on any slide.
+  • Cover (n=1): ALWAYS "fallback" — NO photo. The cover keeps the template's clean branded design (gradient / brand surface), like the old designs. Never put a photo or render on the cover.
+  • People may appear on up to ~HALF the slides; NEVER a close-up face on any slide. Real people (stock/Pexels) are preferred over AI people.
+  • Prefer REAL photos ("stock" → Pexels) over AI wherever a real photo works (people, Hawaii places, devices). Use "ai" only for 3D medical RENDERS (no real photo exists for those).
   • NO abstract backgrounds (gold-crystal, marble, generic "organic texture") anywhere — always a concrete, on-topic subject.
   • Every ai prompt MUST include "dark lower third" — the teal text panel overlays there. For PEOPLE mode also include "subject in upper two-thirds of frame".
   • Never put clinical equipment in a PEOPLE prompt — devices go to "stock" macro or RENDER.
@@ -124,11 +125,16 @@ export async function generatePhotoBriefs(params: {
   const briefs = Array.isArray(raw.photo_brief) ? raw.photo_brief : []
   const normalized: PostPlanPhotoBrief[] = []
 
-  // Cover (n=1)
-  normalized.push(normaliseBrief(briefs.find((b) => b?.n === 1), 1, {
-    source: 'ai',
-    subject: params.cover.title ?? params.topic ?? 'HWC patient — editorial wellness portrait',
-  }))
+  // Cover (n=1) — NO photo (Igor 2026-07-30): the cover keeps the template's
+  // clean branded design (gradient / brand surface), like the old designs.
+  // Never inject a photo or render here. Forced fallback, ignore the LLM.
+  normalized.push({
+    n: 1,
+    source: 'fallback',
+    subject: 'Cover — no photo, keep the template branded cover',
+    prompt: null,
+    keywords: null,
+  })
 
   // Body slides — heuristic default is an on-topic visual keyed to the
   // slide heading (v3: never abstract). The LLM brief decides people vs
