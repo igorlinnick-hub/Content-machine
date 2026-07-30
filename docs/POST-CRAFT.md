@@ -194,6 +194,7 @@ real-photo looks beat abstraction, and people are fine. See
   render / real Hawaii visual of the topic. **NEVER a close-up face.**
 - Flux `black-forest-labs/flux-1.1-pro-ultra`, 4:5, safety_tolerance 6. Every AI
   prompt keeps "dark lower third"; PEOPLE also "subject in upper two-thirds".
+- **Device photos:** no blank white label placeholders (the NAD+ p7 bug) — prompt a label-less bag/bottle or a drip-chamber / IV-line / hand-holding-pen close-up, not a front-on labelled bag.
 - **Visual review every image**; reject: abstract/off-topic backgrounds,
   close-up-face covers, AI artifacts (hands, waxy skin), swimwear, text in image,
   a reused example-design background repeating across posts.
