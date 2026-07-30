@@ -255,7 +255,14 @@ export function studiesPromptBlock(studies: Study[]): string {
 ${lines}
 
 Rules for using them:
-- On the "What the data shows" slide, name the journal/trial + year in plain prose (e.g. "A 2023 NEJM trial found…"). Keep it readable, not a citation dump.
-- Put the full citation (title, journal, year, PMID) in the SOURCES section for internal review.
-- State ONLY what these studies support; hedge ("suggests", "associated with"); never overstate or invent a statistic not in the finding above.`
+- On the "What the data shows" slide, give EACH study its OWN short bullet line
+  (research-statement style, one crisp line: "A 2024 Cell Metabolism trial — NMN
+  improved insulin sensitivity in older adults"). One study per line so they
+  render as SEPARATE bullets with spacing between them — never a run-on prose
+  paragraph and never a citation dump.
+- Keep each line short (≤14 words); name the journal or trial + year in-line.
+- Put the full citation (title, journal, year, PMID) in the SOURCES section for
+  internal review (never rendered publicly).
+- State ONLY what these studies support; hedge ("suggests", "associated with");
+  never overstate or invent a statistic not in the finding above.`
 }
