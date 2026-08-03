@@ -29,7 +29,7 @@ const PEOPLE_LINE =
   'Cinematic editorial photograph, Native Hawaiian or Polynesian subject in a natural Hawaii setting relevant to the slide (ocean, beach, palms, volcanic coast, garden, or a warm real-life moment), medium-wide or environmental framing showing the full figure or upper body from behind or three-quarter, face NOT close to camera and never a portrait, soft natural light, muted teal and warm amber colour grade, premium wellness brand photography, photoreal, 35mm, high detail. ' + NEG
 
 const RENDER_LINE =
-  'Premium 3D medical render, anatomically correct and true to the named structure, glass-like translucent anatomy, deep teal background with warm amber glow accents, cinematic studio lighting, shallow depth of field, ultra high detail, aesthetic scientific visualization in the style of high-end pharma advertising. ' + NEG + ' No people.'
+  'Clean, minimal, EDITORIAL 3D anatomical render of the EXACT organ / body part / cell / molecule the slide is about (e.g. a glowing heart inside a translucent torso, a DNA double helix, a cell receptor, a molecular model, an anatomical body scan / medical sculpture). Dark, moody, premium background; soft studio lighting; shallow depth of field; real-photo render quality; elegant and clinical — the @dr.vassily aesthetic. Show the REAL structure in context. NOT abstract, no gold-crystal, no marble, no generic organic texture. ' + NEG + ' No people.'
 
 // Real Hawaii place/nature — a REAL photograph look, never abstract.
 const AESTHETIC_LINE =
@@ -45,7 +45,7 @@ MIX TARGET (BINDING): across the whole post aim for roughly **60% "ai" / 40% "st
 
 SOURCE DECISION (pick exactly one per slide):
   • "ai"       — Replicate Flux. Two render/art modes for when a real photo won't serve:
-      RENDER    — 3D medical visualization of the organ/hormone/molecule/receptor/process the slide names (translucent 3D stomach with GLP-1 receptors, a molecule, neural pathways). Use for mechanism / biology / "what it is" slides.
+      RENDER    — a CLEAN, STYLISH 3D anatomical/medical render of the EXACT body part, organ, cell, or molecule the slide is about — an anatomical body scan, a specific organ (heart, brain, joint, stomach), a cell/receptor, a molecular model, a DNA helix, a medical sculpture. Dark, minimal, editorial (the @dr.vassily look). ALWAYS the real structure tied to the slide's process — NEVER an abstract texture. Use for mechanism / biology / "what it is" slides.
       PEOPLE    — a Native Hawaiian/Polynesian person in a natural Hawaii setting relevant to the slide, full figure or upper body, medium-wide, face NOT close. People are WELCOME on up to ~HALF the slides — patient-story beats, candidacy, "who it's for", emotional turns. Natural scenes, not studio portraits.
   • "stock"    — a REAL photograph (photoreal look): (a) a device/procedure macro (injection pen, IV drip, vials, coil); (b) a real Hawaii place/nature scene matching the slide (coastline, ocean, palms, volcanic rock); (c) a real candid person moment when a photo beats a render. This carries the ~40% real-photo share. NEVER abstract.
   • "fallback" — no image. Rare; only when a slide truly works as pure brand surface.

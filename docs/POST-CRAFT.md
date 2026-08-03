@@ -175,8 +175,13 @@ real-photo looks beat abstraction, and people are fine. See
   texture" (the DAHQuMaSYFI p3/p4 anti-pattern). They read as filler.
 - **Source priority:** real photo (photoreal) → contextual 3D render → nothing
   abstract. Three kinds of image:
-  - **RENDER** (AI) — 3D medical viz of the named organ/molecule/process. For
-    mechanism / biology / "what it is".
+  - **RENDER** (AI) — a CLEAN, STYLISH 3D anatomical render of the EXACT body
+    part / organ / cell / molecule the slide is about: an anatomical body scan,
+    a specific organ (heart in a translucent torso, brain, joint), a cell /
+    receptor, a molecular model, a DNA helix, a medical sculpture. Dark, minimal,
+    editorial — the **@dr.vassily aesthetic**. ALWAYS the real structure tied to
+    the body process; NEVER an abstract texture / gold-crystal. For mechanism /
+    biology / "what it is".
   - **PEOPLE** (AI or stock) — Native Hawaiian/Polynesian, natural Hawaii scene,
     full figure or upper body, **face NEVER close to camera**. WELCOME on up to
     **~half the slides** (patient story, candidacy, emotional beats).
