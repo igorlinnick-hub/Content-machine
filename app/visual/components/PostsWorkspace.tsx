@@ -919,23 +919,53 @@ export function PostsWorkspace({
                   {/* Primary row: style + compose + schedule + save — always same height */}
                   <div className="flex items-center gap-2">
                     {/* Style is picked BEFORE composing — once visuals exist
-                        the choice is baked in, so the picker disappears. */}
+                        the choice is baked in, so the picker disappears. Each
+                        style shows its template cover so the marketer can see
+                        which style is which; hover enlarges the preview. */}
                     {!detail.render_result?.canva_edit_url && (
-                      <div className="flex items-center rounded-xl border border-slate-200 bg-white/60 p-0.5">
-                        {([1, 2, 3] as const).map((s) => (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => handleStyleChange(s)}
-                            className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all ${
-                              (detail.canva_style ?? 1) === s
-                                ? 'bg-violet-600 text-white shadow-sm'
-                                : 'text-slate-500 hover:text-slate-700'
-                            }`}
-                          >
-                            {s === 3 ? 'Aesthetic' : `Style ${s}`}
-                          </button>
-                        ))}
+                      <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/60 p-1">
+                        {([
+                          { s: 1 as const, label: 'Style 1', img: '/style-previews/style1.png' },
+                          { s: 2 as const, label: 'Style 2', img: '/style-previews/style2.png' },
+                          { s: 3 as const, label: 'Aesthetic', img: '/style-previews/aesthetic.png' },
+                        ]).map(({ s, label, img }) => {
+                          const active = (detail.canva_style ?? 1) === s
+                          return (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => handleStyleChange(s)}
+                              title={`${label} — template preview`}
+                              className="group relative flex flex-col items-center gap-0.5"
+                            >
+                              <span
+                                className={`block overflow-hidden rounded-md border-2 transition-all ${
+                                  active
+                                    ? 'border-violet-600 ring-2 ring-violet-200'
+                                    : 'border-transparent opacity-70 hover:opacity-100'
+                                }`}
+                              >
+                                <img src={img} alt={label} className="h-12 w-[38px] object-cover object-top" />
+                              </span>
+                              <span
+                                className={`text-[9px] font-semibold leading-none ${
+                                  active ? 'text-violet-700' : 'text-slate-500'
+                                }`}
+                              >
+                                {label}
+                              </span>
+                              {/* Hover-enlarge preview so the marketer can really see the template */}
+                              <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden -translate-x-1/2 group-hover:block">
+                                <span className="block overflow-hidden rounded-lg border border-slate-300 bg-white shadow-xl">
+                                  <img src={img} alt={`${label} full`} className="h-56 w-44 object-cover object-top" />
+                                </span>
+                                <span className="mt-1 block text-center text-[10px] font-semibold text-slate-600">
+                                  {label} template
+                                </span>
+                              </span>
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
                     <ComposeInCanvaButton
