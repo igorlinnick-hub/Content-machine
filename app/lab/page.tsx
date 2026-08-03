@@ -4,6 +4,7 @@ import { loadClinicList } from '@/lib/supabase/context'
 import { resolveAccess } from '@/lib/auth/session'
 import { RoleBadge } from '@/app/components/RoleBadge'
 import { ImageLab } from './components/ImageLab'
+import { Sparkle } from '@/app/components/ui/icons'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,7 +38,7 @@ export default async function LabPage({ searchParams }: LabPageProps) {
             Back-office · Sandbox
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-neutral-900">
-            🎨 Image Lab
+            <Sparkle size={15} twin className="inline-block align-[-0.125em]" /> Image Lab
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
             Type a prompt → pick a model + aspect → see what comes back from

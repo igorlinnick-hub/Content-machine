@@ -5,7 +5,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { loadClinicList, loadClinicSummaries, loadRecentScripts } from '@/lib/supabase/context'
 import { loadScriptTemplates } from '@/lib/posts/templates'
 import { getDailyQuestions } from '@/lib/widgets/questions'
-import { getCurrentStructuredWeek } from '@/lib/content-plan/store'
+import { getCurrentStructuredWeek, loadStructuredPlan } from '@/lib/content-plan/store'
 import { resolveAccess } from '@/lib/auth/session'
 import { DailyWidgets } from './components/DailyWidgets'
 import { ScriptGenerator } from './components/ScriptGenerator'
@@ -75,12 +75,16 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   const questions = getDailyQuestions()
-  const [currentPlanWeek, recent, activeTemplates, clinicSummaries] = await Promise.all([
+  const [currentPlanWeek, planWeeks, recent, activeTemplates, clinicSummaries] = await Promise.all([
     getCurrentStructuredWeek(clinicId),
+    loadStructuredPlan(clinicId).catch(() => []),
     loadRecentScripts(clinicId, 15),
     loadScriptTemplates(clinicId, { activeOnly: true }),
     isAdminOverview ? loadClinicSummaries() : Promise.resolve([]),
   ])
+  const currentWeekIndex = currentPlanWeek
+    ? Math.max(0, planWeeks.findIndex((w) => w.id === currentPlanWeek.id))
+    : 0
 
   const validTabs: DashTab[] = ['generate', 'recent', 'input']
   const tab: DashTab = validTabs.includes(searchParams.tab as DashTab)
@@ -267,14 +271,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
             href={`/dashboard?clinicId=${clinicId}&tab=input`}
             active={tab === 'input'}
           />
-          {showAdminTools && (
-            <Link
-              href={`/studio?clinicId=${clinicId}`}
-              className="ml-auto rounded-xl px-4 py-1.5 text-sm font-medium text-sky-600 transition hover:bg-white/60"
-            >
-              Studio
-            </Link>
-          )}
         </nav>}
 
         {!isAdminOverview && isDoctor && profileIncomplete && tab === 'generate' && (
@@ -309,7 +305,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
                 Generate scripts
               </h2>
             </div>
-            <ScriptGenerator clinicId={clinicId} isAdmin={showAdminTools} currentWeek={currentPlanWeek} />
+            <ScriptGenerator clinicId={clinicId} isAdmin={showAdminTools} planWeeks={planWeeks} currentWeekIndex={currentWeekIndex} currentWeek={currentPlanWeek} />
           </section>
         )}
 

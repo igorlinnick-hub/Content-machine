@@ -5,12 +5,16 @@ import { useRouter } from 'next/navigation'
 import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
 import { TypingAnimation } from '@/app/components/ui/typing-animation'
+import { SparkleSpinner } from '@/app/components/ui/icons'
 
-import { type StructuredPlanWeek, pillarColor } from '@/lib/content-plan/store'
+import { type StructuredPlanWeek } from '@/lib/content-plan/store'
 
 interface ScriptGeneratorProps {
   clinicId: string
   isAdmin?: boolean
+  planWeeks?: StructuredPlanWeek[]
+  currentWeekIndex?: number
+  // Back-compat fallback when planWeeks isn't provided.
   currentWeek?: StructuredPlanWeek | null
 }
 
@@ -74,8 +78,8 @@ function ScriptProgress({ state }: { state: ScriptProgressState }) {
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50/40 p-5">
       <div className="flex items-baseline justify-between">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
-          Generating scripts
+        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-600">
+          <SparkleSpinner size={14} /> Generating scripts
         </p>
         <span className="font-mono text-[11px] text-neutral-500">
           {(state.elapsedMs / 1000).toFixed(1)}s
@@ -141,18 +145,125 @@ function loadScriptDraft(clinicId: string): GenerateResult | null {
   } catch { return null }
 }
 
-export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: ScriptGeneratorProps) {
+export function ScriptGenerator({
+  clinicId,
+  isAdmin = false,
+  planWeeks = [],
+  currentWeekIndex = 0,
+  currentWeek: currentWeekProp = null,
+}: ScriptGeneratorProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<GenerateResult | null>(null)
   const [topic, setTopic] = useState('')
+  const [note, setNote] = useState('')
   // plannedPost: non-null = 90% planned path, null = 10% ad-hoc
   const [plannedPost, setPlannedPost] = useState<{
     id: string; topic: string; keyword: string | null
     week_number: number; pillar: string
   } | null>(null)
   const [progress, setProgress] = useState<ScriptProgressState>(emptyProgress())
+
+  // ── Week browsing + one-topic-at-a-time picker (mirrors the posts form) ──
+  const [weekIdx, setWeekIdx] = useState(
+    Math.min(Math.max(currentWeekIndex, 0), Math.max(planWeeks.length - 1, 0))
+  )
+  const currentWeek: StructuredPlanWeek | null = planWeeks[weekIdx] ?? currentWeekProp
+  const [weekPosts, setWeekPosts] = useState<StructuredPlanWeek['posts']>(
+    (currentWeek?.posts ?? []).filter((p) => p.status === 'pending')
+  )
+  const [rerollingTopicId, setRerollingTopicId] = useState<string | null>(null)
+  const [addingTopic, setAddingTopic] = useState(false)
+  const plannedIdx = weekPosts.findIndex((p) => p.id === plannedPost?.id)
+
+  // Re-sync the topic queue whenever the marketer flips to another week.
+  useEffect(() => {
+    setWeekPosts((planWeeks[weekIdx]?.posts ?? []).filter((p) => p.status === 'pending'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekIdx])
+
+  function selectPlanTopic(post: StructuredPlanWeek['posts'][number]) {
+    if (!currentWeek) return
+    setPlannedPost({
+      id: post.id,
+      topic: post.topic,
+      keyword: post.keyword,
+      week_number: currentWeek.week_number,
+      pillar: currentWeek.pillar,
+    })
+    setTopic(post.topic)
+    // Auto-fill the starting note with the week's angle — orientation, editable.
+    setNote(currentWeek.description ?? '')
+  }
+
+  function cyclePlanTopic(dir: 1 | -1) {
+    if (!weekPosts.length) return
+    const base = plannedIdx < 0 ? 0 : plannedIdx
+    const nextIdx = (base + dir + weekPosts.length) % weekPosts.length
+    selectPlanTopic(weekPosts[nextIdx])
+  }
+
+  // Auto-load the next ready topic so the form is never empty.
+  useEffect(() => {
+    if (!weekPosts.length) return
+    if (!plannedPost || plannedIdx < 0) selectPlanTopic(weekPosts[0])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekPosts, weekIdx])
+
+  async function rerollPlanTopic(topicId: string) {
+    if (rerollingTopicId || addingTopic) return
+    setRerollingTopicId(topicId)
+    try {
+      const res = await fetch('/api/content-plan/reroll', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ topicId }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.topic) {
+        setWeekPosts((prev) =>
+          prev.map((p) =>
+            p.id === topicId ? { ...p, topic: data.topic, keyword: data.keyword ?? null } : p
+          )
+        )
+        if (plannedPost?.id === topicId) {
+          setPlannedPost(null)
+          setTopic('')
+        }
+      }
+    } finally {
+      setRerollingTopicId(null)
+    }
+  }
+
+  async function addPlanTopic() {
+    if (!currentWeek || rerollingTopicId || addingTopic) return
+    setAddingTopic(true)
+    try {
+      const res = await fetch('/api/content-plan/add-topic', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ weekId: currentWeek.id }),
+      })
+      const data = await res.json().catch(() => null)
+      if (res.ok && data?.id && data?.topic) {
+        setWeekPosts((prev) => [
+          ...prev,
+          {
+            id: data.id,
+            topic: data.topic,
+            keyword: data.keyword ?? null,
+            format: data.format ?? null,
+            position: data.position ?? prev.length,
+            status: 'pending',
+          },
+        ])
+      }
+    } finally {
+      setAddingTopic(false)
+    }
+  }
 
   // Restore last batch on mount — persists until replaced by a new generation
   useEffect(() => {
@@ -184,11 +295,12 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           clinicId,
-          // Planned (90%): send planTopicId so Writer gets pillar/theme/keyword context.
-          // Ad-hoc (10%): send topicHint only.
+          // Planned (90%): planTopicId gives the Writer pillar/theme/keyword;
+          // the starting note rides along as an extra angle hint.
+          // Ad-hoc (10%): topic + note become the free-text hint.
           ...(plannedPost
-            ? { planTopicId: plannedPost.id }
-            : { topicHint: topic.trim() || undefined }),
+            ? { planTopicId: plannedPost.id, topicHint: note.trim() || undefined }
+            : { topicHint: [topic.trim(), note.trim()].filter(Boolean).join(' — ') || undefined }),
         }),
       })
 
@@ -254,8 +366,6 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
     }
   }
 
-  const weekColor = currentWeek ? pillarColor(currentWeek.pillar) : null
-
   return (
     <div className="flex flex-col gap-5">
       <div className="cm-card flex flex-col gap-4 p-5">
@@ -269,82 +379,130 @@ export function ScriptGenerator({ clinicId, isAdmin = false, currentWeek }: Scri
           />
         </div>
 
-        {/* Current week suggestion strip */}
-        {currentWeek && weekColor && (
-          <div
-            className="flex flex-col gap-2 rounded-xl border p-3"
-            style={{ background: `${weekColor}08`, borderColor: `${weekColor}25` }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
-                Week {currentWeek.week_number}
-              </span>
-              <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
-              <span className="text-[11px] text-neutral-400">{currentWeek.pillar}</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {currentWeek.posts.map((post) => {
-                const isSelected = plannedPost?.id === post.id
-                return (
+        {/* Current week — one pre-filled topic at a time, browse the plan */}
+        {currentWeek && weekPosts.length > 0 && (() => {
+          // Whole strip (frame + arrows + topic + reroll + Next topic) uses
+          // the sky accent — one consistent blue, no pillar colour.
+          const color = '#0EA5E9'
+          return (
+            <div
+              className="flex flex-col gap-2 rounded-xl border p-3"
+              style={{ background: `${color}08`, borderColor: `${color}25` }}
+            >
+              <div className="flex items-center gap-2">
+                {/* Subtle week switcher — browse the whole plan */}
+                <button
+                  type="button"
+                  onClick={() => setWeekIdx((i) => Math.max(0, i - 1))}
+                  disabled={weekIdx === 0}
+                  title="Previous week"
+                  className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                >
+                  ‹
+                </button>
+                <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
+                  Week {currentWeek.week_number}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setWeekIdx((i) => Math.min(planWeeks.length - 1, i + 1))}
+                  disabled={weekIdx >= planWeeks.length - 1}
+                  title="Next week"
+                  className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                >
+                  ›
+                </button>
+                {weekIdx !== currentWeekIndex && (
                   <button
-                    key={post.id}
                     type="button"
-                    disabled={loading}
-                    onClick={() => {
-                      setPlannedPost({ id: post.id, topic: post.topic, keyword: post.keyword, week_number: currentWeek.week_number, pillar: currentWeek.pillar })
-                      setTopic(post.topic)
-                    }}
-                    className="rounded-lg px-2.5 py-1 text-[11px] font-medium transition hover:opacity-80 disabled:opacity-50"
-                    style={{
-                      background: isSelected ? `${weekColor}28` : `${weekColor}14`,
-                      color: weekColor,
-                      border: `1px solid ${isSelected ? weekColor : `${weekColor}25`}`,
-                      fontWeight: isSelected ? 600 : undefined,
-                    }}
-                    title={`Generate: ${post.topic}${post.keyword ? ` · keyword "${post.keyword}"` : ''}`}
+                    onClick={() => setWeekIdx(currentWeekIndex)}
+                    title="Back to the current week"
+                    className="text-[10px] font-semibold uppercase tracking-wider text-sky-500 transition hover:text-sky-700"
                   >
-                    {post.topic}
+                    now
                   </button>
-                )
-              })}
+                )}
+                <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={loading || rerollingTopicId !== null || weekPosts.length < 2}
+                  onClick={() => cyclePlanTopic(-1)}
+                  title="Previous topic"
+                  className="shrink-0 px-1 text-[15px] leading-none transition hover:opacity-100 disabled:opacity-20"
+                  style={{ color }}
+                >
+                  ‹
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12.5px] font-semibold" style={{ color }}>
+                    {rerollingTopicId && plannedPost?.id === rerollingTopicId
+                      ? 'Generating new topic…'
+                      : plannedPost?.topic ?? weekPosts[0]?.topic}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={loading || rerollingTopicId !== null || !plannedPost}
+                  onClick={() => plannedPost && rerollPlanTopic(plannedPost.id)}
+                  title="Fresh take on this topic (same week + theme)"
+                  className="shrink-0 px-1.5 py-1 text-[13px] opacity-50 transition hover:opacity-100 disabled:opacity-30"
+                  style={{ color }}
+                >
+                  ↻
+                </button>
+                <button
+                  type="button"
+                  disabled={loading || rerollingTopicId !== null || addingTopic}
+                  onClick={() => {
+                    if (plannedIdx >= weekPosts.length - 1) addPlanTopic()
+                    else cyclePlanTopic(1)
+                  }}
+                  title="Move to the next ready topic (generates a fresh one at the end)"
+                  className="shrink-0 rounded-lg border px-3 py-1 text-[11px] font-semibold transition hover:opacity-80 disabled:opacity-50"
+                  style={{ color, borderColor: `${color}55`, background: `${color}14` }}
+                >
+                  {addingTopic ? 'Generating…' : 'Next topic ›'}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex flex-1 flex-col gap-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-              Topic <span className="text-neutral-400">(optional)</span>
-            </span>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => {
-                setTopic(e.target.value)
-                // Typing a custom topic switches to ad-hoc mode
-                if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && !loading && onGenerate()}
-              placeholder="e.g. PRP for chronic shoulder pain"
-              className="cm-input text-sm"
-              disabled={loading}
-            />
-            {plannedPost ? (
-              <p className="text-[11px] text-emerald-600">
-                📅 Planned · Week {plannedPost.week_number} · {plannedPost.pillar}
-                {plannedPost.keyword ? ` · keyword "${plannedPost.keyword}"` : ''}
-              </p>
-            ) : topic.trim() ? (
-              <p className="text-[11px] text-neutral-400">✏️ Custom topic — ad-hoc mode</p>
-            ) : null}
-          </label>
+        {/* Topic — pre-filled from the selected plan topic, editable */}
+        <input
+          type="text"
+          value={topic}
+          onChange={(e) => {
+            setTopic(e.target.value)
+            // Typing a custom topic switches to ad-hoc mode
+            if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && !loading && onGenerate()}
+          placeholder="Topic — e.g. ketamine for treatment-resistant depression"
+          className="cm-input text-sm"
+          disabled={loading}
+        />
+
+        {/* Starting note — auto-filled from the week's angle, editable */}
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Optional starting note — paste any rough thoughts, a key fact, the angle you want. Leave blank to let the team pick."
+          rows={3}
+          className="cm-input resize-none text-sm"
+          disabled={loading}
+        />
+
+        <div className="flex items-center justify-end">
           <button
             type="button"
             onClick={onGenerate}
             disabled={loading}
             className="cm-btn cm-btn-primary text-base sm:px-7 sm:py-3"
           >
-            {loading ? 'Generating…' : 'Generate 3 variants'}
+            {loading ? <><SparkleSpinner size={16} /> Generating…</> : 'Generate 3 variants'}
           </button>
         </div>
       </div>
