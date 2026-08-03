@@ -1,14 +1,7 @@
 import type { ClinicProfile } from '@/types'
 import { MODEL_DEFAULT, callAgentTool } from './base'
 import type { ReplaceWeekInput } from '@/lib/content-plan/store'
-import { MANYCHAT_CTA_CATEGORIES } from '@/lib/seeds/cta-keywords'
-
-const ALL_VALID_KEYWORDS = [
-  ...MANYCHAT_CTA_CATEGORIES.mental_health,
-  ...MANYCHAT_CTA_CATEGORIES.pain_joint,
-  ...MANYCHAT_CTA_CATEGORIES.wellness_vitality,
-  ...MANYCHAT_CTA_CATEGORIES.weight_loss,
-] as const
+import { keywordPoolForNiche } from '@/lib/seeds/cta-keywords'
 
 export interface PlannerOutput {
   weeks: ReplaceWeekInput[]
@@ -23,7 +16,8 @@ const FORMAT_NAMES = [
   'Myth-busting',
 ] as const
 
-const SYSTEM_PROMPT = `You are an editorial content strategist for a medical clinic's social media (Instagram, TikTok, YouTube Shorts).
+function buildPlanPrompt(keywordBlock: string): string {
+  return `You are an editorial content strategist for a medical clinic's social media (Instagram, TikTok, YouTube Shorts).
 
 Given a clinic's profile — their services, content pillars, deep-dive topics, audience, and tone — generate an 8-week content plan with exactly 3 posts per week (24 posts total).
 
@@ -46,19 +40,18 @@ Rules:
 - Write all topics in English
 - Generate a short description for each week explaining the editorial angle
 
-VALID MANYCHAT KEYWORDS (use ONLY these — do not invent new ones):
-Mental Health pillar: ${MANYCHAT_CTA_CATEGORIES.mental_health.join(', ')}
-Pain & Joint pillar: ${MANYCHAT_CTA_CATEGORIES.pain_joint.join(', ')}
-Wellness & Vitality pillar: ${MANYCHAT_CTA_CATEGORIES.wellness_vitality.join(', ')}
-Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}
+VALID KEYWORDS (use ONLY these — do not invent new ones):
+${keywordBlock}
 Pick the keyword that best matches the post topic. Never invent a keyword not in these lists.`
+}
 
 // ─── Single-topic reroll ──────────────────────────────────────────
 // The marketer rejects one topic chip; generate ONE replacement that
 // still fits the same week's theme + pillar and doesn't collide with
 // anything else in the plan.
 
-const REROLL_SYSTEM_PROMPT = `You are an editorial content strategist for a medical clinic's social media.
+function buildRerollPrompt(keywordBlock: string): string {
+  return `You are an editorial content strategist for a medical clinic's social media.
 
 Generate exactly ONE new post topic for the given week of a content plan — either REPLACING a topic the marketer rejected, or ADDING one more on top of the existing ones (the task line in the input says which).
 
@@ -75,11 +68,9 @@ Rules:
   5. Medicine philosophy — short opinionated piece on how the doctor thinks
   6. Myth-busting — debunk 3 common misconceptions
 
-VALID MANYCHAT KEYWORDS (use ONLY these — do not invent new ones):
-Mental Health pillar: ${MANYCHAT_CTA_CATEGORIES.mental_health.join(', ')}
-Pain & Joint pillar: ${MANYCHAT_CTA_CATEGORIES.pain_joint.join(', ')}
-Wellness & Vitality pillar: ${MANYCHAT_CTA_CATEGORIES.wellness_vitality.join(', ')}
-Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}`
+VALID KEYWORDS (use ONLY these — do not invent new ones):
+${keywordBlock}`
+}
 
 export interface RerollTopicInput {
   profile: ClinicProfile
@@ -100,6 +91,7 @@ export interface RerolledTopic {
 
 export async function rerollTopic(input: RerollTopicInput): Promise<RerolledTopic> {
   const { profile, week } = input
+  const pool = keywordPoolForNiche(profile.niche)
   const userContent = `Clinic: ${profile.name}
 Services: ${profile.services?.join(', ') || 'n/a'}
 Deep-dive topics: ${profile.deep_dive_topics?.join(', ') || 'n/a'}
@@ -119,7 +111,7 @@ AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' |
 
   return callAgentTool<RerolledTopic>({
     model: MODEL_DEFAULT,
-    systemPrompt: REROLL_SYSTEM_PROMPT,
+    systemPrompt: buildRerollPrompt(pool.promptBlock),
     userContent,
     toolName: 'submit_replacement_topic',
     toolDescription: 'Submit the single replacement post topic',
@@ -128,7 +120,7 @@ AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' |
       required: ['topic', 'keyword', 'format'],
       properties: {
         topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
-        keyword: { type: 'string', enum: [...ALL_VALID_KEYWORDS], description: 'ManyChat CTA trigger keyword' },
+        keyword: { type: 'string', enum: pool.keywords, description: 'CTA trigger keyword for this niche' },
         format: { type: 'string', enum: [...FORMAT_NAMES], description: 'Structural format template' },
       },
     },
@@ -142,6 +134,7 @@ export interface PlannerOptions {
 }
 
 export async function runPlanner(profile: ClinicProfile, opts: PlannerOptions = {}): Promise<PlannerOutput> {
+  const pool = keywordPoolForNiche(profile.niche)
   const publishedBlock = opts.publishedContext
     ? `\n\nPUBLISHED CONTENT HISTORY (from Instagram — use this to avoid repetition and double down on what works):\n${opts.publishedContext}`
     : ''
@@ -158,7 +151,7 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
 
   return callAgentTool<PlannerOutput>({
     model: MODEL_DEFAULT,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: buildPlanPrompt(pool.promptBlock),
     userContent,
     toolName: 'submit_content_plan',
     toolDescription: 'Submit the generated 8-week content plan',
@@ -187,7 +180,7 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
                   required: ['topic', 'keyword', 'format'],
                   properties: {
                     topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
-                    keyword: { type: 'string', enum: [...ALL_VALID_KEYWORDS], description: 'ManyChat CTA trigger keyword — must be one of the valid keywords' },
+                    keyword: { type: 'string', enum: pool.keywords, description: 'CTA trigger keyword — must be one of the valid keywords for this niche' },
                     format: { type: 'string', enum: [...FORMAT_NAMES], description: 'Structural format template for this post' },
                   },
                 },

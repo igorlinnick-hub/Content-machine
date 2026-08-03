@@ -5,10 +5,12 @@
 //
 // Two shipped profiles:
 //   'regenerative_medicine' — HWC / regenmed clinics. ManyChat keyword CTA.
-//   'aesthetics'            — Botox / filler / cosmetic injector clinics. Booking CTA.
+//   'aesthetics'            — Botox / filler / cosmetic injector clinics. ManyChat keyword CTA.
 //
 // Unknown niche → fallback to regenerative_medicine (zero breakage for
 // existing HWC clinics that have no niche set).
+
+import { AESTHETICS_CTA_KEYWORDS } from '@/lib/seeds/cta-keywords'
 
 export type CtaMode = 'manychat' | 'booking'
 
@@ -107,8 +109,9 @@ const REGENMED_PROFILE: NicheProfile = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Profile: aesthetics
-// Botox / dermal filler / cosmetic injector clinics. Booking-style CTA,
-// no ManyChat keyword mechanic. Aesthetics-specific FDA/FTC compliance.
+// Botox / dermal filler / cosmetic injector clinics. ManyChat keyword CTA
+// (Dr. Made's ManyChat is configured with the aesthetics keyword pool).
+// Aesthetics-specific FDA/FTC compliance.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const AESTHETICS_COMPLIANCE_FACTS = `  • NEVER claim a treatment "cures / eliminates / permanently removes" wrinkles, skin conditions, or signs of aging. Use "may reduce the appearance of", "can soften", "results typically last X months".
@@ -120,12 +123,20 @@ const AESTHETICS_COMPLIANCE_FACTS = `  • NEVER claim a treatment "cures / elim
   • NEVER invent statistics or response rates. Use qualitative language: "many patients notice improvement", "results are visible within days for most".
   • No disease-cure claims. For acne: "may improve the appearance of acne" not "treats acne".`
 
+const AESTHETICS_MANYCHAT_KEYWORDS = `KEYWORD must be chosen from the ManyChat trigger list below — these are the ONLY valid keywords. Pick the single best fit for the script's topic. Never invent a keyword outside this list.
+
+  ✨ Aesthetics:
+    ${AESTHETICS_CTA_KEYWORDS.join(', ')}
+
+  Selection logic: pick the word that most specifically names the treatment or theme covered (Botox script → BOTOX; lip work → LIPS or FILLER; skin resurfacing / peels → SKIN or GLOW; PRP microneedling → PRP or MICRO; regenerative / anti-aging → RENEW, YOUTH, or STEMCELL). Use BEAUTY or ALOHA for broader brand-tone posts. If the topic maps to a fixed keyword in lib/seeds/cta-keywords.ts, that exact keyword overrides this list.`
+
 const AESTHETICS_PROFILE: NicheProfile = {
   id: 'aesthetics',
   label: 'medical aesthetics',
   writerPersona:
     'You write scripts for a medical aesthetics and cosmetic injector doctor speaking to camera. The audience is curious adults — people considering or curious about Botox, dermal fillers, skin resurfacing, chemical peels, or anti-aging treatments. NOT colleagues. NOT other injectors. NOT a peer-reviewed audience.',
-  ctaMode: 'booking',
+  ctaMode: 'manychat',
+  manychatKeywordsBlock: AESTHETICS_MANYCHAT_KEYWORDS,
   complianceFacts: AESTHETICS_COMPLIANCE_FACTS,
 }
 

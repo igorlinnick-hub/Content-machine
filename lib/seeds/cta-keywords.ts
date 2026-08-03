@@ -28,6 +28,45 @@ export const MANYCHAT_CTA_CATEGORIES = {
   ],
 } as const
 
+// ── Aesthetics niche (Dr. Made) keyword pool ──────────────────────────────
+// Cosmetic-injector clinics: Botox / filler / skin / anti-aging. Used by the
+// planner when the clinic's niche is aesthetics — instead of the regenmed
+// pillar lists above (which would assign nonsensical TMS/PRP-style keywords).
+export const AESTHETICS_CTA_KEYWORDS = [
+  'GLOW', 'BOTOX', 'FILLER', 'LIPS', 'RENEW', 'SKIN',
+  'YOUTH', 'PRP', 'STEMCELL', 'BEAUTY', 'ALOHA', 'MICRO',
+] as const
+
+// Resolve the valid keyword pool + a prompt-ready block for a clinic's niche.
+// regenerative_medicine (default / HWC) → the four pillar lists.
+// aesthetics → the flat cosmetic list above.
+export function keywordPoolForNiche(niche: string | null | undefined): {
+  keywords: string[]
+  promptBlock: string
+} {
+  const n = (niche ?? '').trim().toLowerCase()
+  if (n.includes('aesthetic')) {
+    return {
+      keywords: [...AESTHETICS_CTA_KEYWORDS],
+      promptBlock: `Aesthetics keywords: ${AESTHETICS_CTA_KEYWORDS.join(', ')}`,
+    }
+  }
+  return {
+    keywords: [
+      ...MANYCHAT_CTA_CATEGORIES.mental_health,
+      ...MANYCHAT_CTA_CATEGORIES.pain_joint,
+      ...MANYCHAT_CTA_CATEGORIES.wellness_vitality,
+      ...MANYCHAT_CTA_CATEGORIES.weight_loss,
+    ],
+    promptBlock: [
+      `Mental Health pillar: ${MANYCHAT_CTA_CATEGORIES.mental_health.join(', ')}`,
+      `Pain & Joint pillar: ${MANYCHAT_CTA_CATEGORIES.pain_joint.join(', ')}`,
+      `Wellness & Vitality pillar: ${MANYCHAT_CTA_CATEGORIES.wellness_vitality.join(', ')}`,
+      `Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}`,
+    ].join('\n'),
+  }
+}
+
 export const CTA_KEYWORD_BY_TOPIC_SLUG: Record<string, string> = {
   'ketamine-depression': 'RESET',
   'antidepressant-failure': 'MECHANISM',
