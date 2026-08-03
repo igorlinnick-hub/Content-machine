@@ -82,8 +82,10 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   (the `DAHM8qYZCTE` incident: Mental-Health post on ED master → ED text leaked to
   slide 7). Canva API can't add-page → every category needs a ready master.
 - **Styles (picked in UI BEFORE composing, `slide_sets.canva_style` 1|2|3; picker
-  hides once visuals exist):** Style 1 → example `DAHLnAHrEbA` (Spravato, gradient
-  cover — WIP, still refining), Style 2 → `DAHQnsEktf0` (cartilage reference with
+  hides once visuals exist):** Style 1 → example `DAHQPCOFBDw` (DIAGONAL style —
+  angled translucent panels over a full-bleed background + wave logo; restored
+  2026-08-03, the old `DAHLnAHrEbA` gradient was a mislabel that looked like
+  Style 2), Style 2 → `DAHQnsEktf0` (cartilage reference with
   design elements baked in — dividers, ✓ checklist, ①②③ path, bold takeaways,
   soft edge inset; retired old `DAHLnF9b328` on 2026-07-29), Aesthetic (3) →
   `DAHMHS1wLls` (ED-style, full-bleed photo cover). The runner copies the

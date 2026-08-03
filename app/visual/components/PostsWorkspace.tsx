@@ -954,10 +954,10 @@ export function PostsWorkspace({
                               >
                                 {label}
                               </span>
-                              {/* Hover-enlarge preview so the marketer can really see the template */}
+                              {/* Hover-enlarge preview — full slide, no crop */}
                               <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden -translate-x-1/2 group-hover:block">
-                                <span className="block overflow-hidden rounded-lg border border-slate-300 bg-white shadow-xl">
-                                  <img src={img} alt={`${label} full`} className="h-56 w-44 object-cover object-top" />
+                                <span className="block overflow-hidden rounded-lg border border-slate-300 bg-white p-1 shadow-xl">
+                                  <img src={img} alt={`${label} full`} className="block w-44 rounded" />
                                 </span>
                                 <span className="mt-1 block text-center text-[10px] font-semibold text-slate-600">
                                   {label} template
