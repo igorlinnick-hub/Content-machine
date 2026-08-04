@@ -156,6 +156,9 @@ export function ScriptGenerator({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<GenerateResult | null>(null)
+  // Which of the (up to 3) variants the reader is flipping through. Reset to
+  // the first whenever a fresh batch lands so "Generate 3 more" starts at V1.
+  const [activeVariant, setActiveVariant] = useState(0)
   const [topic, setTopic] = useState('')
   const [note, setNote] = useState('')
   // plannedPost: non-null = 90% planned path, null = 10% ad-hoc
@@ -164,6 +167,11 @@ export function ScriptGenerator({
     week_number: number; pillar: string
   } | null>(null)
   const [progress, setProgress] = useState<ScriptProgressState>(emptyProgress())
+
+  // New batch of variants → jump back to the first card.
+  useEffect(() => {
+    setActiveVariant(0)
+  }, [result])
 
   // ── Week browsing + one-topic-at-a-time picker (mirrors the posts form) ──
   const [weekIdx, setWeekIdx] = useState(
@@ -521,30 +529,67 @@ export function ScriptGenerator({
         </p>
       )}
 
-      {!loading && result && (
-        <div className="grid gap-4 md:grid-cols-1">
-          {result.variants.map((v) => {
-            const score = result.scores.find((s) => s.variant_id === v.id)
-            const savedRow = result.saved.find((s) => s.variant_id === v.id)
-            const siblingIds = result.saved
-              .filter((s) => s.variant_id !== v.id)
-              .map((s) => s.id)
-            const compliance = result.compliance?.find((c) => c.variant_id === v.id)?.result ?? null
-            return (
-              <ScriptCard
-                key={v.id}
-                variant={v}
-                score={score}
-                compliance={compliance}
-                clinicId={clinicId}
-                scriptId={savedRow?.id}
-                siblingScriptIds={siblingIds}
-                isAdmin={isAdmin}
-              />
-            )
-          })}
-        </div>
-      )}
+      {!loading && result && result.variants.length > 0 && (() => {
+        // One script at a time — the reader flips ‹ / › through the batch
+        // (up to 3) and can always go back; at the last one the forward
+        // control becomes "Generate 3 more" instead of dead-ending.
+        const total = result.variants.length
+        const idx = Math.min(Math.max(activeVariant, 0), total - 1)
+        const v = result.variants[idx]
+        const score = result.scores.find((s) => s.variant_id === v.id)
+        const savedRow = result.saved.find((s) => s.variant_id === v.id)
+        const siblingIds = result.saved
+          .filter((s) => s.variant_id !== v.id)
+          .map((s) => s.id)
+        const compliance = result.compliance?.find((c) => c.variant_id === v.id)?.result ?? null
+        const atLast = idx >= total - 1
+        return (
+          <div className="flex flex-col gap-3">
+            {/* Pager: read one, flip to the next, come back anytime */}
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-sky-100 bg-sky-50/60 px-2.5 py-1.5">
+              <button
+                type="button"
+                onClick={() => setActiveVariant(idx - 1)}
+                disabled={idx === 0}
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:bg-white hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                ‹ Prev
+              </button>
+              <span className="text-[12px] font-semibold uppercase tracking-wider text-neutral-500">
+                Script {idx + 1} of {total}
+              </span>
+              {atLast ? (
+                <button
+                  type="button"
+                  onClick={onGenerate}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-[13px] font-semibold text-white transition hover:bg-sky-600 disabled:opacity-50"
+                >
+                  {loading ? <SparkleSpinner size={14} /> : '↻'} Generate 3 more
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setActiveVariant(idx + 1)}
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-sky-600 transition hover:bg-white hover:text-sky-800"
+                >
+                  Next ›
+                </button>
+              )}
+            </div>
+            <ScriptCard
+              key={v.id}
+              variant={v}
+              score={score}
+              compliance={compliance}
+              clinicId={clinicId}
+              scriptId={savedRow?.id}
+              siblingScriptIds={siblingIds}
+              isAdmin={isAdmin}
+            />
+          </div>
+        )
+      })()}
     </div>
   )
 }
