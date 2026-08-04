@@ -254,13 +254,16 @@ export function studiesPromptBlock(studies: Study[]): string {
   return `\n\nREAL STUDIES (retrieved from PubMed for THIS topic — use these as the evidence, do not invent others):
 ${lines}
 
-Rules for using them:
-- On the "What the data shows" slide, give EACH study its OWN short bullet line
-  (research-statement style, one crisp line: "A 2024 Cell Metabolism trial — NMN
-  improved insulin sensitivity in older adults"). One study per line so they
-  render as SEPARATE bullets with spacing between them — never a run-on prose
-  paragraph and never a citation dump.
-- Keep each line short (≤14 words); name the journal or trial + year in-line.
+Rules for using them (the "What the data shows" slide must TELL A STORY with the
+evidence, not list citations):
+- Open with a lead-in sentence that frames what the research is converging on.
+- Then give EACH study its OWN line — a REAL, contextual sentence (~15-25 words)
+  that names the journal or trial + year AND says what it found and why it
+  matters to the reader (NOT a terse "Trial X: Y" one-liner). Blank line between
+  each so they read as separate, breathing points.
+- Close with a one-line takeaway that ties them together.
+- Fill the slide (~55-90 words total). Never a one-line-per-study citation dump,
+  never a run-on wall.
 - Put the full citation (title, journal, year, PMID) in the SOURCES section for
   internal review (never rendered publicly).
 - State ONLY what these studies support; hedge ("suggests", "associated with");
