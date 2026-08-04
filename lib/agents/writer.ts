@@ -275,6 +275,13 @@ LONGER and every slide must be FILLED. Rules:
 - The panel is large (esp. Style 1's diagonal panel) — a half-empty slide reads
   as unfinished. FILL IT.
 
+SLIDE HEADINGS (HARD): each body slide's heading must be SHORT (≤ ~5 words / 24
+chars) AND clear on its own — a self-explanatory label, never a long sentence
+and never a cryptic abbreviation. "Myth 1: Total testosterone tells the whole
+story" is too long (it gets truncated to junk like "TOTAL T", Igor 2026-08-03);
+write "Myth 1: Not just total" instead. Put the full idea in the body, not the
+heading.
+
 MINIMUM COVERAGE (HARD): a carousel is cover + at least FOUR body slides
 (mechanism, evidence, who-it's-for at minimum) + CTA. A post with fewer body
 slides is a failed variant.
