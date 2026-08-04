@@ -94,7 +94,14 @@ export function PostsWorkspace({
   const [weekIdx, setWeekIdx] = useState(
     Math.min(Math.max(currentWeekIndex, 0), Math.max(planWeeks.length - 1, 0))
   )
-  const currentWeek: StructuredPlanWeek | null = planWeeks[weekIdx] ?? null
+  // Clamp the lookup so the strip can NEVER render a null week (which would
+  // hide the arrows and strand the marketer): if the plan reloads shorter,
+  // fall back to the last week instead of vanishing.
+  const safeWeekIdx =
+    planWeeks.length > 0
+      ? Math.min(Math.max(weekIdx, 0), planWeeks.length - 1)
+      : 0
+  const currentWeek: StructuredPlanWeek | null = planWeeks[safeWeekIdx] ?? null
   const router = useRouter()
   const [posts, setPosts] = useState<PostListItem[]>(initialPosts)
   const [selectedId, setSelectedId] = useState<string | null>(
@@ -240,7 +247,7 @@ export function PostsWorkspace({
 
   // Re-sync the chips whenever the marketer flips to another week.
   useEffect(() => {
-    const pending = (planWeeks[weekIdx]?.posts ?? []).filter((p) => p.status === 'pending')
+    const pending = (planWeeks[safeWeekIdx]?.posts ?? []).filter((p) => p.status === 'pending')
     setWeekPosts(pending)
     // Empty week: drop the stale selection so the form isn't tied to the
     // previous week's number/pillar at generate time.
@@ -605,25 +612,37 @@ export function PostsWorkspace({
                 style={{ background: `${color}08`, borderColor: `${color}25` }}
               >
                 <div className="flex items-center gap-2">
-                  {/* Subtle week switcher — browse the whole plan */}
+                  {/* Subtle week switcher — browse the whole plan. Wraps around
+                      (the plan is cyclic) so the arrows NEVER dead-end: from
+                      the first week ‹ jumps to the last, from the last › to the
+                      first. Only disabled when there is a single week to show. */}
                   <button
                     type="button"
-                    onClick={() => setWeekIdx((i) => Math.max(0, i - 1))}
-                    disabled={weekIdx === 0}
+                    onClick={() =>
+                      setWeekIdx((i) => (i - 1 + planWeeks.length) % planWeeks.length)
+                    }
+                    disabled={planWeeks.length <= 1}
                     title="Previous week"
-                    className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                    className="px-1 text-[14px] leading-none text-neutral-400 transition hover:text-neutral-700 disabled:opacity-25"
                   >
                     ‹
                   </button>
-                  <span className="rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
+                  <span className="flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-neutral-500">
                     Week {currentWeek.week_number}
+                    {planWeeks.length > 1 && (
+                      <span className="font-semibold text-neutral-400">
+                        {safeWeekIdx + 1}/{planWeeks.length}
+                      </span>
+                    )}
                   </span>
                   <button
                     type="button"
-                    onClick={() => setWeekIdx((i) => Math.min(planWeeks.length - 1, i + 1))}
-                    disabled={weekIdx >= planWeeks.length - 1}
+                    onClick={() =>
+                      setWeekIdx((i) => (i + 1) % planWeeks.length)
+                    }
+                    disabled={planWeeks.length <= 1}
                     title="Next week"
-                    className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                    className="px-1 text-[14px] leading-none text-neutral-400 transition hover:text-neutral-700 disabled:opacity-25"
                   >
                     ›
                   </button>
@@ -637,7 +656,7 @@ export function PostsWorkspace({
                       now
                     </button>
                   )}
-                  <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
                 </div>
                 {hasTopics ? (
                   <div className="flex items-center gap-2">
