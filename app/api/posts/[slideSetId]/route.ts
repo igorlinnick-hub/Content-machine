@@ -51,14 +51,14 @@ export async function GET(
 
     let { data: rrRow, error: rrErr } = await supabase
       .from('slide_sets')
-      .select('render_result, compliance, canva_style, compose_progress')
+      .select('render_result, compliance, canva_style, compose_progress, long_caption, short_caption')
       .eq('id', slideSet.id)
       .maybeSingle()
     if (rrErr?.code === '42703') {
       // Migration 045 (compose_progress) not applied yet — degrade.
       const retry = await supabase
         .from('slide_sets')
-        .select('render_result, compliance, canva_style')
+        .select('render_result, compliance, canva_style, long_caption, short_caption')
         .eq('id', slideSet.id)
         .maybeSingle()
       rrRow = retry.data as typeof rrRow
@@ -71,6 +71,10 @@ export async function GET(
       ?.canva_style ?? 1
     const compose_progress = (rrRow as { compose_progress?: Json | null } | null)
       ?.compose_progress ?? null
+    const long_caption = (rrRow as { long_caption?: string | null } | null)
+      ?.long_caption ?? null
+    const short_caption = (rrRow as { short_caption?: string | null } | null)
+      ?.short_caption ?? null
 
     return NextResponse.json({
       slide_set_id: slideSet.id,
@@ -83,6 +87,8 @@ export async function GET(
         (slideSet.slides[0]?.kind === 'cover' ? slideSet.slides[0].text : null),
       hook: scriptRow?.hook ?? null,
       script: scriptRow?.full_script ?? null,
+      long_caption,
+      short_caption,
       slides: slideSet.slides,
       previews: [],
       drive_folder_id: null,

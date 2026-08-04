@@ -60,6 +60,11 @@ interface PostDetail {
   topic: string | null
   hook: string | null
   script: string | null
+  // Per-post publish descriptions written by the captioner. long_caption is
+  // the Instagram carousel description — the custom text for the post's
+  // "notes"/caption; short_caption is the Reels/TikTok one.
+  long_caption: string | null
+  short_caption: string | null
   slides: UISlide[]
   previews: string[]
   created_at: string
@@ -1101,7 +1106,12 @@ export function PostsWorkspace({
           onClose={() => setScheduleOpen(false)}
           clinicId={clinicId}
           slideSetId={detail.slide_set_id}
-          initialCaption={detail.hook ? `${detail.topic ?? ''}\n\n${detail.hook}` : (detail.topic ?? '')}
+          initialCaption={
+            // Prefer the captioner's custom per-post IG description; fall back
+            // to topic+hook only if it hasn't been generated yet.
+            detail.long_caption?.trim() ||
+            (detail.hook ? `${detail.topic ?? ''}\n\n${detail.hook}` : (detail.topic ?? ''))
+          }
           initialMediaUrl={detail.render_result?.outputs?.[0]?.url ?? ''}
           onSaved={(post) => {
             // Keep the modal open on failure so the Buffer errors stay visible
