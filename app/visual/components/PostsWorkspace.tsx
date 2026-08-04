@@ -1169,7 +1169,6 @@ function ComposeWaitingChip({
   const elapsedMs = Date.now() - start
   const elapsedLabel = formatElapsed(elapsedMs)
   const inStage = Number.isFinite(stageTs)
-  const slow = elapsedMs > 5 * 60_000
 
   // The runner is alive but can't work — e.g. Replicate credit ran out.
   // Show the reason instead of an eternal "Queued" countdown; the queue
@@ -1209,12 +1208,6 @@ function ComposeWaitingChip({
           </span>
         </span>
       </div>
-      {slow && (
-        <span className="text-[10px] text-amber-700">
-          ⚠ This step is taking unusually long — press Stop to bail out and
-          get the Compose button back.
-        </span>
-      )}
     </div>
   )
 }
