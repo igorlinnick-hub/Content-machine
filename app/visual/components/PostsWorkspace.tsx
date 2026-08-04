@@ -240,9 +240,14 @@ export function PostsWorkspace({
 
   // Re-sync the chips whenever the marketer flips to another week.
   useEffect(() => {
-    setWeekPosts(
-      (planWeeks[weekIdx]?.posts ?? []).filter((p) => p.status === 'pending')
-    )
+    const pending = (planWeeks[weekIdx]?.posts ?? []).filter((p) => p.status === 'pending')
+    setWeekPosts(pending)
+    // Empty week: drop the stale selection so the form isn't tied to the
+    // previous week's number/pillar at generate time.
+    if (!pending.length) {
+      setPlannedPost(null)
+      setTopic('')
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekIdx])
 
@@ -585,11 +590,15 @@ export function PostsWorkspace({
           New post
         </p>
         <div className="mt-3 flex flex-col gap-3">
-          {/* Current week — one pre-filled topic at a time (hidden in Blank mode) */}
-          {!manualMode && currentWeek && weekPosts.length > 0 && (() => {
+          {/* Current week — one pre-filled topic at a time (hidden in Blank mode).
+              The week switcher (arrows + label + theme) stays visible even when
+              the week has no ready topics left, so the marketer can always page
+              on to another week instead of being stranded on an empty one. */}
+          {!manualMode && currentWeek && (() => {
             // Whole strip (frame + arrows + topic + reroll + Next topic) uses
             // the sky accent, not the pillar colour — one consistent blue.
             const color = '#0EA5E9'
+            const hasTopics = weekPosts.length > 0
             return (
               <div
                 className="flex flex-col gap-2 rounded-xl border p-3"
@@ -630,48 +639,66 @@ export function PostsWorkspace({
                   )}
                   <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={generating || rerollingTopicId !== null || weekPosts.length < 2}
-                    onClick={() => cyclePlanTopic(-1)}
-                    title="Previous topic"
-                    className="shrink-0 px-1 text-[15px] leading-none transition hover:opacity-100 disabled:opacity-20"
-                    style={{ color }}
-                  >
-                    ‹
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[12.5px] font-semibold" style={{ color }}>
-                      {rerollingTopicId && plannedPost?.id === rerollingTopicId
-                        ? 'Generating new topic…'
-                        : plannedPost?.topic ?? weekPosts[0]?.topic}
-                    </p>
+                {hasTopics ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={generating || rerollingTopicId !== null || weekPosts.length < 2}
+                      onClick={() => cyclePlanTopic(-1)}
+                      title="Previous topic"
+                      className="shrink-0 px-1 text-[15px] leading-none transition hover:opacity-100 disabled:opacity-20"
+                      style={{ color }}
+                    >
+                      ‹
+                    </button>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12.5px] font-semibold" style={{ color }}>
+                        {rerollingTopicId && plannedPost?.id === rerollingTopicId
+                          ? 'Generating new topic…'
+                          : plannedPost?.topic ?? weekPosts[0]?.topic}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={generating || rerollingTopicId !== null || !plannedPost}
+                      onClick={() => plannedPost && rerollPlanTopic(plannedPost.id)}
+                      title="Fresh take on this topic (same week + theme)"
+                      className="shrink-0 px-1.5 py-1 text-[13px] opacity-50 transition hover:opacity-100 disabled:opacity-30"
+                      style={{ color }}
+                    >
+                      ↻
+                    </button>
+                    <button
+                      type="button"
+                      disabled={generating || rerollingTopicId !== null || addingTopic}
+                      onClick={() => {
+                        if (plannedIdx >= weekPosts.length - 1) addPlanTopic()
+                        else cyclePlanTopic(1)
+                      }}
+                      title="Move to the next ready topic (generates a fresh one at the end)"
+                      className="shrink-0 rounded-lg border px-3 py-1 text-[11px] font-semibold transition hover:opacity-80 disabled:opacity-50"
+                      style={{ color, borderColor: `${color}55`, background: `${color}14` }}
+                    >
+                      {addingTopic ? 'Generating…' : 'Next topic ›'}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    disabled={generating || rerollingTopicId !== null || !plannedPost}
-                    onClick={() => plannedPost && rerollPlanTopic(plannedPost.id)}
-                    title="Fresh take on this topic (same week + theme)"
-                    className="shrink-0 px-1.5 py-1 text-[13px] opacity-50 transition hover:opacity-100 disabled:opacity-30"
-                    style={{ color }}
-                  >
-                    ↻
-                  </button>
-                  <button
-                    type="button"
-                    disabled={generating || rerollingTopicId !== null || addingTopic}
-                    onClick={() => {
-                      if (plannedIdx >= weekPosts.length - 1) addPlanTopic()
-                      else cyclePlanTopic(1)
-                    }}
-                    title="Move to the next ready topic (generates a fresh one at the end)"
-                    className="shrink-0 rounded-lg border px-3 py-1 text-[11px] font-semibold transition hover:opacity-80 disabled:opacity-50"
-                    style={{ color, borderColor: `${color}55`, background: `${color}14` }}
-                  >
-                    {addingTopic ? 'Generating…' : 'Next topic ›'}
-                  </button>
-                </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 flex-1 text-[12.5px] font-medium text-neutral-400">
+                      All topics used this week.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={generating || addingTopic}
+                      onClick={() => addPlanTopic()}
+                      title="Generate a fresh topic for this week"
+                      className="shrink-0 rounded-lg border px-3 py-1 text-[11px] font-semibold transition hover:opacity-80 disabled:opacity-50"
+                      style={{ color, borderColor: `${color}55`, background: `${color}14` }}
+                    >
+                      {addingTopic ? 'Generating…' : 'New topic'}
+                    </button>
+                  </div>
+                )}
               </div>
             )
           })()}
