@@ -50,6 +50,9 @@ interface ComposeProgress {
   hint?: string | null
   generated?: number
   uploaded?: number
+  // Design edit URL written by the runner right after it copies the template,
+  // so the marketer can peek at the design mid-compose (it fills in near the end).
+  edit_url?: string | null
 }
 
 interface PostDetail {
@@ -1208,6 +1211,16 @@ function ComposeWaitingChip({
           </span>
         </span>
       </div>
+      {progress?.edit_url && (
+        <a
+          href={progress.edit_url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[10px] font-medium text-violet-600 underline decoration-dotted hover:text-violet-800"
+        >
+          Open in Canva ↗ (fills in as it builds)
+        </a>
+      )}
     </div>
   )
 }
