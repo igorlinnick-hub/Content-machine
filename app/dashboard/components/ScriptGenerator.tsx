@@ -159,6 +159,10 @@ export function ScriptGenerator({
   // Which of the (up to 3) variants the reader is flipping through. Reset to
   // the first whenever a fresh batch lands so "Generate 3 more" starts at V1.
   const [activeVariant, setActiveVariant] = useState(0)
+  // Once scripts exist the big generate form collapses into a slim black
+  // "Generate 3 more" bar so the ready scripts own the view. `formOpen`
+  // re-expands it (to change week / topic).
+  const [formOpen, setFormOpen] = useState(false)
   const [topic, setTopic] = useState('')
   const [note, setNote] = useState('')
   // plannedPost: non-null = 90% planned path, null = 10% ad-hoc
@@ -294,6 +298,7 @@ export function ScriptGenerator({
     setLoading(true)
     setError(null)
     setResult(null)
+    setFormOpen(false) // collapse back to the black bar once this batch lands
     try { localStorage.removeItem(STORE_KEY(clinicId)) } catch { /* noop */ }
     setProgress(emptyProgress())
 
@@ -374,8 +379,42 @@ export function ScriptGenerator({
     }
   }
 
+  // Show the full form on first load, while generating, or when the marketer
+  // explicitly reopens it; otherwise (scripts ready) show the black bar.
+  const showFullForm = loading || !result || formOpen
+
   return (
     <div className="flex flex-col gap-5">
+      {!showFullForm ? (
+        // ── Collapsed: slim black "Generate 3 more" bar ──────────────────
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-800 bg-neutral-900 px-4 py-3 text-white shadow-sm">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+              Scripts ready
+            </p>
+            <p className="truncate text-sm font-medium text-white">
+              {plannedPost?.topic || topic || currentWeek?.theme || 'Your topic'}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFormOpen(true)}
+              className="rounded-lg border border-white/25 px-3 py-2 text-[13px] font-medium text-neutral-200 transition hover:bg-white/10"
+            >
+              Change topic
+            </button>
+            <button
+              type="button"
+              onClick={onGenerate}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-[13px] font-semibold text-neutral-900 transition hover:bg-neutral-200 disabled:opacity-50"
+            >
+              {loading ? <SparkleSpinner size={14} /> : '↻'} Generate 3 more
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="cm-card flex flex-col gap-4 p-5">
         <div>
           <TypingAnimation
@@ -503,7 +542,17 @@ export function ScriptGenerator({
           disabled={loading}
         />
 
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end gap-2">
+          {/* Escape hatch: reopened the form but changed your mind */}
+          {result && !loading && (
+            <button
+              type="button"
+              onClick={() => setFormOpen(false)}
+              className="cm-btn cm-btn-ghost text-sm"
+            >
+              View scripts
+            </button>
+          )}
           <button
             type="button"
             onClick={onGenerate}
@@ -514,6 +563,7 @@ export function ScriptGenerator({
           </button>
         </div>
       </div>
+      )}
 
       {loading && <ScriptProgress state={progress} />}
 
@@ -530,9 +580,10 @@ export function ScriptGenerator({
       )}
 
       {!loading && result && result.variants.length > 0 && (() => {
-        // One script at a time — the reader flips ‹ / › through the batch
-        // (up to 3) and can always go back; at the last one the forward
-        // control becomes "Generate 3 more" instead of dead-ending.
+        // One script at a time — the reader flips ‹ / › through the batch and
+        // can always go back. "Generate 3 more" lives in the black bar above,
+        // so the pager just flips. The whole unit sits in a coloured frame so
+        // the READY scripts clearly stand apart from everything else.
         const total = result.variants.length
         const idx = Math.min(Math.max(activeVariant, 0), total - 1)
         const v = result.variants[idx]
@@ -544,38 +595,29 @@ export function ScriptGenerator({
         const compliance = result.compliance?.find((c) => c.variant_id === v.id)?.result ?? null
         const atLast = idx >= total - 1
         return (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50/50 p-2.5 sm:p-3">
             {/* Pager: read one, flip to the next, come back anytime */}
-            <div className="flex items-center justify-between gap-2 rounded-xl border border-sky-100 bg-sky-50/60 px-2.5 py-1.5">
+            <div className="flex items-center justify-between gap-2 px-1">
               <button
                 type="button"
                 onClick={() => setActiveVariant(idx - 1)}
                 disabled={idx === 0}
-                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-neutral-600 transition hover:bg-white hover:text-neutral-900 disabled:opacity-30 disabled:hover:bg-transparent"
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-emerald-800 transition hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent"
               >
                 ‹ Prev
               </button>
-              <span className="text-[12px] font-semibold uppercase tracking-wider text-neutral-500">
-                Script {idx + 1} of {total}
+              <span className="flex items-center gap-1.5 text-[12px] font-bold uppercase tracking-wider text-emerald-700">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Ready · Script {idx + 1} of {total}
               </span>
-              {atLast ? (
-                <button
-                  type="button"
-                  onClick={onGenerate}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 rounded-lg bg-sky-500 px-3 py-1.5 text-[13px] font-semibold text-white transition hover:bg-sky-600 disabled:opacity-50"
-                >
-                  {loading ? <SparkleSpinner size={14} /> : '↻'} Generate 3 more
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setActiveVariant(idx + 1)}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-sky-600 transition hover:bg-white hover:text-sky-800"
-                >
-                  Next ›
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setActiveVariant(idx + 1)}
+                disabled={atLast}
+                className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-emerald-800 transition hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                Next ›
+              </button>
             </div>
             <ScriptCard
               key={v.id}
