@@ -263,6 +263,18 @@ ${profile.complianceFacts}
 OUTPUT SHAPE (POST CAROUSEL):
 The "script" field of each variant is the full carousel rendered as readable text — cover line + each numbered slide + CTA stack. The compliance gate reads this; downstream the splitter parses it into the slide_sets row.
 
+CAROUSEL LENGTH — OVERRIDES the "LENGTH SPEC / word count" above (Igor 2026-08-03):
+That word budget is for a spoken VIDEO script — IGNORE it here. A carousel is
+LONGER and every slide must be FILLED. Rules:
+- **Each BODY slide = ~55-100 words** — a lead-in sentence + 3-4 substantive
+  points (real mechanism / numbers / specifics) + a closing line. Enough to fill
+  the slide's panel.
+- A body slide with only 1-2 sentences is TOO THIN and is a FAILED variant —
+  expand it with concrete detail (never padding, never fluff).
+- Whole post ≈ 400-750 words across cover + body + CTA.
+- The panel is large (esp. Style 1's diagonal panel) — a half-empty slide reads
+  as unfinished. FILL IT.
+
 MINIMUM COVERAGE (HARD): a carousel is cover + at least FOUR body slides
 (mechanism, evidence, who-it's-for at minimum) + CTA. A post with fewer body
 slides is a failed variant.
