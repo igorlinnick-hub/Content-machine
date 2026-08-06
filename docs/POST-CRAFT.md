@@ -173,6 +173,16 @@ real-photo looks beat abstraction, and people are fine. See
   relates to the copy, it's wrong.
 - **BANNED: abstract backgrounds** — gold-crystal, marble, generic "organic
   texture" (the DAHQuMaSYFI p3/p4 anti-pattern). They read as filler.
+- **REALISM + MEDICAL CONTEXT (binding, Igor 2026-08-05).** Every background
+  must be a REAL photograph that respects the MEDICAL context of the slide:
+  real lab / blood test / plasma vial, a real doctor–patient consult, a real
+  device (pen/vial/IV), real anatomy / x-ray / cells, or a real relevant person
+  (no close-up face). Stylised / AI-looking / painterly / marble / "gold-crystal
+  fluid" textures are OUT. **Nature (ocean, forest, coral, waterfall) is NOT a
+  default** — use it only for a genuine nature ANALOGY (coral = cartilage) or a
+  light CTA aesthetic; a hormone/GLP-1/joint post's body slides get MEDICAL
+  imagery, not scenery. (The cartilage / hormone / GLP-1 posts were re-shot this
+  way — DAHQnsEktf0 / DAHQn_1_j2s / DAHQuMaSYFI lesson.)
 - **Source priority:** real photo (photoreal) → contextual 3D render → nothing
   abstract. Three kinds of image:
   - **RENDER** (AI) — a CLEAN, STYLISH 3D anatomical render of the EXACT body
