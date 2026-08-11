@@ -16,9 +16,12 @@ import {
 import { type StructuredPlanWeek } from '@/lib/content-plan/store'
 import { ScheduleModal } from '@/app/components/ScheduleModal'
 import { Sparkle, SparkleSpinner } from '@/app/components/ui/icons'
+import { canvaEditUrl, stylesForNiche } from '@/lib/posts/style-templates'
 
 interface Props {
   clinicId: string
+  /** `clinics.niche` — gates which styles this clinic may pick. */
+  clinicNiche: string | null
   posts: PostListItem[]
   // Full plan + which week is "now" — the strip lets the marketer flip
   // between weeks with subtle ‹ › arrows and generate from any of them.
@@ -72,10 +75,10 @@ interface PostDetail {
   render_result: RenderResult | null
   compliance: ComplianceData | null
   compose_progress: ComposeProgress | null
-  // 1 = Style 1 (photo cover), 2 = Style 2 (panel), 3 = Aesthetic.
-  // Picked BEFORE composing — the runner assembles from the matching
-  // example design. Hidden once visuals exist.
-  canva_style: 1 | 2 | 3
+  // Which master the runner copies — ids and names live in
+  // lib/posts/style-templates.ts (1-5, Aesthetic = 5, Made-only).
+  // Picked BEFORE composing; the picker hides once visuals exist.
+  canva_style: number
   // Effective Drive folder used by the renderer for body/cta photos.
   // Null when neither slide_set nor category has one — PhotoPicker
   // disables the re-index button in that case.
@@ -86,10 +89,14 @@ interface PostDetail {
 
 export function PostsWorkspace({
   clinicId,
+  clinicNiche,
   posts: initialPosts,
   planWeeks = [],
   currentWeekIndex = 0,
 }: Props) {
+  // Master styles this clinic may pick — Aesthetic is Made-only, so Dr.
+  // Shawn's regenmed clinics never see it.
+  const styleChoices = useMemo(() => stylesForNiche(clinicNiche), [clinicNiche])
   // Week the strip is showing — starts at "now", arrows move it.
   const [weekIdx, setWeekIdx] = useState(
     Math.min(Math.max(currentWeekIndex, 0), Math.max(planWeeks.length - 1, 0))
@@ -541,7 +548,7 @@ export function PostsWorkspace({
     }
   }
 
-  async function handleStyleChange(s: 1 | 2 | 3) {
+  async function handleStyleChange(s: number) {
     if (!detail || detail.canva_style === s) return
     setDetail((d) => (d ? { ...d, canva_style: s } : d))
     await fetch(`/api/posts/${detail.slide_set_id}`, {
@@ -978,46 +985,62 @@ export function PostsWorkspace({
                         which style is which; hover enlarges the preview. */}
                     {!detail.render_result?.canva_edit_url && (
                       <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white/60 p-1">
-                        {([
-                          { s: 1 as const, label: 'Style 1', img: '/style-previews/style1.png' },
-                          { s: 2 as const, label: 'Style 2', img: '/style-previews/style2.png' },
-                          { s: 3 as const, label: 'Aesthetic', img: '/style-previews/aesthetic.png' },
-                        ]).map(({ s, label, img }) => {
-                          const active = (detail.canva_style ?? 1) === s
+                        {/* Driven by the master registry, so the picker can never
+                            drift from what the runner actually copies. Aesthetic
+                            is filtered out for non-Made clinics by stylesForNiche. */}
+                        {styleChoices.map((t) => {
+                          const active = (detail.canva_style ?? 1) === t.id
                           return (
-                            <button
-                              key={s}
-                              type="button"
-                              onClick={() => handleStyleChange(s)}
-                              title={`${label} — template preview`}
-                              className="group relative flex flex-col items-center gap-0.5"
-                            >
-                              <span
-                                className={`block overflow-hidden rounded-md border-2 transition-all ${
-                                  active
-                                    ? 'border-violet-600 ring-2 ring-violet-200'
-                                    : 'border-transparent opacity-70 hover:opacity-100'
-                                }`}
+                            <div key={t.id} className="group relative flex flex-col items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => handleStyleChange(t.id)}
+                                title={`${t.name} — ${t.description}`}
+                                className="flex flex-col items-center gap-0.5"
                               >
-                                <img src={img} alt={label} className="h-12 w-[38px] object-cover object-top" />
-                              </span>
-                              <span
-                                className={`text-[9px] font-semibold leading-none ${
-                                  active ? 'text-violet-700' : 'text-slate-500'
-                                }`}
+                                <span
+                                  className={`block overflow-hidden rounded-md border-2 transition-all ${
+                                    active
+                                      ? 'border-violet-600 ring-2 ring-violet-200'
+                                      : 'border-transparent opacity-70 hover:opacity-100'
+                                  }`}
+                                >
+                                  <img
+                                    src={t.previewImage}
+                                    alt={t.name}
+                                    className="h-12 w-[38px] bg-slate-100 object-cover object-top"
+                                  />
+                                </span>
+                                <span
+                                  className={`text-[9px] font-semibold leading-none ${
+                                    active ? 'text-violet-700' : 'text-slate-500'
+                                  }`}
+                                >
+                                  {t.name}
+                                </span>
+                              </button>
+                              {/* Hover-enlarge preview — clickable, opens the master
+                                  design in Canva to edit. pb-2 (not mb-2) keeps a
+                                  transparent hover bridge so the popup stays reachable. */}
+                              <a
+                                href={canvaEditUrl(t.canvaDesignId)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title={`Open the ${t.name} master in Canva to edit`}
+                                className="absolute bottom-full left-1/2 z-30 hidden -translate-x-1/2 pb-2 group-hover:block"
                               >
-                                {label}
-                              </span>
-                              {/* Hover-enlarge preview — full slide, no crop */}
-                              <span className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden -translate-x-1/2 group-hover:block">
-                                <span className="block overflow-hidden rounded-lg border border-slate-300 bg-white p-1 shadow-xl">
-                                  <img src={img} alt={`${label} full`} className="block w-44 rounded" />
+                                <span className="block overflow-hidden rounded-xl border border-slate-300 bg-white p-2 shadow-2xl">
+                                  <img
+                                    src={t.previewImage}
+                                    alt={`${t.name} full`}
+                                    className="block w-[352px] max-w-[85vw] rounded-lg bg-slate-100"
+                                  />
                                 </span>
-                                <span className="mt-1 block text-center text-[10px] font-semibold text-slate-600">
-                                  {label} template
+                                <span className="mt-1.5 flex items-center justify-center gap-1 text-xs font-semibold text-violet-600">
+                                  Open in Canva to edit ↗
                                 </span>
-                              </span>
-                            </button>
+                              </a>
+                            </div>
                           )
                         })}
                       </div>

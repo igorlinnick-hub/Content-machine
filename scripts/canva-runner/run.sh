@@ -23,6 +23,10 @@ URL=$(grep -m1 '^NEXT_PUBLIC_SUPABASE_URL=' "$ENVF" | cut -d= -f2- | tr -d '"')
 KEY=$(grep -m1 '^SUPABASE_SERVICE_ROLE_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
 if [ -z "$URL" ] || [ -z "$KEY" ]; then log "no supabase creds"; exit 1; fi
 
+# Pexels stock-photo key — exported so the compose-runner skill's Bash shell
+# sees $PEXELS_API_KEY directly (source:"stock" slides). Empty → skill falls back to Flux.
+export PEXELS_API_KEY=$(grep -m1 '^PEXELS_API_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
+
 # watchdog: a row stuck in in_canva with stale progress (>20 min) means a
 # previous runner died mid-run (network drop / crash) — requeue it so the
 # next tick retries instead of hanging forever.

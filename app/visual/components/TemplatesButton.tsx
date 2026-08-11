@@ -3,15 +3,18 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ScriptFormatTemplate } from '@/types'
-import { STYLE_TEMPLATES, canvaEditUrl } from '@/lib/posts/style-templates'
+import { canvaEditUrl, stylesForNiche } from '@/lib/posts/style-templates'
 
 interface Props {
   templates: ScriptFormatTemplate[]
+  /** `clinics.niche` — Aesthetic only shows for Made (aesthetics). */
+  clinicNiche: string | null
 }
 
-export function TemplatesButton({ templates }: Props) {
+export function TemplatesButton({ templates, clinicNiche }: Props) {
   const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
+  const styles = stylesForNiche(clinicNiche)
 
   const modal = open && typeof document !== 'undefined' ? createPortal(
     <div
@@ -49,7 +52,7 @@ export function TemplatesButton({ templates }: Props) {
             Font (body 46 / title 50) and layout stay locked. Click to open and edit in Canva.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {STYLE_TEMPLATES.map((s) => (
+            {styles.map((s) => (
               <a
                 key={s.canvaDesignId}
                 href={canvaEditUrl(s.canvaDesignId)}
@@ -58,7 +61,15 @@ export function TemplatesButton({ templates }: Props) {
                 title={`Open the ${s.name} master in Canva to edit`}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', padding: '12px 16px', textDecoration: 'none' }}
               >
-                <div style={{ minWidth: 0 }}>
+                {/* Cover shot of the master, so the card shows the look
+                    rather than only naming it. object-top keeps the
+                    headline visible in the 1:1-ish crop. */}
+                <img
+                  src={s.previewImage}
+                  alt={`${s.name} cover`}
+                  style={{ flexShrink: 0, width: 54, height: 68, borderRadius: 8, border: '1px solid #e2e8f0', background: '#e2e8f0', objectFit: 'cover', objectPosition: 'top' }}
+                />
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{s.name}</span>
                     {s.under && (
@@ -119,7 +130,7 @@ export function TemplatesButton({ templates }: Props) {
       {/* Footer */}
       <div style={{ borderTop: '1px solid #f1f5f9', padding: '12px 20px', flexShrink: 0 }}>
         <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-          {STYLE_TEMPLATES.length} visual masters · edit in Canva  ·  {templates.length} script format{templates.length !== 1 ? 's' : ''} · edit in Supabase → <code style={{ fontFamily: 'monospace' }}>script_templates</code>
+          {styles.length} visual masters · edit in Canva  ·  {templates.length} script format{templates.length !== 1 ? 's' : ''} · edit in Supabase → <code style={{ fontFamily: 'monospace' }}>script_templates</code>
         </p>
       </div>
     </div>,

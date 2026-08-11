@@ -167,7 +167,12 @@ async function generateOne(params: {
     topicHint: topicHintWithNote,
     planContext: params.planContext,
     ctaHint: params.ctaHint,
-    variantCount: 3,
+    // ONE variant, not best-of-3 (Igor 2026-08-11). The extra two were only
+    // ever read by the Critic's ranking below — the marketer never saw them —
+    // so they cost writer output tokens and latency on every post for a
+    // pick the Critic made anyway. Critic still runs on the single variant:
+    // it's the quality/approved signal the compliance gate and UI rely on.
+    variantCount: 1,
     lengthTarget: params.length,
     postCarouselMode: true,
     studiesBlock,

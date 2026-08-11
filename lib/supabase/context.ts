@@ -322,12 +322,14 @@ export async function loadRecentScripts(
 }
 
 export async function loadClinicList(): Promise<
-  Array<{ id: string; name: string }>
+  Array<{ id: string; name: string; niche: string | null }>
 > {
   const supabase = createServerClient()
   const { data, error } = await supabase
     .from('clinics')
-    .select('id, name')
+    // `niche` drives which Canva styles the clinic may pick (Aesthetic is
+    // Made-only) — see lib/posts/style-templates.ts stylesForNiche().
+    .select('id, name, niche')
     .order('created_at', { ascending: false })
   if (error) throw error
   return data ?? []

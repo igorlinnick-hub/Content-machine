@@ -67,7 +67,7 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
         back={`/dashboard?clinicId=${clinic.id}`}
         right={
           <>
-            <TemplatesButton templates={templates} />
+            <TemplatesButton templates={templates} clinicNiche={clinic.niche} />
             <RoleBadge role="admin" />
           </>
         }
@@ -75,6 +75,7 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
 
       <PostsWorkspace
         clinicId={clinic.id}
+        clinicNiche={clinic.niche}
         posts={posts}
         planWeeks={planWeeks}
         currentWeekIndex={currentWeekIndex}

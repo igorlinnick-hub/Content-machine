@@ -93,6 +93,24 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   (full-bleed photo cover, kept for **Made**). Old IDs `DAHRSdnI4ZQ` /
   `DAHQPCOFBDw` / `DAHLnAHrEbA` / `DAHLnF9b328` retired. The runner copies the
   matching master and swaps photos+text only — font/layout inherited.
+- **Who sees which style (Igor 2026-08-11):** the registry carries a `niches`
+  list per style; `stylesForNiche(clinic.niche)` filters both the style picker
+  and the Templates tab. **Aesthetic (5) is `niches: ['aesthetics']` — Made
+  only. Dr. Shawn's regenmed clinics never see it.** Every other style is
+  universal. `clinics.niche` reaches the UI via `loadClinicList()`.
+- **Style previews** (`public/style-previews/<key>.png`, path declared as
+  `previewImage` in the registry) are the cover shot each style shows in the
+  picker + Templates tab. They are NOT generated — re-export page 1 of the
+  master from Canva whenever its cover changes, or the UI shows a stale look.
+  A missing file degrades to a grey tile; the style still works.
+  **Refreshed 2026-08-11** — Igor exported page 1 of all five masters himself
+  (`~/Downloads/HWC/Styles/`) and they were resized to 900px tall into
+  `<key>.png`. Re-do it the same way when a master's cover changes.
+  **Do NOT identify a master by its Canva design title** — titles are leftovers
+  from the post each master was built from and are not maintained: `DAHQn_1_j2s`
+  and `DAHMHS1wLls` are BOTH titled "Erectile Dysfunction", and `DAHRSR-KWdA` is
+  still titled "Spravato Severe Depression" long after its cover changed. The
+  registry's `id` → `canvaDesignId` pair is the only identifier that counts.
 - **Photo rules (BINDING, direction v2 — Igor 2026-07-23, in
   `lib/posts/photo-brief.ts`):** aesthetic-first. Default visuals = 3D medical
   renders (organs/molecules/processes, glass-like translucent, teal+amber glow)
