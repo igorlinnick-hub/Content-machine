@@ -87,9 +87,12 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   in the EDITORIAL standard: **body 46pt / title 50pt fixed**, short per-slide
   word budget (body ≤ ~20 words; list ≤ 3-4 items ≤ ~6 words each). Mapping:
   Style 1 → `DAHRSR-KWdA` (diagonal panels, full-bleed photo), Style 2 →
-  `DAHRSiuJEHQ` (editorial diagonal, dark photo covers), Style 3 → `DAHQn_1_j2s`
-  (curved teal/purple panels, medical imagery), Style 4 → `DAHQnsEktf0` (rounded
-  teal panels — ✓ checklist + ①②③ path), Style 5 = Aesthetic → `DAHMHS1wLls`
+  `DAHQnsEktf0` (rounded teal panels — ✓ checklist + ①②③ path), Style 3 →
+  `DAHRSiuJEHQ` (editorial diagonal, dark photo covers), Style 4 →
+  `DAHQn_1_j2s` (curved teal/purple panels, medical imagery) — **slots 2/3/4
+  rotated 2026-08-11 (Igor, matched against the real covers; the previous
+  order pointed each slot at the next style's master)** — Style 5 = Aesthetic
+  → `DAHMHS1wLls`
   (full-bleed photo cover, kept for **Made**). Old IDs `DAHRSdnI4ZQ` /
   `DAHQPCOFBDw` / `DAHLnAHrEbA` / `DAHLnF9b328` retired. The runner copies the
   matching master and swaps photos+text only — font/layout inherited.
