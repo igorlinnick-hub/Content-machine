@@ -122,8 +122,10 @@ export async function PATCH(
   }
   const supabase = createServerClient()
   const canva_style = Number(body.canva_style)
-  if (canva_style !== 1 && canva_style !== 2 && canva_style !== 3) {
-    return NextResponse.json({ error: 'canva_style must be 1, 2 or 3' }, { status: 400 })
+  // 1-5 map to the master style templates in lib/posts/style-templates.ts
+  // (5 = Aesthetic, kept for Made). Keep this range in sync with that registry.
+  if (!Number.isInteger(canva_style) || canva_style < 1 || canva_style > 5) {
+    return NextResponse.json({ error: 'canva_style must be 1-5' }, { status: 400 })
   }
   const { error } = await supabase
     .from('slide_sets')

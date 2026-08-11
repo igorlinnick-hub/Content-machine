@@ -81,15 +81,18 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   (collapses bullets); (b) correct master **per category**, never "nearest similar"
   (the `DAHM8qYZCTE` incident: Mental-Health post on ED master → ED text leaked to
   slide 7). Canva API can't add-page → every category needs a ready master.
-- **Styles (picked in UI BEFORE composing, `slide_sets.canva_style` 1|2|3; picker
-  hides once visuals exist):** Style 1 → example `DAHRSdnI4ZQ` (DIAGONAL style, 8 body pages —
-  angled translucent panels over a full-bleed background + wave logo; restored
-  2026-08-03, the old `DAHLnAHrEbA` gradient was a mislabel that looked like
-  Style 2), Style 2 → `DAHQnsEktf0` (cartilage reference with
-  design elements baked in — dividers, ✓ checklist, ①②③ path, bold takeaways,
-  soft edge inset; retired old `DAHLnF9b328` on 2026-07-29), Aesthetic (3) →
-  `DAHMHS1wLls` (ED-style, full-bleed photo cover). The runner copies the
-  matching example and swaps photos+text only.
+- **Styles (`slide_sets.canva_style` 1-5) — RE-MAPPED 2026-08-10 (Igor) to the
+  finished master templates.** Source of truth = `lib/posts/style-templates.ts`
+  (the Templates UI reads it; the canva-compose-runner skill mirrors it). All are
+  in the EDITORIAL standard: **body 46pt / title 50pt fixed**, short per-slide
+  word budget (body ≤ ~20 words; list ≤ 3-4 items ≤ ~6 words each). Mapping:
+  Style 1 → `DAHRSR-KWdA` (diagonal panels, full-bleed photo), Style 2 →
+  `DAHRSiuJEHQ` (editorial diagonal, dark photo covers), Style 3 → `DAHQn_1_j2s`
+  (curved teal/purple panels, medical imagery), Style 4 → `DAHQnsEktf0` (rounded
+  teal panels — ✓ checklist + ①②③ path), Style 5 = Aesthetic → `DAHMHS1wLls`
+  (full-bleed photo cover, kept for **Made**). Old IDs `DAHRSdnI4ZQ` /
+  `DAHQPCOFBDw` / `DAHLnAHrEbA` / `DAHLnF9b328` retired. The runner copies the
+  matching master and swaps photos+text only — font/layout inherited.
 - **Photo rules (BINDING, direction v2 — Igor 2026-07-23, in
   `lib/posts/photo-brief.ts`):** aesthetic-first. Default visuals = 3D medical
   renders (organs/molecules/processes, glass-like translucent, teal+amber glow)

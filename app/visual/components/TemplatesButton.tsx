@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ScriptFormatTemplate } from '@/types'
+import { STYLE_TEMPLATES, canvaEditUrl } from '@/lib/posts/style-templates'
 
 interface Props {
   templates: ScriptFormatTemplate[]
@@ -34,6 +35,47 @@ export function TemplatesButton({ templates }: Props) {
 
       {/* List */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+        {/* Master style templates — the compose runner copies these Canva
+            designs fresh for every post (swapping only text + photos), so a
+            fix to a master flows to every future carousel. Click a card to
+            open that master in Canva and edit it. IDs mirror
+            lib/posts/style-templates.ts + the canva-compose-runner skill. */}
+        <div style={{ marginBottom: 24 }}>
+          <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#94a3b8', margin: '0 0 4px' }}>
+            Master style templates — the system copies these
+          </p>
+          <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 10px' }}>
+            Each post is built by duplicating one of these masters and swapping in its words + photos.
+            Font (body 46 / title 50) and layout stay locked. Click to open and edit in Canva.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {STYLE_TEMPLATES.map((s) => (
+              <a
+                key={s.canvaDesignId}
+                href={canvaEditUrl(s.canvaDesignId)}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open the ${s.name} master in Canva to edit`}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 12, border: '1px solid #e2e8f0', background: '#f8fafc', padding: '12px 16px', textDecoration: 'none' }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>{s.name}</span>
+                    {s.under && (
+                      <span style={{ borderRadius: 999, background: '#eef2ff', padding: '1px 8px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#6366f1' }}>
+                        {s.under}
+                      </span>
+                    )}
+                    <code style={{ fontFamily: 'monospace', fontSize: 11, color: '#94a3b8' }}>{s.canvaDesignId}</code>
+                  </div>
+                  <p style={{ fontSize: 12.5, color: '#64748b', margin: '3px 0 0' }}>{s.description}</p>
+                </div>
+                <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: '#6366f1', whiteSpace: 'nowrap' }}>Open in Canva ↗</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
         {templates.length === 0 && (
           <p style={{ textAlign: 'center', padding: '64px 0', fontSize: 14, color: '#94a3b8' }}>No templates configured yet.</p>
         )}
@@ -77,7 +119,7 @@ export function TemplatesButton({ templates }: Props) {
       {/* Footer */}
       <div style={{ borderTop: '1px solid #f1f5f9', padding: '12px 20px', flexShrink: 0 }}>
         <p style={{ fontSize: 11, color: '#94a3b8', margin: 0 }}>
-          {templates.length} template{templates.length !== 1 ? 's' : ''} · edit in Supabase → <code style={{ fontFamily: 'monospace' }}>script_templates</code>
+          {STYLE_TEMPLATES.length} visual masters · edit in Canva  ·  {templates.length} script format{templates.length !== 1 ? 's' : ''} · edit in Supabase → <code style={{ fontFamily: 'monospace' }}>script_templates</code>
         </p>
       </div>
     </div>,

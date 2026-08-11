@@ -263,17 +263,18 @@ ${profile.complianceFacts}
 OUTPUT SHAPE (POST CAROUSEL):
 The "script" field of each variant is the full carousel rendered as readable text — cover line + each numbered slide + CTA stack. The compliance gate reads this; downstream the splitter parses it into the slide_sets row.
 
-CAROUSEL LENGTH — OVERRIDES the "LENGTH SPEC / word count" above (Igor 2026-08-03):
-That word budget is for a spoken VIDEO script — IGNORE it here. A carousel is
-LONGER and every slide must be FILLED. Rules:
-- **Each BODY slide = ~55-100 words** — a lead-in sentence + 3-4 substantive
-  points (real mechanism / numbers / specifics) + a closing line. Enough to fill
-  the slide's panel.
-- A body slide with only 1-2 sentences is TOO THIN and is a FAILED variant —
-  expand it with concrete detail (never padding, never fluff).
-- Whole post ≈ 400-750 words across cover + body + CTA.
-- The panel is large (esp. Style 1's diagonal panel) — a half-empty slide reads
-  as unfinished. FILL IT.
+CAROUSEL LENGTH — GRID BUDGET (OVERRIDES the "LENGTH SPEC / word count" above;
+Igor 2026-08-10, supersedes the old "fill to 55-100 words" rule):
+The master templates use a BIG FIXED font (body 46pt / title 50pt), so text must
+be SHORT to fit the grid. Editorial rhythm (danbuettner style): a punchy heading
++ ONE short idea. Rules:
+- **Each BODY slide ≤ ~20 words.** Either ONE short paragraph (1-2 sentences),
+  OR a list of 3-4 items where EACH item is ≤ ~6 words (fits one line). Not both.
+- Prefer a statement + a single supporting line over a wall of points.
+- Do NOT stack lead-in + multi-point + closing on one slide — pick ONE shape.
+- Text must fit the panel at the fixed font. A slide that would overflow is a
+  FAILED variant — cut words, NEVER assume the font shrinks.
+- Keep the whole post lean: cover ≤ ~18 words, CTA ≤ ~12 words.
 
 SLIDE HEADINGS (HARD): each body slide's heading must be SHORT (≤ ~5 words / 24
 chars) AND clear on its own — a self-explanatory label, never a long sentence
