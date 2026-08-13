@@ -37,6 +37,21 @@ export interface StyleTemplate {
   niches?: string[]
   /** Grouping/branding, e.g. "Made" (ManyChat). */
   under?: string
+  /**
+   * How many BODY pages this master ships with (total pages minus cover minus
+   * CTA). Informational — NOT a cap on post length. A 2026-08-03 compose did
+   * fail with "example has too few body pages" (6-slide post, 4-slot master),
+   * but the runner skill was taught to grow the copy since: when the post has
+   * more slides than the master has pages it duplicates body pages via
+   * `merge-designs → insert_pages` instead of failing. Don't reintroduce a
+   * writer-side slide cap on account of this number — it costs post depth and
+   * buys nothing.
+   *
+   * Counts are read off each master's own page exports (`render_result.outputs`
+   * from the compose that produced it), not guessed. Re-measure when a master
+   * is rebuilt with a different page count.
+   */
+  bodySlots: number
 }
 
 export const STYLE_TEMPLATES: StyleTemplate[] = [
@@ -47,6 +62,8 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
     description: 'Diagonal translucent panels over a full-bleed photo — bold, editorial.',
     canvaDesignId: 'DAHRSR-KWdA',
     previewImage: '/style-previews/style1.png',
+    // 8 pages exported (cover + 6 body + CTA) — slide_set cdbc5a8f.
+    bodySlots: 6,
   },
   {
     id: 2,
@@ -55,6 +72,8 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
     description: 'Rounded teal panels — checklist ✓ + numbered path ①②③, soft insets.',
     canvaDesignId: 'DAHQnsEktf0',
     previewImage: '/style-previews/style2.png',
+    // 8 pages exported (cover + 6 body + CTA) — slide_set 8e971961.
+    bodySlots: 6,
   },
   {
     id: 3,
@@ -63,6 +82,8 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
     description: 'Editorial diagonal — dark render/photo covers with a statement + one line.',
     canvaDesignId: 'DAHRSiuJEHQ',
     previewImage: '/style-previews/style3.png',
+    // 8 pages exported (cover + 6 body + CTA) — slide_set 1fad0dde.
+    bodySlots: 6,
   },
   {
     id: 4,
@@ -71,6 +92,9 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
     description: 'Curved teal/purple panels — clean, clinical, medical-context imagery.',
     canvaDesignId: 'DAHQn_1_j2s',
     previewImage: '/style-previews/style4.png',
+    // 7 pages exported (cover + 5 body + CTA) — slide_set a0409a55. The
+    // tightest master; it is what caps the whole pipeline.
+    bodySlots: 5,
   },
   {
     id: 5,
@@ -79,6 +103,9 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
     description: 'Full-bleed photo cover, magazine feel — kept separately for Made.',
     canvaDesignId: 'DAHMHS1wLls',
     previewImage: '/style-previews/aesthetic.png',
+    // UNVERIFIED — this master has never been composed by the runner, so no
+    // export count exists. Held at the conservative floor until measured.
+    bodySlots: 5,
     niches: ['aesthetics'],
     under: 'Made',
   },
@@ -132,4 +159,13 @@ export function designIdForStyle(raw: number | null | undefined): string {
 export function brandTemplateEnvKey(raw: number | null | undefined): string {
   const id = normalizeStyleId(raw)
   return id === 1 ? 'CANVA_BRAND_TEMPLATE_ID' : `CANVA_BRAND_TEMPLATE_ID_${id}`
+}
+
+/** How many body slides the master for this style ships with. */
+export function bodySlotsForStyle(raw: number | null | undefined): number {
+  const id = normalizeStyleId(raw)
+  return (
+    STYLE_TEMPLATES.find((s) => s.id === id)?.bodySlots ??
+    STYLE_TEMPLATES[0].bodySlots
+  )
 }

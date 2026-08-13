@@ -23,6 +23,37 @@ URL=$(grep -m1 '^NEXT_PUBLIC_SUPABASE_URL=' "$ENVF" | cut -d= -f2- | tr -d '"')
 KEY=$(grep -m1 '^SUPABASE_SERVICE_ROLE_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
 if [ -z "$URL" ] || [ -z "$KEY" ]; then log "no supabase creds"; exit 1; fi
 
+# Mark every queued row with a "paused, here's why" notice so /visual shows the
+# real reason instead of an eternal "Queued" chip. Same shape the Replicate
+# 402 branch below writes; the UI renders compose_progress.stage == 'blocked'.
+mark_blocked() {
+  curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?status=eq.ready_for_canva" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+    -d "{\"compose_progress\":{\"stage\":\"blocked\",\"error\":$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$1"),\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}}" >/dev/null
+}
+
+# ── Claude quota cooldown (Igor 2026-08-12) ─────────────────────────────
+# The runner spawns `claude -p` on the SAME subscription account Igor uses
+# interactively. When that account hits its session limit, every 2-min tick
+# used to spawn a process that died on the first token — 130 doomed spawns
+# in one day, while the post sat in "Queued" forever. Park the queue until
+# the reset instead, and say so on the row.
+COOLDOWN="$HOME/Library/Application Support/HWC/canva-runner/quota-cooldown"
+if [ -f "$COOLDOWN" ]; then
+  CD_UNTIL=$(cut -d'|' -f1 "$COOLDOWN" 2>/dev/null)
+  CD_HUMAN=$(cut -d'|' -f2- "$COOLDOWN" 2>/dev/null)
+  if [ -n "$CD_UNTIL" ] && [ "$(date +%s)" -lt "$CD_UNTIL" ]; then
+    # Re-stamp: a post queued AFTER the limit was hit has no notice yet.
+    mark_blocked "Claude quota for the compose runner is used up — composing resumes automatically at $CD_HUMAN"
+    exit 0
+  fi
+  rm -f "$COOLDOWN"
+  log "quota cooldown expired — resuming"
+  curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?status=eq.ready_for_canva&compose_progress->>stage=eq.blocked" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+    -d '{"compose_progress":null}' >/dev/null
+fi
+
 # Pexels stock-photo key — exported so the compose-runner skill's Bash shell
 # sees $PEXELS_API_KEY directly (source:"stock" slides). Empty → skill falls back to Flux.
 export PEXELS_API_KEY=$(grep -m1 '^PEXELS_API_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
@@ -62,8 +93,18 @@ if [ "$COUNT" != "1" ]; then exit 0; fi
 # start; on a flaky network (esp. first tick after wake) it can be
 # absent, and a runner without Canva tools can only fail. Skip the
 # tick and retry in 2 min instead of burning a doomed session.
-if ! claude mcp list 2>/dev/null | grep -F "claude.ai Canva" | grep -q "Connected"; then
+# Two spellings, one connector. "claude.ai Canva" is the claude.ai-managed
+# connector; "claude_ai_Canva" is the same Canva MCP registered directly in the
+# CLI's user config (Igor 2026-08-12 — the managed one stopped being offered to
+# this account, and `claude mcp add` rejects dots and spaces in a name). Both
+# expose tools as mcp__claude_ai_Canva__*, which is what the runner allows.
+if ! claude mcp list 2>/dev/null | grep -E "claude\.ai Canva|claude_ai_Canva" | grep -q "Connected"; then
   log "pre-flight: Canva MCP not connected — skipping tick"
+  # Say it on the row too. A lapsed Canva token used to be INVISIBLE: the tick
+  # skipped, the log line scrolled past, and the post sat in "Queued" for days
+  # with nobody knowing why (Igor 2026-08-12). One re-login fixes it — but only
+  # if you can see that it's needed.
+  mark_blocked "Canva connection for the compose runner has lapsed — run 'claude mcp login claude_ai_Canva' in a terminal, then composing resumes on its own"
   exit 0
 fi
 
@@ -94,8 +135,54 @@ fi
 
 log "queue non-empty — starting compose runner"
 cd "$HOME/Library/Application Support/HWC/canva-runner"
+OUTF=$(mktemp "${TMPDIR:-/tmp}/canva-runner.XXXXXX")
 claude -p "Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly." \
   --model sonnet \
   --allowedTools "mcp__claude_ai_Canva__*,Bash,Read,Write,Skill,ToolSearch" \
-  --output-format text >> "$LOG" 2>&1
-log "runner finished (exit $?)"
+  --output-format text > "$OUTF" 2>&1
+RC=$?
+cat "$OUTF" >> "$LOG"
+log "runner finished (exit $RC)"
+
+# Quota wall: the CLI prints "You've hit your session limit · resets 6:10pm
+# (Pacific/Honolulu)" and exits immediately. Park the queue until that time
+# rather than respawning into the same wall every 2 minutes.
+if grep -qi "hit your session limit" "$OUTF"; then
+  read -r CD_UNTIL CD_HUMAN <<<"$(python3 - "$OUTF" <<'PY'
+import re, sys, datetime
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    ZoneInfo = None
+txt = open(sys.argv[1], errors='ignore').read()
+now = datetime.datetime.now().astimezone()
+until = None
+m = re.search(r"resets\s+(\d{1,2}):(\d{2})\s*(am|pm)\s*(?:\(([^)]+)\))?", txt, re.I)
+if m:
+    h, mi, ap, tzname = int(m.group(1)), int(m.group(2)), m.group(3).lower(), m.group(4)
+    h = h % 12 + (12 if ap == 'pm' else 0)
+    tz = now.tzinfo
+    if tzname and ZoneInfo:
+        try:
+            tz = ZoneInfo(tzname.strip())
+        except Exception:
+            pass
+    ref = now.astimezone(tz)
+    until = ref.replace(hour=h, minute=mi, second=0, microsecond=0)
+    if until <= ref:
+        until += datetime.timedelta(days=1)
+else:
+    m = re.search(r"resets in\s+(\d+)\s*h", txt, re.I)
+    until = now + datetime.timedelta(hours=int(m.group(1)) if m else 1)
+# +90s of slack: resetting exactly on the boundary can still be refused.
+until += datetime.timedelta(seconds=90)
+print(int(until.timestamp()), until.astimezone().strftime('%H:%M'))
+PY
+)"
+  if [ -n "${CD_UNTIL:-}" ]; then
+    printf '%s|%s' "$CD_UNTIL" "$CD_HUMAN" > "$COOLDOWN"
+    log "session limit hit — parking queue until $CD_HUMAN (local)"
+    mark_blocked "Claude quota for the compose runner is used up — composing resumes automatically at $CD_HUMAN"
+  fi
+fi
+rm -f "$OUTF"
