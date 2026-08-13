@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { GradientBg } from './components/GradientBg'
 import { VersionWatcher } from './components/VersionWatcher'
@@ -7,6 +7,14 @@ import { VersionWatcher } from './components/VersionWatcher'
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
+  display: 'swap',
+})
+
+// HWC's display face — the clinic's landings pair it with Inter. Self-hosted
+// by next/font, so it renders crisp with no flash of a fallback serif.
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair',
   display: 'swap',
 })
 
@@ -26,7 +34,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body className="font-sans antialiased">
         <GradientBg />
         <VersionWatcher />

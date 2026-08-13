@@ -709,3 +709,49 @@ button.bg-fuchsia-600:hover {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
   }
 }
+
+/* ── Hawaii Wellness Clinic brand tokens ────────────────────────────────────
+   Lifted verbatim from the clinic's landing pages so the app and the site
+   read as one brand. Canonical source:
+   Hawaii Wellness Clinic/HWC-Landing-pages/Pain & Joint Landing 3/index.html */
+:root {
+  --hwc-ocean:       #1b4f6e;
+  --hwc-ocean-dark:  #0d2f42;
+  --hwc-ocean-light: #2e7da6;
+  --hwc-teal:        #3aaea0;
+  --hwc-teal-light:  #a8d8d3;
+  --hwc-coral:       #e07a5f;
+  --hwc-sand:        #f5ede0;
+  --hwc-sand-dark:   #e8d9c4;
+}
+
+/* Playfair Display, the clinic's display face. Optical sizing off and
+   -webkit-font-smoothing left to the body so glyph edges stay crisp rather
+   than getting the smeared look of a transformed/scaled webfont. */
+.hwc-display {
+  font-family: var(--font-playfair), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Sign-in form on the HWC front door. The shared glass button is designed for
+   the animated gradient background; on a solid white card it would read as an
+   empty outline, so inside .hwc-form it becomes a solid ocean button. Scoped
+   here rather than changing the global primitive, which the rest of the app
+   still uses over the gradient. */
+.hwc-form .cm-btn-primary {
+  background: linear-gradient(180deg, var(--hwc-ocean-light) 0%, var(--hwc-ocean) 100%);
+  color: #fff;
+  border-color: rgba(13, 47, 66, 0.28);
+  box-shadow: 0 8px 22px rgba(27, 79, 110, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.hwc-form .cm-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #3a8fb8 0%, #1f5c80 100%);
+  box-shadow: 0 10px 26px rgba(27, 79, 110, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+.hwc-form .cm-input:focus {
+  border-color: var(--hwc-teal);
+  box-shadow: 0 0 0 3px rgba(58, 174, 160, 0.20);
+}

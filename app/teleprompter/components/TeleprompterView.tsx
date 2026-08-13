@@ -59,7 +59,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const [text, setText] = useState('')
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
   const [saveTitle, setSaveTitle] = useState('')
-  const [speed, setSpeed] = useState(45) // px per second
+  const [speed, setSpeed] = useState(25) // px per second — Igor's comfortable pace
   const [fontSize, setFontSize] = useState(30)
   const [isScrolling, setIsScrolling] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
