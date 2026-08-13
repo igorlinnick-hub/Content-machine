@@ -9,6 +9,35 @@
 
 ---
 
+## 🔴 SESSION HANDOFF — 2026-08-13 · branch `feat/aesthetics-manychat` (read first, delete once acted on)
+
+**Continue on branch `feat/aesthetics-manychat`.** Two workstreams: aesthetics (DONE + verified live, ready to merge) and scheduler (blocked on 2 prod actions only Igor can do).
+
+### ✅ Aesthetics ManyChat CTA for Dr. Made — DONE + VERIFIED LIVE
+Committed on this branch as **`7a18ab7`** (3 files):
+- `lib/seeds/cta-keywords.ts` — new `AESTHETICS_CTA_KEYWORDS` = GLOW, BOTOX, FILLER, LIPS, RENEW, SKIN, YOUTH, PRP, STEMCELL, BEAUTY, ALOHA, MICRO + `keywordPoolForNiche(niche)`. **Must stay in sync with what Igor set in ManyChat.**
+- `lib/agents/planner.ts` — planner now **niche-aware**: keyword enum + prompt resolve by `profile.niche` (was hardcoded HWC → Made got nonsensical TMS/PRP keywords). Applies to `runPlanner` + `rerollTopic`.
+- `lib/niche/profiles.ts` — aesthetics `ctaMode: 'booking' → 'manychat'` + `manychatKeywordsBlock` (aesthetics pool). Wiring already correct: `buildSystemPosts` (writer, line ~225) + splitter both branch on `ctaMode`.
+
+**Verified LIVE** on a preview deploy (`vercel deploy -e ENABLE_LLM_AGENTS=true`, that deploy only): generated a real Made post ("Lip filler…") → CTA slide came out
+`Comment "LIPS" and we'll send you our guide to natural lip augmentation` — keyword from the pool, contextual, 3-line manychat CTA, niche label "medical aesthetics", **no BOOK**. Vercel build green.
+- Talking-head SCRIPTS keep a conversational CTA **by design** — the Comment-KEYWORD mechanic is posts-carousel only. Not a bug.
+
+**NEXT ACTION → merge to main:** `git checkout main && git merge feat/aesthetics-manychat` (build green + verified live). NOT merged yet — Igor's call. Prod (`main`) does not have this yet.
+
+### 🔴 Scheduler — NOT working in prod. 2 blockers (both verified live via prod checks):
+Scheduler UI/code is ALREADY in prod (committed `42b27dd` on main: calendar redesign, `/api/publish/buffer/health`, honest error surfacing, per-slide regenerate). It has no table + no Buffer, so it 500s / can't publish.
+1. **`scheduled_posts` table MISSING in prod** — migration 032 never applied. Prod `GET /api/scheduled-posts` → 500 "Could not find the table 'public.scheduled_posts' in the schema cache" (login/dashboard 200 → DB healthy, only this table absent). **Fix:** paste `supabase/migrations/032_scheduled_posts.sql` into the Supabase SQL editor + **Run**. (Auto-mode classifier blocks Claude from executing prod DB writes — a human clicks Run.)
+2. **Buffer NOT connected** — `BUFFER_TOKEN` absent from prod Vercel env. Verified: pulled all 49 prod env vars → ZERO buffer/channel vars under any name; prod health = `token: missing`. Channels existing IN the Buffer account ≠ token in our app's env. **Fix:** set `BUFFER_TOKEN` + `BUFFER_CHANNEL_INSTAGRAM/FACEBOOK/TIKTOK` in Vercel (Igor pastes the token — classifier blocks extracting it from his Safari session). Then `/api/scheduled-posts/*` + cron `scheduled-post` work.
+
+### ⚠️ Working tree is MIXED across parallel sessions — do NOT blind-commit
+Uncommitted files that are NOT aesthetics (belong to other sessions): script-starred feature (`supabase/migrations/046_script_starred.sql`, `app/scripts/`, `RecentScripts.tsx`, `WeekCard.tsx`, `DashBento.tsx`), teleprompter, `lib/supabase/context.ts`, `scripts/canva-runner/run.sh`. PLUS this session's still-uncommitted UI: dashboard **ScriptGenerator → mirror-of-posts** refactor (`app/dashboard/page.tsx` loads `planWeeks`/`currentWeekIndex`), `PostsWorkspace` declutter + all-blue week strip, `SlideEditor` **Guide** button removed (per-slide Regenerate stays). Commit these deliberately, per feature.
+
+### Memory updated this session
+`project_pending_deploy.md` (032 missing in prod), `project_content_machine.md` (aesthetics → manychat, Buffer code-only-never-connected).
+
+---
+
 ## 🔴 SESSION HANDOFF — 2026-08-12 (read this first, then delete once acted on)
 
 **Where we are.** Post craft was reworked by hand in Canva, then the rules were
@@ -207,11 +236,29 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
 - **Code:** `app/visual/components/PostsWorkspace.tsx`, `lib/posts/status-owners.ts`,
   `lib/posts/pipeline.ts` (`statusFromCompliance`, `autoComposeQueued`).
 
-### 6. Teleprompter + Clips (doctor video)
-- **Does:** record in teleprompter → Drive Inbox → Whisper → retake/filler cuts →
-  styled captions (presets, migration 038) → Drive Finals. Stop&Save + recorder guard.
-- **Code:** `app/teleprompter/*`, `app/clips/*`, `lib/clips/*`, `app/api/cron/clips-inbox`.
-  See `[[project_clips_pipeline]]`.
+### 6. Teleprompter + Clips (doctor video) — обновлено 2026-07-25
+- **Does:** врач в телепромптере: записал → прямая загрузка в Drive (presign→PUT→confirm,
+  БЕЗ лимита длины; экран «editor notified», push команде). Админ в `/clips` (admin-only):
+  Recordings (скролл/превью/удалить-с-Drive) → **Auto-edit** → Ready videos (плеер в приложении).
+  Пайплайн: download → `normalizeSource` (CRF17, **9:16 1080×1920 crop-fill**, 30fps) →
+  WhisperX **Replicate** (words, ~$0.01/мин) → Sonnet retakes → `planCuts` → `cutAndBurn`
+  (резка+сабы ОДНИМ энкодом, CRF18 High, AAC256/48k) → Finals + link-view + push.
+- **ПРАВИЛА МОНТАЖА = HANDOFF §22.2b (BINDING):** pad ±0.2s, паузы <0.5s не резать,
+  ≤2 поколений кодирования, шрифт бандловый (`assets/fonts` + fontsdir — на Vercel шрифтов НЕТ),
+  кьюсы по фразам (`plan.cues`). Источник правил: My Bots `bot/scripts/process_video.py`.
+- **Code:** `app/teleprompter/*`, `app/clips/*`, `lib/clips/*` (cuts/ffmpeg/whisper/srt/ass/
+  captionStyles/notify), `app/api/clips/{from-recording,process,style,summary,[clipId]}`,
+  `app/api/cron/clips-inbox` (раз в день 07:00 UTC — Hobby-лимит Vercel).
+- **Стили сабов:** 4 статических + `ocean` (karaoke, ASS). Clinic default = `clinics.caption_style`.
+- **Состояние (2026-07-25):** цепочка live, прогнана end-to-end. Последний cleaned-клип —
+  ЕЩЁ ПО СТАРЫМ правилам резки; прогон по новым (мягкая резка + CRF18) Игорем не проверен.
+- **Next (первым делом в видео-сессии):** удалить крестиком dead-строки (failed/processing) →
+  Auto-edit на «Patient Lost 40 Pounds» → оценить плавность/чёткость. Затем тест с телефона
+  вертикально (вебкам 720p при кропе мылит — лимит исходника). Бэклог: face-tracking кроп,
+  audio loudnorm, сигнал >90s, ретрай залипших processing кроном, UI подписки на push
+  (кнопку убрали — новым устройствам негде подписаться).
+- **Gotcha:** kill switch `ENABLE_LLM_AGENTS=true` сейчас ВКЛЮЧЁН (нужен для Whisper/retakes).
+  Закрытие страницы больше не убивает монтаж (waitUntil). См. `[[project_clips_pipeline]]`.
 
 ### 7. Studio (talking-head creator product)
 - **Does:** TikTok ingest via Apify, format analysis (cover+caption vision), shot
