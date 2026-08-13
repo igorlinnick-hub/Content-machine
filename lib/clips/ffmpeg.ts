@@ -101,10 +101,15 @@ export async function normalizeSource(
       'crop=1080:1920,setsar=1,fps=30',
     // Intermediate master: near-lossless so the final encode is the
     // only visible generation (Правила монтажа: ≤2 поколений).
+    // Preset veryfast, NOT fast: §22.2b pins the preset for the FINAL
+    // encode only. At a fixed CRF the preset trades file size for
+    // encode time, not visible quality — and this pass is a temp file
+    // that never leaves /tmp. `fast` here cost ~3x the CPU and was
+    // half of why the invocation hit its ceiling.
     '-c:v',
     'libx264',
     '-preset',
-    'fast',
+    'veryfast',
     '-crf',
     '17',
     '-c:a',

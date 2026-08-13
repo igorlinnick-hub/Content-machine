@@ -136,6 +136,14 @@ export default function ReadyVideosPanel({ clips }: { clips: ClipRow[] }) {
                     {clip.error}
                   </div>
                 ) : null}
+                {clip.status === 'processing' && clip.error ? (
+                  // In-flight breadcrumb (lib/clips/store markClipStage).
+                  // A row that stops moving here shows which stage the
+                  // run died in — the only trace a killed lambda leaves.
+                  <div className="mt-1 truncate text-xs text-neutral-400" title={clip.error}>
+                    {clip.error}
+                  </div>
+                ) : null}
               </div>
             )
           })}

@@ -10,9 +10,11 @@ import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Same budget as /api/clips/process — Whisper + 2 ffmpeg passes on a
-// teleprompter take (≤3 min) lands well inside it.
-export const maxDuration = 300
+// Same budget as /api/clips/process. 300s was NOT enough: at the
+// §22.2b quality settings a 73s take needs two 1080x1920 x264 passes
+// and the invocation was killed mid-encode, leaving the row stuck in
+// 'processing'. Memory (= vCPU) is raised in vercel.json alongside.
+export const maxDuration = 800
 
 // Teleprompter "Auto-edit" (HANDOFF §22.2 п.11): copy a saved
 // recording from Recordings/ into the clinic's clips Inbox and run

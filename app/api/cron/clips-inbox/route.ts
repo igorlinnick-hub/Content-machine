@@ -12,8 +12,8 @@ import { disabledHttpResponse } from '@/lib/agents/disabled'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 // Same budget as /api/clips/process — the pipeline runs inside this
-// function. An average 5-min clip takes 2-4 minutes.
-export const maxDuration = 300
+// function and is CPU-bound at the §22.2b quality settings.
+export const maxDuration = 800
 
 // Cron poll for clips Inboxes (closes §20 "Что НЕ сделано" item):
 // doctor uploads to Drive get picked up automatically instead of

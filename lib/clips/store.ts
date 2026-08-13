@@ -66,6 +66,24 @@ export async function markClipProcessing(clipId: string): Promise<void> {
   if (error) throw error
 }
 
+// Live breadcrumb while a clip is in flight. There is no dedicated
+// column (migration 012 predates this), so the stage is parked in
+// `error` — it is overwritten by the real message on failure and
+// cleared on success. Worth the reuse: when a lambda is killed by
+// its own timeout no code runs, so the last breadcrumb written is
+// the only evidence of WHICH stage ate the budget. Best-effort by
+// design — a bookkeeping write must never fail a good render.
+export async function markClipStage(
+  clipId: string,
+  stage: string
+): Promise<void> {
+  const supabase = createServerClient()
+  await supabase
+    .from('clips')
+    .update({ error: `stage: ${stage}` })
+    .eq('id', clipId)
+}
+
 export async function markClipCleaned(params: {
   clipId: string
   driveClipFolderId: string
@@ -90,6 +108,8 @@ export async function markClipCleaned(params: {
       cleaned_file_id: params.cleanedFileId,
       transcript_txt_file_id: params.transcriptTxtFileId,
       transcript_srt_file_id: params.transcriptSrtFileId,
+      // Drop the in-flight stage breadcrumb.
+      error: null,
       completed_at: new Date().toISOString(),
     })
     .eq('id', params.clipId)

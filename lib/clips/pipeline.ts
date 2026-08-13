@@ -24,6 +24,7 @@ import {
   markClipCleaned,
   markClipFailed,
   markClipProcessing,
+  markClipStage,
   upsertPendingClip,
 } from './store'
 import { resolveCaptionStyle } from './captionStyles'
@@ -90,23 +91,36 @@ export async function processClip(params: {
   const srtPath = join(work, 'transcript.srt')
   const finalPath = join(work, 'final.mp4')
 
+  // Stage breadcrumbs carry seconds-since-start so a stuck row shows
+  // both where the run died and how long it had been alive.
+  const startedAt = Date.now()
+  const stage = (name: string) =>
+    markClipStage(
+      clipId,
+      `${name} (t+${Math.round((Date.now() - startedAt) / 1000)}s)`
+    ).catch(() => {})
+
   try {
     // 1. Download from Drive.
+    await stage('download')
     const rawBuf = await downloadDriveFileToBuffer(inboxClip.id)
     await writeFile(rawPath, rawBuf)
 
     // 1b. Normalize to clean 30fps CFR on the 9:16 Reels canvas —
     //     browser webm timestamps are broken; every later stage
     //     (Whisper audio, trims, burn) works off this file.
+    await stage('normalize')
     await normalizeSource(rawPath, normPath)
     await unlink(rawPath).catch(() => {})
 
     // 2. Extract low-bitrate mono mp3 for Whisper, then drop raw
     //    bytes from memory to save heap.
+    await stage('audio')
     await extractAudioMp3(normPath, audioPath)
     const audioBuf = await readFile(audioPath)
 
     // 3. Transcribe.
+    await stage('whisper')
     const whisper: WhisperResult = await transcribeAudio({
       audio: audioBuf,
       fileName: 'audio.mp3',
@@ -118,6 +132,7 @@ export async function processClip(params: {
     //    ("let me start over" + the flubbed line before it) so they
     //    never reach the cut plan. On any error this returns zero
     //    drops and the pipeline continues with filler/silence only.
+    await stage('retakes')
     const retakes = await detectRetakeDrops(whisper.segments)
     const liveSegments =
       retakes.count > 0
@@ -142,6 +157,7 @@ export async function processClip(params: {
     const captionStyle = resolveCaptionStyle(
       await getClinicCaptionStyle(clinicId)
     )
+    await stage('cut+burn')
     if (captionStyle.animated && captionStyle.ass && whisper.words.length > 0) {
       const assPath = srtPath.replace(/\.srt$/, '.ass')
       const ass = buildKaraokeAss(whisper.words, plan.keep, captionStyle.ass)
@@ -166,6 +182,7 @@ export async function processClip(params: {
 
     // 9. Upload artifacts to a per-clip folder — under the clinic's
     //    Finals/ or the legacy global Cleaned/.
+    await stage('upload')
     const folderName = safeFolderName(inboxClip.name)
     const folderId = await createClipFolder(folderName, folders?.finalsId)
 

@@ -6,11 +6,12 @@ import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Clip pipeline runs Whisper + 2 ffmpeg passes. Allow the full
-// Vercel Pro budget — a 5-min clip lands in ~2-4 minutes; longer
-// clips fail at the 300s ceiling and the error lands on the clip
-// row (visible in /clips).
-export const maxDuration = 300
+// Clip pipeline runs Whisper + 2 ffmpeg passes at the §22.2b quality
+// settings, which are CPU-bound on a lambda. 300s killed a 73s take
+// mid-encode; 800s + the memory bump in vercel.json is the real
+// budget. Longer clips still fail at the ceiling and the error lands
+// on the clip row (visible in /clips).
+export const maxDuration = 800
 
 interface Body {
   clinicId: string
