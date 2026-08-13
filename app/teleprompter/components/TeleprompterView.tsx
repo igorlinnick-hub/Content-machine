@@ -774,9 +774,10 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
             Script text
           </p>
+          {/* Height is viewport-relative: a fixed row count collapses to a
+              peephole on a phone, where this is the main thing being read. */}
           <textarea
-            className="w-full resize-none rounded-xl border border-neutral-200 bg-white/60 p-3 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100"
-            rows={10}
+            className="h-[55vh] min-h-[280px] w-full resize-none rounded-xl border border-neutral-200 bg-white/60 p-3.5 text-[15px] leading-relaxed text-neutral-800 placeholder:text-neutral-400 focus:border-violet-300 focus:outline-none focus:ring-2 focus:ring-violet-100 sm:h-[460px] sm:resize-y sm:text-sm"
             placeholder="Paste your script here or load one from the list above…"
             value={text}
             onChange={(e) => {
