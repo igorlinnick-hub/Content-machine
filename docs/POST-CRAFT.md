@@ -74,6 +74,63 @@ mechanism, number, and named study intact. Pull from these shapes:
 
 A carousel = cover + **at least 4 body slides** + CTA. Fewer body slides = failed.
 
+### 2a. WATERFALL — the post descends, it doesn't circle (binding, Igor 2026-08-12)
+
+The shape catalog above is the list of STATIONS. It is not the logic. The logic:
+**every slide answers the question the previous slide raised, and ends by
+raising the next.** If the slides could be reordered without damage, the post
+failed. Diagnosed on the live posts: `DAHQn_1_j2s` p2 and p4 said the same
+sentence twice, and `DAHRSiuJEHQ` put "normal is an average" *after* the payoff
+instead of before it.
+
+Every body slide ends with a **takeaway** — one line, 6-10 words, after a blank
+line, set bold. It must ADD something (consequence, criterion, action, limit),
+never re-say the body. Eight working types:
+
+| Type | Example |
+|---|---|
+| Consequence | "Rest calms the pain. The enzymes keep going." |
+| Answers the unasked "why" | "That's why relief has a shelf life." |
+| What to measure | "That's the number worth measuring." |
+| Permission / de-escalation | "Feeling off with a normal number is a reason to look closer." |
+| The small lever | "One extra line on the order changes the answer." |
+| An honest limit | "A baseline needs more than a single number." |
+| Compresses a list | "Four numbers, one picture." |
+| Lowers the alarm | "Nothing here is urgent. It's just worth knowing." |
+
+**Takeaway ≠ the banned antithesis bow.** Testable difference: a takeaway carries
+information not already on the slide; a bow only rearranges words that are
+("It's not X, it's Y", "Same A, different B", "At the end of the day…"). Bows
+stay banned.
+
+The takeaway hands off in one of three ways: it names a **limit** (next slide
+closes it), raises an **objection** (next slide answers it), or gives a
+**criterion** (next slide shows how to get it).
+
+Two hard rules that fall out of this:
+
+- **No slide repeats another.** Each body slide carries a fact, distinction or
+  instruction no earlier slide made. Restating in new words = failed variant.
+- **The cover gets paid off.** If the hook promises something ("here's how to
+  break that loop"), one specific body slide delivers it.
+
+### 2b. HEADINGS carry the reader's question (binding, Igor 2026-08-12)
+
+A heading names the reader's next question, not the section. Four kinds that
+work: the **objection** ("So why did the shot wear off"), the **limit** ("Where
+the panel stops"), the **lever** ("The test to ask for"), the **stake** ("What
+this means for your knee").
+
+Banned — section labels that would fit unchanged on a post about any other
+condition: "What's happening", "What the data shows", "Think of it this way",
+"The science", "Overview", "Key takeaway". The one exception is **"Who it's
+for"** — a recognition slide readers use to self-select.
+
+Corollary: a slide titled for data must actually have a verified number, trial
+or date. No verified fact → retitle the slide to what it really delivers (the
+test to ask for, the question to bring to the visit). Never fill a data heading
+with reassurance — that was the `DAHQn_1_j2s` p5 defect.
+
 ---
 
 ## 3. SPACING & SEPARATION (binding — Igor 2026-07-28)
@@ -137,26 +194,42 @@ Reference (2026-07-28, "красота"): DAHQnsEktf0 slides — 7 (`①②③` 
 + dividers), 6 (`✓` checklist), 4 (analogy + divider + bold takeaway), 3
 (kicker + comparison). Copy those layouts (text/decor only).
 
-### 4a. ADAPTIVE FILL — by slide type (binding, Igor 2026-07-29)
+### 4a. PANEL FIT — close the gap with the panel, never with words (binding, Igor 2026-08-11; supersedes the 07-29 "adaptive fill" rule)
 
-When a slide has little text and leaves empty space, DON'T leave a dead panel.
-Decide by slide type (in this order of preference):
+The masters now use a **fixed font (body 46pt / title 50pt)** and the writer works
+to a per-slide word BAND, not a ceiling (Igor 2026-08-12): **20-28 words per body
+slide** = body 14-18 + takeaway 6-10, split by a blank line; a list body is 3-4
+items × ≤ ~6 words, still plus its takeaway; cover ≤ ~18; CTA ≤ ~12. Aim for the
+middle of the band — slides swinging 17 → 29 words inside one post read as an
+accident. The takeaway is budgeted separately and is never dropped to fit the
+body. **Text positions in the masters are already correct — do
+not move them.** So when a slide leaves empty space, the answer is always the
+panel or one design element, and **never** more copy.
 
-| Slide type | Fill it with |
+Order of preference when a slide looks empty:
+
+1. **Shrink the panel to hug the text.** The coloured block resizes; the text
+   does not move off its anchor and the font never changes. Panels across a post
+   should NOT all be the same height — uneven is correct.
+2. **Add ONE design element** appropriate to the slide's shape (below).
+3. **Nothing.** A calm slide with air is fine. Empty space is not a defect —
+   a dead *coloured void* is.
+
+| Slide type | The one element, if it needs one |
 |---|---|
-| Mechanism / biology | denser text is fine (keep depth) + on-topic render; no gap |
-| Comparison | two labeled sides + hairline divider between them |
-| Research / "data shows" | 2-3 spaced research lines + a device/real-photo edge inset |
-| Analogy | short analogy + divider + **bold takeaway** line |
+| Mechanism / biology | on-topic render behind/beside the panel |
+| Comparison | hairline divider between the two labeled sides |
+| Research / "data shows" | device or real-photo edge inset |
+| Analogy | divider, then the **bold takeaway** line |
 | Candidacy / "who it's for" | `✓` checklist with blank-line spacing |
 | Next step / protocol | `①②③` numbered path with thin dividers |
-| Sparse / palate-cleanser | one vivid line + a real Hawaii photo filling the frame |
+| Sparse / palate-cleanser | a real Hawaii photo filling the frame |
 
-Rules: (1) **never a large empty coloured void** — grow the panel to hug content
-or add ONE element; (2) more text is acceptable to fill space (Igor) as long as
-depth/specificity aren't sacrificed and it's not padding; (3) **~one special
-element per post**, not on every slide; (4) vary — no two consecutive slides the
-same shape or layout.
+Hard rules: (1) **never a large empty coloured void** — fit the panel, or add the
+one element; (2) **never pad with extra words, and never resize the font** — a
+slide that only fits by shrinking type is a failed slide, cut the copy instead;
+(3) **~one special element per post**, not on every slide; (4) vary — no two
+consecutive slides the same shape or layout.
 
 ---
 

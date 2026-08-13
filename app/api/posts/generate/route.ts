@@ -162,9 +162,25 @@ async function generateOne(params: {
     stage('research:skipped')
   }
 
+  // Cross-post repetition guard: hand the writer the lines this clinic has
+  // already published so a good sentence doesn't resurface post after post
+  // (Igor 2026-08-12). Best-effort — never blocks a generation.
+  let saidBeforeBlock = ''
+  try {
+    const { fetchSaidBefore, saidBeforePromptBlock } = await import(
+      '@/lib/posts/said-before'
+    )
+    const said = await fetchSaidBefore(params.clinicId)
+    saidBeforeBlock = saidBeforePromptBlock(said)
+    stage(`said-before:done count=${said.length}`)
+  } catch {
+    stage('said-before:skipped')
+  }
+
   const writerOut = await runWriter({
     context: params.context,
     topicHint: topicHintWithNote,
+    saidBeforeBlock,
     planContext: params.planContext,
     ctaHint: params.ctaHint,
     // ONE variant, not best-of-3 (Igor 2026-08-11). The extra two were only

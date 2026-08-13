@@ -28,8 +28,8 @@ Slide arc (in order):
   1. Cover               — title + hook (a contrast/question second line may follow the claim)
   2. Mechanism / Real cause — heading + intro + 2-4 bullets + close
   3. Optional gap slide  — heading + intro + close (no bullets)
-  4. "Think of it this way" analogy — heading "Think of it this way" + prose body in 'close' field
-  5. What the data shows — heading + intro + 2-4 bullets + close
+  4. Analogy             — prose body in 'close' field, no bullets. Keep the script's OWN heading verbatim; it is deliberately varied per post. NEVER normalise it to "Think of it this way" — that phrase is banned on the finished post.
+  5. Evidence            — heading + intro + 2-4 bullets + close. Keep the script's heading as written: it is retitled when the post has no verified number, and must not be normalised back to "What the data shows".
   6. Who it's for / candidacy — heading + intro + bullets + close
   7. Session / protocol  — heading + intro + bullets + close
   8. Final               — CTA stack (NOT in slides[] — goes into cta field)
@@ -44,7 +44,7 @@ For each body slide:
   • heading: short title for the slide (e.g. "What the data shows")
   • intro: optional one-line framing sentence above the bullets
   • bullets: array of short lines (3-7 words each typically). Empty array [] when the slide is prose-only (analogy slide, gap slide).
-  • close: closing line or full prose body of the slide
+  • close: the slide's TAKEAWAY — the short landing line the script puts on its own line at the end of the slide (or, for a prose-only slide, the full prose body). Every body slide in a well-formed script has one; carry it across verbatim and never fold it into 'intro' or into a bullet. It is rendered as the bold payoff line on the slide, so it must survive the split intact.
 
 For the cover:
   • title: mixed case headline (NOT all-caps — that was the legacy renderer)

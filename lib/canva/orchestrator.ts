@@ -11,6 +11,7 @@ import type {
 import { canvaIsConfigured } from './oauth'
 import { createAutofillDesign, uploadAssetFromUrl } from './api'
 import { autofillIsConfigured, buildAutofillData } from './template-map'
+import { brandTemplateEnvKey, normalizeStyleId } from '@/lib/posts/style-templates'
 
 // End-to-end Canva compose orchestrator.
 //
@@ -71,10 +72,12 @@ interface PlanRow {
 
 export async function composeInCanva(params: {
   slideSetId: string
-  canvaStyle?: 1 | 2
+  /** A style id from STYLE_TEMPLATES (1-5). Unknown values fall back to 1. */
+  canvaStyle?: number
   onStage?: ComposeStageEmitter
 }): Promise<RenderResult> {
-  const { slideSetId, canvaStyle = 1, onStage } = params
+  const { slideSetId, onStage } = params
+  const canvaStyle = normalizeStyleId(params.canvaStyle)
   const supabase = createServerClient()
 
   // Persist coarse progress so ANY client (poll loop) sees where the
@@ -201,7 +204,7 @@ export async function composeInCanva(params: {
 
   // ── Stage C: autofill brand template ────────────────────────────
   stage('autofill:start')
-  const envKey = canvaStyle === 2 ? 'CANVA_BRAND_TEMPLATE_ID_2' : 'CANVA_BRAND_TEMPLATE_ID'
+  const envKey = brandTemplateEnvKey(canvaStyle)
   const brandTemplateId = (process.env[envKey] ?? '').trim()
   if (!brandTemplateId) {
     throw new ComposeError(

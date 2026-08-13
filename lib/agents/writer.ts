@@ -140,8 +140,8 @@ const SLIDE_ARC_BLOCK = `SLIDE ARC (in order):
   Slide 1   Cover                  — title (mixed case) + hook: one concrete claim, optionally followed by a short contrast or question line. NEVER append "Swipe →" or any swipe prompt — the platform UI handles that.
   Slide 2   Mechanism / Real cause — heading + intro + 3 bullets + close. Explain the ACTUAL biology in concrete detail: name the hormone / pathway / tissue and what it physically does. This is the deepest slide of the post — never thin it out.
   Slide 3   Gap slide (optional)   — "why standard care misses this" — include WHEN the post explains an insurance / 15-min-visit / equipment-cost reason standard medicine skips the better option; SKIP for how-to / multi-pathway / acute topics
-  Slide 4   Think of it this way   — sticky analogy in plain prose, no bullets. e.g. "X is like Y — [the punchline]". SKIP for mental-health-acute topics (see below).
-  Slide 5   What the data shows    — bullets with real evidence markers (FDA approval dates, named trials, qualitative findings). Pull exact dates and trial names from the VERIFIED FACTS block and back every claim in sources[]. NEVER invent a percentage or statistic — if you don't have a verified number, write "studies show improved outcomes for many patients" instead of making one up.
+  Slide 4   Analogy                — sticky analogy in plain prose, no bullets. e.g. "X is like Y — [the punchline]". The heading must NEVER be "Think of it this way" — that exact phrase shipped on every post and now reads as a template. Title this slide by what the analogy MEANS for the reader. SKIP for mental-health-acute topics (see below).
+  Slide 5   Evidence               — bullets with real evidence markers (FDA approval dates, named trials, qualitative findings). Pull exact dates and trial names from the VERIFIED FACTS block and back every claim in sources[]. NEVER invent a percentage or statistic. If VERIFIED FACTS gives you no number, trial name or date for this topic, do NOT write a "what the data shows" heading and fill it with vague reassurance — a heading that promises data the slide doesn't have is a failed slide. RETITLE it to what the slide actually delivers (the test to ask for, the question to bring to the visit, what to track) and give the reader that concrete thing instead.
   Slide 6   Who it's for           — bullets + close
   Slide 7   Session / protocol     — optional
   Slide 8   Why it's underused     — optional
@@ -163,6 +163,56 @@ shapes so the carousel breathes. Rotate among:
     medical supervision." (still backed in sources[]; never invent numbers.)
 Never use the same shape twice in a row. This governs SHAPE, not LENGTH — keep
 every mechanism, number and named study intact. Depth first, variety second.`
+
+// WATERFALL (Igor 2026-08-12). The arc above lists the STATIONS; on its own it
+// produced posts that circle instead of descending — slide 4 restating slide 2,
+// a "data" heading with no data, every slide ending nowhere. This block is what
+// chains the stations together and makes each one land.
+const WATERFALL_BLOCK = `WATERFALL — THE POST MUST DESCEND, NOT CIRCLE (BINDING):
+
+The slide arc is a list of STATIONS. It is not the logic. The logic is this:
+**every slide must answer the question the previous slide just raised in the
+reader's head, and end by raising the next one.** Before you write slide N, say
+in one sentence what the reader is now wondering after slide N-1, and answer
+THAT. A post where the slides could be reordered without damage has failed.
+
+Each body slide therefore ends with a TAKEAWAY: one short line (6-10 words),
+on its own line after a blank line, that lands the slide. This is REQUIRED —
+a station that only delivers information and stops leaves the reader asking
+"and what does that give me?"
+
+A takeaway ADDS something — a consequence, a criterion, an action, a limit.
+It is NOT a restatement of the slide's own body in nicer words. Eight shapes
+that work (use them as TYPES, never copy the wording):
+  1. Consequence         — "Rest calms the pain. The enzymes keep going."
+  2. Answers the unasked "why" — "That's why relief has a shelf life."
+  3. What to measure     — "That's the number worth measuring."
+  4. Permission / de-escalation — "Feeling off with a normal number is a reason to look closer."
+  5. The small lever     — "One extra line on the order changes the answer."
+  6. An honest limit     — "A baseline needs more than a single number."
+  7. Compresses a list   — "Four numbers, one picture."
+  8. Lowers the alarm    — "Nothing here is urgent. It's just worth knowing."
+
+The takeaway is NOT the banned antithesis bow. The difference is testable:
+a takeaway carries information that is not already in the slide body; a bow
+only rearranges words already on the slide ("It's not X, it's Y", "Same A,
+different B", "The problem was never…", "At the end of the day…"). Bows stay
+banned — at most ONE in the whole post, and the post is better with none.
+
+HAND-OFF — how a takeaway feeds the next slide. Use one of:
+  • it names a LIMIT      → the next slide closes it
+  • it raises an OBJECTION → the next slide answers it
+  • it gives a CRITERION   → the next slide shows how to get it
+
+NO SLIDE REPEATS ANOTHER (HARD): each body slide must carry a fact, distinction
+or instruction that no earlier slide already made. Restating an earlier point in
+new words is a FAILED variant — the reader notices immediately and stops
+reading. Before finishing, re-read your slides in order and delete any slide
+that would leave the post intact if removed.
+
+THE COVER MUST BE PAID OFF (HARD): if the hook promises something ("here's the
+number your panel missed", "here's how to break that loop"), one specific body
+slide must actually deliver it. An unpaid hook is a failed variant.`
 
 const VOICE_BLOCK = `VOICE — HOW IT SHOULD SOUND (BINDING):
 Write like the doctor is talking to ONE patient across the table — clear, warm,
@@ -186,13 +236,16 @@ template ("заготовка"). They are the difference between real and machin
     cases", "isn't uniform." Cut them; say the concrete thing instead.
   ✗ Perfectly parallel, symmetric prose. Real speech is uneven — put a 3-word
     sentence next to a 20-word one. Use contractions and plain verbs.
-  ✗ Ending every slide on a neat wrap-up. Sometimes just stop on the useful
-    detail and let it land.
+  ✗ Ending every slide on a neat rhetorical wrap-up — a line that sounds like a
+    conclusion but only re-says the slide. NOTE: this bans the empty BOW, not
+    the takeaway. Every body slide still ends on a real takeaway that adds a
+    consequence, criterion, action or limit — see the WATERFALL block, which
+    governs when the two conflict.
 One small, specific, human observation beats three polished generalities.`
 
 const MENTAL_HEALTH_ACUTE_BLOCK = `MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
 When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute ideation", "active ideation", "988", "lifeline", "crisis intervention" — switch to the stripped template:
-  • NO "Think of it this way" analogy slide
+  • NO analogy slide at all
   • CTA = Comment "<KEYWORD>" only + crisis line
   • Caption MUST end with the 988 crisis line
   • Tone stays clinical and supportive. NEVER "system failed you" / "you deserve better" framing.`
@@ -249,6 +302,8 @@ You are writing for ${clinicName}'s Instagram carousel pipeline. Every variant M
 
 ${SLIDE_ARC_BLOCK}
 
+${WATERFALL_BLOCK}
+
 ${VOICE_BLOCK}
 
 ${ctaStackBlock}
@@ -268,8 +323,14 @@ Igor 2026-08-10, supersedes the old "fill to 55-100 words" rule):
 The master templates use a BIG FIXED font (body 46pt / title 50pt), so text must
 be SHORT to fit the grid. Editorial rhythm (danbuettner style): a punchy heading
 + ONE short idea. Rules:
-- **Each BODY slide ≤ ~20 words.** Either ONE short paragraph (1-2 sentences),
-  OR a list of 3-4 items where EACH item is ≤ ~6 words (fits one line). Not both.
+- **Each BODY slide is 20-28 words TOTAL** — a BAND, not a ceiling. Aim for the
+  middle. Slides in one post must not swing from 17 to 29 words; that reads as
+  an accident, not as rhythm (Igor 2026-08-12).
+- That total splits as: **body 14-18 words + takeaway 6-10 words**, separated by
+  a blank line. The takeaway is budgeted SEPARATELY — never drop it to fit the
+  body under a limit; cut the body instead.
+- The body is EITHER one short paragraph (1-2 sentences) OR a list of 3-4 items
+  of ≤ ~6 words each. Not both. The takeaway line comes after either one.
 - Prefer a statement + a single supporting line over a wall of points.
 - Do NOT stack lead-in + multi-point + closing on one slide — pick ONE shape.
 - Text must fit the panel at the fixed font. A slide that would overflow is a
@@ -277,11 +338,23 @@ be SHORT to fit the grid. Editorial rhythm (danbuettner style): a punchy heading
 - Keep the whole post lean: cover ≤ ~18 words, CTA ≤ ~12 words.
 
 SLIDE HEADINGS (HARD): each body slide's heading must be SHORT (≤ ~5 words / 24
-chars) AND clear on its own — a self-explanatory label, never a long sentence
-and never a cryptic abbreviation. "Myth 1: Total testosterone tells the whole
-story" is too long (it gets truncated to junk like "TOTAL T", Igor 2026-08-03);
-write "Myth 1: Not just total" instead. Put the full idea in the body, not the
-heading.
+chars) AND clear on its own — never a long sentence, never a cryptic
+abbreviation. "Myth 1: Total testosterone tells the whole story" is too long (it
+gets truncated to junk like "TOTAL T", Igor 2026-08-03); write "Myth 1: Not just
+total" instead. Put the full idea in the body, not the heading.
+
+A heading CARRIES THE READER'S QUESTION — it does not name the section
+(Igor 2026-08-12). Four kinds that work:
+  • the reader's objection — "So why did the shot wear off", "Normal for who?"
+  • where the limit is     — "Where the panel stops", "One draw is one moment"
+  • the lever              — "The test to ask for", "What to change first"
+  • the stake for THEM     — "What this means for your knee"
+BANNED as headings — section labels that could sit on any post of any topic:
+"What's happening", "What the data shows", "Think of it this way", "The
+science", "Overview", "Key takeaway", "Why it matters". If a heading would fit
+unchanged on a post about a different condition, it is a label — rewrite it.
+("Who it's for" is the one allowed exception: it is a recognition slide and
+readers use it to self-select.)
 
 MINIMUM COVERAGE (HARD): a carousel is cover + at least FOUR body slides
 (mechanism, evidence, who-it's-for at minimum) + CTA. A post with fewer body
@@ -588,6 +661,10 @@ export interface RunWriterParams {
   // slide cites live studies, not the model's static memory. Empty when
   // retrieval found nothing → falls back to the static VERIFIED FACTS.
   studiesBlock?: string
+  // Lines this clinic already published, as a do-not-reuse list
+  // (lib/posts/said-before.ts). Goes in the USER content, never the cached
+  // system block. Empty/absent = no repetition guard for this run.
+  saidBeforeBlock?: string
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
@@ -664,7 +741,12 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
   const studiesSection =
     params.studiesBlock && params.studiesBlock.trim() ? params.studiesBlock : ''
 
-  const userContent = `${brief}${topicSection}${studiesSection}${ctaSection}${refineSection}${steerSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
+  const saidBeforeSection =
+    params.saidBeforeBlock && params.saidBeforeBlock.trim()
+      ? params.saidBeforeBlock
+      : ''
+
+  const userContent = `${brief}${topicSection}${studiesSection}${saidBeforeSection}${ctaSection}${refineSection}${steerSection}\n\nGenerate exactly ${count} script variant${count === 1 ? '' : 's'} now. Each variant must ${formatInstruction}. Return only the JSON object.`
 
   const systemPrompt =
     buildSystemBase(profile) +

@@ -1198,6 +1198,9 @@ export function PostsWorkspace({
 // stage-by-stage and the 4s poll delivers it here — no simulated phase
 // cycling. Elapsed counts from the current stage's server timestamp, so
 // it survives reloads and never "restarts" on return.
+/** After this long with no stage progress, stop pretending it's in flight. */
+const STALE_QUEUE_MS = 3 * 60 * 1000
+
 const STAGE_LABELS: Record<string, string> = {
   load: 'Loading slides',
   photos: 'Generating slide photos',
@@ -1208,7 +1211,11 @@ const STAGE_LABELS: Record<string, string> = {
 
 function composeStageLabel(progress: ComposeProgress | null, status: SlideSetStatus): string {
   if (!progress?.stage || progress.stage === 'error') {
-    return status === 'in_canva' ? 'Composing in Canva' : 'Queued — runner picks this up in ~2 min'
+    // No "~2 min" promise on the queued state: carousels are built by the
+    // in-session Claude+MCP runner, not by a deployed poller, so a queued row
+    // waits for a human to start the runner. The old copy counted to 70+
+    // minutes toward a robot that does not exist (Igor 2026-08-12).
+    return status === 'in_canva' ? 'Composing in Canva' : 'Waiting for the Canva runner'
   }
   const key = progress.stage.split(':')[0]
   const base = STAGE_LABELS[key] ?? progress.stage
@@ -1286,10 +1293,21 @@ function ComposeWaitingChip({
             <SparkleSpinner size={13} className="inline-block align-[-0.125em]" /> {label}…
           </span>
           <span className="text-[10px] font-medium uppercase tracking-wider text-violet-100/90">
-            {inStage ? `${elapsedLabel} in this step` : `${elapsedLabel} elapsed`} · est. ~2 min total
+            {inStage
+              ? `${elapsedLabel} in this step · est. ~2 min total`
+              : `${elapsedLabel} elapsed`}
           </span>
         </span>
       </div>
+      {/* A queued row with no stage progress is not "slow" — nothing is
+          working on it until the runner is started. Say that instead of
+          letting the counter climb (Igor 2026-08-12). */}
+      {!inStage && elapsedMs > STALE_QUEUE_MS && (
+        <span className="max-w-md text-[10px] font-medium leading-snug text-amber-700">
+          Still queued — the carousel is built by the Canva runner in a Claude
+          session, so nothing happens until that runner is started.
+        </span>
+      )}
       {progress?.edit_url && (
         <a
           href={progress.edit_url}

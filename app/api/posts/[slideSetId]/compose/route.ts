@@ -7,6 +7,7 @@ import { pingCanvaRunner } from '@/lib/posts/ping-canva-runner'
 import { composeInCanva, ComposeCancelled, ComposeError } from '@/lib/canva/orchestrator'
 import { canvaIsConfigured } from '@/lib/canva/oauth'
 import { autofillIsConfigured } from '@/lib/canva/template-map'
+import { normalizeStyleId } from '@/lib/posts/style-templates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -136,8 +137,9 @@ export async function POST(
   // immediately: the browser closing / navigating away must never kill
   // a running compose. The UI tracks progress via the poll loop
   // reading compose_progress.
-  const rawStyle = (row as { canva_style?: number | null }).canva_style ?? 1
-  const canvaStyle = rawStyle === 2 ? 2 : 1
+  const canvaStyle = normalizeStyleId(
+    (row as { canva_style?: number | null }).canva_style
+  )
   waitUntil(
     composeInCanva({ slideSetId: params.slideSetId, canvaStyle }).catch(
       async (e) => {

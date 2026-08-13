@@ -96,3 +96,40 @@ export function stylesForNiche(niche: string | null | undefined): StyleTemplate[
 
 export const canvaEditUrl = (designId: string): string =>
   `https://www.canva.com/design/${designId}/edit`
+
+/** Style used when a row has no style set, or an unknown one. */
+export const DEFAULT_STYLE_ID = 1
+
+/**
+ * Coerce a stored `canva_style` to a style that actually exists in the
+ * registry. Compose paths used to clamp with `=== 2 ? 2 : 1`, which silently
+ * composed styles 3/4/5 as Style 1 — the picker said one thing and the engine
+ * built another (Igor 2026-08-12). Always normalise through here so a new
+ * master added to STYLE_TEMPLATES is honoured everywhere at once.
+ */
+export function normalizeStyleId(raw: number | null | undefined): number {
+  const n = Number(raw)
+  return STYLE_TEMPLATES.some((s) => s.id === n) ? n : DEFAULT_STYLE_ID
+}
+
+/** Canva master design id for a stored `canva_style`. */
+export function designIdForStyle(raw: number | null | undefined): string {
+  const id = normalizeStyleId(raw)
+  return (
+    STYLE_TEMPLATES.find((s) => s.id === id)?.canvaDesignId ??
+    STYLE_TEMPLATES[0].canvaDesignId
+  )
+}
+
+/**
+ * Env var holding the Canva brand-template id for a style. Style 1 keeps the
+ * original unsuffixed key for backwards compatibility; every other style is
+ * `_<id>`. NOTE: the server-side autofill path these feed is inert on this
+ * account (no Enterprise brand templates — see HANDOFF-MODULES.md); the live
+ * carousel build is the in-session Claude+MCP runner, which copies
+ * `designIdForStyle()` directly.
+ */
+export function brandTemplateEnvKey(raw: number | null | undefined): string {
+  const id = normalizeStyleId(raw)
+  return id === 1 ? 'CANVA_BRAND_TEMPLATE_ID' : `CANVA_BRAND_TEMPLATE_ID_${id}`
+}

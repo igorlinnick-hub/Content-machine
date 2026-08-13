@@ -92,8 +92,10 @@ export async function autoComposeQueued(slideSetId: string): Promise<void> {
   if (!claimed) return
 
   try {
-    const canvaStyle =
-      (row as { canva_style?: number | null }).canva_style === 2 ? 2 : 1
+    const { normalizeStyleId } = await import('@/lib/posts/style-templates')
+    const canvaStyle = normalizeStyleId(
+      (row as { canva_style?: number | null }).canva_style
+    )
     await composeInCanva({ slideSetId, canvaStyle })
   } catch (e) {
     const { ComposeCancelled, ComposeError } = await import('@/lib/canva/orchestrator')

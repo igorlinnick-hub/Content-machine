@@ -52,3 +52,4 @@ jobflow-*.json
 !public/**/*.png
 !samples/staff-filming-guide*.png
 .env*
+.shots/
