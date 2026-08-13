@@ -290,35 +290,61 @@ export interface RecentScript {
   approved: boolean | null
   created_at: string
   template_used: string | null
+  starred: boolean
+  updated_at: string | null
 }
+
+const RECENT_SCRIPT_COLS =
+  'id, variant_id, topic, hook, full_script, word_count, critic_score, approved, created_at, template_used'
 
 export async function loadRecentScripts(
   clinicId: string,
   limit = 15
 ): Promise<RecentScript[]> {
   const supabase = createServerClient()
-  const { data, error } = await supabase
+
+  // Starred pins favourites to the top so they never fall out of the
+  // `limit` window. Migration 046 adds the column — until it lands the
+  // query falls back to the pre-046 shape instead of 500-ing.
+  const primary = await supabase
     .from('scripts')
-    .select(
-      'id, variant_id, topic, hook, full_script, word_count, critic_score, approved, created_at, template_used'
-    )
+    .select(`${RECENT_SCRIPT_COLS}, starred, updated_at`)
     .eq('clinic_id', clinicId)
+    .order('starred', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(limit)
-  if (error) throw error
+
+  let data: Array<Record<string, unknown>> = primary.data ?? []
+
+  if (primary.error) {
+    const legacy = await supabase
+      .from('scripts')
+      .select(RECENT_SCRIPT_COLS)
+      .eq('clinic_id', clinicId)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (legacy.error) throw primary.error
+    data = legacy.data ?? []
+  }
+
   const nowIso = new Date().toISOString()
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    variant_id: r.variant_id,
-    topic: r.topic,
-    hook: r.hook,
-    full_script: r.full_script,
-    word_count: r.word_count,
-    critic_score: r.critic_score,
-    approved: r.approved,
-    created_at: r.created_at ?? nowIso,
-    template_used: (r as { template_used?: string | null }).template_used ?? null,
-  }))
+  return data.map((row) => {
+    const r = row as Partial<RecentScript> & { created_at?: string | null }
+    return {
+      id: r.id as string,
+      variant_id: r.variant_id ?? null,
+      topic: r.topic ?? null,
+      hook: r.hook ?? null,
+      full_script: r.full_script as string,
+      word_count: r.word_count ?? null,
+      critic_score: r.critic_score ?? null,
+      approved: r.approved ?? null,
+      created_at: r.created_at ?? nowIso,
+      template_used: r.template_used ?? null,
+      starred: r.starred ?? false,
+      updated_at: r.updated_at ?? null,
+    }
+  })
 }
 
 export async function loadClinicList(): Promise<

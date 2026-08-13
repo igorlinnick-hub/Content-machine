@@ -630,11 +630,15 @@ export type Database = {
           template_used: string | null
           role_blocks: Json | null
           format_template_id: string | null
+          starred: boolean | null
+          updated_at: string | null
         }
         Insert: {
           approved?: boolean | null
           clinic_id?: string | null
           created_at?: string | null
+          starred?: boolean | null
+          updated_at?: string | null
           short_caption?: string | null
           long_caption?: string | null
           critic_score?: number | null
@@ -672,6 +676,8 @@ export type Database = {
           template_used?: string | null
           role_blocks?: Json | null
           format_template_id?: string | null
+          starred?: boolean | null
+          updated_at?: string | null
         }
         Relationships: [
           {

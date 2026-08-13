@@ -121,12 +121,39 @@ const IconCalendar = () => (
 )
 
 
+function CountBadge({ count }: { count: number }) {
+  return (
+    <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-neutral-500">
+      {count}
+    </span>
+  )
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 
-export function DashBento({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
+export function DashBento({
+  clinicId,
+  isAdmin,
+  scriptCount = 0,
+}: {
+  clinicId: string
+  isAdmin: boolean
+  scriptCount?: number
+}) {
   const q = `clinicId=${clinicId}`
 
   const allCards = [
+    {
+      title: 'Scripts',
+      desc: 'Generate · recent · today’s input',
+      href: `/scripts?${q}`,
+      tag: 'Write',
+      tagColor: '#818cf8',
+      iconBg: 'linear-gradient(135deg,#818cf8,#6366f1)',
+      icon: <IconPen />,
+      badge: scriptCount > 0 ? <CountBadge count={scriptCount} /> : undefined,
+      adminOnly: false,
+    },
     {
       title: 'Visual Posts',
       desc: 'Scripts → Canva slides',

@@ -2,14 +2,8 @@ import React from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase/server'
-import { loadClinicList, loadClinicSummaries, loadRecentScripts } from '@/lib/supabase/context'
-import { loadScriptTemplates } from '@/lib/posts/templates'
-import { getDailyQuestions } from '@/lib/widgets/questions'
-import { getCurrentStructuredWeek, loadStructuredPlan } from '@/lib/content-plan/store'
+import { loadClinicList, loadClinicSummaries } from '@/lib/supabase/context'
 import { resolveAccess } from '@/lib/auth/session'
-import { DailyWidgets } from './components/DailyWidgets'
-import { ScriptGenerator } from './components/ScriptGenerator'
-import { RecentScripts } from './components/RecentScripts'
 import { TokenBootstrap } from './components/TokenBootstrap'
 import { PWAInstallCard } from './components/PWAInstallCard'
 import { DashBento } from './components/DashBento'
@@ -21,7 +15,6 @@ import { AdminPreviewBanner } from '@/app/components/AdminPreviewBanner'
 import { AnimatedGradientText } from '@/app/components/ui/animated-gradient-text'
 import { AnimatedShinyText } from '@/app/components/ui/animated-shiny-text'
 import { DiaTextReveal } from '@/app/components/ui/dia-text-reveal'
-import { NumberTicker } from '@/app/components/ui/number-ticker'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,11 +22,8 @@ interface DashboardPageProps {
   searchParams: {
     clinicId?: string
     cm_bootstrap?: string
-    tab?: DashTab
   }
 }
-
-type DashTab = 'generate' | 'recent' | 'input'
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const access = await resolveAccess()
@@ -74,22 +64,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     clinics = clinics.map((c) => (c.id === clinicId ? { ...c, name: clinicName } : c))
   }
 
-  const questions = getDailyQuestions()
-  const [currentPlanWeek, planWeeks, recent, activeTemplates, clinicSummaries] = await Promise.all([
-    getCurrentStructuredWeek(clinicId),
-    loadStructuredPlan(clinicId).catch(() => []),
-    loadRecentScripts(clinicId, 15),
-    loadScriptTemplates(clinicId, { activeOnly: true }),
+  // Script bodies live on /scripts now — the dashboard only needs the
+  // count for the Scripts card badge (head-only, no rows fetched).
+  const [scriptCountRes, clinicSummaries] = await Promise.all([
+    isAdminOverview
+      ? Promise.resolve({ count: 0 })
+      : supabase
+          .from('scripts')
+          .select('id', { count: 'exact', head: true })
+          .eq('clinic_id', clinicId),
     isAdminOverview ? loadClinicSummaries() : Promise.resolve([]),
   ])
-  const currentWeekIndex = currentPlanWeek
-    ? Math.max(0, planWeeks.findIndex((w) => w.id === currentPlanWeek.id))
-    : 0
-
-  const validTabs: DashTab[] = ['generate', 'recent', 'input']
-  const tab: DashTab = validTabs.includes(searchParams.tab as DashTab)
-    ? (searchParams.tab as DashTab)
-    : 'generate'
+  const scriptCount = scriptCountRes.count ?? 0
 
   const services = clinicRow.services ?? []
   const pillars = clinicRow.content_pillars ?? []
@@ -238,42 +224,17 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         {isAdminOverview && <AdminOverview clinics={clinicSummaries} />}
 
         {/* Bento overview grid */}
-        {!isAdminOverview && <DashBento clinicId={clinicId} isAdmin={showAdminTools} />}
+        {!isAdminOverview && (
+          <DashBento
+            clinicId={clinicId}
+            isAdmin={showAdminTools}
+            scriptCount={scriptCount}
+          />
+        )}
 
-        {/* Main tab bar — hidden on admin overview */}
-        {!isAdminOverview && <nav className="flex flex-wrap items-center gap-1 rounded-2xl p-1"
-          style={{
-            background: 'rgba(255,255,255,0.55)',
-            backdropFilter: 'blur(20px) saturate(1.8)',
-            WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
-            border: '1px solid rgba(255,255,255,0.70)',
-            boxShadow: '0 2px 16px rgba(0,0,0,0.05)',
-          }}
-        >
-          <DashTabLink
-            label="Generate"
-            href={`/dashboard?clinicId=${clinicId}&tab=generate`}
-            active={tab === 'generate'}
-          />
-          <DashTabLink
-            label={
-              <span className="inline-flex items-center">
-                {'Recent ('}
-                <NumberTicker value={recent.length} />
-                {')'}
-              </span>
-            }
-            href={`/dashboard?clinicId=${clinicId}&tab=recent`}
-            active={tab === 'recent'}
-          />
-          <DashTabLink
-            label="Today's input"
-            href={`/dashboard?clinicId=${clinicId}&tab=input`}
-            active={tab === 'input'}
-          />
-        </nav>}
-
-        {!isAdminOverview && isDoctor && profileIncomplete && tab === 'generate' && (
+        {/* Scripts moved to their own screen (/scripts) — the dashboard is
+            just the module cards now. */}
+        {!isAdminOverview && isDoctor && profileIncomplete && (
           <Link
             href="/onboarding"
             className="cm-card flex items-center justify-between gap-4 p-5 transition hover:border-sky-300 hover:shadow-md"
@@ -295,38 +256,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </Link>
         )}
 
-        {!isAdminOverview && tab === 'generate' && (
-          <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm sm:p-7">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
-                Main workspace
-              </p>
-              <h2 className="mt-1 text-2xl font-semibold text-neutral-900">
-                Generate scripts
-              </h2>
-            </div>
-            <ScriptGenerator clinicId={clinicId} isAdmin={showAdminTools} planWeeks={planWeeks} currentWeekIndex={currentWeekIndex} currentWeek={currentPlanWeek} />
-          </section>
-        )}
-
-        {!isAdminOverview && tab === 'recent' && (
-          <Section
-            title="Recent scripts"
-            subtitle="Every script Writer has saved for this clinic. Tap any to read, copy, or post."
-          >
-            <RecentScripts scripts={recent} />
-          </Section>
-        )}
-
-        {!isAdminOverview && tab === 'input' && (
-          <Section
-            title="Today's input"
-            subtitle="Answer a few questions to give your scripts your personal touch."
-          >
-            <DailyWidgets clinicId={clinicId} questions={questions} />
-          </Section>
-        )}
-
         <PWAInstallCard clinicId={clinicId} isAdmin={showAdminTools} />
 
         <footer className="pb-2 pt-4 text-center text-xs text-neutral-400">
@@ -334,59 +263,5 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </footer>
       </div>
     </main>
-  )
-}
-
-function Section({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string
-  subtitle: string
-  children: React.ReactNode
-}) {
-  return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-xl font-semibold text-neutral-900">{title}</h2>
-        <p className="mt-1 text-sm text-neutral-600">{subtitle}</p>
-      </div>
-      <div>{children}</div>
-    </section>
-  )
-}
-
-function DashTabLink({
-  label,
-  href,
-  active,
-}: {
-  label: React.ReactNode
-  href: string
-  active: boolean
-}) {
-  return (
-    <Link
-      href={href}
-      className={`relative rounded-xl px-4 py-1.5 text-sm font-medium transition-all duration-200 overflow-hidden ${
-        active
-          ? 'bg-neutral-900/90 text-white shadow-sm'
-          : 'text-neutral-500 hover:bg-white/70 hover:text-neutral-700'
-      }`}
-    >
-      {label}
-      {active && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-xl"
-          style={{
-            background: 'linear-gradient(to right, #38bdf820, #a78bfa20, #2dd4bf20)',
-            backgroundSize: '200% 100%',
-            animation: 'gradient 4s linear infinite',
-          }}
-        />
-      )}
-    </Link>
   )
 }

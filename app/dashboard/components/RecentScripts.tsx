@@ -40,6 +40,55 @@ export function RecentScripts({ scripts: initialScripts }: RecentScriptsProps) {
     }
   }
 
+  async function onToggleStar(id: string) {
+    const current = scripts.find((s) => s.id === id)
+    if (!current) return
+    const next = !current.starred
+    patchLocal(id, { starred: next })
+    try {
+      const res = await fetch(`/api/scripts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ starred: next }),
+      })
+      if (!res.ok) patchLocal(id, { starred: !next })
+    } catch {
+      patchLocal(id, { starred: !next })
+    }
+  }
+
+  function patchLocal(id: string, patch: Partial<RecentScript>) {
+    setScripts((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
+  }
+
+  async function onSaveEdit(
+    id: string,
+    fields: { topic: string; hook: string; full_script: string }
+  ): Promise<string | null> {
+    try {
+      const res = await fetch(`/api/scripts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      })
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string
+        script?: Partial<RecentScript>
+      }
+      if (!res.ok) return body.error ?? `Save failed (${res.status})`
+      patchLocal(id, {
+        topic: fields.topic,
+        hook: fields.hook || null,
+        full_script: fields.full_script,
+        word_count: body.script?.word_count ?? null,
+        updated_at: body.script?.updated_at ?? new Date().toISOString(),
+      })
+      return null
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Save failed'
+    }
+  }
+
   if (scripts.length === 0) {
     return (
       <div className="cm-card p-6 text-center">
@@ -61,6 +110,7 @@ export function RecentScripts({ scripts: initialScripts }: RecentScriptsProps) {
             onOpen={() => setOpenId(s.id)}
             onCopy={() => onCopy(s.id, s.full_script)}
             onDelete={() => onDelete(s.id)}
+            onToggleStar={() => onToggleStar(s.id)}
           />
         ))}
       </div>
@@ -71,10 +121,56 @@ export function RecentScripts({ scripts: initialScripts }: RecentScriptsProps) {
           copied={copiedId === open.id}
           onCopy={() => onCopy(open.id, open.full_script)}
           onDelete={() => onDelete(open.id)}
+          onToggleStar={() => onToggleStar(open.id)}
+          onSave={(fields) => onSaveEdit(open.id, fields)}
           onClose={() => setOpenId(null)}
         />
       )}
     </>
+  )
+}
+
+// ── Star ─────────────────────────────────────────────────────────────────────
+
+function StarButton({
+  starred,
+  onToggle,
+  size = 16,
+}: {
+  starred: boolean
+  onToggle: () => void
+  size?: number
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onToggle()
+      }}
+      aria-pressed={starred}
+      aria-label={starred ? 'Remove from favourites' : 'Mark as favourite'}
+      title={starred ? 'Remove from favourites' : 'Mark as favourite'}
+      // -m-1 keeps the visual size tight while the padding gives thumbs
+      // a ~40px target on phones
+      className={`-m-1 rounded-lg p-2.5 transition touch-manipulation ${
+        starred
+          ? 'text-amber-400 hover:text-amber-500'
+          : 'text-neutral-300 hover:bg-amber-50 hover:text-amber-400'
+      }`}
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill={starred ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinejoin="round"
+      >
+        <path d="M12 3.5l2.6 5.28 5.83.85-4.22 4.11.996 5.81L12 16.82l-5.21 2.74.996-5.81L3.57 9.63l5.83-.85L12 3.5z" />
+      </svg>
+    </button>
   )
 }
 
@@ -86,12 +182,14 @@ function ScriptCard({
   onOpen,
   onCopy,
   onDelete,
+  onToggleStar,
 }: {
   script: RecentScript
   copiedId: string | null
   onOpen: () => void
   onCopy: () => void
   onDelete: () => void
+  onToggleStar: () => void
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const score = typeof s.critic_score === 'number' ? s.critic_score : null
@@ -106,7 +204,9 @@ function ScriptCard({
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() }
       }}
-      className="group flex h-full cursor-pointer flex-col gap-3 rounded-2xl border border-neutral-200 bg-white p-5 shadow-[0_1px_3px_rgba(10,10,10,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_4px_16px_rgba(10,10,10,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300"
+      className={`group flex h-full cursor-pointer flex-col gap-3 rounded-2xl border bg-white p-5 shadow-[0_1px_3px_rgba(10,10,10,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_4px_16px_rgba(10,10,10,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 ${
+        s.starred ? 'border-amber-200' : 'border-neutral-200'
+      }`}
     >
       <header className="flex items-start justify-between gap-2">
         <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-neutral-900">
@@ -130,6 +230,7 @@ function ScriptCard({
               Compliant
             </span>
           )}
+          <StarButton starred={s.starred} onToggle={onToggleStar} />
         </div>
       </header>
 
@@ -146,7 +247,7 @@ function ScriptCard({
               className="truncate text-[11px] text-violet-600"
               title={`Template: ${s.template_used}`}
             >
-              🧱 {s.template_used}
+              {s.template_used}
             </span>
           )}
           <span className="shrink-0 text-[11px] text-neutral-400">
@@ -205,16 +306,26 @@ function ScriptModal({
   copied,
   onCopy,
   onDelete,
+  onToggleStar,
+  onSave,
   onClose,
 }: {
   script: RecentScript
   copied: boolean
   onCopy: () => void
   onDelete: () => void
+  onToggleStar: () => void
+  onSave: (fields: { topic: string; hook: string; full_script: string }) => Promise<string | null>
   onClose: () => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [draftTopic, setDraftTopic] = useState(script.topic ?? '')
+  const [draftHook, setDraftHook] = useState(script.hook ?? '')
+  const [draftBody, setDraftBody] = useState(script.full_script)
   const score = typeof script.critic_score === 'number' ? script.critic_score : null
   const strong = score !== null && score >= 7
 
@@ -223,20 +334,50 @@ function ScriptModal({
     document.body.style.overflow = 'hidden'
 
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      // Escape closes the reader, but must not silently discard an edit
+      if (e.key === 'Escape' && !editing) onClose()
     }
     document.addEventListener('keydown', onKey)
     return () => {
       document.body.style.overflow = prev
       document.removeEventListener('keydown', onKey)
     }
-  }, [onClose])
+  }, [onClose, editing])
+
+  function startEdit() {
+    setDraftTopic(script.topic ?? '')
+    setDraftHook(script.hook ?? '')
+    setDraftBody(script.full_script)
+    setSaveError(null)
+    setEditing(true)
+  }
+
+  function cancelEdit() {
+    setEditing(false)
+    setSaveError(null)
+  }
+
+  async function save() {
+    if (!draftTopic.trim() || !draftBody.trim()) {
+      setSaveError('Title and script text cannot be empty')
+      return
+    }
+    setSaving(true)
+    const err = await onSave({
+      topic: draftTopic.trim(),
+      hook: draftHook.trim(),
+      full_script: draftBody.trim(),
+    })
+    setSaving(false)
+    if (err) setSaveError(err)
+    else setEditing(false)
+  }
 
   const modal = (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4 cm-backdrop-in"
       style={{ backgroundColor: 'rgba(10,10,10,0.55)', backdropFilter: 'blur(2px)' }}
-      onClick={onClose}
+      onClick={() => { if (!editing) onClose() }}
     >
       <div
         role="dialog"
@@ -274,27 +415,42 @@ function ScriptModal({
               )}
               {script.template_used && (
                 <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">
-                  🧱 {script.template_used}
+                  {script.template_used}
                 </span>
               )}
               <span className="text-[11px] text-neutral-400">
                 {formatDate(script.created_at)} · {script.word_count ?? '?'} words
+                {script.updated_at ? ' · edited' : ''}
               </span>
             </div>
-            <h2 className="mt-2 text-xl font-semibold leading-snug text-neutral-900">
-              {script.topic ?? 'Untitled'}
-            </h2>
+            {editing ? (
+              <input
+                value={draftTopic}
+                onChange={(e) => setDraftTopic(e.target.value)}
+                placeholder="Title"
+                className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-lg font-semibold leading-snug text-neutral-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+              />
+            ) : (
+              <h2 className="mt-2 text-xl font-semibold leading-snug text-neutral-900">
+                {script.topic ?? 'Untitled'}
+              </h2>
+            )}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="mt-0.5 shrink-0 rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-800"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-            </svg>
-          </button>
+          <div className="mt-0.5 flex shrink-0 items-center gap-1">
+            <StarButton starred={script.starred} onToggle={onToggleStar} size={18} />
+            {!editing && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="rounded-full p-1.5 text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-800"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M4 4l10 10M14 4L4 14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+                </svg>
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Scrollable body */}
@@ -302,59 +458,125 @@ function ScriptModal({
           ref={scrollRef}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6"
         >
-          {script.hook && (
-            <p className="mb-5 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm italic leading-relaxed text-sky-900">
-              <span className="mr-1.5 text-[10px] font-bold not-italic uppercase tracking-widest text-sky-400">Hook</span>
-              {script.hook}
-            </p>
+          {editing ? (
+            <div className="flex flex-col gap-4">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-sky-400">Hook</span>
+                <textarea
+                  value={draftHook}
+                  onChange={(e) => setDraftHook(e.target.value)}
+                  rows={2}
+                  placeholder="Opening line (optional)"
+                  // 16px on mobile — anything smaller makes iOS zoom the page on focus
+                  className="w-full resize-y rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-base italic leading-relaxed text-sky-900 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 sm:text-sm"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-neutral-400">
+                  Script — raw text
+                </span>
+                <textarea
+                  value={draftBody}
+                  onChange={(e) => setDraftBody(e.target.value)}
+                  rows={12}
+                  className="min-h-[240px] w-full resize-y rounded-xl border border-neutral-200 px-4 py-3 text-base leading-[1.75] text-neutral-800 outline-none focus:border-sky-300 focus:ring-2 focus:ring-sky-100 sm:min-h-[320px] sm:text-[15px]"
+                />
+                <span className="text-[11px] leading-relaxed text-neutral-400">
+                  This is the stored text, slide markers included. The
+                  teleprompter and carousel splitter both read it — keep any
+                  &ldquo;Slide N —&rdquo; lines if you still want carousels from this script.
+                </span>
+              </label>
+              {saveError && (
+                <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{saveError}</p>
+              )}
+            </div>
+          ) : (
+            <>
+              {script.hook && (
+                <p className="mb-5 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm italic leading-relaxed text-sky-900">
+                  <span className="mr-1.5 text-[10px] font-bold not-italic uppercase tracking-widest text-sky-400">Hook</span>
+                  {script.hook}
+                </p>
+              )}
+              <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.75] text-neutral-800">
+                {cleanReadingText(script.full_script)}
+              </p>
+            </>
           )}
-          <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.75] text-neutral-800">
-            {cleanReadingText(script.full_script)}
-          </p>
         </div>
 
-        {/* Footer */}
-        <footer className="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3 sm:px-6">
-          <div>
-            {confirmDelete ? (
+        {/* Footer — extra bottom padding clears the iPhone home indicator */}
+        <footer
+          className="flex items-center justify-between gap-2 border-t border-neutral-100 px-5 py-3 sm:px-6"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        >
+          {editing ? (
+            <>
+              <span className="text-xs text-neutral-400">Editing</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-neutral-500">Delete permanently?</span>
                 <button
                   type="button"
-                  onClick={onDelete}
-                  className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
-                >
-                  Yes, delete
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDelete(false)}
-                  className="text-xs text-neutral-400 hover:text-neutral-700"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  className="cm-btn cm-btn-ghost text-sm disabled:opacity-50"
                 >
                   Cancel
                 </button>
+                <button
+                  type="button"
+                  onClick={save}
+                  disabled={saving}
+                  className="cm-btn cm-btn-primary text-sm disabled:opacity-60"
+                >
+                  {saving ? 'Saving…' : 'Save changes'}
+                </button>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-neutral-400 transition hover:bg-red-50 hover:text-red-500"
-              >
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
-                  <path d="M2 4h12M5 4V2.5A.5.5 0 015.5 2h5a.5.5 0 01.5.5V4M6 7v5M10 7v5M3 4l.9 9.1A1 1 0 004.9 14h6.2a1 1 0 001-.9L13 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Delete
-              </button>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={onClose} className="cm-btn cm-btn-ghost text-sm">
-              Close
-            </button>
-            <button type="button" onClick={onCopy} className="cm-btn cm-btn-primary text-sm">
-              {copied ? 'Copied ✓' : 'Copy script'}
-            </button>
-          </div>
+            </>
+          ) : (
+            <>
+              <div>
+                {confirmDelete ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-neutral-500">Delete permanently?</span>
+                    <button
+                      type="button"
+                      onClick={onDelete}
+                      className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600"
+                    >
+                      Yes, delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(false)}
+                      className="text-xs text-neutral-400 hover:text-neutral-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-neutral-400 transition hover:bg-red-50 hover:text-red-500"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+                      <path d="M2 4h12M5 4V2.5A.5.5 0 015.5 2h5a.5.5 0 01.5.5V4M6 7v5M10 7v5M3 4l.9 9.1A1 1 0 004.9 14h6.2a1 1 0 001-.9L13 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Delete
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={startEdit} className="cm-btn cm-btn-ghost text-sm">
+                  Edit
+                </button>
+                <button type="button" onClick={onCopy} className="cm-btn cm-btn-primary text-sm">
+                  {copied ? 'Copied ✓' : 'Copy script'}
+                </button>
+              </div>
+            </>
+          )}
         </footer>
       </div>
     </div>

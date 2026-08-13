@@ -204,7 +204,7 @@ export function WeekCard({
 
       {clinicId && (
         <a
-          href={`/dashboard?clinicId=${clinicId}&tab=generate`}
+          href={`/scripts?clinicId=${clinicId}&tab=generate`}
           className="mt-1 self-start rounded-lg px-3 py-1.5 text-[12px] font-semibold transition hover:opacity-80"
           style={{
             background: `${color}15`,
