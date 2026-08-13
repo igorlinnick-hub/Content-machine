@@ -143,7 +143,9 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
         )}
 
         {tab === 'generate' && (
-          <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-6 shadow-sm sm:p-7">
+          // Phone: slim outer padding so the nested card/strip frames don't
+          // stack up into a narrow column. Original ≥sm.
+          <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-3.5 shadow-sm sm:p-7">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-600">
                 Main workspace
@@ -167,7 +169,7 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
             title="Recent scripts"
             subtitle="Every script Writer has saved for this clinic. Tap any to read, edit, star, or copy."
           >
-            <RecentScripts scripts={recent} />
+            <RecentScripts scripts={recent} clinicId={clinicId} />
           </Section>
         )}
 

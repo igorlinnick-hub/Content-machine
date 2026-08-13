@@ -1,15 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { createPortal } from 'react-dom'
 import type { RecentScript } from '@/lib/supabase/context'
 import { cleanReadingText } from '@/lib/client/script-text'
 
 interface RecentScriptsProps {
   scripts: RecentScript[]
+  clinicId: string
 }
 
-export function RecentScripts({ scripts: initialScripts }: RecentScriptsProps) {
+export function RecentScripts({ scripts: initialScripts, clinicId }: RecentScriptsProps) {
   const [scripts, setScripts] = useState(initialScripts)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -106,6 +108,7 @@ export function RecentScripts({ scripts: initialScripts }: RecentScriptsProps) {
           <ScriptCard
             key={s.id}
             script={s}
+            clinicId={clinicId}
             copiedId={copiedId}
             onOpen={() => setOpenId(s.id)}
             onCopy={() => onCopy(s.id, s.full_script)}
@@ -118,6 +121,7 @@ export function RecentScripts({ scripts: initialScripts }: RecentScriptsProps) {
       {open && (
         <ScriptModal
           script={open}
+          clinicId={clinicId}
           copied={copiedId === open.id}
           onCopy={() => onCopy(open.id, open.full_script)}
           onDelete={() => onDelete(open.id)}
@@ -178,6 +182,7 @@ function StarButton({
 
 function ScriptCard({
   script: s,
+  clinicId,
   copiedId,
   onOpen,
   onCopy,
@@ -185,6 +190,7 @@ function ScriptCard({
   onToggleStar,
 }: {
   script: RecentScript
+  clinicId: string
   copiedId: string | null
   onOpen: () => void
   onCopy: () => void
@@ -240,7 +246,7 @@ function ScriptCard({
         </p>
       )}
 
-      <footer className="flex items-center justify-between gap-2 pt-1">
+      <footer className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 pt-1">
         <div className="flex items-center gap-2 min-w-0">
           {s.template_used && (
             <span
@@ -254,7 +260,7 @@ function ScriptCard({
             {formatDate(s.created_at)} · {s.word_count ?? '?'}w
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="ml-auto flex shrink-0 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
           {confirmDelete ? (
             <>
               <button
@@ -274,6 +280,14 @@ function ScriptCard({
             </>
           ) : (
             <>
+              {/* Straight into reading this exact script to camera */}
+              <Link
+                href={`/teleprompter?clinicId=${clinicId}&scriptId=${s.id}`}
+                className="cm-btn cm-btn-ghost py-1 text-xs"
+                title="Read this script in the teleprompter"
+              >
+                Teleprompter →
+              </Link>
               <button
                 type="button"
                 onClick={onCopy}
@@ -303,6 +317,7 @@ function ScriptCard({
 
 function ScriptModal({
   script,
+  clinicId,
   copied,
   onCopy,
   onDelete,
@@ -311,6 +326,7 @@ function ScriptModal({
   onClose,
 }: {
   script: RecentScript
+  clinicId: string
   copied: boolean
   onCopy: () => void
   onDelete: () => void
@@ -571,6 +587,12 @@ function ScriptModal({
                 <button type="button" onClick={startEdit} className="cm-btn cm-btn-ghost text-sm">
                   Edit
                 </button>
+                <Link
+                  href={`/teleprompter?clinicId=${clinicId}&scriptId=${script.id}`}
+                  className="cm-btn cm-btn-ghost text-sm"
+                >
+                  Teleprompter →
+                </Link>
                 <button type="button" onClick={onCopy} className="cm-btn cm-btn-primary text-sm">
                   {copied ? 'Copied ✓' : 'Copy script'}
                 </button>

@@ -415,7 +415,9 @@ export function ScriptGenerator({
           </div>
         </div>
       ) : (
-      <div className="cm-card flex flex-col gap-4 p-5">
+      // Phone: thinner card padding — three nested frames (section > card >
+      // week strip) ate ~56px of a 390px screen. Original ≥sm.
+      <div className="cm-card flex flex-col gap-4 p-3.5 sm:gap-4 sm:p-5">
         <div>
           <TypingAnimation
             text="Ready to generate 3 fresh variants"
@@ -433,17 +435,19 @@ export function ScriptGenerator({
           const color = '#0EA5E9'
           return (
             <div
-              className="flex flex-col gap-2 rounded-xl border p-3"
+              className="flex flex-col gap-3 rounded-xl border p-2.5 sm:gap-2 sm:p-3"
               style={{ background: `${color}08`, borderColor: `${color}25` }}
             >
-              <div className="flex items-center gap-2">
+              {/* Wraps on phones — the theme is long enough to shove the
+                  week switcher off the row otherwise. Unchanged ≥sm. */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 sm:flex-nowrap sm:gap-2">
                 {/* Subtle week switcher — browse the whole plan */}
                 <button
                   type="button"
                   onClick={() => setWeekIdx((i) => Math.max(0, i - 1))}
                   disabled={weekIdx === 0}
                   title="Previous week"
-                  className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                  className="px-2 py-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25 sm:px-1 sm:py-0"
                 >
                   ‹
                 </button>
@@ -455,7 +459,7 @@ export function ScriptGenerator({
                   onClick={() => setWeekIdx((i) => Math.min(planWeeks.length - 1, i + 1))}
                   disabled={weekIdx >= planWeeks.length - 1}
                   title="Next week"
-                  className="px-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25"
+                  className="px-2 py-1 text-[14px] leading-none text-neutral-300 transition hover:text-neutral-600 disabled:opacity-25 sm:px-1 sm:py-0"
                 >
                   ›
                 </button>
@@ -471,19 +475,23 @@ export function ScriptGenerator({
                 )}
                 <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
               </div>
-              <div className="flex items-center gap-2">
+              {/* Phone: topic gets its own full-width line (order-1) and the
+                  three controls sit on a second row with thumb-sized targets.
+                  `sm:order-none` + `sm:basis-auto` put it back to one row,
+                  in DOM order, on desktop — identical to before. */}
+              <div className="flex flex-wrap items-center gap-2.5 sm:flex-nowrap sm:gap-2">
                 <button
                   type="button"
                   disabled={loading || rerollingTopicId !== null || weekPosts.length < 2}
                   onClick={() => cyclePlanTopic(-1)}
                   title="Previous topic"
-                  className="shrink-0 px-1 text-[15px] leading-none transition hover:opacity-100 disabled:opacity-20"
+                  className="order-2 shrink-0 px-2.5 py-1.5 text-[15px] leading-none transition hover:opacity-100 disabled:opacity-20 sm:order-none sm:px-1 sm:py-0"
                   style={{ color }}
                 >
                   ‹
                 </button>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12.5px] font-semibold" style={{ color }}>
+                <div className="order-1 min-w-0 basis-full sm:order-none sm:basis-auto sm:flex-1">
+                  <p className="line-clamp-2 text-[12.5px] font-semibold sm:line-clamp-none sm:truncate" style={{ color }}>
                     {rerollingTopicId && plannedPost?.id === rerollingTopicId
                       ? 'Generating new topic…'
                       : plannedPost?.topic ?? weekPosts[0]?.topic}
@@ -494,7 +502,7 @@ export function ScriptGenerator({
                   disabled={loading || rerollingTopicId !== null || !plannedPost}
                   onClick={() => plannedPost && rerollPlanTopic(plannedPost.id)}
                   title="Fresh take on this topic (same week + theme)"
-                  className="shrink-0 px-1.5 py-1 text-[13px] opacity-50 transition hover:opacity-100 disabled:opacity-30"
+                  className="order-3 shrink-0 px-2.5 py-1.5 text-[13px] opacity-50 transition hover:opacity-100 disabled:opacity-30 sm:order-none sm:px-1.5 sm:py-1"
                   style={{ color }}
                 >
                   ↻
@@ -507,7 +515,7 @@ export function ScriptGenerator({
                     else cyclePlanTopic(1)
                   }}
                   title="Move to the next ready topic (generates a fresh one at the end)"
-                  className="shrink-0 rounded-lg border px-3 py-1 text-[11px] font-semibold transition hover:opacity-80 disabled:opacity-50"
+                  className="order-4 ml-auto shrink-0 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition hover:opacity-80 disabled:opacity-50 sm:order-none sm:ml-0 sm:py-1"
                   style={{ color, borderColor: `${color}55`, background: `${color}14` }}
                 >
                   {addingTopic ? 'Generating…' : 'Next topic ›'}
@@ -528,7 +536,8 @@ export function ScriptGenerator({
           }}
           onKeyDown={(e) => e.key === 'Enter' && !loading && onGenerate()}
           placeholder="Topic — e.g. ketamine for treatment-resistant depression"
-          className="cm-input text-sm"
+          // 16px on phones so iOS doesn't zoom the page on focus; 14px ≥sm as before
+          className="cm-input text-base sm:text-sm"
           disabled={loading}
         />
 
@@ -538,17 +547,19 @@ export function ScriptGenerator({
           onChange={(e) => setNote(e.target.value)}
           placeholder="Optional starting note — paste any rough thoughts, a key fact, the angle you want. Leave blank to let the team pick."
           rows={3}
-          className="cm-input resize-none text-sm"
+          className="cm-input resize-none text-base sm:text-sm"
           disabled={loading}
         />
 
-        <div className="flex items-center justify-end gap-2">
+        {/* Phone: stacked full-width actions (primary on top) instead of two
+            buttons fighting for one cramped row. Row layout returns ≥sm. */}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
           {/* Escape hatch: reopened the form but changed your mind */}
           {result && !loading && (
             <button
               type="button"
               onClick={() => setFormOpen(false)}
-              className="cm-btn cm-btn-ghost text-sm"
+              className="cm-btn cm-btn-ghost w-full text-sm sm:w-auto"
             >
               View scripts
             </button>
@@ -557,7 +568,7 @@ export function ScriptGenerator({
             type="button"
             onClick={onGenerate}
             disabled={loading}
-            className="cm-btn cm-btn-primary text-base sm:px-7 sm:py-3"
+            className="cm-btn cm-btn-primary w-full py-3 text-base sm:w-auto sm:px-7"
           >
             {loading ? <><SparkleSpinner size={16} /> Generating…</> : 'Generate 3 variants'}
           </button>
