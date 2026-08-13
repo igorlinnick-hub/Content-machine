@@ -66,6 +66,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const [wantCamera, setWantCamera] = useState(true)
   const [hasStream, setHasStream] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [captureInfo, setCaptureInfo] = useState<string | null>(null)
+  const [draftSaveFailed, setDraftSaveFailed] = useState(false)
   const [progress, setProgress] = useState(0)
   const [elapsedSec, setElapsedSec] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
@@ -211,11 +213,27 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   async function startCamera(): Promise<boolean> {
     setCameraError(null)
     try {
+      // 1080p30 is the deliberate ceiling, not a limitation. Instagram and
+      // TikTok re-encode everything to 1080p anyway, so 4K only buys us a 4×
+      // bigger file, a longer cellular upload and an IndexedDB draft too big
+      // for Safari's quota. `ideal` (not `max`) keeps portrait orientation
+      // working — the browser picks the closest mode, which is 1080p, and a
+      // weaker webcam still returns 720p instead of failing.
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: true,
+        video: {
+          facingMode: 'user',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30 },
+        },
+        audio: {
+          channelCount: { ideal: 2 },
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
       })
       streamRef.current = stream
+      setCaptureInfo(describeCapture(stream))
       setHasStream(true)
       return true
     } catch (e) {
@@ -226,23 +244,51 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     }
   }
 
+  // Bitrate matched to what the camera actually handed us — asking for 8 Mbps
+  // on a 720p stream just wastes bytes, and 8 Mbps on 4K is mush.
+  function pickVideoBitrate(stream: MediaStream): number {
+    const track = stream.getVideoTracks()[0]
+    const { width = 1920, height = 1080, frameRate = 30 } = track?.getSettings() ?? {}
+    const pixels = width * height
+    // ~0.13 bits per pixel per frame — high-quality H.264/VP9 for talking-head
+    // footage that Instagram will re-encode once more.
+    const bps = Math.round(pixels * Math.max(frameRate, 24) * 0.13)
+    return Math.min(Math.max(bps, 4_000_000), 12_000_000)
+  }
+
+  // Shown in the toolbar so a bad camera mode is visible before recording,
+  // not after the doctor has already delivered the whole script.
+  function describeCapture(stream: MediaStream): string | null {
+    const s = stream.getVideoTracks()[0]?.getSettings()
+    if (!s?.width || !s.height) return null
+    const lines = Math.min(s.width, s.height) // portrait streams come back swapped
+    const mbps = pickVideoBitrate(stream) / 1_000_000
+    return `${lines}p${s.frameRate ? `·${Math.round(s.frameRate)}` : ''} · ${mbps.toFixed(1)} Mbps`
+  }
+
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     streamRef.current = null
     setHasStream(false)
+    setCaptureInfo(null)
   }
 
   // ── Recording ────────────────────────────────────────────────────────────────
   function startRecording() {
     if (!streamRef.current) return
     chunksRef.current = []
-    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-      ? 'video/webm;codecs=vp9'
-      : MediaRecorder.isTypeSupported('video/webm')
-      ? 'video/webm'
-      : MediaRecorder.isTypeSupported('video/mp4')
-      ? 'video/mp4'
-      : ''
+    setDraftSaveFailed(false)
+    // H.264 first: it's the only codec with hardware encoding on phones, and
+    // software VP9 drops frames badly once the stream is 1080p+. mp4 also
+    // previews natively in Drive and needs no remux downstream.
+    const mimeType =
+      [
+        'video/mp4;codecs=avc1.640028,mp4a.40.2',
+        'video/mp4',
+        'video/webm;codecs=h264',
+        'video/webm;codecs=vp9',
+        'video/webm',
+      ].find((t) => MediaRecorder.isTypeSupported(t)) ?? ''
 
     if (!mimeType) {
       setCameraError('Video recording is not supported on this device/browser.')
@@ -254,7 +300,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     try {
       recorder = new MediaRecorder(streamRef.current, {
         mimeType,
-        videoBitsPerSecond: 500_000,
+        videoBitsPerSecond: pickVideoBitrate(streamRef.current),
+        audioBitsPerSecond: 192_000,
       })
     } catch {
       setCameraError('Could not start recorder. Try a different browser.')
@@ -280,7 +327,15 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         title: saveTitle || 'Untitled',
         durationSec,
         savedAt: Date.now(),
-      }).catch(console.error)
+      }).catch((err) => {
+        // Usually a storage-quota rejection on a long recording. The blob is
+        // still in memory and uploads fine — but the refresh-survives-crash
+        // safety net is gone, and the doctor must be told rather than find
+        // out by losing a take.
+        console.error(err)
+        draftIdRef.current = null
+        setDraftSaveFailed(true)
+      })
 
       setElapsedSec(durationSec)
       setRecordedBlob(blob)
@@ -445,7 +500,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   }
 
   async function uploadDirect(title: string): Promise<{ driveUrl: string }> {
-    const mimeType = recordedBlob!.type || 'video/webm'
+    // Strip the codec parameters — the resumable session and the PUT that
+    // follows must agree on the same bare container type.
+    const mimeType = (recordedBlob!.type || 'video/webm').split(';')[0].trim()
     const pres = await fetch(
       `/api/studio/upload-recording/presign?clinicId=${clinicId}`,
       {
@@ -471,6 +528,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       (resolve, reject) => {
         const xhr = new XMLHttpRequest()
         xhr.open('PUT', presData.uploadUrl!)
+        xhr.setRequestHeader('Content-Type', mimeType)
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) setUploadProgress(e.loaded / e.total)
         }
@@ -921,6 +979,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                   Not recording
                 </span>
               )}
+              {captureInfo && (
+                <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] tabular-nums text-white/60 backdrop-blur-sm">
+                  {captureInfo}
+                </span>
+              )}
             </div>
             <button
               onClick={() => {
@@ -1107,6 +1170,13 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             className="cm-input w-full"
           />
         </div>
+
+        {draftSaveFailed && (
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            This take is too large to keep as a backup on the device — save it to
+            Drive now. If you refresh or leave this page first, it&apos;s gone.
+          </p>
+        )}
 
         {uploadError && (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{uploadError}</p>

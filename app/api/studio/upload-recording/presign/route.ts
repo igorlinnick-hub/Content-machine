@@ -45,7 +45,10 @@ export async function POST(req: Request) {
   const title = (body.title || 'Untitled').slice(0, 200)
   const safeTitle = title.replace(/[^a-zA-Z0-9 -]/g, '').trim().replace(/\s+/g, '_') || 'recording'
   const dateStr = new Date().toISOString().split('T')[0]
-  const ext = body.mimeType === 'video/mp4' ? 'mp4' : 'webm'
+  // MediaRecorder hands back full codec strings ("video/mp4;codecs=avc1…") —
+  // Drive wants a bare container type, and the extension must match it.
+  const baseMime = body.mimeType.split(';')[0].trim().toLowerCase()
+  const ext = baseMime === 'video/mp4' ? 'mp4' : 'webm'
   const filename = `${dateStr}_${safeTitle}.${ext}`
 
   // Pass the client's Origin so Drive includes CORS headers on the upload URL.
@@ -59,7 +62,7 @@ export async function POST(req: Request) {
   const clientOrigin = req.headers.get('origin') ?? originFromReferer
 
   try {
-    const { uploadUrl } = await createUploadSession(clinic.name, filename, body.mimeType, clientOrigin)
+    const { uploadUrl } = await createUploadSession(clinic.name, filename, baseMime, clientOrigin)
     return NextResponse.json({ uploadUrl })
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'failed to create upload session'

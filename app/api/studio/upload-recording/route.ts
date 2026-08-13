@@ -40,7 +40,9 @@ export async function POST(req: Request) {
 
   const safeTitle = title.replace(/[^a-zA-Z0-9 -]/g, '').trim().replace(/\s+/g, '_') || 'recording'
   const dateStr = new Date().toISOString().split('T')[0]
-  const ext = file.type === 'video/mp4' ? 'mp4' : 'webm'
+  // MediaRecorder blobs carry codec parameters ("video/mp4;codecs=avc1…").
+  const baseMime = (file.type || 'video/webm').split(';')[0].trim().toLowerCase()
+  const ext = baseMime === 'video/mp4' ? 'mp4' : 'webm'
   const filename = `${dateStr}_${safeTitle}.${ext}`
 
   const buffer = Buffer.from(await file.arrayBuffer())
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
   let fileId: string
   let webViewLink: string
   try {
-    const result = await uploadRecording(clinic.name, filename, buffer, file.type || 'video/webm')
+    const result = await uploadRecording(clinic.name, filename, buffer, baseMime)
     fileId = result.fileId
     webViewLink = result.webViewLink
   } catch (e) {
