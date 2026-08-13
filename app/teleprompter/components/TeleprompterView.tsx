@@ -1186,6 +1186,19 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             do here.
           </p>
         </div>
+        {driveUrl && (
+          <a
+            href={driveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white py-3 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-7.5 3L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+            Open in Google Drive
+          </a>
+        )}
         <button
           onClick={resetToSetup}
           className="cm-btn cm-btn-primary w-full rounded-2xl py-3 text-sm font-semibold"
