@@ -9,6 +9,70 @@
 
 ---
 
+## 🔴 SESSION HANDOFF — 2026-08-12 (read this first, then delete once acted on)
+
+**Where we are.** Post craft was reworked by hand in Canva, then the rules were
+written into code and shipped. Everything below is deployed: `origin/main` =
+`f36fa0c`, tsc clean.
+
+**What shipped today (`f36fa0c`)**
+- **Waterfall logic** (`lib/agents/writer.ts` + `docs/POST-CRAFT.md` §2a): each
+  slide answers the question the previous raised; every body slide ends in a
+  6-10-word **takeaway** (8 types listed); no slide repeats another; the cover
+  promise must be paid off. Takeaway ≠ the banned antithesis bow.
+- **Headings carry the reader's question** (§2b). Banned section labels:
+  "What the data shows", "Think of it this way", "What's happening". Only
+  "Who it's for" survives. A data-titled slide with no verified number must be
+  retitled, not padded.
+- **Word budget is a band:** 20-28 words/slide (14-18 body + 6-10 takeaway).
+- **`lib/posts/said-before.ts` (new):** anti-repetition guard across posts —
+  pulls the last 12 plans' hooks/headings/takeaways, hands the writer a
+  do-not-reuse list in USER content (system block stays prompt-cached). Wired
+  into `app/api/posts/generate/route.ts`, fail-open.
+- **`splitter.ts`** no longer normalises headings back to template phrases and
+  carries `close` (the takeaway) verbatim.
+- **Style-id fix (this was the "Canva generation problem"):** compose route,
+  `pipeline.ts` and `orchestrator.ts` used to clamp `=== 2 ? 2 : 1`, so styles
+  **3/4/5 silently composed as Style 1**. All three now go through
+  `normalizeStyleId()` / `designIdForStyle()` / `brandTemplateEnvKey()` in
+  `lib/posts/style-templates.ts` (the single source of truth, mirrored by the
+  runner skill + the Templates tab).
+- **UI honesty** (`PostsWorkspace.tsx`): queued state says "Waiting for the
+  Canva runner" (not a fake "~2 min"), plus an explicit notice after 3 min.
+
+**Canva connector — settled, do not re-litigate.** The managed `claude.ai Canva`
+connector works, in interactive AND headless (`claude -p`). A previous session
+wrongly concluded it was missing and told Igor to reconnect it in claude.ai —
+that was a misdiagnosis; the real symptoms were (a) the connector flapping
+in/out of a *running* agent session (a restart or waiting fixes it; it cannot be
+re-scanned from inside an agent), and (b) the laptop sleeping, which stops
+launchd ticks. Also from that session: a manually-added CLI Canva entry (removed)
+and `ANTHROPIC_API_KEY` briefly written into the runner env (reverted — env is
+clean, backup at `env.withkey.bak`). **Runner env must stay key-free** — it runs
+on the subscription.
+
+**Live proof.** Row `7663abcb` composed successfully at 21:47 →
+`DAHSJ_5Bp6k`, status `visuals_ready`, `render_result.canva_edit_url` written.
+Style 2 was requested and Style 2 was built — the style fix is confirmed live.
+
+**⚠️ NOT yet tested: the new writer rules.** That post's *text* was generated
+Aug 11, **before** `f36fa0c`, so it still shows the banned "THINK OF IT THIS
+WAY" / "WHAT RESEARCH SHOWS" headings and a fragment cover ("WORE OFF").
+**Next step: generate ONE fresh post** (the queued plan topic is
+"Retatrutide is the next GLP-1") and QC design + text together with Igor. That
+is the open task.
+
+**Known small bug to fix when convenient.** The compose watchdog re-queues a
+stale `in_canva` row but does **not** clear the old `compose_progress`, so the
+UI chip counts from the dead run's timestamp (Igor saw "272M elapsed" on a
+compose that had just started). Clear `compose_progress` on requeue in
+`scripts/canva-runner/run.sh`.
+
+**Working agreement with Igor.** Do the work autonomously; call him only when
+design + text are ready to review together.
+
+---
+
 ## ⭐ THE ONE THING PEOPLE FORGET — Canva carousels are built by a Claude+MCP runner, NOT the server
 
 Content Machine (this Next.js app) produces **WORDS**: script + per-slide copy +
