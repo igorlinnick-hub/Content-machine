@@ -6,12 +6,13 @@ import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Clip pipeline runs Whisper + 2 ffmpeg passes at the §22.2b quality
-// settings, which are CPU-bound on a lambda. 300s killed a 73s take
-// mid-encode; 800s + the memory bump in vercel.json is the real
-// budget. Longer clips still fail at the ceiling and the error lands
-// on the clip row (visible in /clips).
-export const maxDuration = 800
+// Hobby plan hard ceiling: 300s is both the default AND the maximum
+// (Pro gets 800s / 2 vCPU). Setting 800 does not slow the render down —
+// it makes the whole deployment fail to build, so nothing ships at all.
+// The §22.2b two-pass 1080x1920 encode runs ~4x realtime on Hobby's
+// single vCPU, i.e. only ~70s of footage fits here. Longer takes must
+// move off the lambda (local/dedicated runner) — see HANDOFF clips.
+export const maxDuration = 300
 
 interface Body {
   clinicId: string

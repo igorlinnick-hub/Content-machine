@@ -1,9 +1,4 @@
 {
-  "functions": {
-    "app/api/clips/from-recording/route.ts": { "memory": 3009, "maxDuration": 800 },
-    "app/api/clips/process/route.ts": { "memory": 3009, "maxDuration": 800 },
-    "app/api/cron/clips-inbox/route.ts": { "memory": 3009, "maxDuration": 800 }
-  },
   "crons": [
     {
       "path": "/api/agents/diff",

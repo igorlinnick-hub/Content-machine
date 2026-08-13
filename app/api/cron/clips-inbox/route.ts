@@ -11,9 +11,13 @@ import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Same budget as /api/clips/process — the pipeline runs inside this
-// function and is CPU-bound at the §22.2b quality settings.
-export const maxDuration = 800
+// Hobby plan hard ceiling: 300s is both the default AND the maximum
+// (Pro gets 800s / 2 vCPU). Setting 800 does not slow the render down —
+// it makes the whole deployment fail to build, so nothing ships at all.
+// The §22.2b two-pass 1080x1920 encode runs ~4x realtime on Hobby's
+// single vCPU, i.e. only ~70s of footage fits here. Longer takes must
+// move off the lambda (local/dedicated runner) — see HANDOFF clips.
+export const maxDuration = 300
 
 // Cron poll for clips Inboxes (closes §20 "Что НЕ сделано" item):
 // doctor uploads to Drive get picked up automatically instead of

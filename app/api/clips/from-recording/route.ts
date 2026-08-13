@@ -10,11 +10,13 @@ import { disabledHttpResponse } from '@/lib/agents/disabled'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-// Same budget as /api/clips/process. 300s was NOT enough: at the
-// §22.2b quality settings a 73s take needs two 1080x1920 x264 passes
-// and the invocation was killed mid-encode, leaving the row stuck in
-// 'processing'. Memory (= vCPU) is raised in vercel.json alongside.
-export const maxDuration = 800
+// Hobby plan hard ceiling: 300s is both the default AND the maximum
+// (Pro gets 800s / 2 vCPU). Setting 800 does not slow the render down —
+// it makes the whole deployment fail to build, so nothing ships at all.
+// The §22.2b two-pass 1080x1920 encode runs ~4x realtime on Hobby's
+// single vCPU, i.e. only ~70s of footage fits here. Longer takes must
+// move off the lambda (local/dedicated runner) — see HANDOFF clips.
+export const maxDuration = 300
 
 // Teleprompter "Auto-edit" (HANDOFF §22.2 п.11): copy a saved
 // recording from Recordings/ into the clinic's clips Inbox and run
