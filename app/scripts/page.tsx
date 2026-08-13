@@ -33,7 +33,8 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
     if (!searchParams.clinicId) {
       const clinics = await loadClinicList()
       if (clinics.length === 0) redirect('/onboarding')
-      redirect(`/scripts?clinicId=${clinics[0].id}`)
+      const keepTab = searchParams.tab ? `&tab=${searchParams.tab}` : ''
+      redirect(`/scripts?clinicId=${clinics[0].id}${keepTab}`)
     }
     clinicId = searchParams.clinicId
   } else {
