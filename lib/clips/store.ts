@@ -105,7 +105,11 @@ export async function markClipFailed(
     .from('clips')
     .update({
       status: 'failed',
-      error: errorMessage.slice(0, 1000),
+      // Keep the TAIL, not the head: ffmpeg spends its first ~1kb on
+      // the version banner and only says what actually broke in the
+      // last lines. Head-truncation stored pure banner and made
+      // failures undiagnosable from the UI.
+      error: errorMessage.slice(-1000),
       completed_at: new Date().toISOString(),
     })
     .eq('id', clipId)
