@@ -3,7 +3,6 @@
 import { useState } from 'react'
 
 export function DoctorLogin() {
-  const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -42,23 +41,13 @@ export function DoctorLogin() {
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="text-xs font-medium text-neutral-500 underline-offset-4 hover:text-neutral-800 hover:underline"
-      >
-        I have a code or link
-      </button>
-    )
-  }
-
+  // Always open — the code box is the front door of the app. Everyone gets
+  // the same base URL and signs in by typing their clinic code.
   return (
-    <form onSubmit={submit} className="flex w-full max-w-sm flex-col gap-2">
+    <form onSubmit={submit} className="flex w-full flex-col gap-2">
       <label className="flex flex-col gap-1 text-left">
         <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-          Sign in
+          Your code
         </span>
         <input
           type="text"
@@ -66,9 +55,10 @@ export function DoctorLogin() {
           onChange={(e) => setValue(e.target.value)}
           autoFocus
           autoComplete="off"
+          autoCapitalize="none"
           spellCheck={false}
-          placeholder=""
-          className="cm-input font-mono text-sm"
+          placeholder="hwc-doctor"
+          className="cm-input font-mono text-base"
           disabled={submitting}
         />
       </label>
@@ -77,27 +67,13 @@ export function DoctorLogin() {
           {error}
         </p>
       )}
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(false)
-            setError(null)
-            setValue('')
-          }}
-          className="cm-btn cm-btn-ghost text-xs"
-          disabled={submitting}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={!value.trim() || submitting}
-          className="cm-btn cm-btn-primary flex-1 text-sm"
-        >
-          {submitting ? 'Signing in…' : 'Continue'}
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={!value.trim() || submitting}
+        className="cm-btn cm-btn-primary w-full text-sm"
+      >
+        {submitting ? 'Signing in…' : 'Continue'}
+      </button>
       <p className="text-[11px] text-neutral-400">
         Type the short code from your clinic, or paste the full link. This
         device stays signed in for a year.
