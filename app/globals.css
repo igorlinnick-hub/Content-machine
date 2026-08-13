@@ -439,6 +439,17 @@ button.bg-fuchsia-600:hover {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+/* Tap indicator: a ripple ring + a soft fingertip, so the mockup shows
+   WHAT gets tapped instead of describing it in prose. */
+@keyframes pwa-tap-ring {
+  0%   { transform: scale(0.55); opacity: 0; }
+  20%  { opacity: 0.85; }
+  100% { transform: scale(1.6);  opacity: 0; }
+}
+@keyframes pwa-tap-dot {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.22; }
+  45%      { transform: translate(-50%, -50%) scale(1);   opacity: 0.5; }
+}
 
 @keyframes cm-ping {
   0% {

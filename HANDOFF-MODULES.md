@@ -30,6 +30,24 @@ Scheduler UI/code is ALREADY in prod (committed `42b27dd` on main: calendar rede
 1. **`scheduled_posts` table MISSING in prod** — migration 032 never applied. Prod `GET /api/scheduled-posts` → 500 "Could not find the table 'public.scheduled_posts' in the schema cache" (login/dashboard 200 → DB healthy, only this table absent). **Fix:** paste `supabase/migrations/032_scheduled_posts.sql` into the Supabase SQL editor + **Run**. (Auto-mode classifier blocks Claude from executing prod DB writes — a human clicks Run.)
 2. **Buffer NOT connected** — `BUFFER_TOKEN` absent from prod Vercel env. Verified: pulled all 49 prod env vars → ZERO buffer/channel vars under any name; prod health = `token: missing`. Channels existing IN the Buffer account ≠ token in our app's env. **Fix:** set `BUFFER_TOKEN` + `BUFFER_CHANNEL_INSTAGRAM/FACEBOOK/TIKTOK` in Vercel (Igor pastes the token — classifier blocks extracting it from his Safari session). Then `/api/scheduled-posts/*` + cron `scheduled-post` work.
 
+**Re-verified live 2026-08-13 (afternoon, prod `content-machine-gules.vercel.app`, admin session):**
+`GET /api/scheduled-posts?clinicId=…` → **500 "Could not find the table 'public.scheduled_posts' in the schema cache"**;
+`GET /api/publish/buffer/health` → **`{"token":"missing", all 3 channels "disconnected"}`**. Both blockers still open — nothing changed since the morning entry.
+
+**The несостыковка in this doc — resolved.** §11 Infra said *"Migrations through **045** applied"*, which reads as
+"everything up to 045 is in prod" and contradicts blocker 1. The truth: **032 is a HOLE, not a tail.** Later migrations
+(033 canva_style … 045 compose_progress) WERE applied; 032 was skipped when it was written and never backfilled.
+"Through 045" ≠ "all of 001-045". Fixed the wording in §11.
+
+**Third gap found + FIXED in code this session (no prod access needed):**
+- `app/scheduler/page.tsx` — admin with no `?clinicId` got `clinicId = ''`, so `loadPosts()` returned early and the
+  scheduler **never loaded a single real post** for an admin arriving from the nav. Every other admin page
+  (`/visual`, `/dashboard`) falls back to `clinics[0].id`; scheduler now does the same.
+- `SchedulerView.tsx` — the posts fetch swallowed non-OK responses (`if (res.ok)` + empty `catch`). With the table
+  missing, the calendar quietly fell back to rendering the **static content plan**, so it *looked* fully scheduled
+  while the DB held nothing. Now: red banner with the real API error, and the static-plan fallback is suppressed on
+  error/loading. tsc clean.
+
 ### ⚠️ Working tree is MIXED across parallel sessions — do NOT blind-commit
 Uncommitted files that are NOT aesthetics (belong to other sessions): script-starred feature (`supabase/migrations/046_script_starred.sql`, `app/scripts/`, `RecentScripts.tsx`, `WeekCard.tsx`, `DashBento.tsx`), teleprompter, `lib/supabase/context.ts`, `scripts/canva-runner/run.sh`. PLUS this session's still-uncommitted UI: dashboard **ScriptGenerator → mirror-of-posts** refactor (`app/dashboard/page.tsx` loads `planWeeks`/`currentWeekIndex`), `PostsWorkspace` declutter + all-blue week strip, `SlideEditor` **Guide** button removed (per-slide Regenerate stays). Commit these deliberately, per feature.
 
@@ -284,9 +302,10 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
 - **Code:** `lib/auth/*`, `app/api/admin/*`, `app/api/auth/*`, `app/c/[token]`, `app/onboarding/*`.
 
 ### 11. Infra
-- **Supabase** prod ref `pscqjvkuqqmvmcbxdwtu` (org `cxfsnpqcszytidcwrkvm`). Migrations
-  through **045** (compose_progress); 044 (skipped) applied. Applying SQL = Igor pastes
-  into the dashboard SQL editor (CLI/classifier blocks programmatic DB writes).
+- **Supabase** prod ref `pscqjvkuqqmvmcbxdwtu` (org `cxfsnpqcszytidcwrkvm`). Latest applied migration is
+  **045** (compose_progress) — but that is a high-water mark, **not** "001-045 are all applied".
+  **Known hole: `032_scheduled_posts.sql` was never run** (verified live 2026-08-13). Applying SQL =
+  Igor pastes into the dashboard SQL editor (CLI/classifier blocks programmatic DB writes).
 - **Vercel** auto-deploys from `main`. Env incl. `CANVA_{CLIENT_ID,CLIENT_SECRET,REFRESH_TOKEN}`
   (integration `OC-AZ-G1--eJ3lK`), `ENABLE_LLM_AGENTS`, Supabase/Google/Replicate/VAPID.
   `vercel --prod` and env writes are classifier-blocked → redeploy via empty commit + push.

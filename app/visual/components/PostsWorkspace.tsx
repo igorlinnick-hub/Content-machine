@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
 import type { RenderResult, SlideSetStatus } from '@/types'
@@ -1209,6 +1209,117 @@ const STAGE_LABELS: Record<string, string> = {
   save: 'Saving result',
 }
 
+// The five stations of a compose, in the order the runner reports them
+// (`load:start` → `photos:*` → `upload:*` → `autofill:start` → `save:done`,
+// see the canva-compose-runner skill). Labels are short on purpose — this
+// sits under a chip, not on a dashboard.
+const COMPOSE_STEPS: Array<{ key: string; label: string }> = [
+  { key: 'load', label: 'Slides' },
+  { key: 'photos', label: 'Photos' },
+  { key: 'upload', label: 'Upload' },
+  { key: 'autofill', label: 'Canva' },
+  { key: 'save', label: 'Save' },
+]
+
+/**
+ * Which steps are finished and which one is running right now.
+ * `doneUpTo` is the last COMPLETED index (-1 = none); `active` is the index
+ * in flight (-1 = nothing started — the row is still queued).
+ *
+ * A `:done` suffix means that station finished, so it counts as complete and
+ * the next one is what we're waiting on. Anything else (`:start`, bare) means
+ * that station is the one running.
+ */
+function composeStepState(progress: ComposeProgress | null): {
+  doneUpTo: number
+  active: number
+} {
+  const stage = progress?.stage
+  if (!stage || stage === 'error' || stage === 'blocked') {
+    return { doneUpTo: -1, active: -1 }
+  }
+  const [key, phase] = stage.split(':')
+  const idx = COMPOSE_STEPS.findIndex((s) => s.key === key)
+  if (idx < 0) return { doneUpTo: -1, active: -1 }
+  if (phase === 'done') {
+    return { doneUpTo: idx, active: idx + 1 < COMPOSE_STEPS.length ? idx + 1 : -1 }
+  }
+  return { doneUpTo: idx - 1, active: idx }
+}
+
+/**
+ * Compact five-dot progress rail under the compose chip (Igor 2026-08-12).
+ * The chip alone says WHAT is happening; this says WHERE in the run it is,
+ * which is the thing you actually want when a compose takes minutes.
+ *
+ * Honest by construction: a queued row shows every step pending with the
+ * first one dashed — nothing is claimed to be running before the runner
+ * picks the post up.
+ */
+function ComposeStepper({ progress }: { progress: ComposeProgress | null }) {
+  const { doneUpTo, active } = composeStepState(progress)
+  const started = active >= 0 || doneUpTo >= 0
+
+  return (
+    <div
+      className="flex items-start px-1 pt-0.5"
+      role="group"
+      aria-label="Compose progress"
+    >
+      {COMPOSE_STEPS.map((step, i) => {
+        const isDone = i <= doneUpTo
+        const isActive = i === active
+        const isNext = !started && i === 0
+
+        return (
+          <Fragment key={step.key}>
+            {i > 0 && (
+              <span
+                aria-hidden
+                className={`mt-[6px] h-[2px] flex-1 rounded-full transition-colors duration-500 ${
+                  i <= doneUpTo || (isActive && doneUpTo >= i - 1)
+                    ? 'bg-violet-400'
+                    : 'bg-slate-200'
+                }`}
+              />
+            )}
+            <span
+              className="flex w-12 shrink-0 flex-col items-center gap-1"
+              aria-current={isActive ? 'step' : undefined}
+            >
+              <span
+                aria-hidden
+                className={`flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] font-bold leading-none transition-colors duration-300 ${
+                  isDone
+                    ? 'bg-violet-500 text-white'
+                    : isActive
+                      ? 'cm-pulse bg-sky-500 text-white'
+                      : isNext
+                        ? 'cm-dot-blink border border-dashed border-slate-400 bg-white'
+                        : 'border border-slate-300 bg-white'
+                }`}
+              >
+                {isDone ? '✓' : ''}
+              </span>
+              <span
+                className={`text-[9px] uppercase leading-none tracking-wide ${
+                  isActive
+                    ? 'font-semibold text-slate-900'
+                    : isDone
+                      ? 'text-slate-500'
+                      : 'text-slate-400'
+                }`}
+              >
+                {step.label}
+              </span>
+            </span>
+          </Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
 function composeStageLabel(progress: ComposeProgress | null, status: SlideSetStatus): string {
   if (!progress?.stage || progress.stage === 'error') {
     // No "~2 min" promise on the queued state: carousels are built by the
@@ -1299,6 +1410,7 @@ function ComposeWaitingChip({
           </span>
         </span>
       </div>
+      <ComposeStepper progress={progress} />
       {/* A queued row with no stage progress is not "slow" — nothing is
           working on it until the runner is started. Say that instead of
           letting the counter climb (Igor 2026-08-12). */}

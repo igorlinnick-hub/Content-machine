@@ -120,12 +120,13 @@ function ScreenShare() {
       <div className="flex items-center justify-around border-t border-neutral-300 bg-[#F2F2F7] px-4 py-2 mt-auto">
         <ToolbarIcon path="M15 19l-7-7 7-7" />
         <ToolbarIcon path="M9 19l7-7-7-7" />
-        {/* Share button — animated */}
-        <div style={{ animation: 'pwa-share-pulse 1.4s ease-in-out infinite' }}>
+        {/* Share button — animated + tap indicator */}
+        <div className="relative" style={{ animation: 'pwa-share-pulse 1.4s ease-in-out infinite' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round">
             <path d="M8 10h8M12 6v8" /><path d="M12 14v6M5 20h14" />
             <path d="M12 6l-3 3M12 6l3 3" />
           </svg>
+          <TapMark />
         </div>
         <ToolbarIcon path="M4 19V5h16v14" />
         <ToolbarIcon path="M4 6h16M4 12h16M4 18h16" />
@@ -160,7 +161,7 @@ function ScreenAdd() {
         </div>
         {/* Action rows */}
         <div className="mx-2 mb-2 overflow-hidden rounded-xl">
-          <SheetRow label="Add to Home Screen" icon="＋" highlight />
+          <SheetRow label="Add to Home Screen" icon="＋" highlight tap />
           <div className="h-px bg-neutral-100 ml-8" />
           <SheetRow label="Add Bookmark" icon="🔖" />
           <div className="h-px bg-neutral-100 ml-8" />
@@ -217,9 +218,26 @@ function ToolbarIcon({ path, box = '0 0 24 24' }: { path: string; box?: string }
   )
 }
 
-function SheetRow({ label, icon, highlight }: { label: string; icon: string; highlight?: boolean }) {
+/** Ripple ring + fingertip — shows where the tap lands. */
+function TapMark({ left = '50%' }: { left?: string }) {
   return (
-    <div className={`flex items-center gap-3 px-3 py-2.5 ${highlight ? 'bg-sky-50' : 'bg-white'}`}>
+    <span className="pointer-events-none absolute top-1/2 z-10 -translate-x-1/2 -translate-y-1/2" style={{ left }}>
+      <span
+        className="absolute left-1/2 top-1/2 block h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#007AFF]"
+        style={{ animation: 'pwa-tap-ring 1.4s ease-out infinite' }}
+      />
+      <span
+        className="absolute left-1/2 top-1/2 block h-5 w-5 rounded-full bg-[#007AFF]"
+        style={{ animation: 'pwa-tap-dot 1.4s ease-in-out infinite' }}
+      />
+    </span>
+  )
+}
+
+function SheetRow({ label, icon, highlight, tap }: { label: string; icon: string; highlight?: boolean; tap?: boolean }) {
+  return (
+    <div className={`relative flex items-center gap-3 px-3 py-2.5 ${highlight ? 'bg-sky-50' : 'bg-white'}`}>
+      {tap && <TapMark left="18%" />}
       <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold ${highlight ? 'bg-[#007AFF] text-white' : 'bg-neutral-100 text-neutral-600'}`}>
         {icon}
       </span>
@@ -451,80 +469,91 @@ function InstallModal({
   )
 }
 
-// ── iOS bottom sheet (auto-appears on phone after QR scan) ───────────────────
+// ── iOS install instructions ─────────────────────────────────────────────────
+//
+// Auto-opens once per device; after "Got it" the dismissal is remembered and
+// the only remaining surface is a small pill, so a doctor who tapped too early
+// can replay the walkthrough instead of being stuck.
+
+const IOS_DISMISS_KEY = 'cm_pwa_ios_dismissed'
+const IOS_STEP_MS = 3400
 
 const IOS_STEPS = [
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M8 10h8M12 6v8" /><path d="M12 14v6M5 20h14" /><path d="M12 6l-3 3M12 6l3 3" />
-      </svg>
-    ),
-    title: 'Tap the Share button',
-    detail: 'The ⬆ icon at the bottom of Safari',
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="3" /><path d="M12 8v8M8 12h8" />
-      </svg>
-    ),
-    title: 'Add to Home Screen',
-    detail: 'Find it in the list that slides up',
-  },
-  {
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#34C759" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 12l5 5L20 7" />
-      </svg>
-    ),
-    title: 'Tap Add',
-    detail: 'The app icon appears on your home screen',
-  },
+  { title: 'Tap Share',          detail: 'The ⬆ icon in the Safari bar below',   screen: 2 },
+  { title: 'Add to Home Screen', detail: 'Scroll the list that slides up',        screen: 3 },
+  { title: 'Tap Add',            detail: 'The icon lands on your home screen',    screen: 4 },
 ]
 
-function IOSBottomSheet() {
-  const [show, setShow] = useState(false)
-  const [dismissed, setDismissed] = useState(false)
-  const [stepVisible, setStepVisible] = useState(0)
+/** The desktop mockup, scaled down — same screens, phone-sized. */
+function MiniPhone({ screen }: { screen: number }) {
+  const scale = 0.66
+  return (
+    <div className="shrink-0" style={{ width: 160 * scale, height: 300 * scale }}>
+      <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left' }}>
+        <PhoneMockup step={screen} installUrl="" />
+      </div>
+    </div>
+  )
+}
 
-  // Auto-appear after short delay
+function IOSInstructionSheet({ onClose }: { onClose: () => void }) {
+  const [show, setShow] = useState(false)
+  const [step, setStep] = useState(0)
+  const [paused, setPaused] = useState(false)
+
+  // Slide in on mount
   useEffect(() => {
-    const t = setTimeout(() => setShow(true), 700)
+    const t = setTimeout(() => setShow(true), 40)
     return () => clearTimeout(t)
   }, [])
 
-  // Animate steps in after sheet appears
+  // Auto-advance the walkthrough until the user takes over
   useEffect(() => {
-    if (!show || dismissed) return
-    if (stepVisible >= IOS_STEPS.length) return
-    const t = setTimeout(() => setStepVisible((n) => n + 1), stepVisible === 0 ? 350 : 280)
-    return () => clearTimeout(t)
-  }, [show, dismissed, stepVisible])
+    if (paused) return
+    const t = setInterval(() => setStep((s) => (s + 1) % IOS_STEPS.length), IOS_STEP_MS)
+    return () => clearInterval(t)
+  }, [paused])
 
-  if (dismissed) return null
+  // Lock page scroll while the sheet is up
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
 
-  return (
+  const close = useCallback(() => {
+    setShow(false)
+    setTimeout(onClose, 280)
+  }, [onClose])
+
+  const pick = (i: number) => { setStep(i); setPaused(true) }
+
+  return createPortal(
     <>
       {/* Dim backdrop */}
       <div
-        className="fixed inset-0 z-40 transition-opacity duration-500"
+        className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{
-          backgroundColor: 'rgba(0,0,0,0.35)',
+          backgroundColor: 'rgba(0,0,0,0.4)',
           backdropFilter: 'blur(2px)',
           opacity: show ? 1 : 0,
           pointerEvents: show ? 'auto' : 'none',
         }}
-        onClick={() => setDismissed(true)}
+        onClick={close}
       />
 
       {/* Sheet */}
       <div
+        role="dialog"
+        aria-modal="true"
         className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-white shadow-2xl"
         style={{
           transform: show ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 0.45s cubic-bezier(0.16,1,0.3,1)',
-          paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+          transition: 'transform 0.42s cubic-bezier(0.16,1,0.3,1)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+          maxHeight: '92svh',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
         }}
       >
         {/* Handle */}
@@ -532,70 +561,148 @@ function IOSBottomSheet() {
           <div className="h-1 w-10 rounded-full bg-neutral-200" />
         </div>
 
-        <div className="px-6 pb-6 pt-4">
-          {/* App icon + title */}
-          <div className="flex items-center gap-4 mb-5">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-md"
-              style={{ background: 'linear-gradient(135deg,#38bdf8,#0369a1)' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="white" opacity="0.9"/>
-                <path d="M9 22V12h6v10" stroke="white" strokeWidth="1.5"/>
+        <div className="px-5 pb-2 pt-3">
+          {/* Header */}
+          <div className="mb-4 flex items-center gap-3">
+            <div
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl shadow-md"
+              style={{ background: 'linear-gradient(135deg,#38bdf8,#0369a1)' }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="white" opacity="0.9" />
+                <path d="M9 22V12h6v10" stroke="white" strokeWidth="1.5" />
               </svg>
             </div>
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-500">Install</p>
-              <h2 className="text-xl font-bold text-neutral-900">Add to Home Screen</h2>
-              <p className="text-sm text-neutral-500">Opens fullscreen, no browser bar</p>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-500">Install</p>
+              <h2 className="text-[17px] font-bold leading-tight text-neutral-900">Add to Home Screen</h2>
+              <p className="text-[12px] text-neutral-500">Opens fullscreen, no browser bar</p>
             </div>
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Close"
+              className="ml-auto shrink-0 rounded-full p-2 text-neutral-400 active:bg-neutral-100"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
 
-          {/* Steps */}
-          <ol className="flex flex-col gap-3 mb-6">
-            {IOS_STEPS.map((s, i) => (
-              <li
-                key={i}
-                className="flex items-center gap-4 transition-all duration-300"
-                style={{
-                  opacity: i < stepVisible ? 1 : 0,
-                  transform: i < stepVisible ? 'translateY(0)' : 'translateY(8px)',
-                }}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#F2F2F7]">
-                  {s.icon}
-                </div>
-                <div>
-                  <p className="text-[15px] font-semibold text-neutral-900">{s.title}</p>
-                  <p className="text-[13px] text-neutral-500">{s.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+          {/* Walkthrough: live mockup + tappable steps */}
+          <div className="flex items-start gap-4">
+            <MiniPhone screen={IOS_STEPS[step].screen} />
+
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              {IOS_STEPS.map((s, i) => {
+                const active = i === step
+                const done = i < step
+                return (
+                  <button
+                    key={s.title}
+                    type="button"
+                    onClick={() => pick(i)}
+                    className={`flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition-all duration-200 ${
+                      active ? 'bg-sky-50 ring-1 ring-sky-200' : 'active:bg-neutral-50'
+                    }`}
+                  >
+                    <span
+                      className={`mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ring-1 transition-all duration-200 ${
+                        done
+                          ? 'bg-emerald-500 text-white ring-emerald-500'
+                          : active
+                            ? 'bg-sky-500 text-white ring-sky-500'
+                            : 'bg-white text-neutral-400 ring-neutral-300'
+                      }`}
+                    >
+                      {done ? '✓' : i + 1}
+                    </span>
+                    <span className="min-w-0">
+                      <span
+                        className={`block text-[13px] font-semibold leading-snug ${
+                          active ? 'text-sky-800' : done ? 'text-emerald-700' : 'text-neutral-500'
+                        }`}
+                      >
+                        {s.title}
+                      </span>
+                      {active && (
+                        <span className="mt-0.5 block text-[11px] leading-snug text-sky-600">{s.detail}</span>
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+
+              {/* Progress segments */}
+              <div className="mt-1 flex gap-1 px-2.5">
+                {IOS_STEPS.map((s, i) => (
+                  <span
+                    key={s.title}
+                    className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ${
+                      i <= step ? 'bg-sky-400' : 'bg-neutral-200'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="px-2.5 text-[10px] text-neutral-400">
+                {paused ? 'Tap a step to replay it' : 'Playing — tap a step to hold'}
+              </p>
+            </div>
+          </div>
 
           {/* CTA */}
           <button
             type="button"
-            onClick={() => setDismissed(true)}
-            className="w-full rounded-2xl bg-[#007AFF] py-3.5 text-base font-semibold text-white active:opacity-80 transition-opacity"
+            onClick={close}
+            className="mt-4 w-full rounded-2xl bg-[#007AFF] py-3.5 text-base font-semibold text-white transition-opacity active:opacity-80"
           >
             Got it
           </button>
         </div>
       </div>
+    </>,
+    document.body
+  )
+}
 
-      {/* Arrow pointing at Safari share button */}
-      <div
-        className="fixed bottom-[72px] left-1/2 z-50 -translate-x-1/2 transition-all duration-700"
-        style={{ opacity: show && stepVisible >= 1 ? 1 : 0 }}
-      >
-        <div className="flex flex-col items-center gap-1 animate-bounce">
-          <div className="rounded-full bg-[#007AFF] px-3 py-1 text-[11px] font-semibold text-white shadow-lg">
-            here
-          </div>
-          <svg width="16" height="10" viewBox="0 0 16 10" fill="#007AFF">
-            <path d="M8 10L0 0h16z"/>
+/** Small always-available entry point — the rescue hatch for an early "Got it". */
+export function IOSInstallEntry() {
+  const [open, setOpen] = useState(false)
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    let dismissed = false
+    try { dismissed = localStorage.getItem(IOS_DISMISS_KEY) === '1' } catch { /* private mode */ }
+    setReady(true)
+    if (dismissed) return
+    const t = setTimeout(() => setOpen(true), 700)
+    return () => clearTimeout(t)
+  }, [])
+
+  const close = useCallback(() => {
+    setOpen(false)
+    try { localStorage.setItem(IOS_DISMISS_KEY, '1') } catch { /* private mode */ }
+  }, [])
+
+  if (!ready) return null
+
+  return (
+    <>
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white/70 px-3 py-1.5 text-[11px] font-medium text-neutral-500 backdrop-blur transition active:scale-95"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v10M8 11l4 4 4-4" /><path d="M5 19h14" />
           </svg>
-        </div>
+          Install instructions
+        </button>
       </div>
+
+      {open && <IOSInstructionSheet onClose={close} />}
     </>
   )
 }
@@ -627,7 +734,7 @@ export function PWAInstallCard({ clinicId, isAdmin }: Props) {
   const closeModal = useCallback(() => setModalOpen(false), [])
 
   if (installed) return null
-  if (platform === 'ios') return <IOSBottomSheet />
+  if (platform === 'ios') return <IOSInstallEntry />
 
   if (platform === 'android') {
     return (

@@ -128,7 +128,7 @@ export async function processClip(params: {
     // Audio buffer no longer needed.
     await unlink(audioPath).catch(() => {})
 
-    // 4. Retake pass (Haiku, fail-open): drop abandoned takes
+    // 4. Retake pass (Sonnet, fail-open): drop abandoned takes
     //    ("let me start over" + the flubbed line before it) so they
     //    never reach the cut plan. On any error this returns zero
     //    drops and the pipeline continues with filler/silence only.

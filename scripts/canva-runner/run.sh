@@ -58,6 +58,18 @@ fi
 # sees $PEXELS_API_KEY directly (source:"stock" slides). Empty → skill falls back to Flux.
 export PEXELS_API_KEY=$(grep -m1 '^PEXELS_API_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
 
+# Anthropic API key — the difference between "autonomous" and "waits for Igor".
+# Without it `claude -p` bills the CLI's logged-in SUBSCRIPTION, so the runner
+# competes with Igor's own sessions and starves whenever he's working (that is
+# the 130-doomed-spawns incident of 2026-08-12). With it, every compose bills
+# Anthropic credits on its own meter: no session limits, no queue parking, and
+# Content Machine composes around the clock without anyone at the keyboard.
+# Put the key in this env file as ANTHROPIC_API_KEY=... — it is picked up here.
+RUNNER_ANTHROPIC_KEY=$(grep -m1 '^ANTHROPIC_API_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
+if [ -n "$RUNNER_ANTHROPIC_KEY" ]; then
+  export ANTHROPIC_API_KEY="$RUNNER_ANTHROPIC_KEY"
+fi
+
 # watchdog: a row stuck in in_canva with stale progress (>20 min) means a
 # previous runner died mid-run (network drop / crash) — requeue it so the
 # next tick retries instead of hanging forever.
@@ -136,7 +148,14 @@ fi
 log "queue non-empty — starting compose runner"
 cd "$HOME/Library/Application Support/HWC/canva-runner"
 OUTF=$(mktemp "${TMPDIR:-/tmp}/canva-runner.XXXXXX")
-claude -p "Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly." \
+# caffeinate wraps the whole compose: a laptop that sleeps mid-run kills the
+# session with "Your computer went to sleep mid-response" and the row is
+# stranded in in_canva until the 20-min watchdog requeues it — then the WHOLE
+# ~25-min, ~$18 compose runs again from scratch, leaving the finished design
+# orphaned in Canva (Igor 2026-08-13: it died on the final write-back, one
+# step from done). -i no idle sleep, -m no disk sleep, -s no system sleep on
+# AC. Assertions are held only while claude runs and drop the moment it exits.
+caffeinate -ims claude -p "Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly." \
   --model sonnet \
   --allowedTools "mcp__claude_ai_Canva__*,Bash,Read,Write,Skill,ToolSearch" \
   --output-format text > "$OUTF" 2>&1

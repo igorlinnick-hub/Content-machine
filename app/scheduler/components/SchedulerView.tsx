@@ -211,6 +211,7 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
   // Real scheduled posts from DB
   const [dbPosts, setDbPosts] = useState<ScheduledPostRow[]>([])
   const [loadingPosts, setLoadingPosts] = useState(true)
+  const [postsError, setPostsError] = useState<string | null>(null)
 
   // Live Buffer connector health — checked against the Buffer API on mount
   const [health, setHealth] = useState<BufferHealthInfo | null>(null)
@@ -238,14 +239,31 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
 
   // Load DB posts for visible month range
   const loadPosts = useCallback(async () => {
-    if (!clinicId) return
+    if (!clinicId) {
+      setLoadingPosts(false)
+      setPostsError('No clinic selected — open the scheduler from a clinic.')
+      return
+    }
     setLoadingPosts(true)
     try {
       const from = new Date(Date.UTC(year, month, 1)).toISOString()
       const to   = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59)).toISOString()
       const res  = await fetch(`/api/scheduled-posts?clinicId=${clinicId}&from=${from}&to=${to}`)
-      if (res.ok) setDbPosts(await res.json() as ScheduledPostRow[])
-    } catch { /* best-effort */ }
+      if (res.ok) {
+        setDbPosts(await res.json() as ScheduledPostRow[])
+        setPostsError(null)
+      } else {
+        // Never fail silently: a 500 here (e.g. the scheduled_posts table not
+        // migrated) used to leave the calendar showing the static plan, which
+        // reads as "everything is scheduled" when nothing is.
+        const body = await res.json().catch(() => null) as { error?: string } | null
+        setDbPosts([])
+        setPostsError(body?.error ?? `Could not load scheduled posts (HTTP ${res.status})`)
+      }
+    } catch (e) {
+      setDbPosts([])
+      setPostsError(e instanceof Error ? e.message : 'Could not reach the scheduler API')
+    }
     finally  { setLoadingPosts(false) }
   }, [clinicId, year, month])
 
@@ -392,6 +410,17 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
           </p>
         </div>
       )}
+      {/* ── Scheduled posts could not be loaded — say so instead of showing the plan as if it were real ── */}
+      {postsError && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2">
+          <svg className="h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+          <p className="text-[12px] font-medium text-red-700">
+            Scheduled posts could not be loaded — <span className="font-bold">the calendar below is empty, not up to date</span>. {postsError}
+          </p>
+        </div>
+      )}
       {health && health.token === 'ok' && health.verification === 'token_only' && (
         <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2">
           <p className="text-[12px] text-amber-700">
@@ -510,8 +539,8 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
                       const realPosts = (dbByDate.get(dateStr) ?? []).filter(p =>
                         (p.channels as ChannelId[]).some(ch => activeChannels.has(ch))
                       )
-                      const planPosts = dbPosts.length === 0
-                        ? (planByDate.get(dateStr) ?? [])  // show plan only when no real posts yet
+                      const planPosts = dbPosts.length === 0 && !postsError && !loadingPosts
+                        ? (planByDate.get(dateStr) ?? [])  // show plan only when the DB genuinely has nothing
                         : []
                       const isMonth   = day.getUTCMonth() === month
                       const isToday   = dateStr === today
