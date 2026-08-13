@@ -1001,8 +1001,66 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
               {isRecording ? 'Done' : 'Exit'}
             </button>
           </div>
+        </div>
 
-          {/* Row 2: playback controls centered */}
+
+        {/* Outer clip container — flex-1 gives it the remaining viewport height.
+            Inner div moves via translateY (not scrollTop) — reliable on iOS Safari. */}
+        <div
+          ref={scrollRef}
+          className="relative z-10 flex-1 overflow-hidden px-6 sm:px-16"
+          style={{
+            userSelect: 'none',
+            maskImage:
+              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
+          }}
+        >
+          <div ref={textInnerRef} style={{ willChange: 'transform', paddingTop: '20vh' }}>
+            <p
+              className="mx-auto max-w-2xl text-center leading-relaxed"
+              style={{
+                fontSize: fontSize,
+                lineHeight: 1.6,
+                whiteSpace: 'pre-wrap',
+                color: 'rgba(255,255,255,0.92)',
+                textShadow: '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
+              }}
+            >
+              {text}
+            </p>
+            {/* Spacer so the last line can scroll fully into view */}
+            <div style={{ height: '60vh' }} />
+          </div>
+        </div>
+
+        {/* Progress bar — click anywhere to seek */}
+        <div
+          className="relative z-10 h-2 w-full shrink-0 cursor-pointer bg-white/10"
+          title="Click to seek"
+          onClick={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect()
+            seekByFraction((e.clientX - rect.left) / rect.width)
+          }}
+        >
+          <div
+            className="h-full bg-violet-400/80 transition-none"
+            style={{ width: `${progress * 100}%` }}
+          />
+          {/* Scrub thumb */}
+          <div
+            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow-md"
+            style={{ left: `calc(${progress * 100}% - 6px)` }}
+          />
+        </div>
+
+        {/* Transport controls — anchored at the bottom, in thumb reach. Up top
+            they forced the doctor's eyes (and hand) away from the lens. */}
+        <div
+          className="tp-controls-safe relative z-10 shrink-0 px-4 pt-3"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.45) 70%, transparent 100%)' }}
+        >
           <div className="flex items-center justify-center gap-3">
             {/* ◄◄ -5 s */}
             <button
@@ -1074,57 +1132,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
               </button>
             )}
           </div>
-        </div>
-
-        {/* Outer clip container — flex-1 gives it the remaining viewport height.
-            Inner div moves via translateY (not scrollTop) — reliable on iOS Safari. */}
-        <div
-          ref={scrollRef}
-          className="relative z-10 flex-1 overflow-hidden px-6 sm:px-16"
-          style={{
-            userSelect: 'none',
-            maskImage:
-              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
-          }}
-        >
-          <div ref={textInnerRef} style={{ willChange: 'transform', paddingTop: '20vh' }}>
-            <p
-              className="mx-auto max-w-2xl text-center leading-relaxed"
-              style={{
-                fontSize: fontSize,
-                lineHeight: 1.6,
-                whiteSpace: 'pre-wrap',
-                color: 'rgba(255,255,255,0.92)',
-                textShadow: '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
-              }}
-            >
-              {text}
-            </p>
-            {/* Spacer so the last line can scroll fully into view */}
-            <div style={{ height: '60vh' }} />
-          </div>
-        </div>
-
-        {/* Progress bar — click anywhere to seek */}
-        <div
-          className="relative z-10 h-2 w-full shrink-0 cursor-pointer bg-white/10"
-          title="Click to seek"
-          onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            seekByFraction((e.clientX - rect.left) / rect.width)
-          }}
-        >
-          <div
-            className="h-full bg-violet-400/80 transition-none"
-            style={{ width: `${progress * 100}%` }}
-          />
-          {/* Scrub thumb */}
-          <div
-            className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-white shadow-md"
-            style={{ left: `calc(${progress * 100}% - 6px)` }}
-          />
         </div>
       </div>
     )

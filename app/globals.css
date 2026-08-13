@@ -695,3 +695,17 @@ button.bg-fuchsia-600:hover {
   font-weight: 600;
   color: #0f172a;
 }
+
+/* Teleprompter: the transport controls sit at the bottom of a `fixed inset-0`
+   overlay, where iOS Safari floats its own address bar on top of the viewport.
+   safe-area-inset alone doesn't account for that bar, so in browser tabs we
+   add real clearance; installed as a PWA there's no bar and the inset is
+   enough. */
+.tp-controls-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+@media not all and (display-mode: standalone) {
+  .tp-controls-safe {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
+  }
+}
