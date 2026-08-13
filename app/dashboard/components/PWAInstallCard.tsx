@@ -667,7 +667,7 @@ function IOSInstructionSheet({ onClose }: { onClose: () => void }) {
 }
 
 /** Small always-available entry point — the rescue hatch for an early "Got it". */
-export function IOSInstallEntry() {
+function IOSInstallEntry() {
   const [open, setOpen] = useState(false)
   const [ready, setReady] = useState(false)
 
