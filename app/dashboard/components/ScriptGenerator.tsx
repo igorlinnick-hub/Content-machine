@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
-import { TypingAnimation } from '@/app/components/ui/typing-animation'
 import { SparkleSpinner } from '@/app/components/ui/icons'
 
 import { type StructuredPlanWeek } from '@/lib/content-plan/store'
@@ -171,6 +170,11 @@ export function ScriptGenerator({
     week_number: number; pillar: string
   } | null>(null)
   const [progress, setProgress] = useState<ScriptProgressState>(emptyProgress())
+  // The topic field and the starting note are folded away by default. In the
+  // planned path the topic input isn't even sent (planTopicId carries it), and
+  // the note arrives pre-filled from the week — so on the common run the
+  // doctor reads one topic and taps generate instead of scanning five boxes.
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   // New batch of variants → jump back to the first card.
   useEffect(() => {
@@ -418,16 +422,6 @@ export function ScriptGenerator({
       // Phone: thinner card padding — three nested frames (section > card >
       // week strip) ate ~56px of a 390px screen. Original ≥sm.
       <div className="cm-card flex flex-col gap-4 p-3.5 sm:gap-4 sm:p-5">
-        <div>
-          <TypingAnimation
-            text="Ready to generate 3 fresh variants"
-            duration={40}
-            delay={400}
-            className="text-base font-semibold text-neutral-900"
-            as="p"
-          />
-        </div>
-
         {/* Current week — one pre-filled topic at a time, browse the plan */}
         {currentWeek && weekPosts.length > 0 && (() => {
           // Whole strip (frame + arrows + topic + reroll + Next topic) uses
@@ -473,7 +467,9 @@ export function ScriptGenerator({
                     now
                   </button>
                 )}
-                <span className="text-[12px] font-semibold text-neutral-700">{currentWeek.theme}</span>
+                <span className="min-w-0 truncate text-[11px] font-medium text-neutral-500">
+                  {currentWeek.theme}
+                </span>
               </div>
               {/* Phone: topic gets its own full-width line (order-1) and the
                   three controls sit on a second row with thumb-sized targets.
@@ -490,8 +486,13 @@ export function ScriptGenerator({
                 >
                   ‹
                 </button>
+                {/* The topic is the one thing being decided here, so it gets
+                    real size instead of competing with four other lines. */}
                 <div className="order-1 min-w-0 basis-full sm:order-none sm:basis-auto sm:flex-1">
-                  <p className="line-clamp-2 text-[12.5px] font-semibold sm:line-clamp-none sm:truncate" style={{ color }}>
+                  <p
+                    className="text-[16px] font-semibold leading-snug sm:text-[15px]"
+                    style={{ color: 'var(--hwc-ocean-dark, #0d2f42)' }}
+                  >
                     {rerollingTopicId && plannedPost?.id === rerollingTopicId
                       ? 'Generating new topic…'
                       : plannedPost?.topic ?? weekPosts[0]?.topic}
@@ -525,31 +526,51 @@ export function ScriptGenerator({
           )
         })()}
 
-        {/* Topic — pre-filled from the selected plan topic, editable */}
-        <input
-          type="text"
-          value={topic}
-          onChange={(e) => {
-            setTopic(e.target.value)
-            // Typing a custom topic switches to ad-hoc mode
-            if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
-          }}
-          onKeyDown={(e) => e.key === 'Enter' && !loading && onGenerate()}
-          placeholder="Topic — e.g. ketamine for treatment-resistant depression"
-          // 16px on phones so iOS doesn't zoom the page on focus; 14px ≥sm as before
-          className="cm-input text-base sm:text-sm"
-          disabled={loading}
-        />
-
-        {/* Starting note — auto-filled from the week's angle, editable */}
-        <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          placeholder="Optional starting note — paste any rough thoughts, a key fact, the angle you want. Leave blank to let the team pick."
-          rows={3}
-          className="cm-input resize-none text-base sm:text-sm"
-          disabled={loading}
-        />
+        {/* Topic field + starting note live behind one disclosure. Closed,
+            they're a single quiet line; open, they behave exactly as before. */}
+        {!detailsOpen ? (
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            disabled={loading}
+            className="flex items-center gap-2 self-start text-[12px] font-medium text-neutral-400 transition hover:text-neutral-700 disabled:opacity-50"
+          >
+            <span className="text-[13px] leading-none">+</span>
+            {plannedPost ? 'Adjust topic or add a note' : 'Topic and note'}
+          </button>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => {
+                setTopic(e.target.value)
+                // Typing a custom topic switches to ad-hoc mode
+                if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && !loading && onGenerate()}
+              placeholder="Topic — e.g. ketamine for treatment-resistant depression"
+              // 16px on phones so iOS doesn't zoom the page on focus; 14px ≥sm as before
+              className="cm-input text-base sm:text-sm"
+              disabled={loading}
+            />
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Optional starting note — paste any rough thoughts, a key fact, the angle you want. Leave blank to let the team pick."
+              rows={3}
+              className="cm-input resize-none text-base sm:text-sm"
+              disabled={loading}
+            />
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(false)}
+              className="self-start text-[12px] font-medium text-neutral-400 transition hover:text-neutral-700"
+            >
+              Hide
+            </button>
+          </div>
+        )}
 
         {/* Phone: stacked full-width actions (primary on top) instead of two
             buttons fighting for one cramped row. Row layout returns ≥sm. */}
