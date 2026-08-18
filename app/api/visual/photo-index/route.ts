@@ -45,7 +45,7 @@ interface IndexedPhoto {
 }
 
 export async function POST(req: Request) {
-  const disabled = disabledHttpResponse()
+  const disabled = await disabledHttpResponse()
   if (disabled) return disabled
 
   const access = await resolveAccess()
