@@ -393,6 +393,10 @@ async function generateOne(params: {
       // Plan-assigned ManyChat keyword is BINDING — the curated list
       // lives on the content plan, the model must not drift from it.
       ctaKeyword: params.planContext?.keyword ?? null,
+      // Lets the photo brief resolve `clinic` slides against the
+      // clinic's own Drive library (LRU rotation). The library folder
+      // is looked up from clinics.photo_library_folder_id.
+      clinicId: params.clinicId,
     })
     stage('splitter:postplan:done')
     const planRow = {

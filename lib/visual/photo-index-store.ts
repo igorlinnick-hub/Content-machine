@@ -87,6 +87,67 @@ export async function upsertPhotoIndex(
   return data
 }
 
+// ─── rotation (migration 048) ────────────────────────────────────
+// The carousel pipeline picks clinic photos least-recently-used first,
+// so the whole library cycles instead of the top of the list burning
+// out. These two functions are the only place the rotation columns are
+// read or written.
+
+export interface PhotoRotationRow extends PhotoIndexRow {
+  last_used_at: string | null
+  use_count: number
+}
+
+// Every indexed photo in the folder, longest-rested first. A photo that
+// has never been used sorts ahead of every used one (NULLS FIRST).
+export async function listRotationPool(
+  clinicId: string,
+  driveFolderId: string
+): Promise<PhotoRotationRow[]> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('photo_index')
+    .select(
+      'id, clinic_id, drive_folder_id, drive_file_id, file_name, description, tags, description_model, indexed_at, last_used_at, use_count'
+    )
+    .eq('clinic_id', clinicId)
+    .eq('drive_folder_id', driveFolderId)
+    .order('last_used_at', { ascending: true, nullsFirst: true })
+    .returns<PhotoRotationRow[]>()
+  if (error) throw new Error(`photo_index rotation list: ${error.message}`)
+  return data ?? []
+}
+
+// Stamp the photos a post actually shipped with. Called AFTER a
+// successful compose, never at selection time — a failed compose must
+// not burn a photo's cooldown.
+//
+// NOTE: the Canva path does NOT go through here. The runner writes to
+// PostgREST directly, so the bump hangs off a trigger on
+// slide_sets.status → 'visuals_ready' (migration 048). This function is
+// for callers that ship photos WITHOUT that transition (the in-house
+// renderer, manual tooling). Calling it on the Canva path would double-
+// count the same photo.
+export async function markPhotosUsed(
+  clinicId: string,
+  driveFileIds: string[]
+): Promise<void> {
+  if (driveFileIds.length === 0) return
+  // Same boundary cast as the rest of this module: types/supabase.ts is
+  // not regenerated for photo_index, so the RPC is unknown to the client.
+  const supabase = createServerClient() as unknown as {
+    rpc: (
+      fn: string,
+      args: Record<string, unknown>
+    ) => Promise<{ error: { message: string } | null }>
+  }
+  const { error } = await supabase.rpc('bump_photo_usage', {
+    p_clinic_id: clinicId,
+    p_file_ids: driveFileIds,
+  })
+  if (error) throw new Error(`photo_index mark used: ${error.message}`)
+}
+
 // ─── slide_sets.photo_overrides ──────────────────────────────────
 // JSONB map keyed by slideIndex (as string) → drive_file_id.
 // `null` value at a key clears the override (forces auto-cycle).

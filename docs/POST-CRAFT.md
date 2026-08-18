@@ -233,12 +233,14 @@ consecutive slides the same shape or layout.
 
 ---
 
-## 5. PHOTO DIRECTION (binding — v3, 2026-07-29; supersedes v2)
+## 5. PHOTO DIRECTION (binding — v4, 2026-08-17; supersedes v3)
 
-**CONTEXT-FIRST, real Hawaii, people welcome.** v2 was "aesthetic-first,
-people-light" — v3 corrects it: every image must MATCH what the slide is about,
-real-photo looks beat abstraction, and people are fine. See
-`lib/posts/photo-brief.ts` for the machine rules; the human/runner rules:
+**CONTEXT-FIRST, and every human is a REAL one from the clinic.** v3 let AI
+generate people on up to half the slides; v4 kills that — the clinic now has
+its own photo library, and generated humans were the weakest thing in every
+post. Three sources: `clinic` (real clinic photography, ~40%), `ai` (3D medical
+renders + real Hawaii nature), `stock` (Pexels, 1-2 per post max, objects only).
+See `lib/posts/photo-brief.ts` for the machine rules; the human/runner rules:
 
 - **Context is the #1 rule.** The image shows the slide's actual subject — a
   joint slide shows a joint, a drug slide shows the pen/vial, a decision slide
@@ -265,14 +267,20 @@ real-photo looks beat abstraction, and people are fine. See
     editorial — the **@dr.vassily aesthetic**. ALWAYS the real structure tied to
     the body process; NEVER an abstract texture / gold-crystal. For mechanism /
     biology / "what it is".
-  - **PEOPLE** (AI or stock) — Native Hawaiian/Polynesian, natural Hawaii scene,
-    full figure or upper body, **face NEVER close to camera**. WELCOME on up to
-    **~half the slides** (patient story, candidacy, emotional beats).
-  - **STOCK / photoreal** — a real-photo look: device macro (pen/vial/coil), a
-    real Hawaii place (coastline, ocean, palms, volcanic rock), or a candid
-    person. Carries the ~40% real-photo share.
-- **Mix: ~60% AI (renders + AI people) / ~40% stock (photoreal real photos).**
-  Enforced in code by `balanceAiStock`.
+  - **CLINIC** — a real photograph from the clinic's own Drive library: the
+    doctor, the team, a treatment room, a device in real hands, the building,
+    a candid real moment. **This is the ONLY source for humans.** Carries the
+    ~40% share; picked by LRU rotation (`lib/photos/clinic.ts`) so the same
+    face doesn't come back for 30 days. **face NEVER close to camera** on the
+    cover. A photo tagged `identifiable-face` needs a signed media release
+    before it ships.
+  - **STOCK / Pexels** — objects only, and only what the clinic can't supply:
+    a blood-tube rack, an injection pen, a vial. **Max 1-2 per post.** Never a
+    person (we have real ones), never a landscape (AI does those better).
+- **NO AI-GENERATED PEOPLE ANYWHERE.** If a slide needs a person and no clinic
+  photo fits, it gets a 3D render instead.
+- **Mix: ~40% clinic / rest AI (renders + nature) / Pexels capped at 2.**
+  Enforced in code by `enforceMix` in `lib/posts/photo-brief.ts`.
 - **Stock = real photos from Pexels (Igor 2026-07-30).** The Canva MCP has no
   stock-search tool, so the runner fetches real stock from the **Pexels free
   API** (`PEXELS_API_KEY` in the runner env) by the slide's keywords, and only

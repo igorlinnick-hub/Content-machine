@@ -85,15 +85,27 @@ function driveClient(): drive_v3.Drive {
   return _drive
 }
 
-// Recursive photo walk. Lists photos directly inside `folderId`, then
-// descends into any subfolders (one level — enough for our use, avoids
-// runaway). Used so admins can either drop photos straight into a
-// category folder OR organise them in topic-named subfolders inside it.
+// Formats a slide can actually use. `mimeType contains 'image/'` was too
+// wide: Sony RAW registers as image/x-sony-arw, and the clinic's Drive
+// folders are full of 25 MB .ARW files that Canva can't upload, Vision
+// can't describe and Instagram can't post (Igor 2026-08-17).
+const USABLE_IMAGE_MIMES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]
+
+// Recursive photo walk, TWO levels deep. Admins can drop photos straight
+// into the folder, organise them in topic subfolders, OR (the clinic
+// library) point us at a root whose subfolders themselves hold subfolders.
 export async function getPhotosFromFolder(folderId: string): Promise<Photo[]> {
   const drive = driveClient()
 
   async function listPhotosIn(parentId: string): Promise<Photo[]> {
-    const q = `'${parentId}' in parents and mimeType contains 'image/' and trashed = false`
+    const mimeClause = USABLE_IMAGE_MIMES.map((m) => `mimeType = '${m}'`).join(' or ')
+    const q = `'${parentId}' in parents and (${mimeClause}) and trashed = false`
     const res = await drive.files.list({
       q,
       fields: 'files(id, name, mimeType, webContentLink, thumbnailLink)',
@@ -126,8 +138,26 @@ export async function getPhotosFromFolder(folderId: string): Promise<Photo[]> {
   const subfolders = await listSubfolders(folderId)
   if (subfolders.length === 0) return direct
 
-  const nested = await Promise.all(subfolders.map((id) => listPhotosIn(id)))
-  return [...direct, ...nested.flat()]
+  // Level 1 + level 2. Two levels covers "root → topic folder → shoot
+  // folder" without risking a runaway walk of someone's whole Drive.
+  const level1 = await Promise.all(
+    subfolders.map(async (id) => {
+      const photos = await listPhotosIn(id)
+      const deeper = await listSubfolders(id)
+      if (deeper.length === 0) return photos
+      const level2 = await Promise.all(deeper.map((sub) => listPhotosIn(sub)))
+      return [...photos, ...level2.flat()]
+    })
+  )
+
+  // The same file can be reachable twice (shortcuts, nested duplicates) —
+  // dedupe so the rotation counter doesn't treat one photo as two.
+  const seen = new Set<string>()
+  return [...direct, ...level1.flat()].filter((p) => {
+    if (!p.id || seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
 }
 
 // Internal: expose the underlying Drive client so other modules

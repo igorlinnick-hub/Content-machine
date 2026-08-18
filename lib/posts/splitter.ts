@@ -106,6 +106,13 @@ export async function splitScriptToPostPlan(
      * produced. The keyword list is curated; never let the model drift.
      */
     ctaKeyword?: string | null
+    /**
+     * Clinic + its photo library folder. When both are present the
+     * photo brief resolves `clinic` slides to real Drive files via the
+     * LRU rotation; without them those slides degrade to AI renders.
+     */
+    clinicId?: string | null
+    photoLibraryFolderId?: string | null
   }
 ): Promise<SplitToPostPlanResult> {
   if (!script.trim()) {
@@ -243,6 +250,8 @@ export async function splitScriptToPostPlan(
       cta,
       topic: context?.topic ?? null,
       category: null,
+      clinicId: context?.clinicId ?? null,
+      photoLibraryFolderId: context?.photoLibraryFolderId ?? null,
     })
     context?.onStage?.('photo_brief:done')
   } catch (e) {

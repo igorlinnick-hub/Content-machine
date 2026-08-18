@@ -310,10 +310,14 @@ export interface PostPlanCta {
 
 export interface PostPlanPhotoBrief {
   n: number
-  source: 'ai' | 'stock' | 'fallback'
+  // 'clinic' = a real photo from the clinic's own Drive library, picked
+  // by the LRU rotation in lib/photos/clinic.ts (doctrine v4, 2026-08-17).
+  source: 'ai' | 'clinic' | 'stock' | 'fallback'
   subject: string                          // human-readable for the picker
   prompt?: string | null                   // present when source: 'ai'
   keywords?: string[] | null               // present when source: 'stock'
+  drive_file_id?: string | null            // present when source: 'clinic'
+  photo_url?: string | null                // signed public URL for 'clinic' — what Canva fetches
 }
 
 export interface PostPlanCaption {
