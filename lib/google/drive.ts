@@ -179,17 +179,46 @@ export async function getServiceAccountToken(): Promise<string> {
 // photo indexer (needs un-base64'd bytes for the Anthropic SDK) and as
 // the underlying primitive of getPhotoDataUrl. Returns null on any
 // Drive error — keeps callers simple.
+// The vision API rejects anything over 10 MB of base64, and the clinic
+// library is full of 20-28 MB edited PNGs (15 of 137 on the first index
+// run). Over this threshold we describe Drive's own downscaled render
+// instead of the original — a 1600px JPEG is more than enough to say
+// what is in the frame (Igor 2026-08-18).
+const VISION_BYTE_LIMIT = 7_000_000
+
 export async function getPhotoBytes(
-  fileId: string
+  fileId: string,
+  opts: { downscaleOverLimit?: boolean } = {}
 ): Promise<{ data: Buffer; mimeType: string } | null> {
   try {
     const drive = driveClient()
     const meta = await drive.files.get({
       fileId,
-      fields: 'mimeType',
+      fields: 'mimeType, size, thumbnailLink',
       supportsAllDrives: true,
     })
     const mime = meta.data.mimeType ?? 'image/jpeg'
+    const size = Number(meta.data.size ?? 0)
+
+    if (opts.downscaleOverLimit && size > VISION_BYTE_LIMIT) {
+      const thumb = meta.data.thumbnailLink
+      if (thumb) {
+        // Drive's thumbnail URL carries its own size suffix (=s220);
+        // asking for s1600 returns a JPEG big enough to describe.
+        const big = thumb.replace(/=s\d+(-c)?$/, '=s1600')
+        const res = await fetch(big)
+        if (res.ok) {
+          const buf = Buffer.from(await res.arrayBuffer())
+          if (buf.byteLength <= VISION_BYTE_LIMIT) {
+            return { data: buf, mimeType: 'image/jpeg' }
+          }
+        }
+      }
+      // No usable thumbnail: better to report nothing than to send a
+      // payload the API will reject.
+      return null
+    }
+
     const res = await drive.files.get(
       { fileId, alt: 'media', supportsAllDrives: true },
       { responseType: 'arraybuffer' }

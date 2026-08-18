@@ -106,7 +106,7 @@ export async function POST(req: Request) {
 
   for (const photo of batch) {
     try {
-      const bytes = await getPhotoBytes(photo.id)
+      const bytes = await getPhotoBytes(photo.id, { downscaleOverLimit: true })
       if (!bytes) throw new Error('could not download bytes')
       if (!VISION_MIMES.includes(bytes.mimeType as VisionMime)) {
         throw new Error(`${bytes.mimeType} cannot be sent to the vision API — convert to JPEG`)
