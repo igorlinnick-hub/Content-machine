@@ -1,6 +1,6 @@
 # Main — доступы, телепромтер, брендирование входа, подбор фото для каруселей
 
-Обновлено: 2026-08-17 · ветка: main
+Обновлено: 2026-08-18 · ветка: main
 
 ## Состояние
 **Доступы.** Вход в прод (`content-machine-gules.vercel.app`) — два эквивалентных
@@ -58,49 +58,35 @@ note». В плановом пути текст инпута на сервер �
 (`markPhotosUsed`), провал compose фото не сжигает.
 
 **Drive-доступы к фото.** Служебный аккаунт
-`content-machine-sa@jobflow-491621.iam.gserviceaccount.com` получил роль
-читателя на папку igor `HWC Pictures Google`
-(`120xEMg5Zl47ZpD6Bd8q5QodHFEdndzNK`) — проверено, читается. Внутри 61
-пригодное фото: `JPEG CLINIC PICS` 45 jpeg, `HWC Pictures` 8 png,
-`Pics Clinic (Edited)` 8 png; у `Screenshots from Videos` содержимое лежит
-уровнем глубже (в подпапке `Screenshots`). Папка под будущие фото в аккаунте
-kinnil — `Clinic Pictures` (`1NJDilk6aBXgXYLfvsGOdnQ1XsW5Kn8xP`).
-Перенос файлов между аккаунтами igor → kinnil обсуждался и **отменён**: между
-двумя личными gmail владение загруженными файлами не передаётся вообще (только
-родные Google-документы), а в папках лежат Sony RAW по 25 МБ, которые ни Canva,
-ни Vision, ни Instagram не берут.
+`content-machine-sa@jobflow-491621.iam.gserviceaccount.com` — читатель папки igor
+`HWC Pictures Google` (`120xEMg5Zl47ZpD6Bd8q5QodHFEdndzNK`), прописана обеим
+клиникам в `photo_library_folder_id`. Обход на два уровня достаёт **137**
+пригодных файлов (не 61, как показывал первый однourовневый счёт: во вложенной
+`Screenshots` лежит ещё ~76). Папка под будущие фото в kinnil — `Clinic Pictures`
+(`1NJDilk6aBXgXYLfvsGOdnQ1XsW5Kn8xP`), доступ по ссылке переведён на «читатель».
+Перенос файлов igor → kinnil **отменён**: между личными gmail владение
+загруженными файлами не передаётся вообще, а в исходниках Sony RAW по 25 МБ.
 
 ## Последний заход
-- Доктрина v4 разложена по коду ПОЛНОСТЬЮ, `tsc --noEmit` чистый. Ничего не
-  закоммичено.
-- `supabase/migrations/048_photo_rotation.sql` — `last_used_at` + `use_count` на
-  `photo_index`, индекс `(clinic_id, drive_folder_id, last_used_at nulls first)`,
-  RPC `bump_photo_usage`, колонка `clinics.photo_library_folder_id`, и триггер
-  `trg_bump_photos_on_compose`: кулдаун стартует на переходе
-  `slide_sets.status → visuals_ready`. Триггер, а не вызов из кода, потому что
-  раннер пишет в PostgREST напрямую и серверного хука в этом месте нет.
-- `app/api/visual/photo-index/route.ts` (НОВЫЙ) — индексатор, которого никогда
-  не было: обходит папку, гоняет Haiku Vision, пишет описание + теги в
-  `photo_index`. Батчами по `limit`, ответ `{indexed, skipped, total, remaining,
-  errors[]}` — ровно тот контракт, который `PhotoPicker.tsx` дёргал в пустоту.
-  Одно битое фото не топит батч. HEIC ловится и отдаётся ошибкой (Vision его не
-  берёт), непрочитанная папка отвечает «расшарь на сервисный аккаунт».
-- `app/api/photos/clinic/[fileId]/route.ts` (НОВЫЙ) + `lib/photos/clinic-url.ts`
-  — публичная отдача байтов из Drive для Canva, подпись HMAC на CONTENT_MACHINE_SECRET
-  (нового env не нужно). Без срока годности: подписанный URL лежит внутри плана,
-  а пост может ждать в очереди днями. Подпись сверяется constant-time, так что
-  прокси в чужой Drive из этого не сделать.
-- `lib/photos/clinic.ts` — LRU-селектор (кулдаун 30 дней, теги весят вдвое
-  против vision-описания, при нехватке отдохнувших ослабляет кулдаун С WARNING).
-  `lib/photos/photo-lib.ts` — подтягивает папку клиники из БД.
-- `lib/posts/photo-brief.ts` переписан: `PEOPLE`-режим удалён, `enforceMix`
-  держит доли, `resolveClinicPicks` подставляет `drive_file_id` + подписанный
-  `photo_url`, а при любом промахе деградирует слайд в AI-рендер.
-- `lib/google/drive.ts` — белый список jpeg/png/webp/heic (Sony RAW это
-  `image/x-sony-arw` и пролезал бы), обход на два уровня, дедуп по file id.
-- Скилл `canva-compose-runner` и `docs/POST-CRAFT.md` §5 переписаны под v4;
-  копия POST-CRAFT синхронизирована в
-  `~/Library/Application Support/HWC/canva-runner/`.
+- Доктрина v4 доведена до прода. Коммиты: `99f3a47` (основной), `c3824aa`,
+  `f186ec5`, `e006312`, `36e029e`. Деплой зелёный.
+- Миграция 048 применена в Supabase вручную; обеим клиникам проставлен
+  `photo_library_folder_id`.
+- **Библиотека Шона проиндексирована полностью: 137/137.** Гонялось батчами
+  через authed `fetch` в отдельном окне Safari (окно Игоря не трогать —
+  адресоваться только по своему `window id`).
+- `NEXT_PUBLIC_APP_URL` добавлен в прод-env и подхвачен пересборкой.
+- Три бага, найденных только в бою:
+  1. `disabledHttpResponse()` без `await` → роут возвращал
+     `Promise<Response | null>`, `next build` такое отвергает. **Локальный
+     `tsc --noEmit` это НЕ ловит** — проверка типов роутов живёт внутри
+     `next build`. Первый деплой из-за этого упал.
+  2. 15 фото из 137 — PNG по 20–28 МБ, а vision-API режет base64 на 10 МБ.
+     Теперь свыше 7 МБ описывается уменьшенная копия из Drive (`thumbnailLink`
+     с `=s1600`).
+  3. Drive отдаёт thumbnail в исходном формате, а не всегда JPEG; заявленный
+     `image/jpeg` на PNG-байтах → 400. Тип определяется по сигнатуре файла
+     (`sniffImageMime`).
 - ГРАБЛИ песочницы: клиент `googleapis` виснет намертво на любом запросе (даже
   на `auth.authorize()`), обычный `fetch` работает — обход: подписать JWT
   сервисного аккаунта вручную (`crypto.createSign('RSA-SHA256')`) и ходить в
@@ -108,15 +94,16 @@ kinnil — `Clinic Pictures` (`1NJDilk6aBXgXYLfvsGOdnQ1XsW5Kn8xP`).
   `git status` по чужим репозиториям в песочнице тоже виснут.
 
 ## Сломано / не доделано
-- **Миграция 048 НЕ применена** — без неё нет ни колонок ротации, ни триггера,
-  ни `clinics.photo_library_folder_id`. Первый шаг, всё остальное ждёт её.
-- **`clinics.photo_library_folder_id` не заполнен.** Для HWC поставить
-  `120xEMg5Zl47ZpD6Bd8q5QodHFEdndzNK` (папка igor «HWC Pictures Google»,
-  сервисный аккаунт уже читатель, внутри 61 пригодное фото).
-- **Индексация ни разу не запускалась** — `photo_index` пуст, пока он пуст
-  селектор честно говорит «библиотека пуста» и деградирует в AI.
-- `NEXT_PUBLIC_APP_URL` должен быть выставлен в проде, иначе `clinicPhotoUrl`
-  вернёт null и clinic-слайды тихо уйдут в AI (в лог пишется предупреждение).
+- **Сквозной прогон не проверен.** `/api/posts/generate` требует админской
+  сессии или SERVICE_TOKEN, а сессия в Safari — докторская. Ни одного поста с
+  `source:"clinic"` вживую ещё не собрано.
+- **Библиотека Made не проиндексирована.** Строки `photo_index` привязаны к
+  `clinic_id`, а докторский роут принудительно подставляет клинику самой сессии
+  и игнорирует переданный `clinicId` — под Made нужен админский заход.
+- **Обложка.** Стили 1, 4 и Aesthetic требуют полноэкранного фото, и его
+  по-прежнему выбирает раннер (Pexels/Flux), а не библиотека клиники. Причина
+  архитектурная: `canva_style` проставляется отдельным PATCH ПОСЛЕ генерации,
+  на момент сборки брифа сервер стиля не знает. Не регресс — так было и в v3.
 - Остальные маршруты пикера (`/api/visual/photo-recommend`, `/photo-override`,
   `/photo-thumb/<id>`) по-прежнему не существуют — UI визуальных постов в этой
   части нерабочий. Каруселям они не нужны.
@@ -129,9 +116,7 @@ kinnil — `Clinic Pictures` (`1NJDilk6aBXgXYLfvsGOdnQ1XsW5Kn8xP`).
   `next.config.mjs`, правка `HANDOFF-MODULES.md`).
 
 ## Следующий шаг
-Применить 048 в Supabase SQL Editor, прописать клинике
-`photo_library_folder_id = '120xEMg5Zl47ZpD6Bd8q5QodHFEdndzNK'`, затем прогнать
-индексацию (кнопка ↻ Re-index в PhotoPicker либо POST на
-`/api/visual/photo-index` с `{clinicId, driveFolderId, limit: 8}` — 61 фото это
-~8 батчей) и сгенерировать один пост, проверив, что в `photo_brief` появились
-`source:"clinic"` с `photo_url`.
+Зайти админом и сгенерировать один пост, проверив, что в `photo_brief` есть
+`source:"clinic"` с непустым `photo_url` и что Canva этот URL скачивает. Тем же
+заходом прогнать индексацию под клинику Made
+(`cdb530e5-3ce9-4088-abee-117bc872e39a`).
