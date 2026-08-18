@@ -186,6 +186,20 @@ export async function getServiceAccountToken(): Promise<string> {
 // what is in the frame (Igor 2026-08-18).
 const VISION_BYTE_LIMIT = 7_000_000
 
+// Drive returns the thumbnail in the source format, not always JPEG, and
+// the vision API rejects a payload whose declared media type disagrees
+// with the bytes. Read the format off the magic number instead of
+// assuming.
+function sniffImageMime(buf: Buffer): string | null {
+  if (buf.length < 12) return null
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg'
+  if (buf.toString('ascii', 1, 4) === 'PNG') return 'image/png'
+  if (buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') {
+    return 'image/webp'
+  }
+  return null
+}
+
 export async function getPhotoBytes(
   fileId: string,
   opts: { downscaleOverLimit?: boolean } = {}
@@ -210,7 +224,7 @@ export async function getPhotoBytes(
         if (res.ok) {
           const buf = Buffer.from(await res.arrayBuffer())
           if (buf.byteLength <= VISION_BYTE_LIMIT) {
-            return { data: buf, mimeType: 'image/jpeg' }
+            return { data: buf, mimeType: sniffImageMime(buf) ?? mime }
           }
         }
       }
