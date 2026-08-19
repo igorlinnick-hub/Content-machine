@@ -274,8 +274,12 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   }
 
   // ── Recording ────────────────────────────────────────────────────────────────
-  function startRecording() {
-    if (!streamRef.current) return
+  // Returns true only when MediaRecorder actually started. The caller must not
+  // begin scrolling on false — a silent skip here is how a whole take gets lost
+  // (desktop 2026-08-19: camera still warming up, doctor read the script to a
+  // recorder that was never created).
+  function startRecording(): boolean {
+    if (!streamRef.current) return false
     chunksRef.current = []
     setDraftSaveFailed(false)
     // H.264 first: it's the only codec with hardware encoding on phones, and
@@ -293,7 +297,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     if (!mimeType) {
       setCameraError('Video recording is not supported on this device/browser.')
       stopCamera()
-      return
+      return false
     }
 
     let recorder: MediaRecorder
@@ -306,11 +310,23 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     } catch {
       setCameraError('Could not start recorder. Try a different browser.')
       stopCamera()
-      return
+      return false
     }
 
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data)
+    }
+    // A mid-take recorder failure (codec, disk, track ended) used to surface
+    // only as a quiet "Not recording" badge after the fact. Say it out loud;
+    // the browser fires `stop` right after, which takes us to preview with
+    // whatever chunks survived.
+    recorder.onerror = (e) => {
+      const detail = (e as ErrorEvent).error?.message ?? (e as ErrorEvent).message
+      console.error('MediaRecorder error', e)
+      setCameraError(`Recording stopped unexpectedly${detail ? `: ${detail}` : ''}.`)
+      isRecordingRef.current = false
+      setIsRecording(false)
+      if (timerRef.current) clearInterval(timerRef.current)
     }
     recorder.onstop = () => {
       const blob = new Blob(chunksRef.current, { type: mimeType })
@@ -347,7 +363,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     } catch {
       setCameraError('Could not start recorder. Try a different browser.')
       stopCamera()
-      return
+      return false
     }
     recorderRef.current = recorder
     isRecordingRef.current = true
@@ -357,6 +373,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     timerRef.current = setInterval(() => {
       setElapsedSec(Math.floor((Date.now() - startTimeRef.current) / 1000))
     }, 500)
+    return true
   }
 
   // ── Seek helpers ─────────────────────────────────────────────────────────────
@@ -407,9 +424,21 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   }
 
   // ── Doctor taps "Start Recording" — recording + scroll begin ─────────────────
+  // The button is disabled until the camera stream exists (see the pre-flight
+  // overlay), so on a normal path recording starts here. If it still fails we
+  // keep the overlay up with the error rather than scrolling text over a dead
+  // recorder — the doctor must never deliver a take that isn't being captured.
   function beginRecording() {
+    if (wantCamera) {
+      // Stream not here yet (button should be disabled, but a double-tap can
+      // race it): do nothing, the overlay keeps showing "Starting camera…".
+      if (!streamRef.current) return
+      const started = startRecording()
+      // Recorder failure: startRecording already set cameraError and the
+      // overlay now shows the message + "Read without recording" / Cancel.
+      if (!started) return
+    }
     setReadyToStart(false)
-    if (wantCamera && streamRef.current) startRecording()
     setIsScrolling(true)
   }
 
@@ -624,6 +653,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     setIsScrolling(false)
     setIsRecording(false)
     isRecordingRef.current = false
+    setCameraError(null)
     setElapsedSec(0)
     setProgress(0)
     setDriveUrl(null)
@@ -857,9 +887,17 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             backdropFilter: 'blur(16px)',
           }}
         >
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            Past recordings
-          </p>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+              Past recordings
+            </p>
+            <Link
+              href={`/videos?clinicId=${clinicId}`}
+              className="text-xs font-medium text-violet-600 hover:underline"
+            >
+              Watch all →
+            </Link>
+          </div>
 
           {loadingHistory ? (
             <div className="flex items-center gap-2 py-2">
@@ -927,24 +965,67 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         <div className="pointer-events-none absolute inset-0 bg-black/25" />
 
         {/* Pre-flight overlay — doctor checks framing before recording begins */}
-        {readyToStart && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
-            <button
-              onClick={beginRecording}
-              className="flex items-center gap-3 rounded-2xl bg-red-600 px-10 py-5 text-2xl font-bold text-white shadow-2xl transition active:scale-95 hover:bg-red-500"
-            >
-              <span className="h-4 w-4 shrink-0 rounded-full bg-white" />
-              Start Recording
-            </button>
-            <p className="mt-4 text-base text-white/60">Check your framing, then tap to begin</p>
-            <button
-              onClick={resetToSetup}
-              className="mt-6 rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white/70 backdrop-blur-sm hover:bg-white/20"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+        {readyToStart && (() => {
+          // Desktop webcams take 1–3 s to warm up and browsers may still be
+          // showing the permission prompt — the button must not be tappable
+          // until the stream is actually here, or the take is never captured.
+          const cameraPending = wantCamera && !hasStream && !cameraError
+          const cameraFailed = wantCamera && !!cameraError
+          const canStart = !wantCamera || (hasStream && !cameraError)
+          return (
+            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 px-6 text-center backdrop-blur-[2px]">
+              <button
+                onClick={beginRecording}
+                disabled={!canStart}
+                className={`flex items-center gap-3 rounded-2xl px-10 py-5 text-2xl font-bold text-white shadow-2xl transition ${
+                  canStart
+                    ? 'bg-red-600 hover:bg-red-500 active:scale-95'
+                    : 'cursor-not-allowed bg-red-900/60 text-white/50'
+                }`}
+              >
+                {cameraPending ? (
+                  <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <span className="h-4 w-4 shrink-0 rounded-full bg-white" />
+                )}
+                {!wantCamera ? 'Start Reading' : cameraPending ? 'Starting camera…' : 'Start Recording'}
+              </button>
+              {cameraFailed ? (
+                <p className="mt-4 max-w-md text-base text-orange-300">{cameraError}</p>
+              ) : (
+                <p className="mt-4 text-base text-white/60">
+                  {cameraPending
+                    ? 'Allow camera access if your browser asks'
+                    : 'Check your framing, then tap to begin'}
+                </p>
+              )}
+              <div className="mt-6 flex items-center gap-3">
+                {cameraFailed && (
+                  <button
+                    onClick={() => {
+                      // Doctor chooses to rehearse without capture — explicit,
+                      // never the silent default.
+                      stopCamera()
+                      setCameraError(null)
+                      setWantCamera(false)
+                      setReadyToStart(false)
+                      setIsScrolling(true)
+                    }}
+                    className="rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white/70 backdrop-blur-sm hover:bg-white/20"
+                  >
+                    Read without recording
+                  </button>
+                )}
+                <button
+                  onClick={resetToSetup}
+                  className="rounded-xl bg-white/10 px-6 py-2.5 text-sm text-white/70 backdrop-blur-sm hover:bg-white/20"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Toolbar — two rows so nothing overflows on phone */}
         <div
