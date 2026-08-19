@@ -5,6 +5,7 @@ import type {
   ScriptLengthTarget,
 } from '@/types'
 import { MODEL_CRITIC, callAgentTool } from './base'
+import { findTeaserLines, findClicheLines } from './teaser-lines'
 
 const LENGTH_BANDS: Record<ScriptLengthTarget, { min: number; max: number; label: string }> = {
   short: { min: 200, max: 220, label: '60-90s boost cut' },
@@ -18,15 +19,16 @@ function buildSystemPrompt(target: ScriptLengthTarget): string {
 The variants below were written for a ${band.label} (${target}). Their target length is ${band.min}-${band.max} words.
 
 For each variant, score SIX criteria on a 1-10 scale:
-- tone_match: fit with the clinic's declared tone and audience.
+- tone_match: fit with the clinic's declared tone and audience — a calm doctor talking to one patient across the desk. CLICHÉS LOWER THIS SCORE: influencer-script / ChatGPT / ad-copy language of any kind — strawman openers ("Most people think…", "The standard story is…", "You've probably heard…", "Sound familiar?"), marketing filler ("game-changer", "unlock", "journey", "dive in", "at the end of the day", "it's important to note", "plays a key role", "when it comes to", "let's be honest", "the good news is", "holistic", "empower"), the tidy antithesis bow ("It's not X, it's Y"), rule-of-three abstract lists, a neat wrap-up line after every beat. These are EXAMPLES of categories, not a complete list — judge anything that sounds like a script addressing an audience rather than a doctor answering a person. One cliché sentence → tone_match ≤ 6; two or more → tone_match ≤ 4 and approved = false. Quote each one in feedback.
 - no_promises: absence of medical promises ("cure", "guaranteed", "100%", "always works", "fixes X").
-- hook_quality: how concrete and specific the hook is. Generic or abstract hooks score low.
+- hook_quality: how concrete and specific the hook is. Generic or abstract hooks score low. TEASER / ANNOUNCER LINES ARE BANNED anywhere in the script — sentences that promise content instead of delivering it: "Here's why that's already too late.", "Here's what's actually happening.", "Here's the thing / the catch.", "Let me explain.", "Let's break it down.", "Stay with me.", "The truth is:", "This is where it gets interesting.", "Let that sink in." and ANY paraphrase (test: delete the sentence — if nothing is lost, it was a teaser). If ONE such line is present → hook_quality ≤ 3 and approved = false, and the feedback MUST quote the exact sentence and tell the writer to replace it with the actual claim.
+The brief may list DETECTED TEASER LINES / DETECTED CLICHÉS found by a pattern scan — treat those as confirmed, and still look for paraphrases the scan missed; the scan is a floor, not the rule.
 - length_ok: how close to ${band.min}-${band.max} words the script is. Count the words yourself — do not trust the variant's self-reported count. ${band.min}-${band.max} → 9-10. Within ±10% → 7-8. Further out → progressively lower.
 - science_present: a specific scientific fact, mechanism, or study is present and credible.
 - compliance_safe: absence of hard FDA/FTC violations. Score 1 if ANY of these are present: "treats/cures/reverses/heals [disease or condition]", "FDA-approved" for non-approved products (compounded GLP-1, peptides, PRP, exosomes are NOT FDA-approved), outcome guarantees ("will work", "guaranteed results", "you will see"), zero hedging phrases in a therapeutic post. Score 10 if none present and hedging ("may help", "studies suggest", "some patients") appears at least once.
 
 total_score = average of the six criteria, rounded to one decimal place.
-approved = true only if total_score >= 7 AND no_promises >= 8 AND compliance_safe >= 8 AND the script does not violate any clinic medical_restrictions.
+approved = true only if total_score >= 7 AND no_promises >= 8 AND compliance_safe >= 8 AND the script contains no teaser / announcer line AND fewer than two cliché sentences AND the script does not violate any clinic medical_restrictions.
 
 For each variant, write feedback that is short and actionable — point to the specific sentence or rule to fix. Do not praise; focus on what would make the rewrite better. If the variant is already strong, say so in one sentence.`
 }
@@ -36,14 +38,27 @@ function buildCriticBrief(ctx: SharedContext, variants: WriterOutput): string {
   const restrictions = p.medical_restrictions.join('; ') || 'none specified'
 
   const variantsBlock = variants.variants
-    .map(
-      (v) => `--- Variant ${v.id} ---
+    .map((v) => {
+      const text = `${v.hook ?? ''}\n${v.script ?? ''}`
+      const teasers = findTeaserLines(text)
+      const cliches = findClicheLines(text)
+      const teaserBlock = teasers.length
+        ? `\nDETECTED TEASER LINES (banned — hook_quality ≤ 3, approved = false, quote them in feedback):\n${teasers
+            .map((t) => `  • "${t}"`)
+            .join('\n')}`
+        : ''
+      const clicheBlock = cliches.length
+        ? `\nDETECTED CLICHÉS (${cliches.length} — one → tone_match ≤ 6; two or more → tone_match ≤ 4 and approved = false; quote them in feedback):\n${cliches
+            .map((t) => `  • "${t}"`)
+            .join('\n')}`
+        : ''
+      return `--- Variant ${v.id} ---
 Topic: ${v.topic}
 Hook: ${v.hook}
-Self-reported word count: ${v.word_count}
+Self-reported word count: ${v.word_count}${teaserBlock}${clicheBlock}
 Script:
 ${v.script}`
-    )
+    })
     .join('\n\n')
 
   return `CLINIC TONE: ${p.tone}

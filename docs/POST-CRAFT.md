@@ -25,7 +25,12 @@ alarmist, or superior.
 
 ### Sound human, not AI — banned patterns
 
-These are the tells that make copy read machine-made. Avoid them:
+These are the tells that make copy read machine-made. The lists are **examples
+of categories, not a complete blocklist** (Igor, 2026-08-19: "there will be
+other clichés like this") — anything that sounds like an influencer script,
+ChatGPT, or ad copy rather than a doctor across the desk is out, listed or not.
+The Writer base prompt carries the same categories; the Critic fails scripts on
+them (`lib/agents/teaser-lines.ts` catches the obvious shapes deterministically).
 
 - **Rule-of-three abstract-noun lists** — "gut receptor sensitivity, liver
   clearance rate, and lean muscle mass all change how the drug behaves."
@@ -34,9 +39,24 @@ These are the tells that make copy read machine-made. Avoid them:
 - **The tidy antithesis "summary bow"** — "Same drug, same schedule — very
   different outcomes", "It's not X, it's Y", "The problem was never A — it's B."
   The #1 AI tell. **At most one** such line in a whole post, if any.
-- **Filler / throat-clearing** — "significantly", "varies significantly",
-  "plays a key/crucial role", "it's important to note", "when it comes to",
-  "isn't uniform", "in many cases." Cut them; say the concrete thing.
+- **Teaser / announcer lines** (banned outright, 2026-08-19) — "Here's why
+  that's already too late.", "Here's what's actually happening.", "Here's the
+  thing / the catch / what most people miss.", "Let me explain.", "Stay with
+  me.", "The truth is:", "This is where it gets interesting.", "Let that sink
+  in." A sentence must carry the content, not promise it. Test: delete the
+  line — if nothing is lost, it was a teaser. Say the actual claim instead:
+  "Wrinkles show up in your 30s, but the bone under them started thinning at
+  25." The Critic fails any script containing one.
+- **Strawman / audience-address openers** — "Most people think…", "The
+  standard story is…", "You've probably heard…", "Sound familiar?", "You're
+  not alone." At most one per post, only if the misconception is real and
+  named concretely. Default: skip it and state the fact.
+- **Marketing / AI filler** — "game-changer", "unlock", "journey", "dive in",
+  "at the end of the day", "the bottom line", "it's important to note",
+  "plays a key/crucial role", "when it comes to", "in today's world", "let's
+  be honest", "the good news is", "holistic", "empower", "transform your…",
+  "significantly", "varies significantly", "isn't uniform", "in many cases."
+  Cut them; say the concrete thing.
 - **Perfectly parallel, symmetric prose.** Real speech is uneven — a 3-word
   sentence next to a 20-word one. Use contractions and plain verbs.
 - **Ending every slide on a neat wrap-up.** Sometimes just stop on the useful

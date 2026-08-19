@@ -78,7 +78,16 @@ const LENGTH_SPECS: Record<ScriptLengthTarget, LengthSpec> = {
 // The niche-persona line is the ONLY part of the base prompt that varies
 // between clinics. Everything else — voice guidance, hard rules, input spec —
 // is universal across niches.
-const SYSTEM_PROMPT_BASE_SHARED = `Voice: a smart, calm doctor explaining things plainly to someone in their chair. Plain English. Short sentences. Concrete everyday comparisons. No medical jargon unless it is immediately unpacked in lay terms (e.g. "your platelets — the part of your blood that helps healing"). Banned phrases: "as a clinician", "in our practice we observe", "the literature suggests", "peer-to-peer", "from a clinical standpoint". Allowed registers: "here's what most people miss", "if you're considering this", "what this means for you", "what to look out for", "why this matters". Do NOT copy-paste a generic "educational / professional / conversational" register. The exact tone is inferred from the FEW-SHOT EXAMPLES and the DOCTOR'S RECENT PICKS.
+const SYSTEM_PROMPT_BASE_SHARED = `Voice: a smart, calm doctor explaining things plainly to someone in their chair. Plain English. Short sentences. Concrete everyday comparisons. No medical jargon unless it is immediately unpacked in lay terms (e.g. "your platelets — the part of your blood that helps healing"). Banned phrases: "as a clinician", "in our practice we observe", "the literature suggests", "peer-to-peer", "from a clinical standpoint". Allowed registers: "if you're considering this", "what this means for you", "what to look out for", "why this matters". Do NOT copy-paste a generic "educational / professional / conversational" register. The exact tone is inferred from the FEW-SHOT EXAMPLES and the DOCTOR'S RECENT PICKS.
+
+NO CLICHÉS — SOUND LIKE A DOCTOR, NOT AN INFLUENCER SCRIPT OR AD COPY (HARD — applies to the hook AND every sentence after it):
+The lists below are EXAMPLES OF CATEGORIES, not an exhaustive blocklist. Anything that sounds like YouTube retention bait, ChatGPT, or a marketing funnel — even if it is not listed here — is out. The test for every sentence: would a calm doctor say this across the desk to one patient? If it sounds like a script talking to an audience, rewrite it.
+1. Teaser / announcer lines — a sentence that ANNOUNCES content instead of CARRYING it: "Here's why that's already too late.", "Here's what's actually happening.", "Here's the thing / the catch / the kicker / what most people miss.", "But here's why…", "Let me explain.", "Let's break it down.", "Stay with me.", "Keep watching.", "Wait for it.", "You won't believe…", "What nobody tells you…", "Most people don't know this.", "The truth is:", "This is where it gets interesting.", "That changes everything.", "Let that sink in.", "More on that later.". Test: delete the sentence — if the script loses nothing, it was a teaser. Right: "Wrinkles show up in your 30s, but the bone under them started thinning at 25." Wrong: "Wrinkles show up in your 30s. Here's why that's already too late." When a hook ends on a question, the NEXT sentence is the answer — not a promise to answer.
+2. Strawman openers — "Most people think…", "The standard story is…", "Everyone talks about X, but…", "You've probably heard…", "Conventional wisdom says…", "Sound familiar?", "You're not alone." At most ONE per script, and only if the misconception is real and named concretely. Default: skip the strawman and state the fact.
+3. Marketing / AI filler — "game-changer", "unlock", "journey", "dive in / deep dive", "at the end of the day", "the bottom line", "it's important to note", "plays a key / crucial role", "when it comes to", "in today's world", "let's be honest / real", "the good news is", "no, really", "and that's okay", "significantly", "in many cases", "holistic", "optimize", "empower", "transform your…". Cut them; say the concrete thing.
+4. The tidy antithesis bow — "It's not X, it's Y.", "Same drug, different outcome.", "The problem was never A — it's B." At most ONE in a whole script, and the script is better with none.
+5. Rule-of-three abstract-noun lists ("sleep, stress and inflammation all play a role") — pick ONE concrete thing and make it real. Perfectly parallel, symmetric sentences read machine-made; real speech is uneven.
+6. Ending every beat on a neat wrap-up line. Sometimes just stop on the useful detail.
 
 HARD RULES:
 - No medical promises ("will cure", "guaranteed", "100%", "always works").
@@ -210,9 +219,10 @@ new words is a FAILED variant — the reader notices immediately and stops
 reading. Before finishing, re-read your slides in order and delete any slide
 that would leave the post intact if removed.
 
-THE COVER MUST BE PAID OFF (HARD): if the hook promises something ("here's the
-number your panel missed", "here's how to break that loop"), one specific body
-slide must actually deliver it. An unpaid hook is a failed variant.`
+THE COVER MUST BE PAID OFF (HARD): if the hook raises something ("the one number
+your panel missed", "the loop behind the 3pm crash"), one specific body slide
+must actually deliver it. An unpaid hook is a failed variant. (And the hook
+still states a thing, never "here's the…" — see NO CLICHÉS.)`
 
 const VOICE_BLOCK = `VOICE — HOW IT SHOULD SOUND (BINDING):
 Write like the doctor is talking to ONE patient across the table — clear, warm,
@@ -402,7 +412,7 @@ function buildLengthSpecBlock(target: ScriptLengthTarget): string {
 - Word count: ${spec.word_min}-${spec.word_max} words. Count before you finish.
 - Estimated seconds: ${spec.seconds_min}-${spec.seconds_max}.
 - Beat budget (in order):
-  1. Hook — ~${spec.hookWords} words. Concrete fact or question, not a generic opening.
+  1. Hook — ~${spec.hookWords} words. Concrete fact or question, not a generic opening. End it on the fact itself — never on a teaser line ("Here's why…", "Here's what's actually happening", "Let me explain").
   2. Science / fact — ~${spec.scienceWords} words. What the research actually shows.
   3. Clinic approach — ~${spec.approachWords} words. How we do this differently. Use the chosen FORMAT TEMPLATE here — that's where the structural variety lives.
   4. Call to action — ~${spec.ctaWords} words. One specific action.`
