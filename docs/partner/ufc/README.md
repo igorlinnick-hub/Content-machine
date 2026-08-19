@@ -69,10 +69,16 @@ inconsistent effective rates once spread across the real price range:
 
 ## Layout
 
-1. **Cover** — the first-and-last-name requirement, portal access, how the fee is set, fine print.
-2. **Fee schedule** — service name and fee, nothing else. Plus the trainer-scope notice.
+1. **Cover** — the first-and-last-name requirement and portal access. Nothing else: this page
+   exists to make one instruction impossible to miss.
+2. **Fee schedule** — service name and fee, nothing else. Plus the trainer-scope notice and terms.
 3. **Service guide 1 of 2** — Regenerative, Pain & Joint, Mental Health.
 4. **Service guide 2 of 2** — Weight Loss, Peptides, IV/NAD+, Aesthetics, Consultations.
+
+The fee-basis rationale (10% of list, see below) is **internal** — it is documented here, not
+printed in the guide. Trainers need the number, not the formula. The operational terms that
+prevent later arguments (credited on completion, credit not cash, one fee per service) sit as a
+single line in the page-2 notice rather than a block of their own.
 
 The fee page deliberately carries **no descriptions**. A trainer checking what something
 pays should not have to read past it; anyone who wants to understand a service turns to
@@ -83,12 +89,17 @@ Nothing in the guide describes a result — only what the service *is*. A traine
 complaint is describing who to send in; a trainer naming an outcome is making an efficacy
 claim they are not licensed to make.
 
+Copy is written for someone who has never heard of any of it. Raw pricelist figures are not
+explanations — the exosome products are described as lightest / mid / high / strongest strength
+rather than "30 billion" through "180 billion", with a one-line primer on what an exosome even
+is. Same reasoning removed "GLP-1" and "compounded" elsewhere.
+
 > **Needs clinical review:** guide copy was drafted from product names, the pricelist and
 > general category knowledge. `Nano Flex`, `Nano Flow` and `Nano DPM` carry a `†` and a
 > deliberately empty description — their indications were not verifiable from the
-> pricelist. The exosome concentrations (`Nano EX` 30bil → `Nano Exosomes` 180bil) come
-> straight from the source sheet. Have the clinical team confirm every entry before
-> distribution.
+> pricelist. The strength ordering of the exosome line comes from the concentrations on the
+> source sheet (30 / 50 / 90 / 180 billion). Have the clinical team confirm every entry
+> before distribution.
 
 ## Open items
 

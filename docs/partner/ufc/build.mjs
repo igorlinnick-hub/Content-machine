@@ -89,14 +89,15 @@ const guide = [
     name: 'Regenerative & Biologics',
     hear: '"My knee\'s been shot for years." "It never healed right."',
     who: 'Worn joints, old injuries and things that never fully healed. Often members trying to avoid or delay surgery.',
-    tail: 'The clinician chooses the product and concentration — you never have to.',
+    primer: 'Several of these use exosomes — tiny repair signals collected from healthy cells. Injected into a worn joint, they prompt the tissue to get on with repairing itself. Same idea, different strengths.',
+    tail: 'The clinician chooses which one and how strong — you never have to.',
     items: [
       ['PRP', 'The member\'s own blood, spun down to concentrate its repair factors, then injected into the problem joint or tendon.'],
       ['Nano PRP Jelly', 'PRP in a thicker gel carrier, used where a joint needs cushioning as well as repair.'],
-      ['Nano EX', 'Exosome injection at 30 billion.'],
-      ['Nano AER', 'Exosome injection at 50 billion.'],
-      ['Nano AER+', 'Exosome injection at 90 billion.'],
-      ['Nano Exosomes', 'The clinic\'s highest concentration — 180 billion per ml.'],
+      ['Nano EX', 'Exosomes, lightest strength. A starting point.'],
+      ['Nano AER', 'Exosomes, mid strength.'],
+      ['Nano AER+', 'Exosomes, high strength.'],
+      ['Nano Exosomes', 'Exosomes, the strongest the clinic offers.'],
       ['Nano Flex', 'Regenerative injectable. †'],
       ['Nano Flow', 'Regenerative injectable. †'],
       ['Nano DPM', 'Regenerative injectable. †'],
@@ -130,8 +131,8 @@ const guide = [
     hear: '"I train five days a week and nothing moves."',
     who: 'Weight that will not move despite the work. All prescription programs, each with a metabolic workup and follow-up.',
     items: [
-      ['Semaglutide', 'A weekly GLP-1 injection, prescribed as a course of four.'],
-      ['Tirzepatide', 'A dual-action medication in the same class, also a course of four.'],
+      ['Semaglutide', 'A weekly injection that works on appetite and blood sugar, given as a course of four.'],
+      ['Tirzepatide', 'Same idea, a newer two-in-one version. Also a course of four.'],
       ['Retatrutide', 'The newest option in this class and still investigational — whether it suits someone is entirely the clinician\'s call.'],
       ['Weight Loss Booster', 'A single injection used as a smaller first step for members not ready to commit to a program.'],
     ],
@@ -141,8 +142,8 @@ const guide = [
     hear: '"I don\'t recover like I used to." "My sleep is garbage."',
     who: 'Recovery, sleep, energy and longevity goals. Popular with older members and anyone training heavy.',
     items: [
-      ['Peptide Therapy', 'A single compounded peptide prescribed for one goal — recovery, sleep, or similar.'],
-      ['Peptide Stack', 'Several peptides blended into one protocol. Costs more, so it pays more.'],
+      ['Peptide Therapy', 'One prescribed peptide. Peptides are short chains the body already uses as signals — for repair, sleep and so on.'],
+      ['Peptide Stack', 'Several peptides combined into one plan. Costs more, so it pays more.'],
     ],
   },
   {
@@ -189,6 +190,7 @@ const card = g => `
   <div class="cat-head"><h3>${esc(g.name)}</h3><span class="rule"></span></div>
   <p class="hear">${esc(g.hear)}</p>
   <p class="who">${esc(g.who)}</p>
+  ${g.primer ? `<p class="primer">${esc(g.primer)}</p>` : ''}
   <dl>${g.items.map(([n, d]) => `<dt>${esc(n)}</dt><dd>${esc(d)}</dd>`).join('')}</dl>
   ${g.tail ? `<p class="tail">${esc(g.tail)}</p>` : ''}
 </section>`;
@@ -221,28 +223,28 @@ body{font-family:var(--sans);color:var(--ink);background:var(--cream);font-size:
   text-transform:uppercase;font-size:7.4pt;margin-bottom:2px}
 
 /* ── hero ── */
-h1{font-family:var(--serif);font-size:31pt;font-weight:600;line-height:1.07;
-  color:var(--ocean-dark);letter-spacing:-.012em;margin:18px 0 0}
+h1{font-family:var(--serif);font-size:35pt;font-weight:600;line-height:1.07;
+  color:var(--ocean-dark);letter-spacing:-.012em;margin:30px 0 0}
 h1 em{font-style:italic;color:var(--coral)}
-.lede{font-size:10.6pt;color:var(--muted);max-width:5.7in;margin-top:12px;line-height:1.6}
+.lede{font-size:11.4pt;color:var(--muted);max-width:5.9in;margin-top:16px;line-height:1.62}
 .lede b{color:var(--ink);font-weight:600}
 
 /* ── dark panel ── */
-.panel{background:linear-gradient(145deg,#0d2f42 0%,#164863 100%);border-radius:15px;
-  padding:22px 26px;color:#fff;margin-top:18px}
+.panel{background:linear-gradient(145deg,#0d2f42 0%,#164863 100%);border-radius:16px;
+  padding:40px 42px;color:#fff;margin-top:34px}
 .panel .eyebrow{font-size:7.6pt;font-weight:700;letter-spacing:.19em;text-transform:uppercase;
   color:var(--teal);margin-bottom:9px}
-.panel h2{font-family:var(--serif);font-size:21pt;font-weight:600;margin-bottom:11px;line-height:1.2}
+.panel h2{font-family:var(--serif);font-size:29pt;font-weight:600;margin-bottom:11px;line-height:1.2}
 .panel h2 em{font-style:italic;color:var(--coral)}
-.panel p{font-size:9.8pt;line-height:1.68;color:rgba(255,255,255,.8);max-width:6in}
+.panel p{font-size:11pt;line-height:1.7;color:rgba(255,255,255,.8);max-width:6in}
 .panel p+p{margin-top:9px}
 .panel b{color:#fff;font-weight:600}
 .panel .hard{color:#f6b39c;font-weight:700}
 
 /* ── access ── */
-.access{margin-top:14px;display:flex;gap:12px;align-items:stretch}
+.access{margin-top:24px;display:flex;gap:12px;align-items:stretch}
 .access .col{flex:1;background:var(--sand);border:1px solid rgba(27,79,110,.14);
-  border-radius:11px;padding:15px 17px}
+  border-radius:11px;padding:19px 20px}
 .access .col.wide{flex:1.7}
 .access .lbl{font-size:7.2pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
   color:var(--muted);margin-bottom:6px}
@@ -258,8 +260,8 @@ h1 em{font-style:italic;color:var(--coral)}
 .rate b{color:var(--ink);font-weight:600}
 
 /* ── category tables ── */
-.grid{column-count:2;column-gap:28px;margin-top:15px}
-.cat{break-inside:avoid;margin-bottom:11px}
+.grid{column-count:2;column-gap:28px;margin-top:12px}
+.cat{break-inside:avoid;margin-bottom:8px}
 .cat-head{display:flex;align-items:center;gap:9px;margin-bottom:3px}
 .cat h3{font-family:var(--serif);font-size:12pt;font-weight:600;color:var(--ocean-dark);white-space:nowrap}
 .cat .rule{flex:1;height:1px;background:linear-gradient(90deg,rgba(58,174,160,.55),rgba(58,174,160,0))}
@@ -271,6 +273,8 @@ h1 em{font-style:italic;color:var(--coral)}
 .card h3{font-family:var(--serif);font-size:12.5pt;font-weight:600;color:var(--ocean-dark);white-space:nowrap}
 .card .hear{font-size:8.2pt;line-height:1.45;color:var(--coral);font-style:italic;margin-bottom:4px}
 .card .who{font-size:8.2pt;line-height:1.5;color:var(--ink);margin-bottom:7px}
+.card .primer{font-size:8pt;line-height:1.5;color:var(--muted);margin-bottom:7px;
+  padding-left:9px;border-left:2px solid var(--teal-light)}
 .card dl{margin:0}
 .card dt{font-size:8.5pt;font-weight:600;color:var(--ocean);margin-top:6px}
 .card dt:first-child{margin-top:0}
@@ -281,7 +285,7 @@ h1 em{font-style:italic;color:var(--coral)}
 .cat table{width:100%;border-collapse:collapse;margin-top:3px}
 .cat tr{border-bottom:1px solid rgba(27,79,110,.09)}
 .cat tr:last-child{border-bottom:none}
-.cat td{padding:4.3px 0;font-size:9.2pt;vertical-align:baseline}
+.cat td{padding:3.6px 0;font-size:9.1pt;vertical-align:baseline}
 .cat td.pay{text-align:right;font-weight:700;color:var(--coral);
   font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:10px}
 
@@ -300,7 +304,7 @@ h1 em{font-style:italic;color:var(--coral)}
   border-radius:10px;padding:11px 14px}
 .legal h4{font-size:8pt;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
   color:var(--ocean);margin-bottom:7px}
-.legal p{font-size:7.4pt;line-height:1.56;color:var(--muted)}
+.legal p{font-size:7.2pt;line-height:1.52;color:var(--muted)}
 .legal p+p{margin-top:5px}
 .legal b{color:var(--ink);font-weight:600}
 .todo{background:#fff8e6;border:1.5px dashed #d99b2f;border-radius:8px;
@@ -340,25 +344,6 @@ automatically the moment your referral gets care.</p>
   <div class="col"><div class="lbl">Management</div><div class="val">ufc-gym-2026</div></div>
 </div>
 
-<div class="rate">
-  <h3>How the numbers are set</h3>
-  <p>Each fee is roughly <b>10% of the clinic's standard price</b> for that service, rounded to a
-  clean figure. For scale: HWC already takes <b>up to 50% off for veterans</b> — so a referral fee
-  at 10% sits comfortably inside what the clinic absorbs every day. It's a fraction of that, by design.</p>
-  <p>Your fee is <b>the same no matter who you refer.</b> Members and veterans pay less; that
-  discount comes out of the clinic's side, never out of yours.</p>
-</div>
-<div class="fine">
-  <h3>Good to know</h3>
-  <ul>
-    <li><b>Both names, every time.</b> First and last on the referral form, spelled consistently.</li>
-    <li><b>Credited on completion</b>, not on booking. A no-show credits nothing.</li>
-    <li><b>Consultations pay too.</b> $50 on the first visit, then again when they start treatment.</li>
-    <li><b>One fee per service</b>, whatever the dose or package size.</li>
-    <li><b>Repeat Cash is clinic credit</b>, redeemable at HWC. Not cash, not transferable.</li>
-    <li><b>Fees can change.</b> Your portal balance is always the current figure.</li>
-  </ul>
-</div>
 `)}
 
 ${page('Page 2 of 4', `
@@ -366,7 +351,7 @@ ${page('Page 2 of 4', `
   <img src="data:image/png;base64,${logo}" alt="Hawaii Wellness Clinic">
   <div class="who"><b>Commission Schedule</b>What you earn per referral<br>Effective 2026</div>
 </div>
-<h1 style="font-size:21pt;margin-top:10px">What you <em>earn</em></h1>
+<h1 style="font-size:22pt;margin-top:10px">What you <em>earn</em></h1>
 <p class="lede" style="font-size:9.4pt;margin-top:6px;max-width:6.2in">One name, one fee — the same tag we use in the clinic's system. Dose and package size don't change it.</p>
 
 <div class="grid">${cats.map(table).join('')}</div>
@@ -381,6 +366,10 @@ ${page('Page 2 of 4', `
   compounded weight-loss medications — are prescribed <b>off-label or are not FDA-approved</b> for
   those uses. That is lawful medical practice, but it is not the same as an approved product and
   should never be described as one.</p>
+  <p><b>Terms.</b> Credited on completion, not on booking — a no-show credits nothing. One fee
+  per service, whatever the dose or package size. Repeat Cash is clinic credit, redeemable at
+  HWC; it is not cash and is not transferable. Fees can change — your portal balance is always
+  the current figure.</p>
   <div class="todo"><p><b>Placeholder — do not distribute until replaced</b><br>
   The clinic's regenerative / stem cell regulatory statement goes here. It must be written from the
   documentation the clinic actually holds and cleared by the medical director and counsel first.</p></div>
@@ -393,7 +382,7 @@ ${page('Page 3 of 4', `
   <img src="data:image/png;base64,${logo}" alt="Hawaii Wellness Clinic">
   <div class="who"><b>Service Guide</b>What each one actually is<br>1 of 2</div>
 </div>
-<h1 style="font-size:21pt;margin-top:8px">What each one <em>actually is</em></h1>
+<h1 style="font-size:22pt;margin-top:8px">What each one <em>actually is</em></h1>
 <p class="lede" style="font-size:9.4pt;margin-top:6px;max-width:6.2in">Read this once and you'll
 recognise most of what walks past you. You never have to explain the medicine — that's the clinic's job.</p>
 
