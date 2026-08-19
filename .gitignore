@@ -53,3 +53,5 @@ jobflow-*.json
 !samples/staff-filming-guide*.png
 .env*
 .shots/
+docs/partner/ufc/fonts.css
+docs/partner/ufc/commission-schedule.html

@@ -1,0 +1,221 @@
+{
+  "_note": "MASTER HWC Pricelist — transcribed from screenshots. retail = Price col C, member = Member Price col E, veteran = Veteran Member Price col G. null = blank in source.",
+  "sheets": {
+    "Mental Health": {
+      "sections": [
+        {
+          "name": "MENTAL HEALTH",
+          "items": [
+            { "cpt": "1001", "name": "Ketamine Session MH", "retail": 800, "member": 560, "veteran": 400, "memPct": "30%", "vetPct": "50%" },
+            { "cpt": "1002", "name": "Ketamine Session CP", "retail": 1000, "member": 700, "veteran": 500, "memPct": "30%", "vetPct": "50%" },
+            { "cpt": "1003", "name": "Stellate Ganglion Block", "retail": 2200, "member": 1540, "veteran": 1100, "memPct": "30%", "vetPct": "50%" },
+            { "cpt": "1004", "name": "Exomind", "retail": 400, "member": 280, "veteran": 200, "memPct": "30%", "vetPct": "50%" },
+            { "cpt": "1005", "name": "Vagus Nerve Injection", "retail": 2800, "member": 1960, "veteran": 1400, "memPct": "30%", "vetPct": "50%" },
+            { "cpt": "1006", "name": "Monitored Anesthesia Care", "retail": 950, "member": 665, "veteran": 475, "memPct": "30%", "vetPct": "50%", "_srcTypo": "sheet says 'Monitered'" },
+            { "cpt": "1007", "name": null, "retail": null, "member": null, "veteran": null },
+            { "cpt": "1008", "name": null, "retail": null, "member": null, "veteran": null }
+          ]
+        },
+        {
+          "name": "PACKAGES",
+          "items": [
+            { "cpt": "1050", "name": "Ketamine Mental Health Package (6 Sessions)", "retail": 3600, "member": 2520, "veteran": 1800, "memPct": "30%", "vetPct": null },
+            { "cpt": "1051", "name": "Ketamine Chronic Pain Package (4 Sessions)", "retail": 3200, "member": 2240, "veteran": 1200, "memPct": "30%", "vetPct": null },
+            { "cpt": "1052", "name": "Stellate Ganglion Block Package (2 Sessions)", "retail": 3600, "member": 2520, "veteran": 1800, "memPct": "30%", "vetPct": null },
+            { "cpt": "1053", "name": "Exomind Bundle (6 Sessions)", "retail": 3000, "member": 2100, "veteran": 1200, "memPct": "30%", "vetPct": null },
+            { "cpt": "1054", "name": "SGB (2 Sessions) + Ketamine (6 Sessions)", "retail": 6000, "member": 4200, "veteran": 2400, "memPct": null, "vetPct": null }
+          ]
+        },
+        { "name": "Payment Plan Pricing", "items": [], "_status": "NOT YET CAPTURED — row 19+ cut off in screenshot" }
+      ]
+    },
+    "Wellness": {
+      "sections": [
+        {
+          "name": "HRT",
+          "items": [
+            { "cpt": "2101", "name": "Hormone Replacement Therapy Workup (no labs)", "retail": 250, "member": 175, "veteran": 125 },
+            { "cpt": "2102", "name": "Hormone Replacement Therapy", "retail": null, "member": null, "veteran": null, "_status": "BLANK in source — need price" }
+          ]
+        },
+        {
+          "name": "NAD+",
+          "items": [
+            { "cpt": "2201", "name": "NAD+ (100mg)", "retail": 100, "member": 70, "veteran": 50 },
+            { "cpt": "2202", "name": "NAD+ Vial", "retail": 270, "member": 189, "veteran": 135 }
+          ]
+        },
+        {
+          "name": "IV VITAMINS",
+          "items": [
+            { "cpt": "2301", "name": "Myer's Cocktail", "retail": 246, "member": 172, "veteran": 123 },
+            { "cpt": "2302", "name": "Myer's Cocktail Plus", "retail": 449, "member": 314, "veteran": 225 },
+            { "cpt": "2303", "name": "Immunity Defense", "retail": 258, "member": 181, "veteran": 129 },
+            { "cpt": "2304", "name": "Immunity Booster", "retail": 538, "member": 377, "veteran": 269 },
+            { "cpt": "2305", "name": "Cold & Flu Rescue", "retail": 446, "member": 312, "veteran": 223 },
+            { "cpt": "2306", "name": "Cold & Flu Rescue Plus", "retail": 610, "member": 427, "veteran": 305 },
+            { "cpt": "2307", "name": "Nausea Relief", "retail": 248, "member": 174, "veteran": 124 },
+            { "cpt": "2308", "name": "COVID Rescue", "retail": 665, "member": 466, "veteran": 333 },
+            { "cpt": "2309", "name": "COVID Rescue Plus", "retail": 866, "member": 606, "veteran": 433 },
+            { "cpt": "2310", "name": "Food Poisoning", "retail": 348, "member": 244, "veteran": 174 },
+            { "cpt": "2311", "name": "Pain Cocktail", "retail": 314, "member": 220, "veteran": 157 },
+            { "cpt": "2312", "name": "Stress Relief", "retail": 244, "member": 171, "veteran": 122 },
+            { "cpt": "2313", "name": "Energy Boost", "retail": 290, "member": 203, "veteran": 145 },
+            { "cpt": "2314", "name": "Athletic Recovery", "retail": 234, "member": 164, "veteran": 117 },
+            { "cpt": "2315", "name": "Beautify", "retail": 478, "member": 335, "veteran": 239 },
+            { "cpt": "2316", "name": "Hangover Rescue", "retail": 304, "member": 213, "veteran": 152 },
+            { "cpt": "2317", "name": "Hangover Rescue Max", "retail": 426, "member": 298, "veteran": 213 },
+            { "cpt": "2318", "name": "Migraine Rescue", "retail": 274, "member": 192, "veteran": 137 },
+            { "cpt": "2319", "name": "Woman's Monthly", "retail": 239, "member": 167, "veteran": 120 },
+            { "cpt": "2320", "name": "Her Pregnancy", "retail": 278, "member": 195, "veteran": 139 },
+            { "cpt": "2321", "name": "IV Fluids Only", "retail": 173, "member": 121, "veteran": 87 }
+          ]
+        },
+        {
+          "name": "PEPTIDES",
+          "items": [
+            { "cpt": "2001", "name": "Peptide Stacks", "retail": 270, "member": 189, "veteran": 135 },
+            { "cpt": "2002", "name": "BPC-157", "retail": 177, "member": 124, "veteran": 89 },
+            { "cpt": "2003", "name": "BPC-157 Acetylated", "retail": 207.00, "member": 145, "veteran": 104 },
+            { "cpt": "2004", "name": "BPC-157 500mcg x 30 Tablets", "retail": 215, "member": 151, "veteran": 108 },
+            { "cpt": "2005", "name": "Brain Blend", "retail": 680, "member": 476, "veteran": 340 },
+            { "cpt": "2006", "name": "Cardiogen", "retail": 174, "member": 122, "veteran": 87 },
+            { "cpt": "2007", "name": "Cartalax", "retail": 188, "member": 132, "veteran": 94 },
+            { "cpt": "2008", "name": "CJC-1295 - No DAC", "retail": 201, "member": 141, "veteran": 101 },
+            { "cpt": "2009", "name": "CJC-1295 - With DAC", "retail": 215, "member": 151, "veteran": 108 },
+            { "cpt": "2010", "name": "Curcumin", "retail": 421.25, "member": 295, "veteran": 211 },
+            { "cpt": "2011", "name": "Dihexa", "retail": 298, "member": 209, "veteran": 149 },
+            { "cpt": "2012", "name": "Dihexa 8mg x 30 Tablets", "retail": 260, "member": 182, "veteran": 130 },
+            { "cpt": "2013", "name": "DSIP", "retail": 155, "member": 109, "veteran": 78 },
+            { "cpt": "2014", "name": "Epithalon", "retail": 146, "member": 102, "veteran": 73 },
+            { "cpt": "2015", "name": "Follistatin 344 (95%)", "retail": 421, "member": 295, "veteran": 211 },
+            { "cpt": "2016", "name": "FOXO4-DRI", "retail": 738, "member": 517, "veteran": 369 },
+            { "cpt": "2017", "name": "GHK-Cu", "retail": 160, "member": 112, "veteran": 80 },
+            { "cpt": "2018", "name": "GHRP-2", "retail": 188, "member": 132, "veteran": 94 },
+            { "cpt": "2019", "name": "GHRP-6", "retail": 138, "member": 97, "veteran": 69 },
+            { "cpt": "2020", "name": "GLOW 50", "retail": 270, "member": 189, "veteran": 135 },
+            { "cpt": "2021", "name": "GLOW 70", "retail": 399, "member": 279, "veteran": 200 },
+            { "cpt": "2022", "name": "Gonadorelin", "retail": 215, "member": 151, "veteran": 108 },
+            { "cpt": "2023", "name": "Hexarelin", "retail": 157, "member": 110, "veteran": 79 },
+            { "cpt": "2024", "name": "IGF-1 LR3", "retail": 279, "member": 195, "veteran": 140 },
+            { "cpt": "2025", "name": "Ipamorelin", "retail": 201, "member": 141, "veteran": 101 },
+            { "cpt": "2026", "name": "Kisspeptin", "retail": 201, "member": 141, "veteran": 101 },
+            { "cpt": "2027", "name": "KLOW 80", "retail": 435, "member": 305, "veteran": 218 },
+            { "cpt": "2028", "name": "KPV", "retail": 223, "member": 156, "veteran": 112 },
+            { "cpt": "2029", "name": "LL-37", "retail": 270, "member": 189, "veteran": 135 },
+            { "cpt": "2030", "name": "LL-37 Complex", "retail": 352.50, "member": 247, "veteran": 176 },
+            { "cpt": "2031", "name": "Methblue / Methylliberine", "retail": 394, "member": 276, "veteran": 197 },
+            { "cpt": "2032", "name": "MGF (IGF-1Ec)", "retail": 215, "member": 151, "veteran": 108 },
+            { "cpt": "2033", "name": "MK-677", "retail": 559, "member": 391, "veteran": 280 },
+            { "cpt": "2034", "name": "MOTS-c", "retail": 193, "member": 135, "veteran": 97 },
+            { "cpt": "2035", "name": "MT-II (Melanotan II)", "retail": 160, "member": 112, "veteran": 80 },
+            { "cpt": "2036", "name": "Oxytocin", "retail": 201, "member": 141, "veteran": 101 },
+            { "cpt": "2037", "name": "PE-22-28", "retail": 163, "member": 114, "veteran": 82 },
+            { "cpt": "2038", "name": "PNC-28", "retail": 225, "member": 158, "veteran": 113 },
+            { "cpt": "2039", "name": "PT-141", "retail": 188, "member": 132, "veteran": 94 },
+            { "cpt": "2040", "name": "Selank", "retail": 127, "member": 89, "veteran": 64 },
+            { "cpt": "2041", "name": "Semax", "retail": 174, "member": 122, "veteran": 87 },
+            { "cpt": "2042", "name": "Sermorelin", "retail": 229, "member": 160, "veteran": 115 },
+            { "cpt": "2043", "name": "SLU-PP-332", "retail": 229, "member": 160, "veteran": 115 },
+            { "cpt": "2044", "name": "Tesamorelin", "retail": 229, "member": 160, "veteran": 115 },
+            { "cpt": "2045", "name": "Tesofensine / Dihexa", "retail": 559, "member": 391, "veteran": 280 },
+            { "cpt": "2046", "name": "Tesofensine", "retail": 394, "member": 276, "veteran": 197 },
+            { "cpt": "2047", "name": "Thymagen (Thymogen)", "retail": 380, "member": 266, "veteran": 190 },
+            { "cpt": "2048", "name": "Thymalin", "retail": 298, "member": 209, "veteran": 149 },
+            { "cpt": "2049", "name": "Thymosin Alpha 1 (TA1)", "retail": 270, "member": 189, "veteran": 135 },
+            { "cpt": "2050", "name": "Thymosin Alpha 1 (TA1) Complex", "retail": 298, "member": 209, "veteran": 149 },
+            { "cpt": "2051", "name": "Thymosin Beta 4 (TB500)", "retail": 188, "member": 132, "veteran": 94 },
+            { "cpt": "2052", "name": "VIP (2mg) / BPC-157", "retail": 531, "member": 372, "veteran": 266 },
+            { "cpt": "2053", "name": "Wolverine Blend", "retail": 278, "member": 195, "veteran": 139 }
+          ],
+          "_status": "COMPLETE — 2001-2053, ends row 86. Member 30% off, Veteran 50% off throughout."
+        }
+      ]
+    },
+    "Pain & Joint": {
+      "_discountNote": "Header reads 'Veteran Price' (not 'Veteran Member Price'). Tiers here are 10% member / 20% veteran — NOT the 30/50 used on Mental Health + Wellness.",
+      "sections": [
+        {
+          "name": "BIOLOGICS AND STEM CELLS",
+          "items": [
+            { "cpt": "3001", "name": "PRP", "retail": 900, "member": 810, "veteran": 720 },
+            { "cpt": "3100", "name": "Nano PRP Jelly", "retail": 600, "member": 540, "veteran": 480 },
+            { "cpt": "3101", "name": "Nano Flex (1ml/150mg)", "retail": 2244, "member": 2020, "veteran": 1795 },
+            { "cpt": "3102", "name": "Nano Flow (1ml/150mg)", "retail": 2844, "member": 2560, "veteran": 2275 },
+            { "cpt": "3103", "name": "Nano Exosomes 180bil/ml", "retail": 5000, "member": 4500, "veteran": 4000 },
+            { "cpt": "3104", "name": "Nano AER (50bil)", "retail": 2000, "member": 1800, "veteran": 1600 },
+            { "cpt": "3105", "name": "Nano AER+ (90bil)", "retail": 3000, "member": 2700, "veteran": 2400 },
+            { "cpt": "3106", "name": "Nano EX (30bil)", "retail": 1000, "member": 900, "veteran": 800 },
+            { "cpt": "3107", "name": "Nano DPM (95mg)", "retail": 1200, "member": 1080, "veteran": 960 },
+            { "cpt": "3108", "name": "Nano Ex Hair Restoration", "retail": 1350, "member": 1215, "veteran": 1080 },
+            { "cpt": "3201", "name": "Shockwave Therapy", "retail": 140, "member": 126, "veteran": 112 },
+            { "cpt": "3301", "name": "Class IV Laser", "retail": 140, "member": 126, "veteran": 112 },
+            { "cpt": "3401", "name": "Vibration Therapy", "retail": 140, "member": 126, "veteran": 112 }
+          ]
+        },
+        {
+          "name": "BUNDLES",
+          "items": [
+            { "cpt": "3002", "name": "PRP (3 Treatments)", "retail": 2400, "member": 2160, "veteran": 1920 },
+            { "cpt": "3003", "name": "PRP (6 Treatments)", "retail": 3360, "member": 3024, "veteran": 2688 },
+            { "cpt": "3004", "name": "Shockwave Therapy (6 Treatments)", "retail": 756, "member": 680, "veteran": 605 },
+            { "cpt": "3005", "name": "Class IV Laser (6 Treatments)", "retail": 756, "member": 680, "veteran": 605 },
+            { "cpt": "3006", "name": "Vibration Therapy (6 Treatments)", "retail": 756, "member": 680, "veteran": 605 },
+            { "cpt": "3007", "name": "Shockwave Therapy (10 Treatments)", "retail": 1190, "member": 1071, "veteran": 952 },
+            { "cpt": "3008", "name": "Class IV Laser (10 Treatments)", "retail": 1190, "member": 1071, "veteran": 952 },
+            { "cpt": "3009", "name": "Vibration Therapy (10 Treatments)", "retail": 1190, "member": 1071, "veteran": 952 }
+          ]
+        }
+      ],
+      "_status": "COMPLETE through row 28; rows 29+ appear empty."
+    },
+    "Weight Loss": {
+      "_discountNote": "30% member / 50% veteran.",
+      "sections": [
+        {
+          "name": "WEIGHT LOSS",
+          "items": [
+            { "cpt": "4001", "name": "Semaglutide (4 Injections)", "retail": 399, "member": 279, "veteran": 200 },
+            { "cpt": "4002", "name": "Tirzepatide (4 Injections)", "retail": 599, "member": 419, "veteran": 300 },
+            { "cpt": "4003", "name": "Retatrutide (4 Injections)", "retail": 799, "member": 559, "veteran": 400 },
+            { "cpt": "4004", "name": "Weight Loss Booster", "retail": 100, "member": 70, "veteran": 50 }
+          ]
+        }
+      ],
+      "_status": "COMPLETE — ends row 6."
+    },
+    "Aesthetics": {
+      "_discountNote": "30% member / 50% veteran.",
+      "sections": [
+        {
+          "name": "AESTHETICS",
+          "items": [
+            { "cpt": "6001", "name": "Botox (per unit)", "retail": 13, "member": 9, "veteran": 7 },
+            { "cpt": "6002", "name": "Dermal Fillers: Lips", "retail": 700, "member": 490, "veteran": 350, "_srcTypo": "sheet says 'Dremal'" },
+            { "cpt": "6003", "name": "Dermal Fillers: Chin", "retail": 700, "member": 490, "veteran": 350, "_srcTypo": "sheet says 'Dremal'" },
+            { "cpt": "6004", "name": "Sculptra", "retail": 1000, "member": 700, "veteran": 500 },
+            { "cpt": "6005", "name": "Hair Restoration Single Treatment", "retail": 2650, "member": 1855, "veteran": 1325 },
+            { "cpt": "6006", "name": "Hair Restoration 4 Package Price", "retail": 7950, "member": 5565, "veteran": 3975 }
+          ]
+        }
+      ],
+      "_status": "COMPLETE — ends row 7."
+    },
+    "Membership Pricing": { "_status": "NOT CAPTURED — 6th tab, not needed for trainer commission sheet." }
+  },
+  "trainerCommission": {
+    "_source": "UFC-Trainer-Partner-Guide PDF, 'What you can earn' panel — Repeat Cash Program.",
+    "_model": "Flat $ per broad category, credited when the referral completes a consultation or treatment. Redeemed as clinic credit at HWC front desk.",
+    "currentTiers": [
+      { "category": "Biologics Treatment", "payout": 500 },
+      { "category": "Mental Health", "payout": 100 },
+      { "category": "Peptides", "payout": 75 },
+      { "category": "Weight Loss Program", "payout": 75 },
+      { "category": "Any Consultation", "payout": 50 },
+      { "category": "Shockwave Therapy", "payout": 50 },
+      { "category": "IV Therapy", "payout": 25 },
+      { "category": "NAD+", "payout": 25 }
+    ],
+    "portal": { "url": "dashboard-hwc.vercel.app/login/ufc", "trainerCode": "ufc-team-2026", "mgmtCode": "ufc-gym-2026" }
+  }
+}
