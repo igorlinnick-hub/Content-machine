@@ -1,6 +1,6 @@
 # UFC GYM Partner — Repeat Cash Commission Schedule
 
-HWC-branded 3-page PDF listing every service a UFC GYM trainer can refer and what
+HWC-branded 4-page PDF listing every service a UFC GYM trainer can refer and what
 each one pays. Extends the original 8-bucket "What you can earn" panel in the
 UFC Trainer Partner Guide into the full catalog, at CRM-tag granularity.
 
@@ -67,31 +67,34 @@ inconsistent effective rates once spread across the real price range:
 - Pain & Joint → **10% member / 20% veteran**, and its column header reads
   "Veteran Price", not "Veteran Member Price"
 
-## Problem cues (page 2) and the explainer (page 3)
+## Layout
 
-Each service carries a short cue describing **the complaint a member walks in with**,
-never the outcome of treatment — "Depression, anxiety, PTSD", not "lifts depression".
-Problem-framing is what a trainer actually needs to pattern-match on, and it keeps the
-sheet clear of efficacy claims a non-clinician must not make.
+1. **Cover** — the first-and-last-name requirement, portal access, how the fee is set, fine print.
+2. **Fee schedule** — service name and fee, nothing else. Plus the trainer-scope notice.
+3. **Service guide 1 of 2** — Regenerative, Pain & Joint, Mental Health.
+4. **Service guide 2 of 2** — Weight Loss, Peptides, IV/NAD+, Aesthetics, Consultations.
 
-The cue sits at category level (teal, above the table) since that is the level a trainer
-decides at. Rows carry their own cue only where it differs from the category — the Nano
-products deliberately do not, because choosing between them is the clinician's call, not
-the trainer's.
+The fee page deliberately carries **no descriptions**. A trainer checking what something
+pays should not have to read past it; anyone who wants to understand a service turns to
+the guide. Each guide entry gives what a member typically says out loud, who the category
+is for, and a plain sentence per service.
 
-Page 3 gives each category a plain-English card: what a member typically says, and what
-the service actually is. Enough to make an introduction, not enough to advise.
+Nothing in the guide describes a result — only what the service *is*. A trainer naming a
+complaint is describing who to send in; a trainer naming an outcome is making an efficacy
+claim they are not licensed to make.
 
-> **Needs clinical review:** the cues and card copy were drafted from product names and
-> general category knowledge. The Nano line in particular (`Nano Flow`, `Nano Flex`,
-> `Nano DPM`, `Nano AER`/`AER+`, `Nano EX`) is proprietary and its indications were not
-> verifiable from the pricelist — which is why those rows carry no individual cue. Have
-> the clinical team confirm every cue before distribution.
+> **Needs clinical review:** guide copy was drafted from product names, the pricelist and
+> general category knowledge. `Nano Flex`, `Nano Flow` and `Nano DPM` carry a `†` and a
+> deliberately empty description — their indications were not verifiable from the
+> pricelist. The exosome concentrations (`Nano EX` 30bil → `Nano Exosomes` 180bil) come
+> straight from the source sheet. Have the clinical team confirm every entry before
+> distribution.
 
 ## Open items
 
-- [ ] **Confirm every problem cue and page-3 card** with the clinical team (see above).
-- [ ] **Regenerative / stem cell regulatory statement** — page 3 ships with a visible
+- [ ] **Confirm every service-guide entry** with the clinical team, and fill in the three
+      `†` Nano descriptions (see above).
+- [ ] **Regenerative / stem cell regulatory statement** — page 2 ships with a visible
       dashed placeholder on page 2. Must be written from the clinic's actual documentation and
       cleared by the medical director + counsel. Do not distribute until replaced.
 - [ ] **Botox** is priced per unit ($13); the $25 fee assumes a ~25-unit average

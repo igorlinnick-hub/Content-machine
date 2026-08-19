@@ -14,131 +14,183 @@ const logo = readFileSync(new URL('../../../public/brand/hwc-logo.png', dir)).to
    Veterans already receive up to 50% off, so 10% is a fifth of the
    giveaway the clinic already absorbs — deliberately not the high end. */
 
-/* `cue` = the complaint a member walks in with, never the outcome.
-   Category cue does the pattern-matching; a row only carries its own cue
-   where it differs from the category. Rows: [name, fee, cue?]           */
+/* The fee page carries names and fees only — every explanation lives in
+   the service guide on pages 3-4. Rows: [name, fee]                     */
 
 const cats = [
   {
     name: 'Regenerative & Biologics',
-    cue: 'Worn joints, old injuries, things that never fully healed',
-    note: 'The clinician picks which product and strength — trainers just flag the problem.',
     rows: [
       ['Nano Exosomes', 500], ['Nano AER+', 300], ['Nano Flow', 300],
       ['Nano AER', 200], ['Nano Flex', 200],
-      ['Nano Ex Hair Restoration', 150, 'Thinning hair'],
+      ['Nano Ex Hair Restoration', 150],
       ['Nano DPM', 100], ['Nano EX', 100],
-      ['PRP', 100, 'Knees, shoulders, tendons'], ['Nano PRP Jelly', 50],
+      ['PRP', 100], ['Nano PRP Jelly', 50],
     ],
   },
   {
     name: 'Mental Health',
-    cue: 'Low mood, anxiety, trauma, pain nothing else has touched',
     rows: [
-      ['Vagus Nerve Injection', 300, 'Stress load, inflammation'],
-      ['Stellate Ganglion Block', 200, 'Trauma symptoms, PTSD'],
-      ['Ketamine — Chronic Pain', 100, 'Long-standing pain'],
-      ['Ketamine — Mental Health', 75, 'Depression, anxiety, PTSD'],
-      ['Exomind', 50, 'Low mood, mental fog'],
+      ['Vagus Nerve Injection', 300],
+      ['Stellate Ganglion Block', 200],
+      ['Ketamine — Chronic Pain', 100],
+      ['Ketamine — Mental Health', 75],
+      ['Exomind', 50],
     ],
   },
   {
     name: 'Aesthetics & Hair',
-    cue: 'Looking tired, ageing, thinning',
     rows: [
-      ['Hair Restoration', 250, 'Thinning or receding hair'],
-      ['Sculptra', 100, 'Facial volume loss'],
-      ['Dermal Fillers', 75, 'Lip and chin shape'],
-      ['Botox', 25, 'Lines and wrinkles'],
+      ['Hair Restoration', 250],
+      ['Sculptra', 100],
+      ['Dermal Fillers', 75],
+      ['Botox', 25],
     ],
   },
   {
     name: 'Weight Loss',
-    cue: 'Weight that will not move despite the work',
-    note: 'All three are prescription programs — the clinician decides which.',
     rows: [
       ['Retatrutide', 75], ['Semaglutide', 50], ['Tirzepatide', 50],
-      ['Weight Loss Booster', 25, 'Smaller first step'],
+      ['Weight Loss Booster', 25],
     ],
   },
   {
     name: 'Pain & Joint',
-    cue: 'Nagging pain, stiffness, slow recovery between sessions',
-    note: 'Same fee whichever modality the clinic uses.',
     rows: [
       ['Shockwave Therapy', 25], ['Class IV Laser', 25], ['Vibration Therapy', 25],
     ],
   },
   {
     name: 'Peptide Therapy',
-    cue: 'Recovery, sleep, energy, longevity goals',
-    note: 'Stack = a blend rather than a single peptide.',
     rows: [['Peptide Stack', 50], ['Peptide Therapy', 25]],
   },
   {
     name: 'IV Therapy & NAD+',
-    cue: 'Run down, dehydrated, flat, hungover',
-    note: 'Premium = Immunity Booster, COVID Rescue, Cold & Flu Plus, Beautify, Hangover Max.',
     rows: [
       ['IV Therapy — Premium', 50], ['IV Therapy', 25],
-      ['NAD+', 25, 'Energy and mental clarity'],
+      ['NAD+', 25],
     ],
   },
   {
     name: 'Consultations & Hormone',
-    cue: 'Not sure what they need — or low energy, libido, sleep',
     rows: [
-      ['Consultation', 50, 'Any member, any reason'],
-      ['Hormone Therapy', 25, 'Low energy, libido, mood'],
+      ['Consultation', 50],
+      ['Hormone Therapy', 25],
     ],
   },
 ];
 
-/* Page 3 — fuller context per category. `hear` is what a member actually
-   says on the gym floor; `is` is the plain description a trainer can repeat. */
+/* Pages 3–4 — the reference. `hear` is what a member actually says on the
+   gym floor; each service gets a plain sentence. Nothing here is a claim
+   about results: it describes what the service IS, not what it achieves. */
 
 const guide = [
-  { name: 'Regenerative & Biologics',
+  {
+    name: 'Regenerative & Biologics',
     hear: '"My knee\'s been shot for years." "It never healed right."',
-    is: 'Injections that use the body\'s own repair signals — PRP from their blood, or exosome products — placed into a worn or injured joint. Usually people who want to avoid or delay surgery.' },
-  { name: 'Pain & Joint',
+    who: 'Worn joints, old injuries and things that never fully healed. Often members trying to avoid or delay surgery.',
+    tail: 'The clinician chooses the product and concentration — you never have to.',
+    items: [
+      ['PRP', 'The member\'s own blood, spun down to concentrate its repair factors, then injected into the problem joint or tendon.'],
+      ['Nano PRP Jelly', 'PRP in a thicker gel carrier, used where a joint needs cushioning as well as repair.'],
+      ['Nano EX', 'Exosome injection at 30 billion.'],
+      ['Nano AER', 'Exosome injection at 50 billion.'],
+      ['Nano AER+', 'Exosome injection at 90 billion.'],
+      ['Nano Exosomes', 'The clinic\'s highest concentration — 180 billion per ml.'],
+      ['Nano Flex', 'Regenerative injectable. †'],
+      ['Nano Flow', 'Regenerative injectable. †'],
+      ['Nano DPM', 'Regenerative injectable. †'],
+      ['Nano Ex Hair Restoration', 'The same exosome approach applied to the scalp, for thinning or receding hair.'],
+    ],
+  },
+  {
+    name: 'Pain & Joint',
     hear: '"I\'m stiff for two days after leg day." "My shoulder keeps flaring."',
-    is: 'Non-invasive, no needles: shockwave, laser or vibration applied to the sore area in short sessions. The easiest first referral — low cost and low commitment.' },
-  { name: 'Mental Health',
+    who: 'Nagging pain, stiffness and slow recovery between sessions. No needles, low cost, low commitment — the easiest first referral you can make.',
+    items: [
+      ['Shockwave Therapy', 'Pulses of acoustic energy applied to a sore tendon or muscle. Short session, no downtime.'],
+      ['Class IV Laser', 'A therapeutic laser held over the painful area. Nothing is broken and nothing is injected.'],
+      ['Vibration Therapy', 'Targeted mechanical vibration worked into stiff or sore tissue.'],
+    ],
+  },
+  {
+    name: 'Mental Health',
     hear: '"I\'m just flat lately." "I haven\'t been right since deployment."',
-    is: 'Clinician-supervised care for depression, anxiety, PTSD and pain that has not responded to the usual routes. Includes ketamine sessions, nerve blocks and Exomind.' },
-  { name: 'Weight Loss',
+    who: 'Low mood, anxiety, trauma, or pain nothing else has touched. Every service here is physician-supervised and starts with an evaluation.',
+    items: [
+      ['Ketamine — Mental Health', 'A monitored ketamine session for depression, anxiety or PTSD. Normally run as a course rather than a one-off.'],
+      ['Ketamine — Chronic Pain', 'The same medication at pain-focused dosing, for pain that has lasted a long time.'],
+      ['Stellate Ganglion Block', 'An injection into a nerve bundle in the neck, used around trauma symptoms and PTSD. Comes up often with veterans.'],
+      ['Vagus Nerve Injection', 'An injection targeting the vagus nerve, used around stress load and inflammation.'],
+      ['Exomind', 'A non-invasive device session aimed at mood and mental clarity. No needles, no sedation.'],
+    ],
+  },
+  {
+    name: 'Weight Loss',
     hear: '"I train five days a week and nothing moves."',
-    is: 'Prescription weight-loss medication with a metabolic workup and follow-up. For members whose training is already dialled in and still stuck.' },
-  { name: 'Peptide Therapy',
+    who: 'Weight that will not move despite the work. All prescription programs, each with a metabolic workup and follow-up.',
+    items: [
+      ['Semaglutide', 'A weekly GLP-1 injection, prescribed as a course of four.'],
+      ['Tirzepatide', 'A dual-action medication in the same class, also a course of four.'],
+      ['Retatrutide', 'The newest option in this class and still investigational — whether it suits someone is entirely the clinician\'s call.'],
+      ['Weight Loss Booster', 'A single injection used as a smaller first step for members not ready to commit to a program.'],
+    ],
+  },
+  {
+    name: 'Peptide Therapy',
     hear: '"I don\'t recover like I used to." "My sleep is garbage."',
-    is: 'Compounded peptide protocols aimed at recovery, sleep and general longevity goals. Popular with older members and anyone training heavy.' },
-  { name: 'IV Therapy & NAD+',
+    who: 'Recovery, sleep, energy and longevity goals. Popular with older members and anyone training heavy.',
+    items: [
+      ['Peptide Therapy', 'A single compounded peptide prescribed for one goal — recovery, sleep, or similar.'],
+      ['Peptide Stack', 'Several peptides blended into one protocol. Costs more, so it pays more.'],
+    ],
+  },
+  {
+    name: 'IV Therapy & NAD+',
     hear: '"I\'m wrecked today." "I\'m fighting something off."',
-    is: 'A drip in the clinic — fluids, vitamins and minerals — or NAD+ for energy and clarity. Quick, cheap, and the easiest thing to say yes to.' },
-  { name: 'Aesthetics & Hair',
+    who: 'Run down, dehydrated, flat or hungover. Quick and inexpensive — the easiest thing in the clinic to say yes to.',
+    items: [
+      ['IV Therapy', 'A vitamin and mineral drip in the clinic, around 45 minutes. Myer\'s Cocktail is the standard one.'],
+      ['IV Therapy — Premium', 'The larger formulations: Immunity Booster, COVID Rescue, Cold & Flu Plus, Beautify, Hangover Max.'],
+      ['NAD+', 'An injection or vial used around energy and mental clarity rather than hydration.'],
+    ],
+  },
+  {
+    name: 'Aesthetics & Hair',
     hear: '"I look tired even when I\'m not." "My hair\'s going."',
-    is: 'Botox, fillers, Sculptra and hair restoration. Straightforward cosmetic work — no medical history needed to make the introduction.' },
-  { name: 'Consultations & Hormone',
+    who: 'Looking tired, ageing or thinning. Straightforward cosmetic work — no medical history needed to make the introduction.',
+    items: [
+      ['Botox', 'Injected in small units to soften lines and wrinkles. Priced per unit at the clinic; you are paid per treatment.'],
+      ['Dermal Fillers', 'Volume added to the lips or chin for shape.'],
+      ['Sculptra', 'A collagen-stimulating treatment for facial volume loss, done over several visits.'],
+      ['Hair Restoration', 'For thinning or receding hair. Sold as a single treatment or a four-treatment package.'],
+    ],
+  },
+  {
+    name: 'Consultations & Hormone',
     hear: '"I don\'t even know where I\'d start."',
-    is: 'The catch-all. If a member is interested but you cannot place them, send them to a consultation — you get paid for it, and the clinic works out the rest.' },
+    who: 'Not sure what they need — or low energy, libido and sleep.',
+    items: [
+      ['Consultation', 'Any member, any reason. If you cannot place someone, send them here: you are paid either way and the clinic works out the rest.'],
+      ['Hormone Therapy', 'A hormone workup and, where appropriate, ongoing therapy. Comes up around energy, libido, mood and sleep.'],
+    ],
+  },
 ];
 
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const table = c => `
 <section class="cat">
   <div class="cat-head"><h3>${esc(c.name)}</h3><span class="rule"></span></div>
-  <p class="cat-cue">${esc(c.cue)}</p>
-  ${c.note ? `<p class="cat-note">${esc(c.note)}</p>` : ''}
-  <table>${c.rows.map(([n, v, cue]) => `<tr><td><span class="svc">${esc(n)}</span>${
-    cue ? `<span class="cue">${esc(cue)}</span>` : ''}</td><td class="pay">$${v}</td></tr>`).join('')}</table>
+  <table>${c.rows.map(([n, v]) => `<tr><td>${esc(n)}</td><td class="pay">$${v}</td></tr>`).join('')}</table>
 </section>`;
 
 const card = g => `
 <section class="card">
-  <h3>${esc(g.name)}</h3>
+  <div class="cat-head"><h3>${esc(g.name)}</h3><span class="rule"></span></div>
   <p class="hear">${esc(g.hear)}</p>
-  <p class="is">${esc(g.is)}</p>
+  <p class="who">${esc(g.who)}</p>
+  <dl>${g.items.map(([n, d]) => `<dt>${esc(n)}</dt><dd>${esc(d)}</dd>`).join('')}</dl>
+  ${g.tail ? `<p class="tail">${esc(g.tail)}</p>` : ''}
 </section>`;
 
 const page = (n, body) => `<div class="page">${body}<div class="foot">
@@ -206,27 +258,30 @@ h1 em{font-style:italic;color:var(--coral)}
 .rate b{color:var(--ink);font-weight:600}
 
 /* ── category tables ── */
-.grid{column-count:2;column-gap:28px;margin-top:13px}
-.cat{break-inside:avoid;margin-bottom:9px}
+.grid{column-count:2;column-gap:28px;margin-top:15px}
+.cat{break-inside:avoid;margin-bottom:11px}
 .cat-head{display:flex;align-items:center;gap:9px;margin-bottom:3px}
 .cat h3{font-family:var(--serif);font-size:12pt;font-weight:600;color:var(--ocean-dark);white-space:nowrap}
 .cat .rule{flex:1;height:1px;background:linear-gradient(90deg,rgba(58,174,160,.55),rgba(58,174,160,0))}
-.cat-cue{font-size:8.2pt;color:var(--teal);font-weight:600;line-height:1.4;margin-bottom:2px}
-.cat-note{font-size:7.4pt;color:var(--muted);line-height:1.45;margin-bottom:4px;font-style:italic}
-.cat td .svc{display:block}
-.cat td .cue{display:block;font-size:7.4pt;color:var(--muted);line-height:1.35;margin-top:.5px}
 
-/* ── page 3 explainer cards ── */
-.cards{column-count:2;column-gap:26px;margin-top:12px}
-.card{break-inside:avoid;margin-bottom:10px;background:#fff;border:1px solid rgba(27,79,110,.13);
-  border-radius:10px;padding:11px 13px}
-.card h3{font-family:var(--serif);font-size:12pt;font-weight:600;color:var(--ocean-dark);margin-bottom:5px}
-.card .hear{font-size:8pt;line-height:1.45;color:var(--coral);font-style:italic;margin-bottom:5px}
-.card .is{font-size:8.1pt;line-height:1.5;color:var(--muted)}
+/* ── pages 3-4 service guide ── */
+.cards{column-count:2;column-gap:26px;margin-top:14px}
+.card{break-inside:avoid;margin-bottom:15px}
+.card .cat-head{margin-bottom:5px}
+.card h3{font-family:var(--serif);font-size:12.5pt;font-weight:600;color:var(--ocean-dark);white-space:nowrap}
+.card .hear{font-size:8.2pt;line-height:1.45;color:var(--coral);font-style:italic;margin-bottom:4px}
+.card .who{font-size:8.2pt;line-height:1.5;color:var(--ink);margin-bottom:7px}
+.card dl{margin:0}
+.card dt{font-size:8.5pt;font-weight:600;color:var(--ocean);margin-top:6px}
+.card dt:first-child{margin-top:0}
+.card dd{font-size:8pt;line-height:1.45;color:var(--muted);margin:1px 0 0}
+.card .tail{font-size:7.6pt;line-height:1.45;color:var(--muted);font-style:italic;
+  margin-top:8px;padding-top:6px;border-top:1px solid rgba(27,79,110,.1)}
+.dagger{font-size:7.6pt;line-height:1.5;color:var(--muted);margin-top:12px;font-style:italic}
 .cat table{width:100%;border-collapse:collapse;margin-top:3px}
 .cat tr{border-bottom:1px solid rgba(27,79,110,.09)}
 .cat tr:last-child{border-bottom:none}
-.cat td{padding:3.6px 0;font-size:9.1pt;vertical-align:baseline}
+.cat td{padding:4.3px 0;font-size:9.2pt;vertical-align:baseline}
 .cat td.pay{text-align:right;font-weight:700;color:var(--coral);
   font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:10px}
 
@@ -241,7 +296,7 @@ h1 em{font-style:italic;color:var(--coral)}
 .fine b{color:var(--ink);font-weight:600}
 
 /* ── compliance ── */
-.legal{margin-top:8px;background:#fff;border:1px solid rgba(27,79,110,.16);
+.legal{margin-top:auto;background:#fff;border:1px solid rgba(27,79,110,.16);
   border-radius:10px;padding:11px 14px}
 .legal h4{font-size:8pt;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
   color:var(--ocean);margin-bottom:7px}
@@ -258,7 +313,7 @@ h1 em{font-style:italic;color:var(--coral)}
   font-size:7pt;color:#94a3ab;letter-spacing:.03em;border-top:1px solid rgba(27,79,110,.1)}
 </style>
 
-${page('Page 1 of 3', `
+${page('Page 1 of 4', `
 <div class="mast">
   <img src="data:image/png;base64,${logo}" alt="Hawaii Wellness Clinic">
   <div class="who"><b>Partner Guide</b>UFC GYM Trainers &amp; Management<br>Repeat Cash Program &nbsp;·&nbsp; 2026</div>
@@ -306,7 +361,7 @@ automatically the moment your referral gets care.</p>
 </div>
 `)}
 
-${page('Page 2 of 3', `
+${page('Page 2 of 4', `
 <div class="mast">
   <img src="data:image/png;base64,${logo}" alt="Hawaii Wellness Clinic">
   <div class="who"><b>Commission Schedule</b>What you earn per referral<br>Effective 2026</div>
@@ -315,19 +370,6 @@ ${page('Page 2 of 3', `
 <p class="lede" style="font-size:9.4pt;margin-top:6px;max-width:6.2in">One name, one fee — the same tag we use in the clinic's system. Dose and package size don't change it.</p>
 
 <div class="grid">${cats.map(table).join('')}</div>
-`)}
-
-${page('Page 3 of 3', `
-<div class="mast">
-  <img src="data:image/png;base64,${logo}" alt="Hawaii Wellness Clinic">
-  <div class="who"><b>Know what you're sending</b>A plain-English guide<br>Effective 2026</div>
-</div>
-<h1 style="font-size:21pt;margin-top:8px">What each one <em>actually is</em></h1>
-<p class="lede" style="font-size:9.4pt;margin-top:6px;max-width:6.2in">Enough to recognise the
-problem and make the introduction. You never have to explain the medicine — that's the clinic's job.</p>
-
-<div class="cards">${guide.map(card).join('')}</div>
-
 <div class="legal">
   <h4>Please read — what trainers can and cannot say</h4>
   <p>Hawaii Wellness Clinic is a physician-supervised medical clinic. Your role is to <b>introduce
@@ -343,6 +385,31 @@ problem and make the introduction. You never have to explain the medicine — th
   The clinic's regenerative / stem cell regulatory statement goes here. It must be written from the
   documentation the clinic actually holds and cleared by the medical director and counsel first.</p></div>
 </div>
+
+`)}
+
+${page('Page 3 of 4', `
+<div class="mast">
+  <img src="data:image/png;base64,${logo}" alt="Hawaii Wellness Clinic">
+  <div class="who"><b>Service Guide</b>What each one actually is<br>1 of 2</div>
+</div>
+<h1 style="font-size:21pt;margin-top:8px">What each one <em>actually is</em></h1>
+<p class="lede" style="font-size:9.4pt;margin-top:6px;max-width:6.2in">Read this once and you'll
+recognise most of what walks past you. You never have to explain the medicine — that's the clinic's job.</p>
+
+<div class="cards">${guide.slice(0, 3).map(card).join('')}</div>
+<p class="dagger">† Proprietary formulation — ask the clinic for the current description before
+describing it to a member.</p>
+`)}
+
+${page('Page 4 of 4', `
+<div class="mast">
+  <img src="data:image/png;base64,${logo}" alt="Hawaii Wellness Clinic">
+  <div class="who"><b>Service Guide</b>What each one actually is<br>2 of 2</div>
+</div>
+
+<div class="cards" style="margin-top:24px">${guide.slice(3).map(card).join('')}</div>
+
 `)}
 `;
 
