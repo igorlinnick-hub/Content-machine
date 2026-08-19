@@ -197,10 +197,18 @@ function enforceMix(briefs: PostPlanPhotoBrief[]): PostPlanPhotoBrief[] {
 
   const isRender = (p: string | null | undefined) =>
     !!p && p.includes('EDITORIAL 3D anatomical render')
-  const flippable = out
-    .filter((b) => b.source === 'ai' && b.n !== 1 && !isRender(b.prompt))
-    // Later slides (candidacy / CTA / analogy) flip first.
-    .sort((a, b) => b.n - a.n)
+  // Renders are the premium AI slides, so they flip LAST — but they must
+  // stay eligible. Under v4 nearly every body slide is a render, and
+  // excluding them outright left one clinic photo in a seven-slide post
+  // instead of three (measured 2026-08-18).
+  const byPreference = (a: PostPlanPhotoBrief, b: PostPlanPhotoBrief) => {
+    const ar = isRender(a.prompt) ? 1 : 0
+    const br = isRender(b.prompt) ? 1 : 0
+    if (ar !== br) return ar - br
+    // Within a group, later slides (candidacy / CTA / analogy) flip first.
+    return b.n - a.n
+  }
+  const flippable = out.filter((b) => b.source === 'ai' && b.n !== 1).sort(byPreference)
 
   const flip = new Set(flippable.slice(0, targetClinic - clinicNow).map((b) => b.n))
   return out.map((b) =>
