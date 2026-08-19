@@ -120,12 +120,51 @@ export default function VideoLibrary({
   edited: LibraryItem[]
   teleprompterHref: string
 }) {
+  // Recordings are owned locally so a delete updates the gallery without a
+  // round-trip re-render; edited clips are read-only on this screen.
+  const [recs, setRecs] = useState<LibraryItem[]>(recordings)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const hasEdited = edited.length > 0
   // Land on the edited tab when the team has already delivered something —
   // that's the version the doctor actually wants to see first.
   const [tab, setTab] = useState<Tab>(hasEdited ? 'edited' : 'recording')
-  const items = tab === 'edited' ? edited : recordings
+  const items = tab === 'edited' ? edited : recs
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null)
+
+  async function deleteRecording(item: LibraryItem) {
+    if (deleting || item.kind !== 'recording') return
+    const ok = window.confirm(
+      `Delete "${item.title}"?\n\nThis removes the video from the app and from the clinic's Drive folder. It cannot be undone.`
+    )
+    if (!ok) return
+    setDeleting(item.id)
+    setDeleteError(null)
+    try {
+      const res = await fetch('/api/studio/recordings', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recordingId: item.id }),
+      })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        throw new Error(data.error || `Delete failed (${res.status})`)
+      }
+      setRecs((prev) => {
+        const next = prev.filter((r) => r.id !== item.id)
+        if (selectedId === item.id) {
+          // Keep the player on the neighbour so the screen doesn't go blank.
+          const idx = prev.findIndex((r) => r.id === item.id)
+          setSelectedId(next[Math.min(idx, next.length - 1)]?.id ?? null)
+        }
+        return next
+      })
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Delete failed')
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   // Switching tabs re-points the player at the first item of the new list.
   useEffect(() => {
@@ -150,7 +189,7 @@ export default function VideoLibrary({
     return Array.from(map.entries())
   }, [items])
 
-  if (recordings.length === 0 && edited.length === 0) {
+  if (recs.length === 0 && edited.length === 0) {
     return (
       <div className="rounded-2xl p-10 text-center" style={GLASS}>
         <div
@@ -184,7 +223,7 @@ export default function VideoLibrary({
           {(['edited', 'recording'] as Tab[])
             .filter((t) => t === 'recording' || hasEdited)
             .map((t) => {
-              const count = t === 'edited' ? edited.length : recordings.length
+              const count = t === 'edited' ? edited.length : recs.length
               const active = tab === t
               return (
                 <button
@@ -246,19 +285,43 @@ export default function VideoLibrary({
                         {selected.sizeBytes ? ` · ${fmtBytes(selected.sizeBytes)}` : ''}
                       </p>
                     </div>
-                    <a
-                      href={selected.driveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-white hover:text-neutral-900"
-                      title="Open in Google Drive (download / share)"
-                    >
-                      Open in Drive
-                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                      </svg>
-                    </a>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <a
+                        href={selected.driveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-white hover:text-neutral-900"
+                        title="Open in Google Drive (download / share)"
+                      >
+                        Open in Drive
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                        </svg>
+                      </a>
+                      {selected.kind === 'recording' && (
+                        <button
+                          onClick={() => deleteRecording(selected)}
+                          disabled={deleting === selected.id}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                          title="Delete this recording from the app and Drive"
+                        >
+                          {deleting === selected.id ? (
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-rose-200 border-t-rose-600" />
+                          ) : (
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          )}
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
+                  {deleteError && (
+                    <p className="border-t border-rose-100 bg-rose-50/70 px-4 py-2 text-xs text-rose-700">
+                      {deleteError}
+                    </p>
+                  )}
                 </>
               ) : (
                 <div className="flex aspect-video items-center justify-center text-sm text-neutral-400">
@@ -295,32 +358,61 @@ export default function VideoLibrary({
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3">
                   {list.map((it) => {
                     const active = it.id === selectedId
+                    const busy = deleting === it.id
                     return (
-                      <button
+                      // min-w-0 on the grid cell is what lets `truncate` work —
+                      // without it long titles spill across the neighbour card.
+                      <div
                         key={it.id}
-                        onClick={() => {
-                          setSelectedId(it.id)
-                          // On phone the player sits above the list — bring it back into view.
-                          if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: 'smooth' })
-                        }}
-                        className="group flex flex-col gap-2 rounded-2xl p-2 text-left transition hover:bg-white/60"
+                        className={`group relative flex min-w-0 flex-col gap-2 rounded-2xl p-2 transition hover:bg-white/60 ${
+                          busy ? 'opacity-50' : ''
+                        }`}
                         style={active ? GLASS : undefined}
                       >
-                        <Thumb item={it} active={active} />
-                        <span className="min-w-0 px-1 pb-1">
-                          <span
-                            className={`block truncate text-[13px] font-medium ${
-                              active ? 'text-violet-700' : 'text-neutral-800'
-                            }`}
+                        <button
+                          onClick={() => {
+                            setSelectedId(it.id)
+                            // On phone the player sits above the list — bring it back into view.
+                            if (window.innerWidth < 1024) window.scrollTo({ top: 0, behavior: 'smooth' })
+                          }}
+                          className="flex w-full min-w-0 flex-col gap-2 text-left"
+                          disabled={busy}
+                        >
+                          <Thumb item={it} active={active} />
+                          <span className="block w-full min-w-0 px-1 pb-1">
+                            <span
+                              className={`block truncate text-[13px] font-medium ${
+                                active ? 'text-violet-700' : 'text-neutral-800'
+                              }`}
+                              title={it.title}
+                            >
+                              {it.title}
+                            </span>
+                            <span className="block text-[11px] text-neutral-400">
+                              {fmtTimeOfDay(it.createdAt)}
+                              {it.sizeBytes ? ` · ${fmtBytes(it.sizeBytes)}` : ''}
+                            </span>
+                          </span>
+                        </button>
+                        {it.kind === 'recording' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteRecording(it)
+                            }}
+                            disabled={busy}
+                            aria-label="Delete recording"
+                            title="Delete recording"
+                            // Hover-reveal on pointer devices; always visible on touch
+                            // (no hover there), sized for a thumb.
+                            className="absolute right-3.5 top-3.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white opacity-100 backdrop-blur-sm transition hover:bg-rose-600 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
                           >
-                            {it.title}
-                          </span>
-                          <span className="block text-[11px] text-neutral-400">
-                            {fmtTimeOfDay(it.createdAt)}
-                            {it.sizeBytes ? ` · ${fmtBytes(it.sizeBytes)}` : ''}
-                          </span>
-                        </span>
-                      </button>
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     )
                   })}
                 </div>

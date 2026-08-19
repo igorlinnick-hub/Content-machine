@@ -142,7 +142,22 @@ export async function createUploadSession(
   return { uploadUrl }
 }
 
+// Same client preference as uploads (user OAuth first): a file created by
+// the user client is owned by that account, and Drive lets only the owner
+// hard-delete it — the service account would get a 403. If the hard delete
+// is still refused (e.g. SA-only setup on someone else's folder), trash it;
+// gone from the doctor's library either way.
 export async function deleteRecordingFromDrive(fileId: string): Promise<void> {
-  const drive = getDriveClient()
-  await drive.files.delete({ fileId, supportsAllDrives: true })
+  const drive = getUserDriveClient() ?? getDriveClient()
+  try {
+    await drive.files.delete({ fileId, supportsAllDrives: true })
+  } catch (e) {
+    const status = (e as { code?: number }).code
+    if (status === 404) return // already gone
+    await drive.files.update({
+      fileId,
+      requestBody: { trashed: true },
+      supportsAllDrives: true,
+    })
+  }
 }
