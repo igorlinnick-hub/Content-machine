@@ -1,6 +1,6 @@
 # UFC GYM Partner — Repeat Cash Commission Schedule
 
-HWC-branded 2-page PDF listing every service a UFC GYM trainer can refer and what
+HWC-branded 3-page PDF listing every service a UFC GYM trainer can refer and what
 each one pays. Extends the original 8-bucket "What you can earn" panel in the
 UFC Trainer Partner Guide into the full catalog, at CRM-tag granularity.
 
@@ -67,9 +67,31 @@ inconsistent effective rates once spread across the real price range:
 - Pain & Joint → **10% member / 20% veteran**, and its column header reads
   "Veteran Price", not "Veteran Member Price"
 
+## Problem cues (page 2) and the explainer (page 3)
+
+Each service carries a short cue describing **the complaint a member walks in with**,
+never the outcome of treatment — "Depression, anxiety, PTSD", not "lifts depression".
+Problem-framing is what a trainer actually needs to pattern-match on, and it keeps the
+sheet clear of efficacy claims a non-clinician must not make.
+
+The cue sits at category level (teal, above the table) since that is the level a trainer
+decides at. Rows carry their own cue only where it differs from the category — the Nano
+products deliberately do not, because choosing between them is the clinician's call, not
+the trainer's.
+
+Page 3 gives each category a plain-English card: what a member typically says, and what
+the service actually is. Enough to make an introduction, not enough to advise.
+
+> **Needs clinical review:** the cues and card copy were drafted from product names and
+> general category knowledge. The Nano line in particular (`Nano Flow`, `Nano Flex`,
+> `Nano DPM`, `Nano AER`/`AER+`, `Nano EX`) is proprietary and its indications were not
+> verifiable from the pricelist — which is why those rows carry no individual cue. Have
+> the clinical team confirm every cue before distribution.
+
 ## Open items
 
-- [ ] **Regenerative / stem cell regulatory statement** — page 2 ships with a visible
+- [ ] **Confirm every problem cue and page-3 card** with the clinical team (see above).
+- [ ] **Regenerative / stem cell regulatory statement** — page 3 ships with a visible
       dashed placeholder on page 2. Must be written from the clinic's actual documentation and
       cleared by the medical director + counsel. Do not distribute until replaced.
 - [ ] **Botox** is priced per unit ($13); the $25 fee assumes a ~25-unit average
