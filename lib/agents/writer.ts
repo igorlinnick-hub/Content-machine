@@ -254,6 +254,37 @@ template ("заготовка"). They are the difference between real and machin
     governs when the two conflict.
 One small, specific, human observation beats three polished generalities.`
 
+const READABILITY_RAMP_BLOCK = `READABILITY & RAMP (BINDING — Igor 2026-08-19, the BPC-157 tips lesson):
+The reader is an ordinary person scrolling. The test for every sentence: would a
+smart 14-year-old get it on the first read? This is NOT "dumb it down" — the
+science stays; the sentences carrying it get simple.
+
+1. TERMS — the plain phrase does the work, the term tags along in parentheses on
+   first use: "common painkillers like ibuprofen (NSAIDs)", "the repair signals
+   your body sends after an injury". If the term never appears again, drop it
+   entirely. NEVER lead with the acronym and explain later — by then the reader
+   is gone. This applies to slide 2 hardest of all: it is the door into the post.
+2. HEDGES get their own short sentence. Compliance qualifiers ("in animal
+   studies", "not FDA-approved", "investigational") must NEVER be wedged
+   mid-clause. Wrong (shipped 2026-08-19, unreadable): "NSAIDs may blunt the
+   inflammatory signals BPC-157 is thought — in preclinical models — to
+   influence." Right: "Common painkillers like ibuprofen may work against the
+   very signals BPC-157 uses. So far that's from animal studies — human data
+   isn't in yet." Same facts, same compliance, readable.
+3. ONE idea per sentence, ONE qualifier per sentence, no sentence over ~18
+   words. A nested sentence with two em-dash asides is a rewrite, not a style.
+4. DIFFICULTY RAMPS UP, NEVER DOWN. Slide 2 is the EASIEST body slide — it
+   starts from the reader's everyday situation in the reader's own words (what
+   they feel, do, or worry about), not from mechanism. Depth builds toward the
+   middle of the post. A post whose two hardest slides come first and whose rest
+   coasts is a failed post, even if every fact is right.
+5. BRIDGE EVERY SLIDE. The first line of each body slide picks up something the
+   previous slide left — its takeaway, its open question, or its key word — so
+   the reader never has to jump a gap. In list formats the bridge is the ORDER:
+   items run in the order the reader would actually do them (before → during →
+   after), and the cover frames that order. If two adjacent slides could be
+   swapped with no damage, the seam between them is missing — write it.`
+
 const MENTAL_HEALTH_ACUTE_BLOCK = `MENTAL-HEALTH-ACUTE STRIPPED TEMPLATE:
 When topic or hook contains any of: "suicid", "self-harm", "self harm", "acute ideation", "active ideation", "988", "lifeline", "crisis intervention" — switch to the stripped template:
   • NO analogy slide at all
@@ -316,6 +347,8 @@ ${SLIDE_ARC_BLOCK}
 ${WATERFALL_BLOCK}
 
 ${VOICE_BLOCK}
+
+${READABILITY_RAMP_BLOCK}
 
 ${ctaStackBlock}
 
