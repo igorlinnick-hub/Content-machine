@@ -132,7 +132,13 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
  */
 export function stylesForNiche(niche: string | null | undefined): StyleTemplate[] {
   const normalized = (niche ?? '').trim().toLowerCase()
-  return STYLE_TEMPLATES.filter((s) => !s.niches || s.niches.includes(normalized))
+  // An aesthetics clinic gets ONLY its own look (Igor 2026-08-20). Dr. Made's
+  // brand is the Aesthetic master; the regenmed styles were still offered in
+  // his picker and had no business being there. This is the mirror of the
+  // `niches` rule below, which keeps Aesthetic out of everyone else's picker.
+  const own = STYLE_TEMPLATES.filter((s) => s.niches?.includes(normalized))
+  if (own.length > 0) return own
+  return STYLE_TEMPLATES.filter((s) => !s.niches)
 }
 
 export const canvaEditUrl = (designId: string): string =>

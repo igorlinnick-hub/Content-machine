@@ -3,6 +3,7 @@ import { MODEL_DEFAULT, callAgentTool } from './base'
 import type { ReplaceWeekInput } from '@/lib/content-plan/store'
 import { keywordPoolForNiche } from '@/lib/seeds/cta-keywords'
 import { POST_FORMATS, FORMAT_NAMES } from '@/lib/posts/formats'
+import { getNicheProfile } from '@/lib/niche/profiles'
 
 export interface PlannerOutput {
   weeks: ReplaceWeekInput[]
@@ -15,7 +16,24 @@ const FORMAT_BLOCK = POST_FORMATS.map(
   (f, i) => `  ${i + 1}. ${f.name} — ${f.hint}`
 ).join('\n')
 
-function buildPlanPrompt(keywordBlock: string): string {
+// Aesthetics reads differently from regenerative medicine: the audience is
+// browsing, not troubleshooting a chronic problem (Igor 2026-08-20). Same
+// topic-quality rules, different mood — light, practical, encouraging.
+const AESTHETICS_TONE_BLOCK = `NICHE TONE — MEDICAL AESTHETICS (BINDING for this clinic):
+The mood is light, warm and practical — self-care a reader looks forward to, never a medical problem to be fixed. Lead with what people can DO and what they can expect, not with pathology.
+- Favour topics that give: practical care tips, what to do before and after a treatment, how to keep results longer, how to choose well, what is normal and what is not, seasonal and everyday skin habits.
+- Frame ageing and appearance NEUTRALLY. Never shame a face or a body, never imply the reader looks wrong or needs fixing, never use fear or urgency ("before it's too late"). No before/after promises.
+- Guidance, not verdicts: the reader is deciding for themselves and the post helps them decide well.
+- Keep it patient-facing and jargon-free — injector shop-talk (units, anatomy names, product brands as headline words) does not belong in a topic.`
+
+/** Niche-specific tone rules appended to both planner prompts. */
+function toneBlockFor(niche: string | null | undefined): string {
+  return getNicheProfile(niche).id === 'aesthetics'
+    ? `${AESTHETICS_TONE_BLOCK}\n\n`
+    : ''
+}
+
+function buildPlanPrompt(keywordBlock: string, toneBlock: string): string {
   return `You are an editorial content strategist for a medical clinic's social media (Instagram, TikTok, YouTube Shorts).
 
 Given a clinic's profile — their services, content pillars, deep-dive topics, audience, and tone — generate an 8-week content plan with exactly 3 posts per week (24 posts total).
@@ -43,7 +61,7 @@ TOPIC QUALITY (HARD RULES — Igor 2026-08-20):
 - Write all topics in English
 - Generate a short description for each week explaining the editorial angle
 
-VALID KEYWORDS (use ONLY these — do not invent new ones):
+${toneBlock}VALID KEYWORDS (use ONLY these — do not invent new ones):
 ${keywordBlock}
 Pick the keyword that best matches the post topic. Never invent a keyword not in these lists.`
 }
@@ -53,7 +71,7 @@ Pick the keyword that best matches the post topic. Never invent a keyword not in
 // still fits the same week's theme + pillar and doesn't collide with
 // anything else in the plan.
 
-function buildRerollPrompt(keywordBlock: string): string {
+function buildRerollPrompt(keywordBlock: string, toneBlock: string): string {
   return `You are an editorial content strategist for a medical clinic's social media.
 
 Generate exactly ONE new post topic for the given week of a content plan — either REPLACING a topic the marketer rejected, or ADDING one more on top of the existing ones (the task line in the input says which).
@@ -68,7 +86,7 @@ ${FORMAT_BLOCK}
 
 TOPIC QUALITY (HARD): the topic names the READER'S problem or question in their own words — never the doctor's name in a topic, never a promised outcome ("lost 40 pounds"), and prefer an entry point the week doesn't already use (symptom felt / mechanism / decision / misconception / self-check / at-home habit) over another "treatment name + angle" line.
 
-VALID KEYWORDS (use ONLY these — do not invent new ones):
+${toneBlock}VALID KEYWORDS (use ONLY these — do not invent new ones):
 ${keywordBlock}`
 }
 
@@ -111,7 +129,7 @@ AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' |
 
   return callAgentTool<RerolledTopic>({
     model: MODEL_DEFAULT,
-    systemPrompt: buildRerollPrompt(pool.promptBlock),
+    systemPrompt: buildRerollPrompt(pool.promptBlock, toneBlockFor(profile.niche)),
     userContent,
     toolName: 'submit_replacement_topic',
     toolDescription: 'Submit the single replacement post topic',
@@ -151,7 +169,7 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
 
   return callAgentTool<PlannerOutput>({
     model: MODEL_DEFAULT,
-    systemPrompt: buildPlanPrompt(pool.promptBlock),
+    systemPrompt: buildPlanPrompt(pool.promptBlock, toneBlockFor(profile.niche)),
     userContent,
     toolName: 'submit_content_plan',
     toolDescription: 'Submit the generated 8-week content plan',
