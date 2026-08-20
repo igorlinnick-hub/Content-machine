@@ -632,6 +632,7 @@ export type Database = {
           long_caption: string | null
           template_used: string | null
           role_blocks: Json | null
+          compliance: Json | null
           format_template_id: string | null
           starred: boolean | null
           updated_at: string | null
@@ -657,6 +658,7 @@ export type Database = {
           word_count?: number | null
           template_used?: string | null
           role_blocks?: Json | null
+          compliance?: Json | null
           format_template_id?: string | null
         }
         Update: {
@@ -678,6 +680,7 @@ export type Database = {
           long_caption?: string | null
           template_used?: string | null
           role_blocks?: Json | null
+          compliance?: Json | null
           format_template_id?: string | null
           starred?: boolean | null
           updated_at?: string | null

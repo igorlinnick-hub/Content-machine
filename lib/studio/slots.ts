@@ -7,7 +7,14 @@ import {
   type ShotType,
   type StudioVideo,
 } from '@/lib/studio/videos'
-import type { RoleBlock, RolePlan, StudioRolePayload } from '@/types'
+import { runComplianceGate } from '@/lib/posts/pipeline'
+import { blocksMaBoard } from '@/lib/studio/schedule'
+import type {
+  ComplianceResult,
+  RoleBlock,
+  RolePlan,
+  StudioRolePayload,
+} from '@/types'
 
 // Studio idea generation. A Shot List video is turned into a simple shoot
 // brief (steps + role-assigned script) adapted to the clinic's niche, then
@@ -47,6 +54,12 @@ export interface StudioIdea {
   script: string
   steps: string[]
   role_blocks: RoleBlock[] | null
+  // null means never graded (legacy rows). The MA board treats that as
+  // "not cleared", not as "fine".
+  compliance: ComplianceResult | null
+  // Whether this brief is held off the MA board — see blocksMaBoard for
+  // what counts (REMOVE / REWORD, ungraded, or a failed gate).
+  blocked: boolean
 }
 
 // Generate a fresh idea for a video (does not persist the pin — callers
@@ -102,6 +115,26 @@ export async function generateIdeaForVideo(
   const scriptId = saved[0]?.id
   if (!scriptId) throw new Error('failed to save studio idea script')
 
+  // The gate runs on every shoot brief because staff film from these — the
+  // MA board is a publishing surface, not an internal scratchpad. A failure
+  // here must NOT return an ungraded brief as if it were fine: null grade
+  // reads as "not cleared" downstream and keeps the card off the board.
+  let compliance: ComplianceResult | null = null
+  try {
+    compliance = await runComplianceGate({
+      script: v.script,
+      topic: v.topic,
+      niche: context.clinic_profile.niche,
+    })
+    await createServerClient()
+      .from('scripts')
+      .update({ compliance: compliance as unknown as never })
+      .eq('id', scriptId)
+      .eq('clinic_id', clinicId)
+  } catch {
+    compliance = null
+  }
+
   return {
     script_id: scriptId,
     topic: v.topic,
@@ -109,6 +142,8 @@ export async function generateIdeaForVideo(
     script: v.script,
     steps,
     role_blocks: blocks,
+    compliance,
+    blocked: blocksMaBoard(compliance),
   }
 }
 
@@ -132,7 +167,7 @@ export async function loadStudioIdea(
   const supabase = createServerClient()
   const { data } = await supabase
     .from('scripts')
-    .select('id, topic, hook, full_script, role_blocks')
+    .select('id, topic, hook, full_script, role_blocks, compliance')
     .eq('id', scriptId)
     .eq('clinic_id', clinicId)
     .maybeSingle()
@@ -148,6 +183,7 @@ export async function loadStudioIdea(
     steps = Array.isArray(p.steps) ? p.steps : []
     blocks = Array.isArray(p.blocks) ? p.blocks : null
   }
+  const compliance = (data.compliance as unknown as ComplianceResult | null) ?? null
   return {
     script_id: data.id,
     topic: data.topic ?? '',
@@ -155,5 +191,7 @@ export async function loadStudioIdea(
     script: data.full_script,
     steps,
     role_blocks: blocks,
+    compliance,
+    blocked: blocksMaBoard(compliance),
   }
 }

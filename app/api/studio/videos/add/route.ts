@@ -3,7 +3,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { addStudioVideoByEmbed, addStudioVideoByUrl } from '@/lib/studio/addByUrl'
 import { loadStudioVideo, type ShotType } from '@/lib/studio/videos'
-import { generateAndPinIdea } from '@/lib/studio/slots'
+import { generateAndPinIdea, type StudioIdea } from '@/lib/studio/slots'
 import { scheduleStudioVideo } from '@/lib/studio/schedule'
 import { parseEmbed } from '@/lib/studio/embed'
 
@@ -46,6 +46,15 @@ export async function POST(req: Request) {
       { status: 400 }
     )
 
+  // The embed path has no cover frame to analyse, so the note is the only
+  // input describing the format. Without it the brief silently ignores the
+  // reel. TikTok is exempt — Apify hands us a real cover to read.
+  if (parsed.platform !== 'tiktok' && !body.note?.trim())
+    return NextResponse.json(
+      { ok: false, error: 'Add the one-line note — the brief is built from it.' },
+      { status: 400 }
+    )
+
   let added: { id: string }
   try {
     added =
@@ -66,19 +75,30 @@ export async function POST(req: Request) {
   // Best-effort idea generation (respects the kill switch). The video is
   // already on the Shot List even if generation is off.
   const off = await disabledHttpResponse()
+  let idea: StudioIdea | null = null
   if (!off) {
     try {
       const video = await loadStudioVideo(added.id, clinicId)
-      if (video) await generateAndPinIdea(clinicId, video)
+      if (video) idea = await generateAndPinIdea(clinicId, video)
     } catch {
       /* video is on the board; idea can be generated from the card later */
     }
   }
 
   // Scheduling comes last so a booked-day clash never loses the ingest.
+  //
+  // A brief the compliance gate blocked is NOT scheduled: the MA board drops
+  // blocked cards, so booking a day for one would silently burn that day and
+  // show the MAs an empty board. The video still lands on the Shot List with
+  // its verdict, where the admin can regenerate and then schedule.
   let shootDate: string | null = null
   let scheduleError: string | null = null
-  if (body.schedule) {
+  const blocked = idea ? idea.blocked : false
+  if (body.schedule && blocked) {
+    scheduleError =
+      `Compliance returned ${idea?.compliance?.grade ?? 'no verdict'} — not scheduled. ` +
+      'Regenerate the brief from the Shot List, then give it a day.'
+  } else if (body.schedule) {
     try {
       const r = await scheduleStudioVideo(added.id, clinicId, body.shootDate ?? null)
       shootDate = r.shootDate
@@ -87,5 +107,12 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, id: added.id, shootDate, scheduleError })
+  return NextResponse.json({
+    ok: true,
+    id: added.id,
+    shootDate,
+    scheduleError,
+    compliance: idea?.compliance ?? null,
+    blocked,
+  })
 }
