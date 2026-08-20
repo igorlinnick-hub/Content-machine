@@ -38,6 +38,15 @@ RESOLUTION STRATEGY — the corrected script must not re-trigger the same class 
 • Missing hedge: weave one naturally into the flagged sentence ("may help", "some patients", "talk to your doctor").
 The edit must read naturally in the doctor's voice — not like a disclaimer was bolted on.
 
+PRESERVE EACH LINE'S ROLE (BINDING — the NAD+ cover lesson, 2026-08-20): a
+carousel script's FIRST line is the cover TITLE — a headline of at most ~7
+words. If a flagged phrase sits in the title, the corrected title must STAY a
+short headline: fix it by cutting the risky words or swapping to a neutral
+promise, never by expanding it into sentences. Hedges and "talk to your doctor"
+belong in the hook or body lines below — a two-sentence "title" is a failed
+edit even if compliant. The same applies to slide HEADINGS (short labels) and
+CTA lines: the replacement must fit the role of the line it replaces.
+
 HARD RULES:
 • A correction may be phrased as an instruction or reviewer note. NEVER copy
   instruction text into the script — translate it into natural, compliant

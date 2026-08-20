@@ -47,7 +47,14 @@ For each body slide:
   • close: the slide's TAKEAWAY — the short landing line the script puts on its own line at the end of the slide (or, for a prose-only slide, the full prose body). Every body slide in a well-formed script has one; carry it across verbatim and never fold it into 'intro' or into a bullet. It is rendered as the bold payoff line on the slide, so it must survive the split intact.
 
 For the cover:
-  • title: mixed case headline (NOT all-caps — that was the legacy renderer)
+  • title: mixed case headline (NOT all-caps — that was the legacy renderer).
+    HARD CAP: at most 7 words, ONE sentence, no trailing period. If the
+    script's cover line is longer (e.g. a compliance rewrite expanded it),
+    COMPRESS it to the headline it was meant to be — keep the format promise
+    ("Four Things To Know", "How X Works") or the core noun phrase, and move
+    any hedge/qualifier ("investigational", "talk to your doctor") into the
+    hook or drop it if the hook already carries it. Never emit a multi-sentence
+    title.
   • hook: one specific stat or framing line from the script. STRIP any trailing "Swipe →" / "swipe" prompt if the script has one — it must never appear on the post.
 
 For the CTA stack:
