@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
 import { TeleprompterView } from './components/TeleprompterView'
+import { spokenScript } from '@/lib/posts/spoken'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Teleprompter — Content Machine' }
@@ -67,7 +68,8 @@ export default async function TeleprompterPage({ searchParams }: PageProps) {
         recentScripts={rows.map((s) => ({
           id: s.id,
           title: s.topic ?? 'Untitled',
-          body: s.full_script ?? '',
+          // Strip CTA-stack notation + SOURCES — markup, not speech.
+          body: spokenScript(s.full_script ?? ''),
           created_at: (s as { created_at?: string | null }).created_at ?? null,
           critic_score: (s as { critic_score?: number | null }).critic_score ?? null,
         }))}
