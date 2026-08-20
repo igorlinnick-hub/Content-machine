@@ -69,8 +69,8 @@ inconsistent effective rates once spread across the real price range:
 
 ## Layout
 
-1. **Cover** — the first-and-last-name requirement and portal access. Nothing else: this page
-   exists to make one instruction impossible to miss.
+1. **Cover** — four equal blocks: the name rule, the portal URL, and the two access codes.
+   No hierarchy between them; the name rule is a rule, not a headline.
 2. **Fee schedule** — service name and fee, nothing else.
 3. **Service guide 1 of 2** — Regenerative, Pain & Joint, Mental Health.
 4. **Service guide 2 of 2** — Weight Loss, Peptides, IV/NAD+, Aesthetics, Consultations.

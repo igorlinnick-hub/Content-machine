@@ -229,27 +229,21 @@ h1 em{font-style:italic;color:var(--coral)}
 .lede{font-size:11.4pt;color:var(--muted);max-width:5.9in;margin-top:16px;line-height:1.62}
 .lede b{color:var(--ink);font-weight:600}
 
-/* ── dark panel ── */
-.panel{background:linear-gradient(145deg,#0d2f42 0%,#164863 100%);border-radius:16px;
   padding:40px 42px;color:#fff;margin-top:34px}
-.panel .eyebrow{font-size:7.6pt;font-weight:700;letter-spacing:.19em;text-transform:uppercase;
   color:var(--teal);margin-bottom:9px}
-.panel h2{font-family:var(--serif);font-size:29pt;font-weight:600;margin-bottom:11px;line-height:1.2}
 .panel h2 em{font-style:italic;color:var(--coral)}
-.panel p{font-size:11pt;line-height:1.7;color:rgba(255,255,255,.8);max-width:6in}
 .panel p+p{margin-top:9px}
-.panel b{color:#fff;font-weight:600}
 .panel .hard{color:#f6b39c;font-weight:700}
 
 /* ── access ── */
-.access{margin-top:24px;display:flex;gap:12px;align-items:stretch}
-.access .col{flex:1;background:var(--sand);border:1px solid rgba(27,79,110,.14);
+.access{margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.access .col{background:var(--sand);border:1px solid rgba(27,79,110,.14);
   border-radius:11px;padding:19px 20px}
-.access .col.wide{flex:1.7}
 .access .lbl{font-size:7.2pt;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
   color:var(--muted);margin-bottom:6px}
 .access .val{font-family:ui-monospace,Menlo,monospace;font-size:10.5pt;font-weight:600;color:var(--ocean)}
-.access .url{font-size:8.4pt;color:var(--ocean);font-weight:600;white-space:nowrap}
+.access .url{font-size:10pt;color:var(--ocean);font-weight:600;white-space:nowrap}
+.access .txt{font-size:10.5pt;color:var(--ocean);font-weight:600}
 
 /* ── how paid ── */
 .rate{margin-top:14px;background:var(--sand);border-radius:12px;padding:15px 20px;
@@ -321,18 +315,10 @@ ${page('Page 1 of 4', `
 to refer, and exactly what each one is worth. <b>One service, one flat fee.</b> Credited
 automatically the moment your referral gets care.</p>
 
-<div class="panel">
-  <div class="eyebrow">Before anything else</div>
-  <h2>Use your first <em>and</em> last name.</h2>
-  <p>When your referral fills out the form, they enter <b>your first and last name</b> — that
-  single field is what ties the sale to you. A first name on its own is not enough: we have
-  trainers who share one, and an entry we can't match to a person is an entry
-  <span class="hard">we can't pay</span>.</p>
-  <p>Spell it the same way every time, and it lands in your balance on its own.</p>
-</div>
 
 <div class="access">
-  <div class="col wide"><div class="lbl">Check your balance</div><div class="url">dashboard-hwc.vercel.app/login/ufc</div></div>
+  <div class="col"><div class="lbl">On the referral form</div><div class="txt">Use your first and last name</div></div>
+  <div class="col"><div class="lbl">Check your balance</div><div class="url">dashboard-hwc.vercel.app/login/ufc</div></div>
   <div class="col"><div class="lbl">Trainers</div><div class="val">ufc-team-2026</div></div>
   <div class="col"><div class="lbl">Management</div><div class="val">ufc-gym-2026</div></div>
 </div>
