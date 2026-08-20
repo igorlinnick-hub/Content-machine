@@ -41,27 +41,38 @@ export async function GET(
     const slideSet = await loadSlideSet(params.slideSetId)
 
     const supabase = createServerClient()
+    // Captions live on SCRIPTS (migration 013), not on slide_sets. They used
+    // to be selected from slide_sets here, which 42703-failed the whole
+    // select — and the silent null default meant every composed post kept
+    // offering "Compose in Canva" while its render_result sat in the DB
+    // (Igor hit this three times on 2026-08-19 before it was found).
     const { data: scriptRow } = slideSet.script_id
       ? await supabase
           .from('scripts')
-          .select('topic, hook, full_script')
+          .select('topic, hook, full_script, long_caption, short_caption')
           .eq('id', slideSet.script_id)
           .maybeSingle()
       : { data: null }
 
     let { data: rrRow, error: rrErr } = await supabase
       .from('slide_sets')
-      .select('render_result, compliance, canva_style, compose_progress, long_caption, short_caption')
+      .select('render_result, compliance, canva_style, compose_progress')
       .eq('id', slideSet.id)
       .maybeSingle()
     if (rrErr?.code === '42703') {
       // Migration 045 (compose_progress) not applied yet — degrade.
       const retry = await supabase
         .from('slide_sets')
-        .select('render_result, compliance, canva_style, long_caption, short_caption')
+        .select('render_result, compliance, canva_style')
         .eq('id', slideSet.id)
         .maybeSingle()
       rrRow = retry.data as typeof rrRow
+      rrErr = retry.error
+    }
+    if (rrErr) {
+      // Never swallow this silently again: a failed select here nulls the
+      // whole right-hand side of the UI (button, style, progress).
+      console.error('[posts/:id] slide_sets meta select failed:', rrErr.code, rrErr.message)
     }
     const render_result = (rrRow as { render_result?: Json | null } | null)
       ?.render_result ?? null
@@ -71,9 +82,9 @@ export async function GET(
       ?.canva_style ?? 1
     const compose_progress = (rrRow as { compose_progress?: Json | null } | null)
       ?.compose_progress ?? null
-    const long_caption = (rrRow as { long_caption?: string | null } | null)
+    const long_caption = (scriptRow as { long_caption?: string | null } | null)
       ?.long_caption ?? null
-    const short_caption = (rrRow as { short_caption?: string | null } | null)
+    const short_caption = (scriptRow as { short_caption?: string | null } | null)
       ?.short_caption ?? null
 
     return NextResponse.json({
