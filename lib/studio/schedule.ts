@@ -1,12 +1,30 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { randomBytes } from 'crypto'
 import { publicUrl } from '@/lib/arsenal/storage'
+import { shouldBlockPublish } from '@/lib/agents/compliance'
+import type { ComplianceResult } from '@/types'
 import type { StudioVideo, StudioVideoStructure, ShotType } from '@/lib/studio/videos'
 
 // The shoot board: Shot List videos pinned to a calendar day, one per day,
 // read by the MAs on their own link. Scheduling lives here rather than in
 // videos.ts because it owns a rule videos.ts has no business knowing — the
 // one-per-day search for the next open slot.
+
+// Whether a graded brief may appear on the MA board.
+//
+// REMOVE / REWORD block, per the posts pipeline's rule (shouldBlockPublish).
+// Two additions, both because this surface has NO human step between the
+// machine and the person filming — unlike the posts pipeline, where a
+// 'review' status still waits for a marketer:
+//   • a null verdict (never graded) is not "fine", it is "unknown";
+//   • model === 'gate-error' is not a compliance verdict at all — it is the
+//     gate failing, and its own finding says "Manual review required".
+// A genuine REVIEW verdict still passes, matching the posts rule.
+export function blocksMaBoard(c: ComplianceResult | null): boolean {
+  if (!c) return true
+  if (c.model === 'gate-error') return true
+  return shouldBlockPublish(c)
+}
 
 // The clinic films in Hawaii (UTC-10). Deriving "today" from UTC would flip
 // the board to tomorrow's card at 2pm local, so the day is always resolved
@@ -139,11 +157,14 @@ export async function listShootBoard(
   const scriptIds = rows
     .map((r) => r.current_script_id)
     .filter((s): s is string => Boolean(s))
-  const ideas = new Map<string, { topic: string; steps: string[]; lines: string[] }>()
+  const ideas = new Map<
+    string,
+    { topic: string; steps: string[]; lines: string[]; blocked: boolean }
+  >()
   if (scriptIds.length) {
     const { data: scripts } = await supabase
       .from('scripts')
-      .select('id, topic, full_script, role_blocks')
+      .select('id, topic, full_script, role_blocks, compliance')
       .eq('clinic_id', clinicId)
       .in('id', scriptIds)
     for (const s of (scripts ?? []) as {
@@ -151,6 +172,7 @@ export async function listShootBoard(
       topic: string | null
       full_script: string | null
       role_blocks: unknown
+      compliance: unknown
     }[]) {
       const raw = s.role_blocks
       let steps: string[] = []
@@ -174,30 +196,47 @@ export async function listShootBoard(
         .filter((b) => b.speaker !== 'Operator' && b.text?.trim())
         .map((b) => b.text as string)
       if (lines.length === 0 && s.full_script) lines = [s.full_script]
-      ideas.set(s.id, { topic: s.topic ?? '', steps, lines })
+      const compliance = (s.compliance as ComplianceResult | null) ?? null
+      ideas.set(s.id, {
+        topic: s.topic ?? '',
+        steps,
+        lines,
+        blocked: blocksMaBoard(compliance),
+      })
     }
   }
 
-  return rows.map((r) => {
-    const idea = r.current_script_id ? ideas.get(r.current_script_id) : undefined
-    const structure = (r.structure ?? {}) as StudioVideoStructure
-    return {
-      id: r.id,
-      shoot_date: r.shoot_date as string,
-      shot_type: (r.shot_type ?? 'doctor') as ShotType,
-      title: r.title,
-      style_description: r.style_description,
-      account: r.author_handle,
-      source_url: r.source_url,
-      embed_url: r.embed_url,
-      video_url: publicUrl(r.video_storage_path),
-      thumbnail_url: publicUrl(r.thumbnail_storage_path),
-      beats: (structure.beats ?? []).map((b) => ({ name: b.name, text: b.text })),
-      steps: idea?.steps ?? [],
-      script_lines: idea?.lines ?? [],
-      topic: idea?.topic ?? null,
-    }
-  })
+  // A card whose brief is blocked or ungraded is dropped from the board
+  // entirely rather than shown without its text. Half a shoot card — the
+  // reference reel with no brief — invites staff to improvise the medical
+  // wording themselves, which is the exact failure the gate exists to stop.
+  // The day still reads as free to the MA; the admin sees the flag in the
+  // Shot List and can regenerate.
+  return rows
+    .filter((r) => {
+      const idea = r.current_script_id ? ideas.get(r.current_script_id) : undefined
+      return idea != null && !idea.blocked
+    })
+    .map((r) => {
+      const idea = r.current_script_id ? ideas.get(r.current_script_id) : undefined
+      const structure = (r.structure ?? {}) as StudioVideoStructure
+      return {
+        id: r.id,
+        shoot_date: r.shoot_date as string,
+        shot_type: (r.shot_type ?? 'doctor') as ShotType,
+        title: r.title,
+        style_description: r.style_description,
+        account: r.author_handle,
+        source_url: r.source_url,
+        embed_url: r.embed_url,
+        video_url: publicUrl(r.video_storage_path),
+        thumbnail_url: publicUrl(r.thumbnail_storage_path),
+        beats: (structure.beats ?? []).map((b) => ({ name: b.name, text: b.text })),
+        steps: idea?.steps ?? [],
+        script_lines: idea?.lines ?? [],
+        topic: idea?.topic ?? null,
+      }
+    })
 }
 
 // ------------------------------------------------------------

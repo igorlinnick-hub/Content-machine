@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { RoleBlock } from '@/types'
+import type { ComplianceResult, RoleBlock } from '@/types'
 import { RoleScript } from './RoleScript'
 import { Sparkle, SparkleSpinner } from '@/app/components/ui/icons'
 
@@ -15,6 +15,8 @@ export interface StudioCardIdea {
   script: string
   steps: string[]
   role_blocks: RoleBlock[] | null
+  compliance: ComplianceResult | null
+  blocked: boolean
 }
 
 export interface StudioCard {
@@ -118,6 +120,63 @@ function VideoBox({ card }: { card: StudioCard }) {
         </div>
       )}
     </>
+  )
+}
+
+// Compliance verdict on a shoot brief. The MA board silently drops blocked
+// briefs; this is where the admin finds out why and can regenerate. Never
+// renders a bare "PASS" as reassurance — the ruleset forbids the machine
+// telling anyone their copy is safe.
+function ComplianceNote({ idea }: { idea: StudioCardIdea }) {
+  const c = idea.compliance
+  if (!c) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+          Not checked
+        </p>
+        <p className="mt-1 text-xs text-amber-800">
+          This brief predates the compliance gate. Regenerate it before the
+          MAs can see it — it stays off their board until then.
+        </p>
+      </div>
+    )
+  }
+
+  const flagged = c.findings.filter((f) => f.severity !== 'review')
+  const tone = idea.blocked
+    ? 'border-red-200 bg-red-50 text-red-700'
+    : c.findings.length > 0
+      ? 'border-amber-200 bg-amber-50 text-amber-700'
+      : 'border-neutral-200 bg-neutral-50 text-neutral-600'
+
+  return (
+    <div className={`rounded-xl border p-3 ${tone}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wide">
+        Compliance · {c.grade} · ruleset {c.ruleset_version}
+      </p>
+      {idea.blocked && (
+        <p className="mt-1 text-xs font-medium">
+          Kept off the MA board. Regenerate, or edit the wording and regenerate.
+        </p>
+      )}
+      {c.findings.length > 0 && (
+        <ul className="mt-2 flex flex-col gap-1.5">
+          {(flagged.length > 0 ? flagged : c.findings).slice(0, 4).map((f, i) => (
+            <li key={i} className="text-xs">
+              <span className="font-semibold">{f.rule}</span> ({f.severity}) —
+              &ldquo;{f.matched}&rdquo;
+              {f.correction ? <> → {f.correction}</> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {c.findings.length === 0 && (
+        <p className="mt-1 text-xs">
+          No rule matched. Final sign-off is still the medical director&apos;s.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -446,17 +505,18 @@ export function StudioFunnel({
             <button
               type="button"
               onClick={addVideo}
-              disabled={adding || !addUrl.trim()}
+              disabled={adding || !addUrl.trim() || !addNote.trim()}
               className="cm-btn cm-btn-primary text-sm"
             >
               {adding ? 'Adding…' : '➕ Add'}
             </button>
           </div>
-          {/* Instagram gives us no cover frame to read, so this one line is
-              all the machine has to go on — and all you have to write. */}
+          {/* Required, not optional: Instagram gives no cover frame, so with
+              an empty note the format read falls back to a generic default
+              and the reel you picked drives nothing in the brief. */}
           <input
             className="cm-input mt-2 w-full text-sm"
-            placeholder="One line: what you like about it / what we should film"
+            placeholder="Required — one line: what you like about it / what we should film"
             value={addNote}
             onChange={(e) => setAddNote(e.target.value)}
             onKeyDown={(e) => {
@@ -471,6 +531,11 @@ export function StudioFunnel({
             />
             For the MAs — book the next free day and put it on their board
           </label>
+          {addUrl.trim() && !addNote.trim() && (
+            <p className="mt-1 text-xs text-neutral-500">
+              Add the one-liner — without it the brief ignores the reel you picked.
+            </p>
+          )}
           {addError && <p className="mt-1 text-xs text-red-600">{addError}</p>}
         </div>
       )}
@@ -682,6 +747,9 @@ export function StudioFunnel({
                           roleBlocks={card.idea.role_blocks}
                           fallbackScript={card.idea.script}
                         />
+                        <div className="mt-3">
+                          <ComplianceNote idea={card.idea} />
+                        </div>
                       </>
                     ) : (
                       <p className="text-sm text-neutral-500">
