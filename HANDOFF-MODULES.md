@@ -56,6 +56,286 @@ Uncommitted files that are NOT aesthetics (belong to other sessions): script-sta
 
 ---
 
+## 🔴 SESSION HANDOFF — 2026-08-19 · Post FORMAT is now a button (delete once acted on)
+
+Igor's ask: the content plan decides **what** we talk about each week; he wants
+to decide **how** — educational, useful/shareable tips, "signals worth checking",
+myths — with a button, without leaving the plan's logic.
+
+### The catalog — `lib/posts/formats.ts` (NEW, single source of truth)
+Nine formats. Three are new: **Educational explainer** (real mechanism + one real
+study, plain language), **Practical tips** (top 3-5 doable things — the format
+people save and send on), **Warning signs** (signals worth checking, the basic
+work-up to ask for by name, when it's urgent). The six that existed keep their
+scaffolds verbatim. Each entry carries `name` (stored value), `label` (button),
+`hint` (tooltip), `description` + `scaffold` (what the Writer follows).
+
+Compliance is built into the two riskiest scaffolds, not bolted on: Warning signs
+says *get checked*, never *you have X*, bans scare stats and self-treatment, and
+points at a work-up rather than at the clinic's treatment; Practical tips bans
+promised outcomes/timelines and treatment rankings. The Layer-B gate still runs.
+
+Three consumers, one list: `lib/posts/templates.ts` seeds `script_templates` from
+it, `lib/agents/planner.ts` rotates it in the 8-week plan, `FormatPicker` renders
+it. **Add a format there and it appears in all three.**
+
+### Wiring
+- **Seeding now tops up.** `ensureDefaultScriptTemplates` used to bail out if the
+  clinic had ANY templates, so existing clinics would never have received the new
+  three. It now inserts missing defaults by name and leaves custom/de-activated
+  rows alone.
+- **Bug fixed on the way (this one mattered):** `getCurrentPlanContext(clinicId,
+  topicId)` read `data.format` off a select that never asked for the column — so
+  on the 90% path (`planTopicId`) **the planner's format never reached the
+  Writer**. All those posts were written with a free-choice template. Fixed in
+  `lib/content-plan/store.ts`.
+- **Override chain in the Writer:** Studio `pinnedFormat` > `formatOverride` (the
+  button) > `planContext.format` > free choice. `formatOverride` is a new
+  `runWriter` param; `POST /api/posts/generate` accepts `format` and validates it
+  against the catalog (unknown name = ignored, not a 400).
+- **Free-choice window widened 6 → 9** in `writer.ts`, or the back-filled formats
+  (positions 6-8 for existing clinics) would never be offered ad-hoc.
+
+### UI
+- `app/components/FormatPicker.tsx` (NEW) — one chip that opens the catalog with
+  hints, plus "Auto — let the writer choose".
+- **Content Plan** (`WeekCard`): a format chip on every topic row, next to the
+  keyword. Writes through `POST /api/content-plan/set-format` (NEW; admin or the
+  owning clinic), optimistic with rollback. A topic reroll keeps a format the
+  marketer pinned.
+- **New Post** (`PostsWorkspace`): a `Format` control next to Generate. On a plan
+  topic it persists to the row; on an ad-hoc topic it rides along in the generate
+  call only.
+
+### Not done / next
+- Nothing was generated end-to-end with a pinned format — `tsc --noEmit` and
+  eslint are clean (the 3 eslint errors in `PostsWorkspace` are pre-existing on
+  HEAD), but the first real post through a button is still unproven.
+- The planner prompt now asks for format variety per week; the 8-week plans that
+  already exist keep whatever formats they were generated with — reroll or
+  re-press the buttons if Igor wants the new mix.
+
+## 🔴 SESSION HANDOFF — 2026-08-13 · Canva runner cost + first post on the new writer rules (delete once acted on)
+
+Separate session from the aesthetics/scheduler one above; different files, no overlap.
+
+**Acted on the 2026-08-12 block below: its open task is DONE.** A fresh post was
+generated on the queued plan topic ("Retatrutide is the next GLP-1",
+slide_set `66f63852`) and composed. Two stale claims in that block: the
+watchdog/`compose_progress` bug it lists as open was **already fixed** in
+`9bb93d1`, and the "runner env must stay key-free" note now conflicts with an
+uncommitted `run.sh` hunk that reads `ANTHROPIC_API_KEY` (env still has no key,
+so the code is inert — Igor has not decided subscription vs API key).
+
+### The new writer rules work (first live proof)
+`66f63852` is the first post generated after `f36fa0c`. No banned section
+labels, cover is a whole phrase, every body slide carries its 6-10-word
+takeaway, and `said-before` handed the writer 40 prior headings to avoid.
+Text nits Igor has NOT ruled on (do not "fix" silently): slide 5 bullet 2 is
+lifted abstract phrasing and over the ~6-word list rule; "~22.5%" carries no
+source (compliance asked to attribute or qualify); slide 4 runs 33 words vs the
+20-28 band. Compliance = **REVIEW, 5 findings**, all "verify with a human" —
+investigational drug, needs the medical director before publishing.
+
+### Compose is a lottery — the finding that matters
+The same post composed TWICE, same style: `DAHSM_Jfrd8` (good: Hawaii cover,
+right title) and `DAHSNLOxoTo` (worse: no cover photo, title demoted to the
+chip, random stock on two slides, headings rewritten differently). **The DB row
+points at the worse one.** Run-to-run variance is structural: every compose is a
+fresh judgement call by an agent.
+
+### What one compose actually costs (measured, not guessed)
+From the 2026-08-12 transcript in
+`~/.claude/projects/-Users-igorlinnik-Library-Application-Support-HWC-canva-runner/`:
+184 turns · context grows 49.5k → 349k · **37.6M tokens read** ≈ **$18 at API
+rates**. It bills Igor's SUBSCRIPTION, so the real cost is his session quota,
+not dollars. Drivers: 51 images / 23.5 MB (each page export re-read on every
+later turn), and a 49.5k fixed preamble paid on all 184 turns (~9M, a quarter
+of the run).
+
+### Runner diet — SHIPPED, NOT YET MEASURED
+In `~/.claude/skills/canva-compose-runner/SKILL.md` (user-scope, no repo copy):
+- per-page "export + look + iterate" (old §5b tail) removed → build all pages,
+  then **one** export and one review, new **§6a**; two exports is the ceiling;
+- the scattered re-reads (cover §3, cruft sweep §3, panel verify §5) now point
+  at §6a instead of exporting on their own;
+- photo review still binding, but on a `sips -Z 640` copy; the **original**
+  full-res file is what gets uploaded to Canva;
+- **resume**: the copy's design id is written to
+  `~/Library/Application Support/HWC/canva-runner/resume/<slide_set_id>` right
+  after `copy-design`; §1 step 4 resumes that design instead of rebuilding;
+  §6 deletes it on success, transient failure keeps it, content failure clears it.
+In `scripts/canva-runner/run.sh`: `caffeinate -ims` wraps `claude -p` (the
+laptop slept mid-compose twice today, once one step from done). **Installed
+copy is in sync** — but only ever copy it while no compose is running.
+
+### The preamble hunt — MEASURED AND CLOSED (2026-08-19)
+Igor's framing was: rules live in MD, read when needed, nothing carried every
+turn. Measured against it with a one-token `claude -p … --output-format json`
+probe run from the runner's own directory (usage = cache_creation + cache_read):
+
+| session | per-turn preamble |
+|---|---|
+| as the runner ran it | **49 471** |
+| `--allowedTools` narrowed to the 6 Canva tools it really uses | **49 475** |
+| no MCP servers at all | 45 842 |
+| no MCP **and** no installed-skills listing | 39 161 |
+
+**`--allowedTools` is a permission list — it does not change what loads.** That
+optimization is dead; do not re-open it. What the numbers did show:
+- the listing of ~30 installed skills costs **6.7k tokens on every turn**;
+- every MCP server together costs only ~3.6k, so dropping connectors is not worth
+  the breakage risk;
+- SKILL.md itself was 6.7k, riding every turn from turn 1 anyway.
+
+**Shipped instead (2026-08-19):**
+1. **`scripts/canva-runner/photos.py`** — the whole photo loop (Replicate
+   sequential with the 11s rate-limit gap + retries, Pexels portrait search,
+   clinic `photo_url`, the per-source fallbacks, download, `sips -Z 640` review
+   copy, `manifest.json` resume) in ONE process. The model now spends **two
+   turns** on photos regardless of slide count: one to run it, one to look at all
+   the 640px copies together. Re-runs skip what a crashed run already paid for;
+   `--slide N --prompt "…"` redoes a single rejected image. Tested live against
+   Pexels + Replicate. Note: Pexels 403s urllib's default User-Agent — the script
+   sets its own, don't remove it.
+2. **`run.sh` runs the compose with `--disable-slash-commands` and feeds SKILL.md
+   through `--append-system-prompt-file`** (install.sh copies it to the runner
+   dir). Skills-listing cost goes away; the runner's own rules stay. If SKILL.md
+   is missing the script falls back to invoking the skill by name, so an old
+   install still composes.
+3. **SKILL.md §4 rewritten** around photos.py; the duplicated photo-direction
+   prose now points at `POST-CRAFT.md §5` instead of repeating it (26.7 KB →
+   22.2 KB).
+
+Measured after: **50 218 per turn including the runner's instructions**, versus
+~56 200 before (49 471 + SKILL.md loaded at turn 1) — about **6k/turn less**.
+
+### Where the 37.6M actually went — read the transcript, don't guess
+`06ce50cf-4769-4dec-baeb-b320db291067.jsonl` in the runner's project dir IS the
+184-turn compose (07:24→07:47 on 08-13; summing its per-turn context reproduces
+37,617,626 exactly, so the method is sound). What it shows:
+
+- **51 images, but only 18 of them are ours.** 33 came from the Canva MCP itself:
+  `edit-design` returns an after-thumbnail on EVERY call (23 calls → 22 images /
+  11.5 MB, arriving turns 93-162 and re-read for the rest of the run), and one
+  `read-design` that asked for `thumbnails` returned 8 pages / 3.1 MB at turn 65.
+- **The photo phase was turns ~30-77** — Replicate polling with `sleep`, Pexels
+  curls, downloads, and a separate turn per full-resolution `Read` (those were
+  NOT downscaled: 3 images added ~13k tokens at turn 50).
+- Removing a mid-run turn is worth ~200k tokens, because every later turn
+  re-reads the whole context. Turns, not prefix, are the cost.
+
+Simulated against the real per-turn numbers (drop the turns, drop what they added
+from every later turn):
+
+| | turns | tokens |
+|---|---|---|
+| as it ran | 184 | 37.6M ≈ $18 |
+| + `photos.py` | 140 | 22.1M (−41%) |
+| + one `edit-design` call per page | 110 | 13.5M (−64%) |
+| + the preamble diet above | 110 | 12.8M (−66%) ≈ $6 |
+
+**So the batching rule matters more than everything else shipped today**, and it
+is now in SKILL.md §5 as BINDING: one `edit-design` call per PAGE carrying every
+operation for that page in the `operations` array (the per-line
+`find_and_replace_text` rule is untouched — the operations just travel together),
+never look at the returned thumbnail, and never ask `read-design` for
+`thumbnails` while building (they are opt-in; the default fields are what you
+want). §6 now says `edit-design` with `finalize: "commit"`, which is what the
+tool actually takes — `start-/commit-editing-transaction` were stale names.
+
+### photos.py — verified end-to-end on a real brief (before it ever runs live)
+Ran it against `66f63852` (the Retatrutide post, 7-slide brief): 3 Flux + 3
+Pexels + 1 skip, **0 failures**, ~$0.18 of Replicate. Two things it caught:
+- **`source:"fallback"` carries `prompt: null`** — the first version would have
+  paid Flux to render the words *"Cover — no photo, keep the template branded
+  cover"*. Fallback is a JUDGEMENT (does the brand surface stay, or must the
+  donor photo go?), so the script now prints `SKIP n=… — your call` and leaves it
+  to the model, which can force it with `--slide 1 --prompt "…"`. An `ai` entry
+  with an empty prompt now errors instead of generating garbage.
+- Review payload for the whole post: **368 KB across 6 files** (515×640 / 426×640)
+  versus **7.8 MB** of full-resolution `Read`s in the measured run. Opened one —
+  a clean dark 3D anatomy render, every rejection criterion judgeable at that size.
+
+Pre-flight on the runner is green: launchd agent loaded, no quota cooldown, queue
+empty, Replicate 201 (credit), Canva MCP connected. It will pick up the next
+`ready_for_canva` row within 2 minutes. **Do not re-run install.sh while a compose
+is running.**
+
+### MEASURED ON A REAL COMPOSE (post `34883573`, 2026-08-19 23:44→23:56)
+It ran inside the parallel session, not via `run.sh`, so the transcript is
+`…-Content-machine/5474a717-….jsonl`, turns 449-545.
+
+| | turns | tokens | wall clock |
+|---|---|---|---|
+| 08-13, clean runner spawn | 184 | 37.6M ≈ $18 | 23 min |
+| projection | 110 | 13.5M | — |
+| **08-19, normalised to a clean spawn** | **97** | **9.26M** | **12 min** |
+
+**−75%, better than projected.** Normalised = the compose's own tokens plus the
+50 218 preamble a fresh spawn would carry, because this run inherited 314 901
+tokens of unrelated context from the session it lived in.
+
+**New operational finding, worth more than it looks:** the same compose read
+**34.9M raw** inside that fat session versus 9.3M in a clean spawn — **~4× the
+cost for the identical work.** A compose must be left to the poller (fresh
+process, ~50k preamble) and never run by hand inside a long working session,
+except when debugging.
+
+What the data shows worked: `edit-design` 23 → 10 calls for 7 pages (10 page
+thumbnails instead of 22), `read-design` returned no thumbnails at all, and
+`photos.py` fetched everything in one call at turn 466 with three `--slide`
+redos at 479-490.
+
+Remaining slack: the 10 review images were `Read` **one per turn** (468-476,
+491-493) even though §4 says to read them in a single message — worth another
+~10 turns if the model is made to comply. Fixes on page 2 took 3 calls (512/515/
+518); acceptable.
+
+### In-house renderer — BUILT, PARKED by Igor
+`lib/render/{types,shapes,html,fonts,png,store,compose}.ts`,
+`lib/render/skins/{index,style3}.ts`, `lib/photos/{pexels,resolve}.ts`,
+`app/api/posts/[slideSetId]/render/route.ts`, `scripts/render-preview.mts`,
+`assets/fonts/` (Playfair + Inter), `next.config.mjs` tracing entry,
+`supabase/migrations/047_post_slides_bucket.sql`. tsc clean. It renders all 7
+pages of `66f63852` at 2160×2700 with panel-fit, ✓/①②③ and dividers.
+**Igor's verdict: the skin is eyeballed from screenshots — "угадывание", not the
+template.** If this is ever revived, derive the tokens from the master
+`DAHRSiuJEHQ` via `read-design` (element geometry, fills, font families/sizes)
+instead of guessing. Migration 047 is **NOT applied**; nothing writes
+`render_preview` until it is. Nothing in the Canva path was touched.
+
+### Environment gotchas found today
+- **puppeteer cannot even be imported on this Mac** (node 24 / puppeteer 24):
+  `require('puppeteer')` never returns. `scripts/render-preview.mts` therefore
+  shells out to the cached `chrome-headless-shell` binary. Production is
+  unaffected (Linux lambda + `@sparticuz/chromium`).
+- **Canva export URLs expire** (~a day): yesterday's `render_result.outputs[]`
+  already 403. So `/visual` can never show a preview of a finished carousel.
+- **claude.ai artifact links are private** — Igor's Safari isn't signed in
+  there, so he sees "Page not found". Deliver review pages as a local file
+  (`~/Desktop/…html`) and open it in a **separate** Safari window by id.
+- A local HTML file needs `<meta charset="utf-8">` or Safari renders Russian as
+  mojibake.
+- Canva **Enterprise** (the only way to get server-side autofill) is quote-only,
+  real deals $20-50k/year. Dead end, do not re-explore.
+
+### Uncommitted (nothing was committed 08-13 or 08-19)
+From 08-13: `scripts/canva-runner/run.sh` (caffeinate; plus the pre-existing
+ANTHROPIC_API_KEY hunk from another session), `next.config.mjs`, everything in
+the renderer list above, `assets/fonts/*`.
+From 08-19 — runner: `scripts/canva-runner/{photos.py,run.sh,install.sh}` (+ the
+user-scope `~/.claude/skills/canva-compose-runner/SKILL.md`, which lives outside
+this repo). Formats: `lib/posts/formats.ts`, `app/components/FormatPicker.tsx`,
+`app/api/content-plan/set-format/route.ts`, `lib/posts/templates.ts`,
+`lib/agents/{planner,writer}.ts`, `lib/content-plan/store.ts`,
+`app/api/posts/generate/route.ts`, `app/content-plan/components/WeekCard.tsx`,
+`app/visual/components/PostsWorkspace.tsx`.
+Plus the other sessions' files listed in the block above. Commit per feature,
+deliberately.
+
+---
+
 ## 🔴 SESSION HANDOFF — 2026-08-12 (read this first, then delete once acted on)
 
 **Where we are.** Post craft was reworked by hand in Canva, then the rules were
@@ -160,6 +440,9 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   PostPlan JSON per post: `{cover, slides[{n,kind,heading,intro,bullets[],close}], cta, photo_brief[], sources}`.
 - **Code:** `lib/agents/*`, `lib/supabase/context.ts`, `lib/posts/splitter.ts`,
   `lib/posts/photo-brief.ts`. Entry: `app/api/posts/generate/route.ts` (SSE stream).
+- **Formats:** the Writer's structural scaffolds are seeded per clinic into
+  `script_templates` from `lib/posts/formats.ts`; `ensureDefaultScriptTemplates`
+  tops up missing ones by name on every generation.
 - **Models:** Opus critic, Sonnet writer/research, Haiku splitter/analyst/diff/captioner
   (see `[[project_model_mix]]`). Prompt-cached.
 - **Gotcha:** kill switch `ENABLE_LLM_AGENTS` — unset = all pay-per-use LLM/Replicate
@@ -176,6 +459,11 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   `factCheck.ts`. Docs: `docs/compliance-ruleset.md`, `docs/COMPLIANCE-INTEGRATION.md`.
 
 ### 3. Content plan
+- **Format = the second axis (Igor 2026-08-19).** The plan owns WHAT a week is
+  about; `content_plan_topics.format` owns HOW that post is written. Catalog:
+  `lib/posts/formats.ts` (9 formats). Buttons: `FormatPicker` on every plan topic
+  and in the New Post panel → `POST /api/content-plan/set-format`. Generation
+  honours Studio pin > button > plan > free choice.
 - **Does:** structured 8-week plan (`content_plan_weeks` / `content_plan_topics`).
   Per-topic **reroll** (↻) and **+ Add more** regenerate/append a topic that fits
   the week's theme+pillar; **Skip week** hides a week. Topic chips drop from the
@@ -277,11 +565,66 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   (кнопку убрали — новым устройствам негде подписаться).
 - **Gotcha:** kill switch `ENABLE_LLM_AGENTS=true` сейчас ВКЛЮЧЁН (нужен для Whisper/retakes).
   Закрытие страницы больше не убивает монтаж (waitUntil). См. `[[project_clips_pipeline]]`.
+- **2026-08-19 — desktop-баг «Not recording» + новая страница `/videos`:**
+  (а) На компе доктор жал «Start Recording» раньше, чем поднялась вебкам/разрешение →
+  `beginRecording` молча пропускал `startRecording()` (stream ещё null), текст скроллился без
+  записи («Reading…» + «Not recording» + Exit, без REC-таймера). Это было у ВСЕХ докторов на
+  компе, не per-doctor. Fix в `TeleprompterView`: кнопка Start disabled («Starting camera…»)
+  до `hasStream`; `startRecording()` возвращает boolean, без записи скролл не стартует;
+  `recorder.onerror` показывает ошибку; при ошибке камеры — явная кнопка «Read without recording».
+  (б) `/videos` (`app/videos/*`) — doctor-facing библиотека: табы Recordings / Edited
+  (cleaned clips), Drive-embed плеер в приложении, read-only, «Open in Drive». Карточка
+  «My videos» на дашборде (не adminOnly) + «Watch all →» в телепромптере. Не проверено
+  визуально на Vercel (локальный dev не поднимался — RAM).
 
 ### 7. Studio (talking-head creator product)
 - **Does:** TikTok ingest via Apify, format analysis (cover+caption vision), shot
   lists, Trash funnel, storage cleanup. Consumer-facing, transcript-based manual edit.
 - **Code:** `app/studio/*`, `lib/studio/*`. See `[[project_studio_pipeline]]`, `[[project_studio_standalone]]`.
+
+#### 7a. MA shoot board (added 2026-08-19, migration 049 APPLIED 2026-08-19)
+The problem it solves: Igor was hand-writing a "how to shoot this" explanation
+for every video he gave the medical assistants. The machine that writes that
+brief already existed (`generateAndPinIdea`) — it was just being handed the
+wrong role plan.
+
+- **The bug that caused the manual work:** `shot_type` ('doctor' | 'clinic',
+  migration 029) was set on insert but **never read** by `lib/studio/slots.ts`,
+  so an MA-filmed b-roll card got `DEFAULT_ROLE_PLAN` — *"Doctor speaks directly
+  to camera"*. Fixed: `rolePlanFor(shotType)` picks `CLINIC_ROLE_PLAN` (MA films
+  alone on a phone, doctor NOT available, literal step-by-step) for 'clinic'.
+- **Instagram now ingests — via embeds, deliberately not downloads.** IG CDN
+  links expire in hours, so the TikTok "pull the mp4 through Apify and store it"
+  path does not transfer. `lib/studio/embed.ts` derives the official iframe URL;
+  `addStudioVideoByEmbed` inserts a row with `embed_url` and **no** stored file.
+  IG paths all normalise to `/p/<code>/` (the one form that embeds every post
+  type, and it dedupes `/p/` vs `/reel/`). TikTok keeps the old Apify path —
+  it gives a real cover frame to analyse. **No Apify Instagram actor was added**;
+  account-wide scanning was deliberately deferred (see below).
+- **The one-line note replaces the transcript.** IG gives no cover frame, so
+  `analyzeVideoFormat` runs caption-only on whatever line the admin types when
+  pasting. One line in → full brief out.
+- **Scheduling:** `shoot_date` on `studio_videos`, one video per clinic per day
+  (partial unique index `uq_studio_videos_shoot_day`). `nextFreeShootDate` walks
+  the taken set so unscheduled days get refilled. Days resolve in
+  `Pacific/Honolulu` (`boardToday()`) — UTC would flip the board to tomorrow's
+  card at 2pm Hawaii time.
+- **The MA link:** `clinics.shoot_board_token` → public read-only
+  `app/shoot/[token]`. Deliberately **not** an `access_tokens` row: that grants
+  a clinic-wide role, this may only ever show dated shoot cards. `noindex`.
+  Minted on demand from the Shot List tab, rotatable.
+- **Code:** `lib/studio/{embed,schedule}.ts`, `lib/studio/slots.ts` (role plans),
+  `lib/studio/addByUrl.ts` (`addStudioVideoByEmbed`), `app/shoot/[token]/*`,
+  `app/api/studio/videos/add`, `app/api/studio/videos/[id]/schedule`,
+  `app/api/studio/board-link`.
+- **Deliberately NOT built:** attaching an Instagram account and browsing all its
+  videos in-app. It rebuilds Instagram inside our app, IG anti-scraping makes it
+  a permanent maintenance tax, and it does not touch the actual pain (writing the
+  brief). `trend_sources` (migration 022) already accepts `platform:'instagram'`
+  if this is ever revisited. Links are pasted by hand.
+- **Unverified:** the generated MA brief has not been read by a human yet —
+  that check needs migration 049 applied + a deploy. If the brief still needs
+  hand-editing, this whole module misses its point.
 
 ### 8. Script Arsenal
 - **Does:** doctor drops IG/YT/TikTok link → enqueue → local skill extracts
