@@ -9,6 +9,7 @@ import type {
 import type { ArsenalBeat } from '@/lib/arsenal/store'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
 import { getNicheProfile, type NicheProfile } from '@/lib/niche/profiles'
+import { getFormat } from '@/lib/posts/formats'
 
 // A single reference video pinned as THE format to use (Studio). When
 // present, the Writer drops the "pick one of N templates" choice and
@@ -510,8 +511,20 @@ function buildContextBrief(
     // to argue) — the SLIDE ARC still governs slide count and coverage.
     // Following the 5-beat video scaffold literally shrank posts to 2
     // body slides (2026-07-23 regression).
+    // Some formats ARE a structure, not an angle: a "top 5 tips" post is a
+    // list all the way down, and forcing it through the universal arc
+    // (mechanism → analogy → evidence) produced an explainer with one
+    // checklist slide bolted on. Those formats carry their own arc and it
+    // REPLACES the default one for this post. Angle formats have no arc of
+    // their own and keep the default, which already suits them.
+    const formatArc = postCarouselMode
+      ? getFormat(planPinnedTemplate.name)?.carouselArc ?? null
+      : null
+
     parts.push(
-      postCarouselMode
+      formatArc
+        ? `FORMAT — this post is written as "${planPinnedTemplate.name}", and that format OWNS THE STRUCTURE. The arc below REPLACES the default SLIDE ARC in the system prompt for this post: follow this one, ignore the default station list. Everything else in the system prompt still binds — the waterfall (each slide answers what the previous raised, each body slide ends on a takeaway), the voice and cliché rules, the CTA STACK FORMAT, and the compliance wall.\n\n${formatArc}\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
+        : postCarouselMode
         ? `FORMAT — this post uses the "${planPinnedTemplate.name}" template for its ANGLE and voice: how it hooks, what stance it takes, how it argues. Map the template's narrative beats ONTO the slide arc's slides — the SLIDE ARC governs the carousel structure, and every variant must still deliver the arc's full coverage (deep mechanism, "What the data shows" with real evidence, "Who it's for", CTA stack). Do NOT compress the post to the template's beat count.\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
         : `FORMAT — this post uses the "${planPinnedTemplate.name}" structural template. ALL variants must follow this scaffold exactly:\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
     )

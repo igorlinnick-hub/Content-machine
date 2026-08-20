@@ -21,6 +21,18 @@ export interface PostFormat {
   /** The structural beats the Writer follows. */
   scaffold: string
   length_bias: FormatLengthBias
+  /**
+   * Replaces the default carousel SLIDE ARC for this format (Igor 2026-08-19).
+   *
+   * Without this the format only tinted the voice: the universal arc
+   * (mechanism → analogy → evidence → who it's for) still decided the slides,
+   * so "Practical tips" came out as an explainer carrying one checklist slide
+   * instead of the list post people actually save and send on. Formats that
+   * ARE a structure own their arc here. Formats that are an angle
+   * (Educational explainer, System critique, Patient story, …) leave it unset
+   * and keep the default arc, which is already the right shape for them.
+   */
+  carouselArc?: string
 }
 
 export const POST_FORMATS: PostFormat[] = [
@@ -53,6 +65,16 @@ export const POST_FORMATS: PostFormat[] = [
 [CTA — a single specific next step.]
 
 Hard rules for this format: every tip is doable without buying anything from the clinic; no promised outcomes or timelines ("you will lose", "in 2 weeks"); no ranking of treatments by effectiveness.`,
+    carouselArc: `SLIDE ARC FOR THIS FORMAT (in order) — this post is a LIST, not an explainer:
+  Slide 1   Cover        — name what the list gives the reader and how many items, concretely ("Five things that decide how your skin ages", not "Skincare tips"). No swipe prompt.
+  Slides 2-N ONE TIP PER SLIDE — 3 to 5 tips, never more. Each slide: the heading IS the action (imperative, 2-5 words); the body is ONE sentence on why it works — a mechanism or a real finding, never motivation; then the specifics the reader needs to act this week (what, how much, how often) as at most 3 short sub-points. A tip that cannot be acted on without buying something from the clinic does not belong in this post.
+  Slide N+1 The one that matters most — name which of the tips carries the most weight and why, so the list has a spine instead of N equal items.
+  Final     CTA stack    — see CTA STACK FORMAT below.
+
+Do NOT add a deep mechanism slide, an analogy slide, or a standalone evidence
+slide — the evidence lives inside the tip it supports, in one line. Three strong
+tips beat five padded ones: drop an item rather than pad it. Every tip must be
+distinct — two phrasings of the same advice is one tip.`,
     length_bias: null,
   },
   {
@@ -71,6 +93,18 @@ Hard rules for this format: every tip is doable without buying anything from the
 [CTA — book an evaluation, framed as getting an answer rather than getting a treatment.]
 
 Hard rules for this format: this post says GET CHECKED, never "you have X". No line may let a reader self-diagnose or self-treat. Do not imply the clinic's treatment is the answer to the signals — the answer is a work-up. Keep the fear out: plain, calm, factual. No scare statistics, no "silent killer".`,
+    carouselArc: `SLIDE ARC FOR THIS FORMAT (in order) — this post sends the reader to get CHECKED:
+  Slide 1   Cover        — the signal in the reader's own words, the thing they wave off ("Tired by 3pm every day", not "Fatigue"). No swipe prompt.
+  Slide 2   Why it gets ignored — one short slide on why this reads as normal life.
+  Slides 3-5 ONE SIGNAL PER SLIDE — exactly three, no more (a longer list reads as a symptom checker). Each: what it looks or feels like day to day, then what system it CAN POINT TO. "Can point to", never "means", never "you have".
+  Slide 6   What to ask for — the basic, widely available work-up named specifically (the standard labs / the standard exam), so the reader walks into an appointment knowing what to request. This slide is the point of the post.
+  Slide 7   When it's urgent — the short list of things that mean today, not next month.
+  Final     CTA stack    — an evaluation framed as getting an ANSWER, not getting a treatment.
+
+HARD for this format: no line may let a reader self-diagnose or self-treat. Do
+not imply the clinic's treatment is the answer to the signals — the answer is a
+work-up. No scare statistics, no "silent killer", no death counts. Calm and
+factual: this is the tone of a doctor saying "worth checking", not an ad.`,
     length_bias: null,
   },
   {
@@ -84,6 +118,15 @@ Hard rules for this format: this post says GET CHECKED, never "you have X". No l
 [Myth 2 — same shape. Concrete fact, no jargon.]
 [Myth 3 — same shape. End with what is actually true.]
 [CTA — for someone who thought they understood this.]`,
+    carouselArc: `SLIDE ARC FOR THIS FORMAT (in order):
+  Slide 1   Cover        — name the topic and that what most people believe about it is wrong. No swipe prompt.
+  Slides 2-4 ONE MYTH PER SLIDE — exactly three. Each: quote the myth as people actually say it, then replace it with the fact in one or two sentences — a named study, a date, a mechanism. A myth is only worth a slide if it is genuinely common AND genuinely wrong.
+  Slide 5   What's actually true — the one sentence a reader should leave with, and what it changes for them.
+  Final     CTA stack    — for someone who thought they understood this.
+
+Do NOT add a separate analogy or "who it's for" slide — the myths carry the post.
+Correct with facts, never with mockery: the reader believed these things for a
+reason, and naming that reason is what makes the correction land.`,
     length_bias: null,
   },
   {
