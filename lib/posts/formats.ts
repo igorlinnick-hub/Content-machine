@@ -22,6 +22,13 @@ export interface PostFormat {
   scaffold: string
   length_bias: FormatLengthBias
   /**
+   * How this format's COVER TITLE is built (Igor 2026-08-20). The big cover
+   * headline carries the FORMAT's promise — "Four Things To Know", "Three
+   * Myths" — never the bare topic word, which already lives in the style pill.
+   * Handed to the Writer whenever the format is pinned.
+   */
+  coverTitle: string
+  /**
    * Replaces the default carousel SLIDE ARC for this format (Igor 2026-08-19).
    *
    * Without this the format only tinted the voice: the universal arc
@@ -40,6 +47,7 @@ export const POST_FORMATS: PostFormat[] = [
     name: 'Educational explainer',
     label: 'Educational',
     hint: 'How it actually works — real science, said simply. No jargon, no hype.',
+    coverTitle: `"How X Actually Works" / "What X Really Does" — the mechanism promise in plain words, where X is the everyday name of the thing (not an acronym)`,
     description:
       'Teach one mechanism properly. Scientific in substance, plain in language — the reader should be able to repeat it to a friend.',
     scaffold: `[Hook — a concrete fact about the mechanism, stated flatly. No teaser, no "here's why".]
@@ -54,6 +62,7 @@ export const POST_FORMATS: PostFormat[] = [
     name: 'Practical tips',
     label: 'Tips',
     hint: 'Top 3-5 useful things the reader can do — the format people save and send to a friend.',
+    coverTitle: `"Four Things To Know" / "Five Ways To Protect Your Skin" — the COUNT is the first word and MUST match the real number of tips in the post`,
     description:
       'A short numbered list of genuinely useful, specific actions. This is the shareable format: each item must be something the reader can do this week, not a slogan.',
     scaffold: `[Hook — name what the list gives the reader, concretely ("Five things that decide how your skin ages" beats "Skincare tips").]
@@ -81,6 +90,7 @@ distinct — two phrasings of the same advice is one tip.`,
     name: 'Warning signs',
     label: 'Warning signs',
     hint: "Signals worth checking — basic tests to ask for, and when to see a doctor. Never a diagnosis.",
+    coverTitle: `"Signs Worth Checking" / "Three Signs To Take Seriously" / "Don't Ignore These" — calm, never alarmist`,
     description:
       'The signals a reader should not sit on, what a basic work-up would look like, and when to book. Informational — it tells people to get checked, it never tells them what they have.',
     scaffold: `[Hook — name the thing people wave off, in the reader's own words ("Tired by 3pm every day" beats "Fatigue").]
@@ -111,6 +121,7 @@ factual: this is the tone of a doctor saying "worth checking", not an ad.`,
     name: 'Myth-busting',
     label: 'Myths',
     hint: 'Three things people believe about this topic that are wrong — with the fact that replaces each.',
+    coverTitle: `"Three Myths About Testosterone" — count + "Myths"; add the topic word only if it fits in plain language, otherwise just "Three Myths"`,
     description:
       '"You have probably heard X. Here is why that is wrong." Three myths max.',
     scaffold: `[Hook — name the topic and promise to debunk what people think they know.]
@@ -133,6 +144,7 @@ reason, and naming that reason is what makes the correction land.`,
     name: 'System critique',
     label: 'System critique',
     hint: 'Why mainstream care keeps failing this problem — and what that costs the patient.',
+    coverTitle: `"Why Standard Care Misses This" / "What Your Visit Skips" — the failure promise, no clinic-bashing words`,
     description:
       'Why mainstream care fails this problem and what that means for the patient.',
     scaffold: `[Hook — a sentence that contradicts the standard medical line on this topic.]
@@ -146,6 +158,7 @@ reason, and naming that reason is what makes the correction land.`,
     name: 'Diagnostic deep-dive',
     label: 'Deep-dive',
     hint: 'One symptom, taken apart down to the real mechanism.',
+    coverTitle: `"Why You're Always Tired" — the symptom in the reader's own words, as the question the post answers`,
     description: 'Take one symptom or condition and unpack the real mechanism.',
     scaffold: `[Hook — a symptom-as-question, the kind a patient types into Google at 2am.]
 [The wrong story — what most people are told about it.]
@@ -158,6 +171,7 @@ reason, and naming that reason is what makes the correction land.`,
     name: 'Patient story',
     label: 'Patient story',
     hint: 'An anonymised case the doctor sees every week, told as a small narrative.',
+    coverTitle: `"The Patient Who Tried Everything" — a one-line story hook about the person, no names`,
     description:
       'Anonymised case the doctor sees often, told as a small narrative.',
     scaffold: `[Hook — one line that sets up the patient: who they are, what they came in for. No names.]
@@ -171,6 +185,7 @@ reason, and naming that reason is what makes the correction land.`,
     name: 'Expert secrets',
     label: 'Expert secrets',
     hint: 'What the doctor tells a friend but never fits into a 10-minute visit.',
+    coverTitle: `"What I Tell My Friends" / "Three Things Doctors Skip" — the insider promise`,
     description:
       'What the doctor would tell a friend that he does not say in a 10-minute visit.',
     scaffold: `[Hook — "Here is what most doctors will not tell you about ___."]
@@ -185,6 +200,7 @@ reason, and naming that reason is what makes the correction land.`,
     name: 'Medicine philosophy',
     label: 'Philosophy',
     hint: 'A short opinionated piece on how this doctor thinks about treating people.',
+    coverTitle: `"Why I Treat This Differently" — the stance in 3-5 words`,
     description:
       'A short, opinionated piece on how the doctor thinks about treating this kind of patient.',
     scaffold: `[Hook — a strong opinion stated plainly. Not "I think". Just the claim.]

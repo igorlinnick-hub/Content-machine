@@ -550,15 +550,24 @@ function buildContextBrief(
     // checklist slide bolted on. Those formats carry their own arc and it
     // REPLACES the default one for this post. Angle formats have no arc of
     // their own and keep the default, which already suits them.
+    const pinnedCatalogFormat = getFormat(planPinnedTemplate.name)
     const formatArc = postCarouselMode
-      ? getFormat(planPinnedTemplate.name)?.carouselArc ?? null
+      ? pinnedCatalogFormat?.carouselArc ?? null
       : null
+    // The cover headline sells the FORMAT, not the topic word — the topic
+    // already lives in the style pill and the hook. Igor 2026-08-20: a tips
+    // post shipped with the bare word "PEPTIDES" as its cover; the promise
+    // ("Four Things To Know") is what earns the swipe.
+    const coverTitleBlock =
+      postCarouselMode && pinnedCatalogFormat?.coverTitle
+        ? `\n\nCOVER TITLE (BINDING): the cover's title line is the FORMAT'S PROMISE, 3-6 words, Mixed Case, in the shape: ${pinnedCatalogFormat.coverTitle}. If the title names a count, it must match the post's real item count. Do NOT use the bare topic word as the title — it already sits in the pill; the hook carries the topic specifics.`
+        : ''
 
     parts.push(
       formatArc
-        ? `FORMAT — this post is written as "${planPinnedTemplate.name}", and that format OWNS THE STRUCTURE. The arc below REPLACES the default SLIDE ARC in the system prompt for this post: follow this one, ignore the default station list. Everything else in the system prompt still binds — the waterfall (each slide answers what the previous raised, each body slide ends on a takeaway), the voice and cliché rules, the CTA STACK FORMAT, and the compliance wall.\n\n${formatArc}\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
+        ? `FORMAT — this post is written as "${planPinnedTemplate.name}", and that format OWNS THE STRUCTURE. The arc below REPLACES the default SLIDE ARC in the system prompt for this post: follow this one, ignore the default station list. Everything else in the system prompt still binds — the waterfall (each slide answers what the previous raised, each body slide ends on a takeaway), the voice and cliché rules, the CTA STACK FORMAT, and the compliance wall.\n\n${formatArc}\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}${coverTitleBlock}`
         : postCarouselMode
-        ? `FORMAT — this post uses the "${planPinnedTemplate.name}" template for its ANGLE and voice: how it hooks, what stance it takes, how it argues. Map the template's narrative beats ONTO the slide arc's slides — the SLIDE ARC governs the carousel structure, and every variant must still deliver the arc's full coverage (deep mechanism, "What the data shows" with real evidence, "Who it's for", CTA stack). Do NOT compress the post to the template's beat count.\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
+        ? `FORMAT — this post uses the "${planPinnedTemplate.name}" template for its ANGLE and voice: how it hooks, what stance it takes, how it argues. Map the template's narrative beats ONTO the slide arc's slides — the SLIDE ARC governs the carousel structure, and every variant must still deliver the arc's full coverage (deep mechanism, "What the data shows" with real evidence, "Who it's for", CTA stack). Do NOT compress the post to the template's beat count.\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}${coverTitleBlock}`
         : `FORMAT — this post uses the "${planPinnedTemplate.name}" structural template. ALL variants must follow this scaffold exactly:\n\n${planPinnedTemplate.description ? `${planPinnedTemplate.description}\n\n` : ''}${planPinnedTemplate.scaffold}`
     )
   } else {
