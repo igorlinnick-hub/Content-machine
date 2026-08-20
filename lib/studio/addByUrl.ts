@@ -1,7 +1,8 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { randomUUID } from 'crypto'
-import type { StudioStatus, StudioVideo } from '@/lib/studio/videos'
+import type { ShotType, StudioStatus, StudioVideo } from '@/lib/studio/videos'
 import { analyzeVideoFormat } from '@/lib/studio/analyze'
+import { handleFromUrl, parseEmbed } from '@/lib/studio/embed'
 
 const BUCKET = 'arsenal-videos'
 const TIKTOK_ACTOR = 'clockworks~tiktok-scraper'
@@ -41,11 +42,7 @@ export async function addStudioVideoByUrl(params: {
 
   const platform = detectPlatform(params.url)
   if (platform !== 'tiktok') {
-    throw new Error(
-      platform === 'instagram'
-        ? 'Instagram links are not supported yet — paste a TikTok link or upload the file.'
-        : 'Paste a TikTok video link.'
-    )
+    throw new Error('addStudioVideoByUrl handles TikTok only — use addStudioVideoByEmbed.')
   }
 
   // 1. scrape the single video (Apify downloads the mp4 to its KV store)
@@ -137,3 +134,63 @@ export async function addStudioVideoByUrl(params: {
 }
 
 export type { StudioVideo }
+
+// ------------------------------------------------------------
+// Embed path — Instagram and YouTube.
+//
+// Deliberately does NOT download anything. Instagram's CDN links die within
+// hours, so a stored mp4 would need re-fetching forever; the official iframe
+// plays in-app for free and never goes stale. The cost is that we get no
+// cover frame to analyse, so the format read comes from the one-line note
+// the admin types when pasting the link — which is the whole point: one
+// line in, a full shoot brief out.
+export async function addStudioVideoByEmbed(params: {
+  clinicId: string
+  url: string
+  note?: string | null
+  shotType?: ShotType
+  status: StudioStatus
+}): Promise<{ id: string }> {
+  const parsed = parseEmbed(params.url)
+  if (!parsed) {
+    throw new Error('Paste an Instagram reel, TikTok or YouTube link.')
+  }
+
+  const supabase = createServerClient()
+
+  // Dedup on the canonical URL so the same reel pasted with different
+  // tracking params (?igsh=…) does not land twice.
+  const { data: dupe } = await supabase
+    .from('studio_videos')
+    .select('id')
+    .eq('clinic_id', params.clinicId)
+    .eq('source_url', parsed.canonicalUrl)
+    .maybeSingle()
+  if (dupe) return { id: dupe.id }
+
+  const note = params.note?.trim() || ''
+  // Caption-only pass; analyzeVideoFormat falls back to a sane default when
+  // there is nothing useful to read, so an empty note still ingests.
+  const analysis = await analyzeVideoFormat({ caption: note, cover: null })
+
+  const { data, error } = await supabase
+    .from('studio_videos')
+    .insert({
+      clinic_id: params.clinicId,
+      source_url: parsed.canonicalUrl,
+      source_platform: parsed.platform,
+      author_handle: handleFromUrl(params.url),
+      title: note.slice(0, 120) || `${parsed.platform} reel`,
+      style_description: note || analysis.style_description,
+      structure: { beats: analysis.beats } as unknown as never,
+      caption: note || null,
+      embed_url: parsed.embedUrl,
+      is_active: true,
+      status: params.status,
+      shot_type: params.shotType ?? 'clinic',
+    })
+    .select('id')
+    .single()
+  if (error || !data) throw new Error(`insert failed: ${error?.message ?? 'unknown'}`)
+  return { id: data.id }
+}

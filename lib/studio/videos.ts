@@ -34,6 +34,12 @@ export interface StudioVideo {
   caption: string | null
   video_storage_path: string | null
   thumbnail_storage_path: string | null
+  // Set for reels we play through the platform's own iframe instead of
+  // copying the file (Instagram / YouTube). Mutually exclusive in practice
+  // with video_storage_path. See lib/studio/embed.ts.
+  embed_url: string | null
+  // Booked shoot day (YYYY-MM-DD) — null until it's put on the MA board.
+  shoot_date: string | null
   is_active: boolean
   status: StudioStatus
   shot_type: ShotType

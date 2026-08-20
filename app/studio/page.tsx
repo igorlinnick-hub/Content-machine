@@ -38,6 +38,21 @@ export default async function StudioPage({
   const isAdmin = access.role === 'admin'
   const all = await listStudioVideos(clinicId)
 
+  // Read-only here — the token is minted on demand from the Shot List tab.
+  let initialBoardLink: string | null = null
+  if (isAdmin) {
+    const { data: tokenRow } = await supabase
+      .from('clinics')
+      .select('shoot_board_token')
+      .eq('id', clinicId)
+      .maybeSingle()
+    const t = tokenRow?.shoot_board_token
+    if (t) {
+      const base = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') ?? ''
+      initialBoardLink = `${base}/shoot/${t}`
+    }
+  }
+
   // Map to a serialisable card; pin the pre-generated idea for Shot List.
   const cards: StudioCard[] = await Promise.all(
     all.map(async (v) => {
@@ -55,7 +70,9 @@ export default async function StudioPage({
         style_description: v.style_description,
         source_url: v.source_url,
         video_url: v.video_url,
+        embed_url: v.embed_url,
         thumbnail_url: v.thumbnail_url,
+        shoot_date: v.shoot_date,
         schema_beats: (v.structure?.beats ?? []).map((b) => ({
           name: b.name,
           text: b.text,
@@ -128,6 +145,7 @@ export default async function StudioPage({
           initialTab={tab}
           initialCards={cards}
           driveInboxUrl={driveInboxUrl}
+          initialBoardLink={initialBoardLink}
         />
       </div>
     </main>

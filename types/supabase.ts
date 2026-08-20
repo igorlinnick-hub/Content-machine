@@ -61,6 +61,7 @@ export type Database = {
           plan_status: string | null
           plan_error: string | null
           hellometrix_client_id: string | null
+          shoot_board_token: string | null
         }
         Insert: {
           audience?: string | null
@@ -87,6 +88,7 @@ export type Database = {
           plan_status?: string | null
           plan_error?: string | null
           hellometrix_client_id?: string | null
+          shoot_board_token?: string | null
         }
         Update: {
           audience?: string | null
@@ -113,6 +115,7 @@ export type Database = {
           plan_status?: string | null
           plan_error?: string | null
           hellometrix_client_id?: string | null
+          shoot_board_token?: string | null
         }
         Relationships: [
           {
@@ -1401,6 +1404,9 @@ export type Database = {
           is_active: boolean
           status: string
           current_script_id: string | null
+          shot_type: string
+          shoot_date: string | null
+          embed_url: string | null
           created_at: string
         }
         Insert: {
@@ -1419,6 +1425,9 @@ export type Database = {
           is_active?: boolean
           status?: string
           current_script_id?: string | null
+          shot_type?: string
+          shoot_date?: string | null
+          embed_url?: string | null
           created_at?: string
         }
         Update: {
@@ -1437,6 +1446,9 @@ export type Database = {
           is_active?: boolean
           status?: string
           current_script_id?: string | null
+          shot_type?: string
+          shoot_date?: string | null
+          embed_url?: string | null
           created_at?: string
         }
         Relationships: [
