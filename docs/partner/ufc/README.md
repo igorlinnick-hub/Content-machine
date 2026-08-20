@@ -71,14 +71,12 @@ inconsistent effective rates once spread across the real price range:
 
 1. **Cover** — the first-and-last-name requirement and portal access. Nothing else: this page
    exists to make one instruction impossible to miss.
-2. **Fee schedule** — service name and fee, nothing else. Plus the trainer-scope notice and terms.
+2. **Fee schedule** — service name and fee, nothing else.
 3. **Service guide 1 of 2** — Regenerative, Pain & Joint, Mental Health.
 4. **Service guide 2 of 2** — Weight Loss, Peptides, IV/NAD+, Aesthetics, Consultations.
 
 The fee-basis rationale (10% of list, see below) is **internal** — it is documented here, not
-printed in the guide. Trainers need the number, not the formula. The operational terms that
-prevent later arguments (credited on completion, credit not cash, one fee per service) sit as a
-single line in the page-2 notice rather than a block of their own.
+printed in the guide. Trainers need the number, not the formula.
 
 The fee page deliberately carries **no descriptions**. A trainer checking what something
 pays should not have to read past it; anyone who wants to understand a service turns to
@@ -101,13 +99,34 @@ is. Same reasoning removed "GLP-1" and "compounded" elsewhere.
 > source sheet (30 / 50 / 90 / 180 billion). Have the clinical team confirm every entry
 > before distribution.
 
+## Removed at the clinic's direction — now unhoused
+
+The guide previously carried a notice on page 2 covering three things. All were removed to
+keep the document short. **None of them stopped being necessary; they simply no longer live
+anywhere.** They need a home before this is handed out:
+
+1. **Trainer scope** — that a trainer introduces people and does not diagnose, prescribe,
+   recommend a specific treatment, promise an outcome, or quote a success rate. This is the
+   instruction that keeps a non-clinician from practising medicine on the gym floor.
+2. **Off-label / not-FDA-approved disclosure** for ketamine, peptides and compounded
+   weight-loss medication.
+3. **The regenerative / stem cell regulatory statement** placeholder, which was previously
+   acting as the block on distribution.
+4. **Operating terms** — credited on completion not booking, one fee per service regardless
+   of package size, Repeat Cash is clinic credit rather than cash and is not transferable,
+   fees can change.
+
+Recommended home: a one-page trainer acknowledgment signed once at onboarding. A signature on
+file is stronger evidence than fine print on a handout, and it keeps this document clean —
+which is what was wanted in the first place. Not yet written.
+
 ## Open items
 
 - [ ] **Confirm every service-guide entry** with the clinical team, and fill in the three
       `†` Nano descriptions (see above).
-- [ ] **Regenerative / stem cell regulatory statement** — page 2 ships with a visible
-      dashed placeholder on page 2. Must be written from the clinic's actual documentation and
-      cleared by the medical director + counsel. Do not distribute until replaced.
+- [ ] **Write the trainer acknowledgment** covering the four items above, and get the
+      regulatory statement drafted from the clinic's actual documentation and cleared by the
+      medical director + counsel. The PDF no longer blocks its own distribution.
 - [ ] **Botox** is priced per unit ($13); the $25 fee assumes a ~25-unit average
       treatment. Confirm the real average, or drop Botox to a per-unit rate.
 - [ ] **Flat fee ignores package size** by design. A single ketamine session and a

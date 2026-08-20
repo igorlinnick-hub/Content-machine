@@ -299,17 +299,10 @@ h1 em{font-style:italic;color:var(--coral)}
   border-radius:50%;background:var(--teal)}
 .fine b{color:var(--ink);font-weight:600}
 
-/* ── compliance ── */
-.legal{margin-top:auto;background:#fff;border:1px solid rgba(27,79,110,.16);
   border-radius:10px;padding:11px 14px}
-.legal h4{font-size:8pt;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
   color:var(--ocean);margin-bottom:7px}
-.legal p{font-size:7.2pt;line-height:1.52;color:var(--muted)}
 .legal p+p{margin-top:5px}
-.legal b{color:var(--ink);font-weight:600}
-.todo{background:#fff8e6;border:1.5px dashed #d99b2f;border-radius:8px;
   padding:9px 12px;margin-top:8px}
-.todo p{font-size:7.3pt;line-height:1.52;color:#7a5410}
 .todo b{color:#7a5410;font-weight:700;letter-spacing:.05em;text-transform:uppercase;font-size:7.3pt}
 
 /* ── footer ── */
@@ -355,25 +348,6 @@ ${page('Page 2 of 4', `
 <p class="lede" style="font-size:9.4pt;margin-top:6px;max-width:6.2in">One name, one fee — the same tag we use in the clinic's system. Dose and package size don't change it.</p>
 
 <div class="grid">${cats.map(table).join('')}</div>
-<div class="legal">
-  <h4>Please read — what trainers can and cannot say</h4>
-  <p>Hawaii Wellness Clinic is a physician-supervised medical clinic. Your role is to <b>introduce
-  people to the clinic</b> — not to diagnose, prescribe, recommend a specific treatment, or give
-  medical advice. Whether a service suits someone is decided only by an HWC clinician after
-  evaluation. Please don't promise an outcome, quote a success rate, or tell a member which therapy
-  they need.</p>
-  <p>Many therapies offered at HWC — including ketamine for mental health, peptide therapy, and
-  compounded weight-loss medications — are prescribed <b>off-label or are not FDA-approved</b> for
-  those uses. That is lawful medical practice, but it is not the same as an approved product and
-  should never be described as one.</p>
-  <p><b>Terms.</b> Credited on completion, not on booking — a no-show credits nothing. One fee
-  per service, whatever the dose or package size. Repeat Cash is clinic credit, redeemable at
-  HWC; it is not cash and is not transferable. Fees can change — your portal balance is always
-  the current figure.</p>
-  <div class="todo"><p><b>Placeholder — do not distribute until replaced</b><br>
-  The clinic's regenerative / stem cell regulatory statement goes here. It must be written from the
-  documentation the clinic actually holds and cleared by the medical director and counsel first.</p></div>
-</div>
 
 `)}
 
