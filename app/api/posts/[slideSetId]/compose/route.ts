@@ -8,6 +8,7 @@ import { composeInCanva, ComposeCancelled, ComposeError } from '@/lib/canva/orch
 import { canvaIsConfigured } from '@/lib/canva/oauth'
 import { autofillIsConfigured } from '@/lib/canva/template-map'
 import { normalizeStyleId } from '@/lib/posts/style-templates'
+import { coverBriefForStyle } from '@/lib/posts/cover-brief'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -48,7 +49,7 @@ export async function POST(
 
   const { data: row, error: loadErr } = await supabase
     .from('slide_sets')
-    .select('id, clinic_id, status, canva_style, scripts ( topic )')
+    .select('id, clinic_id, status, canva_style, slides, scripts ( topic, hook )')
     .eq('id', params.slideSetId)
     .maybeSingle()
   if (loadErr || !row) {
@@ -88,6 +89,27 @@ export async function POST(
     const url = new URL(req.url)
     const scripts = Array.isArray(row.scripts) ? row.scripts[0] : row.scripts
     const topic = (scripts as { topic?: string | null } | null | undefined)?.topic ?? null
+    const hook = (scripts as { hook?: string | null } | null | undefined)?.hook ?? null
+
+    // The style is only known HERE, so this is where a photo-cover style gets
+    // a real cover brief. Without it the runner keeps the donor template's
+    // photo and every Style-1 post opens on the same shot (Igor 2026-08-20).
+    const patchedSlides = coverBriefForStyle(
+      row.slides,
+      normalizeStyleId(row.canva_style),
+      topic ?? '',
+      hook
+    )
+    if (patchedSlides) {
+      const { error: briefErr } = await supabase
+        .from('slide_sets')
+        .update({ slides: patchedSlides } as never)
+        .eq('id', params.slideSetId)
+      if (briefErr) {
+        // Non-fatal: the compose still runs, it just keeps the branded cover.
+        console.error('[compose] cover brief rewrite failed:', briefErr.message)
+      }
+    }
     void pingCanvaRunner({
       slideSetId: params.slideSetId,
       clinicId: row.clinic_id ?? '',

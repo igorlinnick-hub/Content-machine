@@ -38,6 +38,17 @@ export interface StyleTemplate {
   /** Grouping/branding, e.g. "Made" (ManyChat). */
   under?: string
   /**
+   * True when this master's COVER carries a full-bleed photo (Igor 2026-08-20).
+   *
+   * The photo brief is written at generation time, before anyone picks a style,
+   * so the cover is briefed as `fallback` = "keep the branded surface". On a
+   * photo-cover style that means the runner keeps the DONOR template's photo,
+   * and the same shot reappears on every post in that style. `/compose` uses
+   * this flag to rewrite the cover brief to a real, on-topic `ai` slide once
+   * the style is actually known.
+   */
+  photoCover?: boolean
+  /**
    * How many BODY pages this master ships with (total pages minus cover minus
    * CTA). Informational — NOT a cap on post length. A 2026-08-03 compose did
    * fail with "example has too few body pages" (6-slide post, 4-slot master),
@@ -58,6 +69,7 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
   {
     id: 1,
     key: 'style1',
+    photoCover: true,
     name: 'Style 1',
     description: 'Diagonal translucent panels over a full-bleed photo — bold, editorial.',
     canvaDesignId: 'DAHRSR-KWdA',
@@ -88,6 +100,7 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
   {
     id: 4,
     key: 'style4',
+    photoCover: true,
     name: 'Style 4',
     description: 'Curved teal/purple panels — clean, clinical, medical-context imagery.',
     canvaDesignId: 'DAHQn_1_j2s',
@@ -99,6 +112,7 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
   {
     id: 5,
     key: 'aesthetic',
+    photoCover: true,
     name: 'Aesthetic',
     description: 'Full-bleed photo cover, magazine feel — kept separately for Made.',
     canvaDesignId: 'DAHMHS1wLls',
@@ -137,6 +151,12 @@ export const DEFAULT_STYLE_ID = 1
 export function normalizeStyleId(raw: number | null | undefined): number {
   const n = Number(raw)
   return STYLE_TEMPLATES.some((s) => s.id === n) ? n : DEFAULT_STYLE_ID
+}
+
+/** The registry entry for a stored `canva_style`, normalised. */
+export function getStyleTemplate(raw: number | null | undefined): StyleTemplate {
+  const id = normalizeStyleId(raw)
+  return STYLE_TEMPLATES.find((s) => s.id === id) ?? STYLE_TEMPLATES[0]
 }
 
 /** Canva master design id for a stored `canva_style`. */
