@@ -1,8 +1,8 @@
 import type { ClinicProfile } from '@/types'
-import { MODEL_DEFAULT, callAgentTool } from './base'
+import { MODEL_DEFAULT, MODEL_HAIKU, callAgentTool } from './base'
 import type { ReplaceWeekInput } from '@/lib/content-plan/store'
 import { keywordPoolForNiche } from '@/lib/seeds/cta-keywords'
-import { POST_FORMATS, FORMAT_NAMES } from '@/lib/posts/formats'
+import { POST_FORMATS, FORMAT_NAMES, getFormat } from '@/lib/posts/formats'
 import { getNicheProfile } from '@/lib/niche/profiles'
 
 export interface PlannerOutput {
@@ -143,6 +143,75 @@ AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' |
       },
     },
     maxTokens: 500,
+    cacheSystem: true,
+  })
+}
+
+// ─── Fit an existing topic to a format ────────────────────────────
+// The format button owns HOW a post is written, and the cover headline is
+// already rebuilt from the format at generation time (`coverTitle` →
+// `lib/agents/writer.ts`). The plan's TOPIC line deliberately stays put on a
+// format click — it is the week's WHAT, the 8-week arc hangs on it, and
+// rewriting it silently is exactly the kind of invisible text change that
+// burned us before. This is the opt-in escape hatch (Igor 2026-08-20): the
+// marketer presses "Fit topic", sees the rewrite in the input, and edits or
+// undoes it before pressing Generate. Same subject, format's angle.
+
+export interface FitTopicToFormatInput {
+  profile: ClinicProfile
+  week?: { theme: string; pillar: string; description?: string | null } | null
+  currentTopic: string
+  /** Catalog format name the topic should be phrased for. */
+  format: string
+  /** Other topics in the plan — the rewrite must not drift into one of them. */
+  avoidTopics?: string[]
+}
+
+const FIT_FORMAT_PROMPT = `You are an editorial content strategist for a medical clinic's social media.
+
+Rewrite ONE existing content-plan topic so it reads as a topic for the given FORMAT — and nothing else.
+
+HARD RULES:
+- KEEP THE SUBJECT. The rewrite is about the same thing as the original: same treatment, same body system, same patient question. You change the ANGLE and the PHRASING to suit the format, never the subject. Landing on a different subject is a failure, not a creative choice.
+- Patient-facing, 6-12 words, English, in words a patient would actually say or type. The reader is the hero of the topic, never the clinic.
+- NEVER put the doctor's name in the topic. NEVER promise an outcome ("lose 40 pounds", "pain-free in weeks", "reverses ageing") — compliance strips it and the post collapses.
+- Do not duplicate or paraphrase anything listed under AVOID.
+- This is the plan's TOPIC line, NOT the post's cover headline. Describe what the post is about; do not write a headline with a count ("Four Things To Know") — the cover title is built separately at generation time from the format.
+- If the original topic ALREADY suits the format, return it unchanged. Do not invent a difference to look busy.`
+
+export async function fitTopicToFormat(
+  input: FitTopicToFormatInput
+): Promise<{ topic: string }> {
+  const fmt = getFormat(input.format)
+  const { profile, week } = input
+  const userContent = `Clinic: ${profile.name}
+Services: ${profile.services?.join(', ') || 'n/a'}
+Audience: ${profile.audience || 'adult patients considering treatments'}
+${week ? `\nWeek theme: ${week.theme}\nWeek pillar: ${week.pillar}${week.description ? `\nWeek angle: ${week.description}` : ''}` : ''}
+
+FORMAT to fit: ${input.format}${fmt ? `\nWhat it is for: ${fmt.hint}\nHow it works: ${fmt.description}` : ''}
+
+Current topic: ${input.currentTopic}
+AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' | ') || 'none'}`
+
+  return callAgentTool<{ topic: string }>({
+    model: MODEL_HAIKU,
+    systemPrompt: `${FIT_FORMAT_PROMPT}\n\n${toneBlockFor(profile.niche)}`.trim(),
+    userContent,
+    toolName: 'submit_fitted_topic',
+    toolDescription: 'Submit the topic rephrased for the requested format',
+    inputSchema: {
+      type: 'object',
+      required: ['topic'],
+      properties: {
+        topic: {
+          type: 'string',
+          description:
+            'The same subject, phrased as a topic for the requested format. 6-12 words, patient-facing.',
+        },
+      },
+    },
+    maxTokens: 300,
     cacheSystem: true,
   })
 }

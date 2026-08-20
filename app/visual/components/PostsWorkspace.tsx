@@ -319,6 +319,13 @@ export function PostsWorkspace({
   // On a plan topic it is persisted to the row so the choice survives a reload;
   // on an ad-hoc topic it rides along in the generate call only.
   const [formatChoice, setFormatChoice] = useState<string | null>(null)
+  // "Fit topic" — the opt-in topic rewrite. Pressing a format never touches
+  // the topic line on its own (the plan's arc hangs on it); this button is
+  // how the marketer asks for it, and `fittedFrom` keeps the pre-rewrite text
+  // around so one click puts it back.
+  const [fittingTopic, setFittingTopic] = useState(false)
+  const [fittedFrom, setFittedFrom] = useState<string | null>(null)
+  const [fitNote, setFitNote] = useState<string | null>(null)
 
   // Re-sync the chips whenever the marketer flips to another week.
   useEffect(() => {
@@ -348,6 +355,8 @@ export function PostsWorkspace({
     })
     setTopic(post.topic)
     setFormatChoice(post.format ?? null)
+    setFittedFrom(null)
+    setFitNote(null)
     // Auto-fill the starting note with the week's angle so the marketer
     // has orientation instead of a blank box. Editable / clearable.
     setNote(currentWeek.description ?? '')
@@ -381,6 +390,74 @@ export function PostsWorkspace({
       body: JSON.stringify({ topicId, format }),
     }).catch(() => null)
     if (!res || !res.ok) setFormatChoice(prev)
+  }
+
+  // Rewrite the topic line to suit the pinned format — same subject, the
+  // format's angle. Explicit button, visible result, undoable: the format
+  // click itself must never move text under the marketer.
+  async function fitTopicToFormat() {
+    if (fittingTopic || generating || !formatChoice || !topic.trim()) return
+    setFittingTopic(true)
+    setFitNote(null)
+    const before = topic
+    try {
+      const res = await fetch('/api/content-plan/fit-format', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(
+          plannedPost
+            ? { topicId: plannedPost.id, format: formatChoice }
+            : { clinicId, topic: before.trim(), format: formatChoice }
+        ),
+      })
+      const data = (await res.json().catch(() => null)) as {
+        topic?: string
+        changed?: boolean
+        error?: string
+      } | null
+      if (!res.ok || !data?.topic) {
+        setFitNote(
+          data?.error === 'LLM_AGENTS_DISABLED'
+            ? 'Generation is on subscription-pause.'
+            : data?.error ?? `HTTP ${res.status}`
+        )
+        return
+      }
+      if (!data.changed) {
+        setFitNote('Already reads like this format.')
+        return
+      }
+      setTopic(data.topic)
+      setFittedFrom(before)
+      if (plannedPost) {
+        const topicId = plannedPost.id
+        setPlannedPost({ ...plannedPost, topic: data.topic })
+        setWeekPosts((cur) =>
+          cur.map((p) => (p.id === topicId ? { ...p, topic: data.topic! } : p))
+        )
+      }
+    } catch (e) {
+      setFitNote(e instanceof Error ? e.message : 'fit failed')
+    } finally {
+      setFittingTopic(false)
+    }
+  }
+
+  async function undoFit() {
+    const before = fittedFrom
+    if (!before) return
+    setTopic(before)
+    setFittedFrom(null)
+    setFitNote(null)
+    if (!plannedPost) return
+    const topicId = plannedPost.id
+    setPlannedPost({ ...plannedPost, topic: before })
+    setWeekPosts((cur) => cur.map((p) => (p.id === topicId ? { ...p, topic: before } : p)))
+    await fetch('/api/content-plan/set-topic', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ topicId, topic: before }),
+    }).catch(() => null)
   }
 
   async function rerollPlanTopic(topicId: string) {
@@ -536,6 +613,8 @@ export function PostsWorkspace({
       }
       setTopic('')
       setNote('')
+      setFittedFrom(null)
+      setFitNote(null)
       router.refresh()
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'failed to generate'
@@ -850,6 +929,33 @@ export function PostsWorkspace({
                 disabled={generating}
                 align="left"
               />
+              {/* The topic line is NOT rewritten by the format click — this
+                  is the explicit ask, and it can be undone before Generate. */}
+              {formatChoice && topic.trim() && (
+                <button
+                  type="button"
+                  onClick={fitTopicToFormat}
+                  disabled={fittingTopic || generating}
+                  title="Rephrase the topic above to suit this format — same subject, format's angle. Edit or undo it before generating."
+                  className="shrink-0 rounded-full border border-dashed border-neutral-300 px-2 py-0.5 text-[10px] font-semibold text-neutral-500 transition hover:border-solid hover:text-neutral-700 disabled:opacity-40"
+                >
+                  {fittingTopic ? 'Fitting…' : 'Fit topic'}
+                </button>
+              )}
+              {fittedFrom && !fittingTopic && (
+                <button
+                  type="button"
+                  onClick={undoFit}
+                  disabled={generating}
+                  title={`Put back: ${fittedFrom}`}
+                  className="shrink-0 text-[10px] font-semibold text-neutral-400 underline underline-offset-2 transition hover:text-neutral-600 disabled:opacity-40"
+                >
+                  ↩ undo
+                </button>
+              )}
+              {fitNote && (
+                <span className="truncate text-[10px] text-neutral-400">{fitNote}</span>
+              )}
             </div>
             <button
               type="button"
