@@ -231,6 +231,69 @@ export function PostsWorkspace({
     return () => clearInterval(id)
   }, [detail])
 
+  // Re-read the selected post whenever the tab comes back into focus.
+  //
+  // The poll above only runs while the row is "actively moving", so a card
+  // that was loaded as `review` never learns it has since been composed —
+  // which happens whenever the compose was started somewhere else: another
+  // tab, the poller picking up a queued row, or a second person in the
+  // back-office. Igor hit exactly this: the post was `visuals_ready` with a
+  // Canva link in the database while his screen still offered "Compose in
+  // Canva" (2026-08-19). Only status/render_result/compose_progress are
+  // merged, never the slides, so unsaved edits in the editor survive.
+  useEffect(() => {
+    const id = detail?.slide_set_id
+    if (!id) return
+    let alive = true
+
+    async function resync() {
+      if (!alive || document.visibilityState !== 'visible') return
+      try {
+        const res = await fetch(`/api/posts/${id}`)
+        if (!res.ok || !alive) return
+        const data = (await res.json()) as PostDetail
+        setDetail((d) =>
+          d && d.slide_set_id === data.slide_set_id
+            ? {
+                ...d,
+                status: data.status,
+                render_result: data.render_result,
+                compose_progress: data.compose_progress ?? null,
+              }
+            : d
+        )
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.slide_set_id === data.slide_set_id
+              ? {
+                  ...p,
+                  status: data.status,
+                  render_result: data.render_result
+                    ? {
+                        schema_version: data.render_result.schema_version,
+                        canva_edit_url: data.render_result.canva_edit_url,
+                        cover_url: data.render_result.outputs?.[0]?.url ?? null,
+                        ts: data.render_result.ts,
+                      }
+                    : null,
+                }
+              : p
+          )
+        )
+      } catch {
+        // best-effort — the next focus tries again
+      }
+    }
+
+    window.addEventListener('focus', resync)
+    document.addEventListener('visibilitychange', resync)
+    return () => {
+      alive = false
+      window.removeEventListener('focus', resync)
+      document.removeEventListener('visibilitychange', resync)
+    }
+  }, [detail?.slide_set_id])
+
   // PhotoPicker modal state — null = closed; otherwise the index of the
   // slide whose photo is being changed.
   const [photoPickerForIndex, setPhotoPickerForIndex] = useState<number | null>(
