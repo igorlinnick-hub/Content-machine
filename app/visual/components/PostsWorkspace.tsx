@@ -7,6 +7,7 @@ import type { PostListItem } from '@/lib/visual/store'
 import type { RenderResult, SlideSetStatus } from '@/types'
 import { isActivelyMoving, statusMeta } from '@/lib/posts/status-owners'
 import { SlideEditor, type UISlide } from './SlideEditor'
+import { FormatPicker } from '@/app/components/FormatPicker'
 import { PhotoPicker } from './PhotoPicker'
 import {
   GenerateProgress,
@@ -251,6 +252,10 @@ export function PostsWorkspace({
   // Autonomy-first: the form always opens on a ready-to-generate plan
   // topic. `manualMode` is the escape hatch — the "Blank post" custom form.
   const [manualMode, setManualMode] = useState(false)
+  // Format = HOW this post is written (educational / tips / warning signs / …).
+  // On a plan topic it is persisted to the row so the choice survives a reload;
+  // on an ad-hoc topic it rides along in the generate call only.
+  const [formatChoice, setFormatChoice] = useState<string | null>(null)
 
   // Re-sync the chips whenever the marketer flips to another week.
   useEffect(() => {
@@ -279,6 +284,7 @@ export function PostsWorkspace({
       pillar: currentWeek.pillar,
     })
     setTopic(post.topic)
+    setFormatChoice(post.format ?? null)
     // Auto-fill the starting note with the week's angle so the marketer
     // has orientation instead of a blank box. Editable / clearable.
     setNote(currentWeek.description ?? '')
@@ -299,6 +305,20 @@ export function PostsWorkspace({
     if (!plannedPost || plannedIdx < 0) selectPlanTopic(weekPosts[0])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekPosts, weekIdx, manualMode])
+
+  async function chooseFormat(format: string | null) {
+    const prev = formatChoice
+    setFormatChoice(format)
+    if (!plannedPost) return // ad-hoc: nothing to persist, it rides on generate
+    const topicId = plannedPost.id
+    setWeekPosts((cur) => cur.map((p) => (p.id === topicId ? { ...p, format } : p)))
+    const res = await fetch('/api/content-plan/set-format', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ topicId, format }),
+    }).catch(() => null)
+    if (!res || !res.ok) setFormatChoice(prev)
+  }
 
   async function rerollPlanTopic(topicId: string) {
     if (rerollingTopicId || addingTopic) return
@@ -408,6 +428,7 @@ export function PostsWorkspace({
             ? { planTopicId: plannedPost.id }
             : { topic: topic.trim() }),
           note: note.trim() || undefined,
+          format: formatChoice ?? undefined,
         }),
       })
       const data = (await res.json().catch(() => null)) as {
@@ -753,7 +774,20 @@ export function PostsWorkspace({
             className="cm-input resize-none text-sm"
             disabled={generating}
           />
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center justify-between gap-3">
+            {/* HOW the post is written. The week's theme still decides WHAT
+                it is about — this is the shape it takes. */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">
+                Format
+              </span>
+              <FormatPicker
+                value={formatChoice}
+                onChange={chooseFormat}
+                disabled={generating}
+                align="left"
+              />
+            </div>
             <button
               type="button"
               onClick={generate}

@@ -459,7 +459,8 @@ function buildContextBrief(
   pinnedFormat?: PinnedFormat,
   excludeHooks?: string[],
   planContext?: import('@/types').PlanContext | null,
-  postCarouselMode?: boolean
+  postCarouselMode?: boolean,
+  formatOverride?: string | null
 ): string {
   const parts: string[] = []
 
@@ -492,9 +493,10 @@ function buildContextBrief(
 
   // Resolve which template(s) to show. Priority:
   // 1. pinnedFormat (Studio: reference video drives the format)
-  // 2. planContext.format (Content Plan: planner pre-assigned the format)
-  // 3. length-biased random pick from all templates
-  const planPinnedName = planContext?.format ?? null
+  // 2. formatOverride (the marketer pressed a format button for THIS post)
+  // 3. planContext.format (Content Plan: planner pre-assigned the format)
+  // 4. length-biased random pick from all templates
+  const planPinnedName = formatOverride?.trim() || planContext?.format || null
   const planPinnedTemplate = planPinnedName
     ? ctx.format_templates.find((t) => t.name === planPinnedName) ?? null
     : null
@@ -522,7 +524,10 @@ function buildContextBrief(
     if (templates.length > 0) {
       parts.push(
         `FORMAT TEMPLATES — pick exactly one per variant. These are STRUCTURAL scaffolds (not topics or words). Different variants should pick different templates when more than one is provided. Each template tells you HOW to lay out the post.\n\n${templates
-          .slice(0, 6)
+          // The catalog is 9 formats since 2026-08-19; a 6-slot window would
+          // hide whichever ones sit last in a clinic's template order (the
+          // newly back-filled ones always do).
+          .slice(0, 9)
           .map(
             (t, idx) =>
               `=== Template ${idx + 1}: ${t.name}${
@@ -675,6 +680,10 @@ export interface RunWriterParams {
   // (lib/posts/said-before.ts). Goes in the USER content, never the cached
   // system block. Empty/absent = no repetition guard for this run.
   saidBeforeBlock?: string
+  // The format button (Igor 2026-08-19). Wins over the plan's assigned
+  // format, loses to a Studio pinnedFormat. Must name a template the clinic
+  // has in script_templates — otherwise it degrades to "Writer picks".
+  formatOverride?: string | null
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
@@ -686,7 +695,8 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     params.pinnedFormat,
     params.excludeHooks,
     params.planContext,
-    params.postCarouselMode
+    params.postCarouselMode,
+    params.formatOverride
   )
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
   const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)

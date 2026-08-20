@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { StructuredPlanWeek, StructuredPlanPost } from '@/lib/content-plan/store'
 import { pillarColor } from '@/lib/content-plan/store'
+import { FormatPicker } from '@/app/components/FormatPicker'
 
 export function WeekCard({
   week,
@@ -64,7 +65,16 @@ export function WeekCard({
         setPosts((prev) =>
           prev.map((p) =>
             p.id === topicId
-              ? { ...p, topic: data.topic, keyword: data.keyword ?? null, status: 'pending' }
+              ? {
+                  ...p,
+                  topic: data.topic,
+                  keyword: data.keyword ?? null,
+                  // A reroll replaces the TOPIC. If the marketer had pinned a
+                  // format, keep theirs; otherwise take the one the planner
+                  // picked for the new topic.
+                  format: p.format ?? data.format ?? null,
+                  status: 'pending',
+                }
               : p
           )
         )
@@ -72,6 +82,19 @@ export function WeekCard({
     } finally {
       setRerollingId(null)
     }
+  }
+
+  // Format = HOW this post gets written. Persisted on the topic row, so the
+  // generator picks it up whenever the post is finally generated.
+  async function setFormat(topicId: string, format: string | null) {
+    const prev = posts
+    setPosts((cur) => cur.map((p) => (p.id === topicId ? { ...p, format } : p)))
+    const res = await fetch('/api/content-plan/set-format', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topicId, format }),
+    }).catch(() => null)
+    if (!res || !res.ok) setPosts(prev)
   }
 
   async function skipWeek() {
@@ -176,6 +199,14 @@ export function WeekCard({
                   >
                     {post.keyword}
                   </span>
+                )}
+                {!isRerolling && (
+                  <FormatPicker
+                    value={post.format ?? null}
+                    onChange={(f) => setFormat(post.id, f)}
+                    color={color}
+                    disabled={rerollingId !== null}
+                  />
                 )}
                 <button
                   type="button"

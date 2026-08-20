@@ -17,6 +17,7 @@ import { splitScriptToPostPlan } from '@/lib/posts/splitter'
 import { createSlideSet } from '@/lib/visual/store'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
 import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
+import { isKnownFormat } from '@/lib/posts/formats'
 import { ensureDefaultScriptTemplates } from '@/lib/posts/templates'
 import {
   runComplianceGate,
@@ -51,6 +52,9 @@ interface Body {
   // Planned mode (90% path): pass content_plan_topics.id so the Writer
   // receives full pillar/theme/keyword context from the editorial plan.
   planTopicId?: string
+  // The format button (Igor 2026-08-19) — "HOW we say it" for THIS post.
+  // Overrides whatever format the plan assigned; works for ad-hoc posts too.
+  format?: string
 }
 
 interface GenerateOneResult {
@@ -122,6 +126,7 @@ async function generateOne(params: {
   preMatchedFolderId: string | null
   planId?: string | null
   planContext?: PlanContext | null
+  formatOverride?: string | null
   onStage?: StageEmitter
   // Background mode: pre-created 'generating' placeholder row to UPDATE
   // with the finished PostPlan instead of inserting a fresh row.
@@ -182,6 +187,7 @@ async function generateOne(params: {
     topicHint: topicHintWithNote,
     saidBeforeBlock,
     planContext: params.planContext,
+    formatOverride: params.formatOverride,
     ctaHint: params.ctaHint,
     // ONE variant, not best-of-3 (Igor 2026-08-11). The extra two were only
     // ever read by the Critic's ranking below — the marketer never saw them —
@@ -520,6 +526,9 @@ export async function POST(req: Request) {
   const freeTopic = body.topic?.trim()
   const planHandle = body.planId?.trim()
   const planTopicId = body.planTopicId?.trim()
+  // The format button. Ignore an unknown name rather than 400-ing a whole
+  // generation over it — the Writer then falls back to the plan's format.
+  const formatOverride = isKnownFormat(body.format) ? body.format!.trim() : null
   if (!clinicId || (!topicId && !freeTopic && !planHandle && !planTopicId)) {
     return NextResponse.json(
       { error: 'clinicId and one of topicId / topic / planId / planTopicId required' },
@@ -648,6 +657,7 @@ export async function POST(req: Request) {
           preMatchedFolderId: photoFolderRefs.folderId,
           planId: body.planId ?? null,
           planContext,
+          formatOverride,
           onStage,
           // Placeholder row (bg mode) belongs to the primary length only;
           // a secondary 'long' variant still inserts its own row.

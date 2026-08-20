@@ -135,7 +135,10 @@ export async function getCurrentPlanContext(
     // Specific topic → join to its week
     const { data } = await supabase
       .from('content_plan_topics')
-      .select('id, topic, keyword, week_id, content_plan_weeks(week_number, theme, pillar)')
+      // `format` must be selected here or the Writer never learns which format
+      // the plan (or the marketer's button) chose — it read `data.format` off a
+      // row that never carried the column (fixed 2026-08-19).
+      .select('id, topic, keyword, format, week_id, content_plan_weeks(week_number, theme, pillar)')
       .eq('id', topicId)
       .maybeSingle()
 

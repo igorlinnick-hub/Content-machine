@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase/server'
+import { POST_FORMATS } from '@/lib/posts/formats'
 
 export type ScriptTemplateLengthBias = 'short' | 'long'
 
@@ -14,83 +15,20 @@ export interface ScriptTemplate {
   created_at: string
 }
 
-// Six default structural scaffolds — every clinic gets these on first use.
-// They live on the backend; the user does not touch them. Writer picks one
-// per variant and uses it as the structural skeleton for the post.
+// The default structural scaffolds every clinic gets. The catalog itself lives
+// in `lib/posts/formats.ts` — one registry shared by the planner, the format
+// buttons in the UI, and this seeding. Add a format there, not here.
 export const DEFAULT_SCRIPT_TEMPLATES: Array<{
   name: string
   description: string
   scaffold: string
   length_bias: ScriptTemplateLengthBias | null
-}> = [
-  {
-    name: 'System critique',
-    description:
-      'Why mainstream care fails this problem and what that means for the patient.',
-    scaffold: `[Hook — a sentence that contradicts the standard medical line on this topic.]
-[Why the system gets it wrong — one specific reason, not a vague rant. Mechanism or incentive, not buzzwords.]
-[What gets missed — the thing patients keep paying for that does not actually move the needle.]
-[What we do instead — concrete, mechanism-backed, named. Show the actual decision, not slogans.]
-[CTA — a single specific next step.]`,
-    length_bias: null,
-  },
-  {
-    name: 'Diagnostic deep-dive',
-    description:
-      'Take one symptom or condition and unpack the real mechanism.',
-    scaffold: `[Hook — a symptom-as-question, the kind a patient types into Google at 2am.]
-[The wrong story — what most people are told about it.]
-[The actual mechanism — explained in everyday physical terms, not jargon. Use a concrete metaphor.]
-[Why this changes the treatment — what you stop doing, what you start doing.]
-[CTA — book the right kind of evaluation.]`,
-    length_bias: null,
-  },
-  {
-    name: 'Patient story',
-    description:
-      'Anonymised case the doctor sees often, told as a small narrative.',
-    scaffold: `[Hook — one line that sets up the patient: who they are, what they came in for. No names.]
-[What they had already tried — be specific so the audience recognises themselves.]
-[The turning point — the question or test or insight that changed the plan.]
-[What we did and why it worked — mechanism, not testimonial.]
-[CTA — for someone who recognises themselves in this story.]`,
-    length_bias: null,
-  },
-  {
-    name: 'Expert secrets',
-    description:
-      'What the doctor would tell a friend that he does not say in a 10-minute visit.',
-    scaffold: `[Hook — "Here is what most doctors will not tell you about ___."]
-[Reveal #1 — a counter-intuitive fact about the topic. One sentence.]
-[Reveal #2 — a step the patient can take or watch for, that most clinicians never mention. One sentence.]
-[Reveal #3 — what the doctor actually looks for when deciding the treatment plan. One sentence.]
-[Why this matters — what changes if you act on it.]
-[CTA — invite a real conversation, not a generic booking line.]`,
-    length_bias: null,
-  },
-  {
-    name: 'Medicine philosophy',
-    description:
-      'A short, opinionated piece on how the doctor thinks about treating this kind of patient.',
-    scaffold: `[Hook — a strong opinion stated plainly. Not "I think". Just the claim.]
-[Where this opinion comes from — clinical observation, not theory. Be specific.]
-[What it means for how we treat — the practical decision the philosophy drives.]
-[What it does NOT mean — clear up the obvious counter-argument before someone makes it.]
-[CTA — find out if this approach fits you.]`,
-    length_bias: null,
-  },
-  {
-    name: 'Myth-busting',
-    description:
-      '"You have probably heard X. Here is why that is wrong." Three myths max.',
-    scaffold: `[Hook — name the topic and promise to debunk what people think they know.]
-[Myth 1 — quote the myth, then in one or two sentences show why it is wrong with a fact, not an opinion.]
-[Myth 2 — same shape. Concrete fact, no jargon.]
-[Myth 3 — same shape. End with what is actually true.]
-[CTA — for someone who thought they understood this.]`,
-    length_bias: null,
-  },
-]
+}> = POST_FORMATS.map((f) => ({
+  name: f.name,
+  description: f.description,
+  scaffold: f.scaffold,
+  length_bias: f.length_bias,
+}))
 
 export interface ScriptTemplateInput {
   name: string
@@ -118,21 +56,31 @@ export async function loadScriptTemplates(
   return (data ?? []) as ScriptTemplate[]
 }
 
-// Seed every clinic with the 6 default structural scaffolds the first time
-// the writer is invoked. Idempotent: returns existing templates if any.
+// Seed every clinic with the default structural scaffolds, and TOP UP clinics
+// that were seeded before a format existed (Igor 2026-08-19 — the Educational /
+// Tips / Warning-signs formats had to reach clinics whose templates were
+// already in the table, or their format buttons would point at scaffolds the
+// Writer never receives). Idempotent, matched by name: a clinic's own custom
+// templates and its de-activated defaults are left exactly as they are.
 export async function ensureDefaultScriptTemplates(
   clinicId: string
 ): Promise<ScriptTemplate[]> {
   const existing = await loadScriptTemplates(clinicId, { activeOnly: false })
-  if (existing.length > 0) return existing
+  const have = new Set(existing.map((t) => t.name.trim().toLowerCase()))
+  const missing = DEFAULT_SCRIPT_TEMPLATES.filter(
+    (t) => !have.has(t.name.trim().toLowerCase())
+  )
+  if (missing.length === 0) return existing
+
   const supabase = createServerClient()
-  const rows = DEFAULT_SCRIPT_TEMPLATES.map((t, i) => ({
+  const base = existing.length
+  const rows = missing.map((t, i) => ({
     clinic_id: clinicId,
     name: t.name,
     description: t.description,
     scaffold: t.scaffold,
     length_bias: t.length_bias,
-    position: i,
+    position: base + i,
   }))
   const { error } = await supabase.from('script_templates').insert(rows)
   if (error) throw error

@@ -2,19 +2,18 @@ import type { ClinicProfile } from '@/types'
 import { MODEL_DEFAULT, callAgentTool } from './base'
 import type { ReplaceWeekInput } from '@/lib/content-plan/store'
 import { keywordPoolForNiche } from '@/lib/seeds/cta-keywords'
+import { POST_FORMATS, FORMAT_NAMES } from '@/lib/posts/formats'
 
 export interface PlannerOutput {
   weeks: ReplaceWeekInput[]
 }
 
-const FORMAT_NAMES = [
-  'System critique',
-  'Diagnostic deep-dive',
-  'Patient story',
-  'Expert secrets',
-  'Medicine philosophy',
-  'Myth-busting',
-] as const
+// The catalog is `lib/posts/formats.ts` — the same list the marketer's format
+// buttons write into content_plan_topics.format. The planner only picks a
+// starting rotation; the button is what finally decides HOW a post is written.
+const FORMAT_BLOCK = POST_FORMATS.map(
+  (f, i) => `  ${i + 1}. ${f.name} — ${f.hint}`
+).join('\n')
 
 function buildPlanPrompt(keywordBlock: string): string {
   return `You are an editorial content strategist for a medical clinic's social media (Instagram, TikTok, YouTube Shorts).
@@ -26,14 +25,11 @@ Rules:
 - Rotate pillars across the 8 weeks — don't repeat the same pillar more than 2-3 times unless the clinic has fewer than 4 pillars
 - If the PUBLISHED CONTENT HISTORY shows that a pillar was recently posted 2+ times, deprioritize that pillar — don't assign it to Week 1 or 2; give the audience a break from it first
 - Each post has a TOPIC (the specific video/carousel topic, patient-facing, 6-12 words), a KEYWORD (the ManyChat CTA trigger word — must be chosen ONLY from the lists below), and a FORMAT
-- FORMAT must be one of these 6 structural templates — rotate all 6 evenly across the 24 posts (each format appears exactly 4 times):
-  1. System critique — why mainstream care fails this problem
-  2. Diagnostic deep-dive — unpack the real mechanism behind a symptom
-  3. Patient story — anonymised case the doctor sees often
-  4. Expert secrets — what the doctor tells a friend but not in a 10-min visit
-  5. Medicine philosophy — short opinionated piece on how the doctor thinks
-  6. Myth-busting — debunk 3 common misconceptions
+- FORMAT must be one of these structural templates — rotate them across the 24 posts so every format is used at least twice and none more than four times:
+${FORMAT_BLOCK}
 - Rotate formats so each week has at most 2 posts of the same format
+- Every week should mix registers: do not give a week three explainers or three list posts. A week that teaches a mechanism, gives a practical list, and flags what to check reads far better than three of a kind
+- Match the format to the topic: a mechanism topic wants Educational explainer or Diagnostic deep-dive; a self-care / routine topic wants Practical tips; a "should I get this checked" topic wants Warning signs; a widely-believed falsehood wants Myth-busting
 - Topics must be educational, mechanism-focused, or patient-question-based (not generic)
 - Each week's 3 posts should build on each other (e.g. mechanism → patient question → result/protocol)
 - Ground topics in the clinic's actual services and deep-dive topics
@@ -60,13 +56,8 @@ Rules:
 - It must NOT duplicate or paraphrase the rejected topic (if any), the week's other topics, or any topic listed under AVOID
 - Patient-facing, 6-12 words, educational / mechanism-focused / patient-question-based (not generic)
 - KEYWORD must be chosen ONLY from the valid ManyChat lists below, matching the pillar
-- FORMAT must be one of the 6 templates; prefer one the week doesn't already use:
-  1. System critique — why mainstream care fails this problem
-  2. Diagnostic deep-dive — unpack the real mechanism behind a symptom
-  3. Patient story — anonymised case the doctor sees often
-  4. Expert secrets — what the doctor tells a friend but not in a 10-min visit
-  5. Medicine philosophy — short opinionated piece on how the doctor thinks
-  6. Myth-busting — debunk 3 common misconceptions
+- FORMAT must be one of these templates; prefer one the week doesn't already use, and one that suits the topic:
+${FORMAT_BLOCK}
 
 VALID KEYWORDS (use ONLY these — do not invent new ones):
 ${keywordBlock}`
@@ -121,7 +112,7 @@ AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' |
       properties: {
         topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
         keyword: { type: 'string', enum: pool.keywords, description: 'CTA trigger keyword for this niche' },
-        format: { type: 'string', enum: [...FORMAT_NAMES], description: 'Structural format template' },
+        format: { type: 'string', enum: FORMAT_NAMES, description: 'Structural format template' },
       },
     },
     maxTokens: 500,
@@ -181,7 +172,7 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
                   properties: {
                     topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
                     keyword: { type: 'string', enum: pool.keywords, description: 'CTA trigger keyword — must be one of the valid keywords for this niche' },
-                    format: { type: 'string', enum: [...FORMAT_NAMES], description: 'Structural format template for this post' },
+                    format: { type: 'string', enum: FORMAT_NAMES, description: 'Structural format template for this post' },
                   },
                 },
               },
