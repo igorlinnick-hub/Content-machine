@@ -155,9 +155,32 @@ OUTF=$(mktemp "${TMPDIR:-/tmp}/canva-runner.XXXXXX")
 # orphaned in Canva (Igor 2026-08-13: it died on the final write-back, one
 # step from done). -i no idle sleep, -m no disk sleep, -s no system sleep on
 # AC. Assertions are held only while claude runs and drop the moment it exits.
-caffeinate -ims claude -p "Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly." \
+# ── Context diet (measured 2026-08-19) ──────────────────────────────────
+# Every turn of a compose re-reads the whole session preamble, and a measured
+# compose ran 184 turns. Three things were timed against each other with a
+# one-token `claude -p` probe from this same directory:
+#   as-is                                 49 471 tokens
+#   --allowedTools narrowed to 6 tools    49 475  ← allowedTools is a PERMISSION
+#                                                   list, it changes nothing here
+#   without the installed-skills listing  42 8xx  ← 6.7k of OTHER skills'
+#                                                   descriptions, every turn
+# So: disable the skill mechanism and hand the runner its own instructions as a
+# system prompt instead. install.sh puts SKILL.md next to this script; if it is
+# missing (older install) fall back to the skill invocation so a compose still
+# runs rather than failing on a missing file.
+SKILLF="$HOME/Library/Application Support/HWC/canva-runner/SKILL.md"
+if [ -f "$SKILLF" ]; then
+  PROMPT="Process ONE queued post from the Content Machine canva queue now. Follow your system instructions exactly."
+  set -- --disable-slash-commands --append-system-prompt-file "$SKILLF"
+else
+  PROMPT="Use the canva-compose-runner skill: process ONE queued post from the Content Machine canva queue now. Follow the skill exactly."
+  set --
+fi
+
+caffeinate -ims claude -p "$PROMPT" \
   --model sonnet \
   --allowedTools "mcp__claude_ai_Canva__*,Bash,Read,Write,Skill,ToolSearch" \
+  "$@" \
   --output-format text > "$OUTF" 2>&1
 RC=$?
 cat "$OUTF" >> "$LOG"
