@@ -33,6 +33,13 @@ ${FORMAT_BLOCK}
 - Topics must be educational, mechanism-focused, or patient-question-based (not generic)
 - Each week's 3 posts should build on each other (e.g. mechanism → patient question → result/protocol)
 - Ground topics in the clinic's actual services and deep-dive topics
+TOPIC QUALITY (HARD RULES — Igor 2026-08-20):
+- A topic names the READER'S problem or question, in words a patient would actually say or type. The reader is the hero of every topic — never the clinic, never the doctor.
+- NEVER put the doctor's name in a topic ("What Dr. X tells patients…", "X's philosophy on…", "X's approach to…"). The doctor's voice lives inside the post; a topic list sprinkled with the doctor's name reads as self-promotion and produces near-identical posts.
+- NEVER promise an outcome in a topic ("lost 40 pounds", "reversed", "pain-free in weeks"). Compliance strips the number and the post collapses. A patient-story topic names the SITUATION and the turning point ("Decades of failed diets — what was actually missing"), never the result.
+- ENTRY-POINT VARIETY inside every week: the week's topics must enter through DIFFERENT doors — a symptom the reader feels; a mechanism they're curious about; a decision they face (X vs surgery, when to say no); a misconception; a self-check / which test to ask for; an at-home habit. No two topics in the same week may both be "treatment name + angle".
+- Across the whole plan, at most HALF the topics may lead with a treatment/brand name (GLP-1, PRP, NAD+, …). The other half leads with the reader's life: the 3pm crash, knees on stairs, sleep after 40, skin in the mirror.
+- The same drug or treatment may headline at most 3 topics across the entire plan.
 - Write all topics in English
 - Generate a short description for each week explaining the editorial angle
 
@@ -58,6 +65,8 @@ Rules:
 - KEYWORD must be chosen ONLY from the valid ManyChat lists below, matching the pillar
 - FORMAT must be one of these templates; prefer one the week doesn't already use, and one that suits the topic:
 ${FORMAT_BLOCK}
+
+TOPIC QUALITY (HARD): the topic names the READER'S problem or question in their own words — never the doctor's name in a topic, never a promised outcome ("lost 40 pounds"), and prefer an entry point the week doesn't already use (symptom felt / mechanism / decision / misconception / self-check / at-home habit) over another "treatment name + angle" line.
 
 VALID KEYWORDS (use ONLY these — do not invent new ones):
 ${keywordBlock}`
