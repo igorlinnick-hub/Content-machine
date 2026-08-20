@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 // Keeps an installed PWA on the current build without the doctor doing
 // anything. An iOS home-screen app can stay "open" for weeks — iOS just
@@ -15,6 +15,12 @@ import { useEffect, useRef } from 'react'
 //  2. Confirm the change with a second request before acting, so a mid-rollout
 //     mix of old/new instances can't bounce the app in a loop.
 //  3. At most one reload per REFRESH_COOLDOWN_MS, tracked in sessionStorage.
+//
+// When a guard blocks the reload the page is left on a build the server no
+// longer serves, and the failure mode is SILENT: buttons stop doing anything
+// and nothing on screen says why (Igor hit this twice on 2026-08-19 — Generate
+// and Compose both looked dead). So a blocked reload now raises a visible
+// banner instead of nothing.
 
 const POLL_MS = 15 * 60 * 1000
 const CONFIRM_DELAY_MS = 4000
@@ -57,6 +63,7 @@ function recentlyReloaded(): boolean {
 export function VersionWatcher() {
   const booted = useRef<string | null>(null)
   const checking = useRef(false)
+  const [stale, setStale] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -74,13 +81,22 @@ export function VersionWatcher() {
           return
         }
         if (v === booted.current) return
-        if (isBusy() || recentlyReloaded()) return
+        // A newer build is live. If we cannot reload right now, say so —
+        // never leave the user clicking a dead page.
+        if (isBusy() || recentlyReloaded()) {
+          setStale(true)
+          return
+        }
 
         // Confirm before acting (guard 2).
         await new Promise((r) => setTimeout(r, CONFIRM_DELAY_MS))
         if (!alive) return
         const again = await fetchVersion()
-        if (!alive || again !== v || isBusy() || recentlyReloaded()) return
+        if (!alive || again !== v) return
+        if (isBusy() || recentlyReloaded()) {
+          setStale(true)
+          return
+        }
 
         try { sessionStorage.setItem(COOLDOWN_KEY, String(Date.now())) } catch { /* private mode */ }
         window.location.reload()
@@ -104,5 +120,24 @@ export function VersionWatcher() {
     }
   }, [])
 
-  return null
+  if (!stale) return null
+
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-0 bottom-0 z-[100] flex items-center justify-center gap-3 border-t border-amber-200 bg-amber-50/95 px-4 py-2.5 text-[13px] text-amber-900 backdrop-blur"
+    >
+      <span>
+        A newer version is live — this page is out of date and its buttons may
+        not work.
+      </span>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="rounded-lg bg-amber-900 px-3 py-1 text-[12px] font-semibold text-amber-50 transition hover:opacity-85"
+      >
+        Refresh
+      </button>
+    </div>
+  )
 }
