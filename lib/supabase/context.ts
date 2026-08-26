@@ -299,17 +299,24 @@ const RECENT_SCRIPT_COLS =
 
 export async function loadRecentScripts(
   clinicId: string,
-  limit = 15
+  limit = 15,
+  opts: { starredOnly?: boolean } = {}
 ): Promise<RecentScript[]> {
   const supabase = createServerClient()
 
   // Starred pins favourites to the top so they never fall out of the
   // `limit` window. Migration 046 adds the column — until it lands the
   // query falls back to the pre-046 shape instead of 500-ing.
-  const primary = await supabase
+  // `starredOnly` is the doctor's view: her list is the shortlist the
+  // marketing team starred, not the whole archive.
+  let query = supabase
     .from('scripts')
     .select(`${RECENT_SCRIPT_COLS}, starred, updated_at`)
     .eq('clinic_id', clinicId)
+
+  if (opts.starredOnly) query = query.eq('starred', true)
+
+  const primary = await query
     .order('starred', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(limit)

@@ -57,7 +57,8 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
   const [currentPlanWeek, planWeeks, recent] = await Promise.all([
     getCurrentStructuredWeek(clinicId),
     loadStructuredPlan(clinicId).catch(() => []),
-    loadRecentScripts(clinicId, 50),
+    // Doctor sees only the starred shortlist; admin sees the archive.
+    loadRecentScripts(clinicId, 50, { starredOnly: isDoctor }),
   ])
   const currentWeekIndex = currentPlanWeek
     ? Math.max(0, planWeeks.findIndex((w) => w.id === currentPlanWeek.id))
@@ -80,9 +81,13 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
           eyebrow="Content Machine · Scripts"
           title="Scripts"
           subtitle={
-            recent.length === 0
-              ? 'Generate your first batch — everything Writer saves lands here.'
-              : `${recent.length} saved${starred ? ` · ${starred} starred` : ''} · ${clinicRow.name}`
+            isDoctor
+              ? recent.length === 0
+                ? `Nothing to record yet — your marketing team stars the scripts they want you to film.`
+                : `${recent.length} to record · ${clinicRow.name}`
+              : recent.length === 0
+                ? 'Generate your first batch — everything Writer saves lands here.'
+                : `${recent.length} saved${starred ? ` · ${starred} starred` : ''} · ${clinicRow.name}`
           }
           back={`/dashboard?clinicId=${clinicId}`}
         />
@@ -166,10 +171,17 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
 
         {tab === 'recent' && (
           <Section
-            title="Recent scripts"
-            subtitle="Every script Writer has saved for this clinic. Tap any to read, edit, star, or copy."
+            title={isDoctor ? 'Your scripts' : 'Recent scripts'}
+            subtitle={
+              isDoctor
+                ? 'The scripts your marketing team picked for you. Tap any to read, edit, or copy.'
+                : 'Every script Writer has saved for this clinic. Tap any to read, edit, star, or copy.'
+            }
           >
-            <RecentScripts scripts={recent} clinicId={clinicId} />
+            {/* Only admin toggles the star: it is what puts a script on the
+                doctor's list, so she must not be able to unstar herself out
+                of her own worklist. */}
+            <RecentScripts scripts={recent} clinicId={clinicId} canStar={isAdmin} />
           </Section>
         )}
 

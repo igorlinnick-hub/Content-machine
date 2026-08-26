@@ -19,6 +19,7 @@ interface RecentScript {
   body: string
   created_at?: string | null
   critic_score?: number | null
+  starred?: boolean
 }
 
 interface SavedRecording {
@@ -71,7 +72,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const [progress, setProgress] = useState(0)
   const [elapsedSec, setElapsedSec] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
-  const [driveUrl, setDriveUrl] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   // True after entering reading phase but before doctor taps "Start Recording"
@@ -85,6 +85,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const [savedRecordings, setSavedRecordings] = useState<SavedRecording[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
 
+  const editorRef = useRef<HTMLDivElement>(null)   // "Script text" card — scrolled to on load
   const scrollRef = useRef<HTMLDivElement>(null)   // outer overflow:hidden container
   const textInnerRef = useRef<HTMLDivElement>(null) // inner div — animated via translateY
   const scrollPosRef = useRef(0)                    // current Y offset in px
@@ -608,15 +609,14 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     const title = saveTitle.trim() || 'Untitled'
 
     try {
-      let result: { driveUrl: string }
       try {
-        result = await uploadDirect(title)
+        await uploadDirect(title)
       } catch (e) {
         // Direct path broke (presign env / CORS) — small files can
         // still ride the old proxy under Vercel's 4.5MB body cap.
         if (recordedBlob.size < 4_000_000) {
           setUploadProgress(0)
-          result = await uploadViaProxy(title)
+          await uploadViaProxy(title)
         } else {
           throw e
         }
@@ -628,7 +628,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         draftIdRef.current = null
       }
 
-      setDriveUrl(result.driveUrl)
       setPhase('saved')
     } catch (e) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
@@ -656,7 +655,6 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     setCameraError(null)
     setElapsedSec(0)
     setProgress(0)
-    setDriveUrl(null)
     setUploadError(null)
     setSaveTitle('')
     setReadyToStart(false)
@@ -752,6 +750,12 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                     setText(cleanReadingText(s.body))
                     setSaveTitle(s.title)
                     setSelectedScriptId(s.id)
+                    // On a phone the editor sits below the fold: tapping a
+                    // script looked like nothing happened. Bring the loaded
+                    // text into view.
+                    requestAnimationFrame(() =>
+                      editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    )
                   }}
                   className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
                     selectedScriptId === s.id
@@ -771,6 +775,24 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                     </span>
                   </span>
                   <span className="shrink-0 text-right">
+                    {s.starred ? (
+                      <span
+                        className="block text-amber-400"
+                        title="Picked for you by your marketing team"
+                        aria-label="Picked for you by your marketing team"
+                      >
+                        <svg
+                          className="ml-auto h-3.5 w-3.5"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          stroke="currentColor"
+                          strokeWidth={1.7}
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 3.5l2.6 5.28 5.83.85-4.22 4.11.996 5.81L12 16.82l-5.21 2.74.996-5.81L3.57 9.63l5.83-.85L12 3.5z" />
+                        </svg>
+                      </span>
+                    ) : null}
                     {s.created_at ? (
                       <span className="block text-[11px] text-neutral-400">
                         {new Date(s.created_at).toLocaleDateString('en-US', {
@@ -791,8 +813,31 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           </div>
         )}
 
+        {/* Nothing starred yet — say so, instead of silently dropping the
+            picker and leaving an empty box that reads as broken. */}
+        {recentScripts.length === 0 && (
+          <div
+            className="rounded-2xl p-5"
+            style={{
+              background: 'rgba(255,255,255,0.7)',
+              border: '1px solid rgba(255,255,255,0.85)',
+              boxShadow: '0 2px 16px rgba(0,0,0,0.05)',
+              backdropFilter: 'blur(16px)',
+            }}
+          >
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+              Load a recent script
+            </p>
+            <p className="text-sm text-neutral-500">
+              Nothing here yet — your marketing team stars the scripts they want
+              you to film. You can always paste your own text below.
+            </p>
+          </div>
+        )}
+
         {/* Text editor */}
         <div
+          ref={editorRef}
           className="rounded-2xl p-5"
           style={{
             background: 'rgba(255,255,255,0.7)',
@@ -1345,19 +1390,15 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             do here.
           </p>
         </div>
-        {driveUrl && (
-          <a
-            href={driveUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white py-3 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-7.5 3L21 3m0 0h-5.25M21 3v5.25" />
-            </svg>
-            Open in Google Drive
-          </a>
-        )}
+        <Link
+          href={`/videos?clinicId=${clinicId}`}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-neutral-200 bg-white py-3 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25Z" />
+          </svg>
+          Watch in My videos
+        </Link>
         <button
           onClick={resetToSetup}
           className="cm-btn cm-btn-primary w-full rounded-2xl py-3 text-sm font-semibold"

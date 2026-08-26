@@ -9,9 +9,16 @@ import { cleanReadingText } from '@/lib/client/script-text'
 interface RecentScriptsProps {
   scripts: RecentScript[]
   clinicId: string
+  // Starring is an admin act — it is what puts a script on the doctor's
+  // list. For her the star is a read-only marker.
+  canStar?: boolean
 }
 
-export function RecentScripts({ scripts: initialScripts, clinicId }: RecentScriptsProps) {
+export function RecentScripts({
+  scripts: initialScripts,
+  clinicId,
+  canStar = true,
+}: RecentScriptsProps) {
   const [scripts, setScripts] = useState(initialScripts)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -95,7 +102,9 @@ export function RecentScripts({ scripts: initialScripts, clinicId }: RecentScrip
     return (
       <div className="cm-card p-6 text-center">
         <p className="text-sm text-neutral-600">
-          No scripts yet. Generate your first batch above.
+          {canStar
+            ? 'No scripts yet. Generate your first batch above.'
+            : 'Nothing to record yet — your marketing team stars the scripts they want you to film.'}
         </p>
       </div>
     )
@@ -114,6 +123,7 @@ export function RecentScripts({ scripts: initialScripts, clinicId }: RecentScrip
             onCopy={() => onCopy(s.id, s.full_script)}
             onDelete={() => onDelete(s.id)}
             onToggleStar={() => onToggleStar(s.id)}
+            canStar={canStar}
           />
         ))}
       </div>
@@ -126,6 +136,7 @@ export function RecentScripts({ scripts: initialScripts, clinicId }: RecentScrip
           onCopy={() => onCopy(open.id, open.full_script)}
           onDelete={() => onDelete(open.id)}
           onToggleStar={() => onToggleStar(open.id)}
+          canStar={canStar}
           onSave={(fields) => onSaveEdit(open.id, fields)}
           onClose={() => setOpenId(null)}
         />
@@ -140,11 +151,38 @@ function StarButton({
   starred,
   onToggle,
   size = 16,
+  interactive = true,
 }: {
   starred: boolean
   onToggle: () => void
   size?: number
+  interactive?: boolean
 }) {
+  // Read-only: the doctor sees WHY this script is on her list, but the
+  // star stays the marketing team's switch.
+  if (!interactive) {
+    if (!starred) return null
+    return (
+      <span
+        className="-m-1 p-2.5 text-amber-400"
+        title="Picked for you by your marketing team"
+        aria-label="Picked for you by your marketing team"
+      >
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          stroke="currentColor"
+          strokeWidth={1.7}
+          strokeLinejoin="round"
+        >
+          <path d="M12 3.5l2.6 5.28 5.83.85-4.22 4.11.996 5.81L12 16.82l-5.21 2.74.996-5.81L3.57 9.63l5.83-.85L12 3.5z" />
+        </svg>
+      </span>
+    )
+  }
+
   return (
     <button
       type="button"
@@ -188,6 +226,7 @@ function ScriptCard({
   onCopy,
   onDelete,
   onToggleStar,
+  canStar,
 }: {
   script: RecentScript
   clinicId: string
@@ -196,6 +235,7 @@ function ScriptCard({
   onCopy: () => void
   onDelete: () => void
   onToggleStar: () => void
+  canStar: boolean
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const score = typeof s.critic_score === 'number' ? s.critic_score : null
@@ -236,7 +276,7 @@ function ScriptCard({
               Compliant
             </span>
           )}
-          <StarButton starred={s.starred} onToggle={onToggleStar} />
+          <StarButton starred={s.starred} onToggle={onToggleStar} interactive={canStar} />
         </div>
       </header>
 
@@ -322,6 +362,7 @@ function ScriptModal({
   onCopy,
   onDelete,
   onToggleStar,
+  canStar,
   onSave,
   onClose,
 }: {
@@ -331,6 +372,7 @@ function ScriptModal({
   onCopy: () => void
   onDelete: () => void
   onToggleStar: () => void
+  canStar: boolean
   onSave: (fields: { topic: string; hook: string; full_script: string }) => Promise<string | null>
   onClose: () => void
 }) {
@@ -453,7 +495,7 @@ function ScriptModal({
             )}
           </div>
           <div className="mt-0.5 flex shrink-0 items-center gap-1">
-            <StarButton starred={script.starred} onToggle={onToggleStar} size={18} />
+            <StarButton starred={script.starred} onToggle={onToggleStar} size={18} interactive={canStar} />
             {!editing && (
               <button
                 type="button"
