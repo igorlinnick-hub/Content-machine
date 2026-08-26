@@ -403,6 +403,8 @@ async function generateOne(params: {
       // clinic's own Drive library (LRU rotation). The library folder
       // is looked up from clinics.photo_library_folder_id.
       clinicId: params.clinicId,
+      // Photo doctrine is per niche (aesthetics ≠ regenmed renders).
+      niche: params.context.clinic_profile.niche,
     })
     stage('splitter:postplan:done')
     const planRow = {

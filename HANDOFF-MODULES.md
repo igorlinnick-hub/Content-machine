@@ -524,6 +524,12 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   emit `ai` for those slides. Every ai prompt keeps "dark lower third".
   Visually review every generated image before upload; reject visible AI
   artifacts (hands, waxy skin), close-up-face covers, unbudgeted people.
+  **Current truth is `docs/POST-CRAFT.md §5` (v4: ~40% clinic library, 3D
+  renders + Hawaii nature, Pexels ≤ 2) and — since 2026-08-26 — the doctrine is
+  PER NICHE (`§5a`): an `aesthetics` clinic gets real-photo skin macros with no
+  face possible, instrument still lifes, empty treatment rooms, botanicals, a
+  25% clinic ceiling and no renders. Picked by `clinics.niche` in
+  `lib/posts/photo-brief.ts` (brief) and `lib/posts/cover-brief.ts` (cover).**
 - Older masters: ED `DAHK2poX3PY`, Peptides `DAHK2t13oEI` (runbook table).
   ⚠️ `lib/canva/templates.ts` is dead code with a different set — ignore.
 - **Server bits that DO work:** `POST /api/posts/:id/compose` only sets status /

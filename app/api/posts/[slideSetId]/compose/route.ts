@@ -103,11 +103,17 @@ export async function POST(
     // The style is only known HERE, so this is where a photo-cover style gets
     // a real cover brief. Without it the runner keeps the donor template's
     // photo and every Style-1 post opens on the same shot (Igor 2026-08-20).
+    // The cover doctrine is per niche (aesthetics = skin / tools / room, no
+    // renders), so the clinic's niche rides along.
+    const { data: clinicRow } = row.clinic_id
+      ? await supabase.from('clinics').select('niche').eq('id', row.clinic_id).maybeSingle()
+      : { data: null }
     const patchedSlides = coverBriefForStyle(
       row.slides,
       normalizeStyleId(row.canva_style),
       topic ?? '',
-      hook
+      hook,
+      (clinicRow as { niche?: string | null } | null)?.niche ?? null
     )
     if (patchedSlides) {
       const { error: briefErr } = await supabase

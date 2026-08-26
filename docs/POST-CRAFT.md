@@ -317,6 +317,60 @@ See `lib/posts/photo-brief.ts` for the machine rules; the human/runner rules:
   close-up-face covers, AI artifacts (hands, waxy skin), swimwear, text in image,
   a reused example-design background repeating across posts.
 
+### 5a. AESTHETICS NICHE — its own doctrine (v4.1, Igor 2026-08-26)
+
+Everything above is the **regenerative-medicine** look. A clinic whose
+`clinics.niche` is `aesthetics` (Made) gets a different doctrine, picked in
+`lib/posts/photo-brief.ts` / `lib/posts/cover-brief.ts` by niche. The reason:
+every clinic used to get the same 3D organs + Hawaii scenery + the shared
+Drive folder, so a jawline post opened on the same glowing heart and the same
+desk photo as a NAD+ post.
+
+- **Every image is a REAL photograph** — beauty-editorial, soft diffused light,
+  warm-neutral palette with a gentle lavender-mauve tint (the Aesthetic master's
+  panels are translucent lavender). **No 3D anatomy renders, no abstract
+  textures.** "calm dark lower third" stays in every prompt.
+- **Four AI modes**, each with a verbatim style line in the code:
+  - **SKIN** — macro of real skin on a **NON-FACIAL area only**: the side or
+    nape of the neck from behind, a shoulder, décolleté, forearm, the back of a
+    hand (neck crepe, pores and hydration, sun spots on the hand, post-treatment
+    glow). **No facial region ever goes into a SKIN prompt** — measured on Flux
+    2026-08-26: "cropped below the eye line" gave a nose and lips, "the jaw seen
+    from behind, head turned away" gave a lip-and-nose profile; any facial word
+    yields a face. **A face-region topic** (forehead, the 11s, crow's feet,
+    under-eye, lips, cheeks, chin, jawline) → TOOLS (the syringe / product of
+    that treatment) or ROOM, with a neck / hand stand-in only for the "what
+    happens in the skin" beat. Calm and neutral — never a "problem" close-up,
+    never a before/after split. Skin of any natural tone, varied across the post.
+    A bare neck / shoulder / décolleté is the subject here, not "revealing" —
+    the swimwear / full-bare-back reject still applies.
+  - **TOOLS** — still life of the actual instrument / product: syringe with
+    clear gel, blunt cannula, microneedling pen, laser / RF handpiece,
+    dermaplaning blade, glass serum dropper, unlabelled vials and ampoules,
+    sterile gloves, cotton pads, chilled globes, LED mask on its stand,
+    unlabelled SPF. **Never entering skin, no blood, no bruising, no labels.**
+  - **ROOM** — an empty aesthetics treatment room in morning light: white-linen
+    bed, ring light / magnifying lamp, rolling tray, product shelf, sheer
+    curtains. For "the visit", "what to expect", consult / pricing beats.
+  - **BOTANICAL** — a Hawaii botanical / water detail as the analogy only
+    (droplets on a ti / monstera leaf, plumeria on wet stone, light on wet sand).
+- **Mix: ~25% clinic (the CTA + at most one trust slide), Pexels ≤ 2 (objects
+  only — dropper, syringe on marble, pen), the rest AI.** The clinic share is a
+  ceiling too: the shared library is regenmed team / desk shots and must not
+  carry an aesthetics post. Enforced by `enforceMix` with the aesthetics doctrine.
+- **Cover on the Aesthetic style** is rewritten at compose time to the same
+  doctrine, and the scene is **chosen in code by topic keywords** — the
+  treatment's instrument as a still life (botox / tox / forehead → syringe +
+  vial; filler / lips / jaw → syringe + cannula; microneedling → pen; laser →
+  handpiece; peel → dropper; routine / SPF → bottles), an empty room for
+  visit / consult topics, a non-facial skin macro for neck / hands / texture
+  topics. **The topic text itself never reaches Flux**: given "still life OR
+  room OR skin, whichever fits: Botox for forehead lines — what happens at the
+  appointment", Flux drew a full AI face with a syringe at the eye (2026-08-26).
+- **Runner review adds to the reject list:** any eyes or a full face in a skin
+  macro; a needle in skin / blood; a 3D render or teal-amber regenmed grade on
+  an aesthetics post; a brand label on a product.
+
 ---
 
 ## 6. WORKFLOW NOTE

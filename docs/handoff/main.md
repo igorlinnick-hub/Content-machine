@@ -1,72 +1,61 @@
-# Main — репозиторий вне iCloud, compose-поллер, доступы, тексты
+# Main — репозиторий вне iCloud, compose-поллер, доступы, тексты, фото по нише
 
 Обновлено: 2026-08-26 · ветка: main
 
 ## Состояние
-**Рабочая копия — `~/Code/Content-machine`.** На старом пути
-`~/Documents/Code Projects/Content machine` теперь симлинк, так что все прежние пути и
-LaunchAgent'ы работают. Причина переезда — в «Сломано». Правило: код не возвращать под
-`~/Documents`; файл, который читается пустым при ненулевом размере, проверять `ls -lO` на
-флаг `dataless`, а не искать баг в коде.
+**Рабочая копия — `~/Code/Content-machine`**; старый путь под `~/Documents` — симлинк. Код туда не
+возвращать; файл, читающийся пустым при ненулевом размере, проверять `ls -lO` на `dataless`.
 
-**Compose-поллер.** `com.hwc.canva-runner` живёт в домене `gui/501`, тик 2 мин. Ставить
-только через `bash scripts/canva-runner/install.sh` — он делает `bootstrap gui/$(id -u)`,
-проверяет `launchctl print` и падает, если джоб не встал; `launchctl load` запрещён (см.
-«Сломано»). Здоровье одной командой: `install.sh --check` (агент / возраст тика / лок / MCP).
-Раннер штампует `compose_progress.poller_ts` на очередь каждый тик — `/visual` по нему
-отличает «раннер жив, возьмёт сам» от красного «раннер не тикает». Блокировки (протухший
-Canva-токен, 402 Replicate, quota-cooldown) пишут `stage='blocked'` + web-push через
-`POST /api/canva/blocked`, дедуп файлом `blocked-notified`.
+**Compose-поллер** `com.hwc.canva-runner` в `gui/501`, тик 2 мин; ставить только
+`bash scripts/canva-runner/install.sh` (`--check` — здоровье), `launchctl load` запрещён. Раннер
+штампует `compose_progress.poller_ts`; блокировки → `stage='blocked'` + push через `/api/canva/blocked`.
+**Canva:** `upload-asset-from-url` работает; managed MCP чинится `/mcp`, локальный — `claude mcp login`.
+**Доступы:** `/c/<token>` / memorable-код, роли `doctor` / `editor`, две клиники HWC (regenmed + aesthetics).
+**Тексты:** формат = HOW, тема = WHAT; клише забанены тестом «сказал бы врач одному пациенту?».
+**Evidence-слайд:** студии из PubMed (`lib/posts/studies.ts`), ярус «3 года», год только в одном
+предложении с журналом — таймлайны запрещены.
 
-**Canva.** `upload-asset-from-url` снова работает (сегодняшний compose залил 7 фото, `fetch_failed`
-от 24-го больше не воспроизводится). Две записи MCP, одна связь: managed `claude.ai Canva`
-чинится только `/mcp` в интерактиве, локальная `claude_ai_Canva` — `claude mcp login`.
-
-**Доступы.** Вход в прод — `/c/<token>` или memorable-код, cookie на год, выпуск/отзыв в
-`/clinics` → `InstallLinkCard`. Роли `doctor` (тонкая поверхность) / `editor` (back-office),
-две клиники HWC. Токены здесь намеренно не записаны.
-
-**Тексты.** Формат (`lib/posts/formats.ts`) = HOW, тема (`content_plan_topics`) = WHAT; поле
-темы при смене формата не трогается — на нём висит 8-недельная арка. Клише забанены как
-категория с тестом «сказал бы это спокойный врач одному пациенту через стол?»
-(`writer.ts`, `teaser-lines.ts`, `critic.ts`, `POST-CRAFT.md`). Тихие правки текста downstream
-запрещены. У врача в `/teleprompter` и `/scripts` только `starred` (в проде с 9ac7577).
-
-**Фото.** Доктрина v4: `ai` — 3D-медрендеры и гавайская природа, `clinic` ~40% из Drive (LRU,
-кулдаун 30 дней), `stock` ≤2 на пост. Обложки стилей 1/4/Aesthetic подбирает раннер, не
-библиотека: `canva_style` проставляется PATCH'ем уже после генерации.
+**Фото — доктрина ПО НИШЕ (v4.1).** `lib/posts/photo-brief.ts` и `cover-brief.ts` выбирают доктрину по
+`clinics.niche`. Regenmed = v4 без изменений (3D-рендеры + Гавайи, ~40% из Drive, Pexels ≤2). Aesthetics
+(Made, мастер `DAHMHS1wLls`) = только реальные фото в тёплой + лавандовой палитре: SKIN — исключительно
+нелицевые зоны (шея со спины, плечо, декольте, кисть); TOOLS — натюрморт (шприц/канюля/пен/дроппер,
+никогда в коже, без этикеток); ROOM — пустой кабинет; BOTANICAL — только для аналогий. Клиника 25% —
+и пол, и потолок (`capClinic`): общая Drive-папка — это regenmed-команда за столами. Ниша течёт
+generate route → splitter → brief; compose-роут дочитывает `clinics.niche` для обложки. Обложка
+aesthetics — детерминированная: сцена и инструмент выбираются в коде по словам темы, сам текст темы во
+Flux не уходит. Правила для людей и раннера: `POST-CRAFT.md §5a`, `SKILL.md §4` (addendum).
 
 ## Последний заход
-- Очередь стояла двое суток: поллер был выгружен. Поднял `bootstrap gui/501` — пост NAD+
-  (`8fde28e4`) собрался, `visuals_ready`, дизайн `DAHTa8Dj7bA`.
-- Нашёл настоящую причину: `install.sh` ставил агент через `launchctl load`, тот
-  регистрируется в домене вызывающего шелла и умирает вместе с сессией Claude Code.
-- Починил класс проблемы (коммит `850c540`): явный домен + проверка + отказ выгружать агент
-  во время compose + `--check`; heartbeat `poller_ts` до взятия лока; честный баннер на
-  `/visual`; `{stage:'queued'}` при постановке в очередь.
-- Обнаружил, что iCloud вытирал репозиторий (см. «Сломано»), и перенёс код в `~/Code`.
-- `npm ci` + `tsc --noEmit` чистые в новой копии.
+- Игорь: «для всех примерно одно и то же — 3D и фото из папки». Причина: обе клиники HWC смотрят в
+  одну папку `120xEMg…` (137 фото, 71 с лицами, в основном офис/стол/команда), а бриф и обложка были
+  зашиты под regenmed. Сделал нишевую доктрину, `tsc` чистый.
+- Промпты проверил живьём на Flux 1.1 pro ultra (~$0.60): рука, шприц+канюля, кабинет, лист, шея со
+  спины, декольте — проходят, в палитре мастера.
+- Измерено: любое лицевое слово даёт лицо («ниже глаз» → нос и губы; «челюсть со спины, голова
+  отвёрнута» → профиль с губами). Лицевые зоны из SKIN убраны совсем; темы про лоб/глаза/губы/челюсть →
+  TOOLS/ROOM и в системном промпте, и в fallback-регексе. Свободная обложка («натюрморт ИЛИ кабинет
+  ИЛИ кожа — что подходит теме: Botox for forehead lines») дала полное ИИ-лицо со шприцем у глаза —
+  поэтому обложка теперь выбирается кодом по ключевым словам без текста темы. Ещё две грабли: слово
+  «magazine cover» в промпте → Flux рисует обложку VOGUE с текстом; список сцен «шея ИЛИ плечо ИЛИ
+  кисть» → размытая щёчно-челюстная кожа. Финальные обложки (шприц+флакон / шея со спины / кабинет)
+  прошли ревью.
+- LLM-путь брифа локально не прогнать: `ANTHROPIC_API_KEY` в `.env.vercel.local` — `[SENSITIVE]`;
+  эвристический fallback прогнан tsx-скриптом (subject → SKIN/ROOM, degrade clinic → ROOM).
 
 ## Сломано / не доделано
-- **main ahead 2 от origin (`850c540` heartbeat + `5039a01` порядок вкладок /scripts), не запушено** — пуш делает Игорь одной командой на оба; heartbeat-баннер появится на проде после деплоя.
-- **iCloud сожрал часть дерева (2026-08-26).** Квота исчерпана (`brctl status` →
-  `Quota exceeded`) при диске на 97%, macOS вытеснил 35 859 файлов репо в нечитаемые
-  `dataless`-заглушки, включая 3 893 объекта в `.git`. Восстановлено клоном с GitHub.
-  **Безвозвратно потеряно незакоммиченное:** `scripts/clips-runner/`,
-  `scripts/render-preview.mts`, `pptest.mjs`, правки в `next.config.mjs` и
-  `app/api/clips/from-recording/route.ts`. Сам диск и квота не починены — только обойдены.
-- Старое дерево `~/Documents/Code Projects/Content machine.icloud-broken` не удалено;
-  в нём 621 МБ `.claude/worktrees`.
-- Чужие незакоммиченные хвосты в дереве: серверный рендер слайдов
-  (`app/api/posts/[slideSetId]/render/`, `lib/render/`, `lib/photos/*`, миграции 047/051)
-  и остатки clips (`app/api/clips/*`, `lib/clips/ffmpeg.ts`).
-- Маршруты фото-пикера (`/api/visual/photo-recommend`, `/photo-override`, `/photo-thumb/<id>`)
-  не существуют — эта часть UI визуальных постов нерабочая. Каруселям не нужна.
-- `/install` вживую никто не видел: страница за doctor-сессией.
-- Грабли песочницы: `googleapis` виснет на любом запросе (обход — ручной JWT через
-  `crypto.createSign`); `slide_sets` читать PostgREST'ом с сервисным ключом из
-  `~/Library/Application Support/HWC/canva-runner/env`.
+- Нишевая доктрина не видела реальной генерации aesthetics-поста (LLM-бриф + раннер) — нужен деплой.
+- Не закоммичено: photo-brief/cover-brief/splitter/compose+generate route + доки (эта сессия) и
+  studies.ts/writer.ts (evidence-слайд, NAD+-пост не перегенерирован). Коммитить двумя коммитами.
+- main ahead 3 от origin, не запушено — пуш делает Игорь.
+- iCloud (2026-08-26): квота исчерпана, часть дерева стала `dataless`; восстановлено клоном. Потеряно:
+  `scripts/clips-runner/`, `scripts/render-preview.mts`, `pptest.mjs`, правки `next.config.mjs`,
+  `app/api/clips/from-recording/route.ts`. `…/Content machine.icloud-broken` (621 МБ worktrees) не удалён.
+- Чужие хвосты в дереве: серверный рендер (`app/api/posts/[id]/render/`, `lib/render/`, `lib/photos/*`,
+  миграции 047/051, шрифты, `ADS-CRAFT.md`, `AdFormatPicker.tsx`), остатки clips.
+- Маршруты фото-пикера (`/api/visual/photo-*`) не существуют; `/install` вживую не видели.
+- Грабли песочницы: `googleapis` виснет (обход — JWT через `crypto.createSign`); `slide_sets` читать
+  PostgREST'ом с ключом из `~/Library/Application Support/HWC/canva-runner/env`.
 
 ## Следующий шаг
-Игорь пушит оба коммита; после деплоя проверить на `/visual`, что очередной queued-пост
-показывает «раннер жив», а не красную плашку (запись poller_ts в БД уже smoke-тестирована).
+После деплоя сгенерировать один aesthetics-пост (Made) и посмотреть `photo_brief`: SKIN только
+шея/плечо/кисть, лицевые темы ушли в TOOLS/ROOM, clinic ≤ 25% — тогда коммитить фото-доктрину.

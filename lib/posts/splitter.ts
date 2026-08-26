@@ -120,6 +120,11 @@ export async function splitScriptToPostPlan(
      */
     clinicId?: string | null
     photoLibraryFolderId?: string | null
+    /**
+     * `clinics.niche` — picks the photo doctrine (aesthetics = real skin /
+     * tools / rooms, no renders; anything else = regenmed v4).
+     */
+    niche?: string | null
   }
 ): Promise<SplitToPostPlanResult> {
   if (!script.trim()) {
@@ -257,6 +262,7 @@ export async function splitScriptToPostPlan(
       cta,
       topic: context?.topic ?? null,
       category: null,
+      niche: context?.niche ?? null,
       clinicId: context?.clinicId ?? null,
       photoLibraryFolderId: context?.photoLibraryFolderId ?? null,
     })
