@@ -151,7 +151,7 @@ export function DashBento({
   const allCards = [
     {
       title: 'Scripts',
-      desc: 'Generate · recent · today’s input',
+      desc: 'Your scripts · generate new',
       href: `/scripts?${q}`,
       tag: 'Write',
       tagColor: '#818cf8',

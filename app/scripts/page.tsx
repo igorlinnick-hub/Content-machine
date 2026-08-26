@@ -64,10 +64,13 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
     ? Math.max(0, planWeeks.findIndex((w) => w.id === currentPlanWeek.id))
     : 0
 
-  const validTabs: ScriptsTab[] = ['generate', 'recent', 'input']
+  // Recent is the landing tab: the doctor should see the scripts the
+  // marketing team already picked for her, not the generator. 'input' is
+  // still reachable by URL (?tab=input) — only its nav button is hidden.
+  const validTabs: ScriptsTab[] = ['recent', 'generate', 'input']
   const tab: ScriptsTab = validTabs.includes(searchParams.tab as ScriptsTab)
     ? (searchParams.tab as ScriptsTab)
-    : 'generate'
+    : 'recent'
 
   const services = clinicRow.services ?? []
   const pillars = clinicRow.content_pillars ?? []
@@ -103,14 +106,9 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
           }}
         >
           <TabLink
-            label="Generate"
-            href={`/scripts?clinicId=${clinicId}&tab=generate`}
-            active={tab === 'generate'}
-          />
-          <TabLink
             label={
               <span className="inline-flex items-center">
-                {'Recent ('}
+                {'Scripts ('}
                 <NumberTicker value={recent.length} />
                 {')'}
               </span>
@@ -119,13 +117,21 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
             active={tab === 'recent'}
           />
           <TabLink
-            label="Today's input"
-            href={`/scripts?clinicId=${clinicId}&tab=input`}
-            active={tab === 'input'}
+            label="Generate"
+            href={`/scripts?clinicId=${clinicId}&tab=generate`}
+            active={tab === 'generate'}
           />
+          {/* "Today's input" button pulled 2026-08-26 at the clinic's request.
+              The tab itself still renders at /scripts?clinicId=…&tab=input —
+              re-add this TabLink to bring the button back:
+              <TabLink
+                label="Today's input"
+                href={`/scripts?clinicId=${clinicId}&tab=input`}
+                active={tab === 'input'}
+              /> */}
         </nav>
 
-        {isDoctor && profileIncomplete && tab === 'generate' && (
+        {isDoctor && profileIncomplete && tab !== 'input' && (
           <Link
             href="/onboarding"
             className="cm-card flex items-center justify-between gap-4 p-5 transition hover:border-sky-300 hover:shadow-md"
