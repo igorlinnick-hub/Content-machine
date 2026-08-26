@@ -13,15 +13,64 @@ ENVF="$HOME/Library/Application Support/HWC/canva-runner/env"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG"; }
 
+URL=$(grep -m1 '^NEXT_PUBLIC_SUPABASE_URL=' "$ENVF" | cut -d= -f2- | tr -d '"')
+KEY=$(grep -m1 '^SUPABASE_SERVICE_ROLE_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
+if [ -z "$URL" ] || [ -z "$KEY" ]; then log "no supabase creds"; exit 1; fi
+
+# ── Heartbeat ───────────────────────────────────────────────────────────
+# Stamps poller_ts on every queued row, every tick. The UI reads it: a
+# poller_ts that stopped advancing means the launchd agent is GONE, which is
+# a different problem from "the runner is busy" and needs a different fix, so
+# the queued post says so instead of counting elapsed minutes at a robot that
+# is not there.
+#
+# Why this exists: on 2026-08-24 the agent was bootstrapped into a Claude
+# session's domain (the old `launchctl load` in install.sh) and died with that
+# session at 14:06. Every "paused, here's why" notice this script can send is
+# sent FROM A TICK — no ticks, no notice, so the queue sat silent for two days
+# (Igor 2026-08-26). A heartbeat is the one signal whose absence is itself the
+# message.
+#
+# Runs BEFORE the single-instance lock on purpose: a tick that exits early —
+# compose in flight, quota cooldown, pre-flight skip — is still a live poller
+# and must say so.
+TICK="$HOME/Library/Application Support/HWC/canva-runner/last-tick"
+heartbeat() {
+  local NOW; NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  date +%s > "$TICK"
+  curl -s --max-time 20 "$URL/rest/v1/slide_sets?select=id,compose_progress&status=eq.ready_for_canva" \
+    -H "apikey: $KEY" -H "Authorization: Bearer $KEY" 2>/dev/null \
+    | python3 -c '
+import sys, json
+now = sys.argv[1]
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    rows = []
+if not isinstance(rows, list):
+    rows = []
+for r in rows:
+    cp = r.get("compose_progress") or {}
+    # Only the queued baseline is ours to touch — never stomp a live stage,
+    # a blocked notice or a recorded error.
+    if cp.get("stage") not in (None, "", "queued"):
+        continue
+    payload = {"stage": "queued", "ts": cp.get("ts") or now, "poller_ts": now}
+    print(r["id"] + " " + json.dumps(payload, separators=(",", ":")))
+' "$NOW" 2>/dev/null | while read -r RID CP; do
+    [ -z "$RID" ] && continue
+    curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?id=eq.$RID" \
+      -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+      -d "{\"compose_progress\":$CP}" >/dev/null
+  done
+}
+heartbeat
+
 # single instance
 if ! /usr/bin/shlock -f "$LOCK" -p $$; then
   exit 0
 fi
 trap 'rm -f "$LOCK"' EXIT
-
-URL=$(grep -m1 '^NEXT_PUBLIC_SUPABASE_URL=' "$ENVF" | cut -d= -f2- | tr -d '"')
-KEY=$(grep -m1 '^SUPABASE_SERVICE_ROLE_KEY=' "$ENVF" | cut -d= -f2- | tr -d '"')
-if [ -z "$URL" ] || [ -z "$KEY" ]; then log "no supabase creds"; exit 1; fi
 
 # Where the app lives + the secret that authenticates this machine into its
 # internal endpoints (same var the arsenal skill uses). Missing secret → the

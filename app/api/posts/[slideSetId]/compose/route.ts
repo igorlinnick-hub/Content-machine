@@ -77,7 +77,16 @@ export async function POST(
   if (!inlineMode) {
     const { error: updErr } = await supabase
       .from('slide_sets')
-      .update({ status: 'ready_for_canva' })
+      .update({
+        status: 'ready_for_canva',
+        // Queue-time baseline. `ts` is when it was queued and never moves;
+        // the poller refreshes `poller_ts` on every 2-min tick. A poller_ts
+        // that stops advancing is how the UI knows the runner itself is gone
+        // rather than merely busy — the failure that sat silent for two days
+        // on 2026-08-24. Writing it here also clears a stale 'error' progress
+        // left by a previous failed compose.
+        compose_progress: { stage: 'queued', ts: new Date().toISOString() },
+      } as never)
       .eq('id', params.slideSetId)
     if (updErr) {
       return NextResponse.json(

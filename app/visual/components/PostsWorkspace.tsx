@@ -57,6 +57,10 @@ interface ComposeProgress {
   // Design edit URL written by the runner right after it copies the template,
   // so the marketer can peek at the design mid-compose (it fills in near the end).
   edit_url?: string | null
+  // Heartbeat: refreshed by the local poller on every 2-min tick while the row
+  // is queued. Stops advancing the moment the runner dies — which is a
+  // different problem from a slow compose, and gets a different message.
+  poller_ts?: string | null
 }
 
 interface PostDetail {
@@ -1403,6 +1407,12 @@ export function PostsWorkspace({
 // it survives reloads and never "restarts" on return.
 /** After this long with no stage progress, stop pretending it's in flight. */
 const STALE_QUEUE_MS = 3 * 60 * 1000
+/**
+ * The poller ticks every 2 min. Past two missed ticks plus slack, it is not
+ * busy — it is gone (the launchd agent was unloaded, the Mac is asleep, the
+ * user is logged out), and waiting will not fix it.
+ */
+const POLLER_STALE_MS = 6 * 60 * 1000
 
 const STAGE_LABELS: Record<string, string> = {
   load: 'Loading slides',
@@ -1524,7 +1534,7 @@ function ComposeStepper({ progress }: { progress: ComposeProgress | null }) {
 }
 
 function composeStageLabel(progress: ComposeProgress | null, status: SlideSetStatus): string {
-  if (!progress?.stage || progress.stage === 'error') {
+  if (!progress?.stage || progress.stage === 'error' || progress.stage === 'queued') {
     // No "~2 min" promise on the queued state: carousels are built by the
     // in-session Claude+MCP runner, not by a deployed poller, so a queued row
     // waits for a human to start the runner. The old copy counted to 70+
@@ -1571,7 +1581,19 @@ function ComposeWaitingChip({
   const label = composeStageLabel(progress, status)
   const elapsedMs = Date.now() - start
   const elapsedLabel = formatElapsed(elapsedMs)
-  const inStage = Number.isFinite(stageTs)
+  // 'queued' carries a timestamp too, but it is a queue-time baseline, not a
+  // station in flight — counting it as one would restart "in this step" at
+  // every heartbeat.
+  const inStage = Number.isFinite(stageTs) && progress?.stage !== 'queued'
+
+  // Heartbeat from the local poller (scripts/canva-runner/run.sh stamps it on
+  // every queued row each tick). Absent or frozen = nothing is watching the
+  // queue at all.
+  const pollerTs = progress?.poller_ts ? Date.parse(progress.poller_ts) : NaN
+  const pollerAlive = Number.isFinite(pollerTs) && Date.now() - pollerTs < POLLER_STALE_MS
+  const pollerAgeLabel = Number.isFinite(pollerTs)
+    ? formatElapsed(Date.now() - pollerTs)
+    : null
 
   // The runner is alive but can't work — e.g. Replicate credit ran out.
   // Show the reason instead of an eternal "Queued" countdown; the queue
@@ -1617,11 +1639,27 @@ function ComposeWaitingChip({
       {/* A queued row with no stage progress is not "slow" — nothing is
           working on it until the runner is started. Say that instead of
           letting the counter climb (Igor 2026-08-12). */}
+      {/* A queued row is either waiting on a runner that IS watching the
+          queue, or on one that is not running at all. Those need opposite
+          reactions, so the heartbeat decides which sentence appears — the old
+          copy said "start the runner" even when it was running fine, and said
+          nothing useful on 2026-08-24 when it really had died (Igor). */}
       {!inStage && elapsedMs > STALE_QUEUE_MS && (
-        <span className="max-w-md text-[10px] font-medium leading-snug text-amber-700">
-          Still queued — the carousel is built by the Canva runner in a Claude
-          session, so nothing happens until that runner is started.
-        </span>
+        pollerAlive ? (
+          <span className="max-w-md text-[10px] font-medium leading-snug text-slate-500">
+            The runner is alive (heartbeat {pollerAgeLabel} ago) and will pick this
+            up on its own — it builds one carousel at a time, ~25 min each.
+          </span>
+        ) : (
+          <span className="max-w-md rounded-md border border-red-300 bg-red-50 px-2.5 py-1.5 text-[10px] font-medium leading-snug text-red-800">
+            The Canva runner is not ticking
+            {pollerAgeLabel ? ` — last heartbeat ${pollerAgeLabel} ago` : ' — no heartbeat at all'}.
+            Nothing will happen to this post until it is running again. On the Mac:{' '}
+            <code className="rounded bg-red-100 px-1 py-0.5 font-mono">
+              bash ~/Documents/Code&nbsp;Projects/Content&nbsp;machine/scripts/canva-runner/install.sh
+            </code>
+          </span>
+        )
       )}
       {progress?.edit_url && (
         <a
