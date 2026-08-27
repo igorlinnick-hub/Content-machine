@@ -117,9 +117,9 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
     description: 'Full-bleed photo cover, magazine feel — kept separately for Made.',
     canvaDesignId: 'DAHMHS1wLls',
     previewImage: '/style-previews/aesthetic.png',
-    // UNVERIFIED — this master has never been composed by the runner, so no
-    // export count exists. Held at the conservative floor until measured.
-    bodySlots: 5,
+    // 8 pages counted on the master itself (cover + 6 body + CTA) — Igor
+    // 2026-08-27, when the master was rebuilt to the editorial standard.
+    bodySlots: 6,
     niches: ['aesthetics'],
     under: 'Made',
   },
