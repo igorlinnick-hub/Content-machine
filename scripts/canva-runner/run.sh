@@ -31,14 +31,19 @@ if [ -z "$URL" ] || [ -z "$KEY" ]; then log "no supabase creds"; exit 1; fi
 # (Igor 2026-08-26). A heartbeat is the one signal whose absence is itself the
 # message.
 #
-# Runs BEFORE the single-instance lock on purpose: a tick that exits early —
-# compose in flight, quota cooldown, pre-flight skip — is still a live poller
-# and must say so.
+# Runs BEFORE the early exits on purpose: a tick that bails — quota cooldown,
+# pre-flight skip, empty queue — is still a live poller and must say so.
+# It cannot cover a compose in flight by itself: launchd does not tick while
+# this script is busy — see the background loop around the claude call below.
 TICK="$HOME/Library/Application Support/HWC/canva-runner/last-tick"
 heartbeat() {
   local NOW; NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   date +%s > "$TICK"
-  curl -s --max-time 20 "$URL/rest/v1/slide_sets?select=id,compose_progress&status=eq.ready_for_canva" \
+  # Queued rows AND claimed rows that have not reported a stage yet: after the
+  # claim the runner's session boots for 2–10 min before its first write, and
+  # a poller_ts frozen at claim time made /visual cry "not ticking" at a
+  # runner that was working (Igor 2026-08-26, twice in one afternoon).
+  curl -s --max-time 20 "$URL/rest/v1/slide_sets?select=id,compose_progress&status=in.(ready_for_canva,in_canva)" \
     -H "apikey: $KEY" -H "Authorization: Bearer $KEY" 2>/dev/null \
     | python3 -c '
 import sys, json
@@ -56,10 +61,15 @@ for r in rows:
     if cp.get("stage") not in (None, "", "queued"):
         continue
     payload = {"stage": "queued", "ts": cp.get("ts") or now, "poller_ts": now}
-    print(r["id"] + " " + json.dumps(payload, separators=(",", ":")))
-' "$NOW" 2>/dev/null | while read -r RID CP; do
+    # Compare-and-set guard for the PATCH: the runner may write its first
+    # stage between this read and our write, and a heartbeat must never
+    # revert `load:start` (+ edit_url) back to `queued`. The filter makes
+    # the PATCH a no-op unless the row is still at the baseline.
+    guard = "compose_progress->>stage=eq.queued" if cp.get("stage") == "queued" else "compose_progress->>stage=is.null"
+    print(r["id"] + " " + guard + " " + json.dumps(payload, separators=(",", ":")))
+' "$NOW" 2>/dev/null | while read -r RID GUARD CP; do
     [ -z "$RID" ] && continue
-    curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?id=eq.$RID" \
+    curl -s --max-time 20 -X PATCH "$URL/rest/v1/slide_sets?id=eq.$RID&$GUARD" \
       -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
       -d "{\"compose_progress\":$CP}" >/dev/null
   done
@@ -70,7 +80,8 @@ heartbeat
 if ! /usr/bin/shlock -f "$LOCK" -p $$; then
   exit 0
 fi
-trap 'rm -f "$LOCK"' EXIT
+HB_PID=""
+trap 'rm -f "$LOCK"; [ -n "$HB_PID" ] && kill "$HB_PID" 2>/dev/null' EXIT
 
 # Where the app lives + the secret that authenticates this machine into its
 # internal endpoints (same var the arsenal skill uses). Missing secret → the
@@ -259,12 +270,27 @@ else
   set --
 fi
 
+# ── Heartbeat DURING the compose ────────────────────────────────────────
+# launchd never overlaps instances of one job: while this script is busy
+# composing (~25 min) no tick fires at all, so the heartbeat at the top went
+# silent for the whole build and /visual declared the poller dead ~6 min into
+# EVERY compose — on the post being built (until its first stage landed) and
+# on every post queued behind it, for the full 25 min (Igor 2026-08-26). The
+# single-instance lock above is unreachable under launchd for the same reason;
+# it only guards manual runs. So the heartbeat keeps beating from a background
+# loop for exactly as long as the runner is alive. It touches only rows still
+# at the queued baseline — including the claimed one until its first stage
+# lands — and never a row with a live stage (CAS guard in heartbeat()).
+( while :; do sleep 60; heartbeat; done ) &
+HB_PID=$!
+
 caffeinate -ims claude -p "$PROMPT" \
   --model sonnet \
   --allowedTools "mcp__claude_ai_Canva__*,Bash,Read,Write,Skill,ToolSearch" \
   "$@" \
   --output-format text > "$OUTF" 2>&1
 RC=$?
+kill "$HB_PID" 2>/dev/null; HB_PID=""
 cat "$OUTF" >> "$LOG"
 log "runner finished (exit $RC)"
 

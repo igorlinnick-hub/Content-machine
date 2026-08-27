@@ -1413,6 +1413,9 @@ const STALE_QUEUE_MS = 3 * 60 * 1000
  * user is logged out), and waiting will not fix it.
  */
 const POLLER_STALE_MS = 6 * 60 * 1000
+// A claimed row (in_canva) that never reported a stage: the runner's session
+// died before its first write. run.sh's watchdog requeues it after 20 min.
+const STUCK_CLAIM_MS = 20 * 60 * 1000
 
 const STAGE_LABELS: Record<string, string> = {
   load: 'Loading slides',
@@ -1643,9 +1646,20 @@ function ComposeWaitingChip({
           queue, or on one that is not running at all. Those need opposite
           reactions, so the heartbeat decides which sentence appears — the old
           copy said "start the runner" even when it was running fine, and said
-          nothing useful on 2026-08-24 when it really had died (Igor). */}
+          nothing useful on 2026-08-24 when it really had died (Igor).
+          A CLAIMED row (in_canva) is a third case: the runner has it and is
+          booting its session, and on a busy 8 GB Mac that first stage can take
+          10 min — long enough that the heartbeat check above (which cannot
+          tick during a build) cried "not ticking" at a runner that was working
+          (Igor 2026-08-26). Claimed rows never get the heartbeat verdict. */}
       {!inStage && elapsedMs > STALE_QUEUE_MS && (
-        pollerAlive ? (
+        status === 'in_canva' ? (
+          <span className="max-w-md text-[10px] font-medium leading-snug text-slate-500">
+            {elapsedMs > STUCK_CLAIM_MS
+              ? 'The runner claimed this post but has not reported a stage in 20 min — its session most likely died. The poller\u2019s watchdog requeues it on its next tick; nothing to do by hand.'
+              : 'The runner has claimed this post and is booting its session — the first stage lands in ~2\u20135 min, longer when the Mac is busy.'}
+          </span>
+        ) : pollerAlive ? (
           <span className="max-w-md text-[10px] font-medium leading-snug text-slate-500">
             The runner is alive (heartbeat {pollerAgeLabel} ago) and will pick this
             up on its own — it builds one carousel at a time, ~25 min each.
@@ -1656,7 +1670,7 @@ function ComposeWaitingChip({
             {pollerAgeLabel ? ` — last heartbeat ${pollerAgeLabel} ago` : ' — no heartbeat at all'}.
             Nothing will happen to this post until it is running again. On the Mac:{' '}
             <code className="rounded bg-red-100 px-1 py-0.5 font-mono">
-              bash ~/Documents/Code&nbsp;Projects/Content&nbsp;machine/scripts/canva-runner/install.sh
+              bash ~/Code/Content-machine/scripts/canva-runner/install.sh
             </code>
           </span>
         )
