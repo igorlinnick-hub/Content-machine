@@ -530,6 +530,26 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   face possible, instrument still lifes, empty treatment rooms, botanicals, a
   25% clinic ceiling and no renders. Picked by `clinics.niche` in
   `lib/posts/photo-brief.ts` (brief) and `lib/posts/cover-brief.ts` (cover).**
+- **Presenter notes are READ-ONLY via the Canva MCP since 2026-08-24 (Igor
+  caught it 2026-08-26).** mcp.canva.com swapped its tool surface: the old
+  `edit-design` had `replace_speaker_notes`; the current
+  `perform-editing-operations` has no notes op and `get-presenter-notes` only
+  reads. Two consequences: (1) every master still carries the caption of the
+  post it was built from in its notes (page 1 on all five; Style 2 also page
+  7) and `copy-design` brings it along — the runner can no longer clear it, so
+  the masters must be emptied ONCE by hand in the editor (Notes panel); the
+  runner prints `NOTES LEAK <master> p<N>` while they aren't. **All five masters
+  were emptied 2026-08-26 — verified via `get-presenter-notes`.** (2) The post's
+  own caption (`scripts.long_caption`) now rides on the finished design as a
+  **`comment-on-design` comment** (skill §6 step 3a, ≤1000 chars per comment);
+  first live proof = the Made "Duck Lip Myth" compose, which also emitted the
+  `NOTES LEAK` line as designed. If a master ever needs re-cleaning: Safari
+  `do JavaScript` CAN do it, but only through the native value setter + an
+  `input` event + `blur()` + ~10s (a synthetic click alone does nothing), and
+  the Notes panel binds to the page under the viewport — **the editor's "Page 1"
+  is not API page 1**, several masters hide a page above it, so scroll the list
+  to `scrollTop = 0` and re-read via the API to confirm. Breadcrumb:
+  `.crew-learnings/2026-08-26-canva-mcp-notes-read-only.md`.
 - Older masters: ED `DAHK2poX3PY`, Peptides `DAHK2t13oEI` (runbook table).
   ⚠️ `lib/canva/templates.ts` is dead code with a different set — ignore.
 - **Server bits that DO work:** `POST /api/posts/:id/compose` only sets status /
