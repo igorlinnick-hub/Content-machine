@@ -159,6 +159,17 @@ export function normalizeStyleId(raw: number | null | undefined): number {
   return STYLE_TEMPLATES.some((s) => s.id === n) ? n : DEFAULT_STYLE_ID
 }
 
+/**
+ * The style a NEW post starts in, given the clinic's `clinics.niche` — the
+ * first style that niche is allowed to pick. The column defaults to 1, which
+ * is a regenmed master: every Made post was born in Dr. Shawn's Style 1 and
+ * composed with his design elements unless someone re-picked the style by
+ * hand (Igor 2026-08-27). A niche with its own look must start in it.
+ */
+export function defaultStyleForNiche(niche: string | null | undefined): number {
+  return stylesForNiche(niche)[0]?.id ?? DEFAULT_STYLE_ID
+}
+
 /** The registry entry for a stored `canva_style`, normalised. */
 export function getStyleTemplate(raw: number | null | undefined): StyleTemplate {
   const id = normalizeStyleId(raw)

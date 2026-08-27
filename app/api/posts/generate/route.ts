@@ -15,6 +15,7 @@ import { runComplianceRewriter } from '@/lib/agents/compliance-rewriter'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { splitScriptToPostPlan } from '@/lib/posts/splitter'
 import { createSlideSet } from '@/lib/visual/store'
+import { defaultStyleForNiche } from '@/lib/posts/style-templates'
 import { getTopic, updateTopic } from '@/lib/posts/plan'
 import { ensureDefaultCategories, matchCategory } from '@/lib/posts/categories'
 import { isKnownFormat } from '@/lib/posts/formats'
@@ -420,6 +421,11 @@ async function generateOne(params: {
     const lifecycleStatus = compliance
       ? statusFromCompliance(compliance)
       : 'review'
+    // The style a post is BORN in follows the clinic's niche. The column
+    // defaults to 1 (a regenmed master), so Made's posts were composed with
+    // Dr. Shawn's design elements even though Aesthetic is the only style
+    // Made can pick (Igor 2026-08-27).
+    const canvaStyle = defaultStyleForNiche(params.context.clinic_profile.niche)
     stage(`postplan:status=${lifecycleStatus} grade=${compliance?.grade ?? 'null'}`)
 
     if (params.targetSlideSetId) {
@@ -434,6 +440,7 @@ async function generateOne(params: {
           drive_folder_id: folderId,
           category_id: matchedCategory?.id ?? null,
           status: lifecycleStatus,
+          canva_style: canvaStyle,
           compose_progress: null,
         } as never)
         .eq('id', params.targetSlideSetId)
@@ -447,6 +454,7 @@ async function generateOne(params: {
         driveFolderId: folderId,
         categoryId: matchedCategory?.id ?? null,
         status: lifecycleStatus,
+        canvaStyle,
       })
       slideSetId = slideSetRow.id
     }

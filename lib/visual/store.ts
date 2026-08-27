@@ -146,6 +146,8 @@ export async function createSlideSet(params: {
   driveFolderId?: string | null
   categoryId?: string | null
   status?: SlideSetStatus
+  /** Canva master to compose with. Omitted → the column default (Style 1). */
+  canvaStyle?: number
 }): Promise<{ id: string }> {
   const supabase = createServerClient()
   const { data, error } = await supabase
@@ -158,6 +160,7 @@ export async function createSlideSet(params: {
       drive_folder_id: params.driveFolderId ?? null,
       category_id: params.categoryId ?? null,
       status: params.status ?? 'rendered',
+      ...(params.canvaStyle ? { canva_style: params.canvaStyle } : {}),
     })
     .select('id')
     .single()
