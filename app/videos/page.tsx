@@ -2,8 +2,11 @@ import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
 import { loadRecentClips } from '@/lib/clips/store'
+import { getFloorFolderId, loadFloorMedia } from '@/lib/floor/store'
 import { PageHeader } from '@/app/components/PageHeader'
+import PushToggle from '@/app/components/PushToggle'
 import VideoLibrary, { type LibraryItem } from './VideoLibrary'
+import type { FloorItem } from './FloorPanel'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'My videos — Content Machine' }
@@ -13,9 +16,15 @@ export const metadata = { title: 'My videos — Content Machine' }
 // team has run Auto-edit on them — all playable in-app via the Drive embed
 // (files are made link-viewable on upload, see allowLinkView). No editing,
 // no deleting here: the editor's tools live in admin-only /clips.
+//
+// Second tab (added 2026-08-31): "From the floor" — the photos and clips the
+// medical assistants upload through the clinic's Google Form, mirrored from
+// its Drive folder (lib/floor/*). Its own tab on purpose: MA b-roll is not
+// the doctor's takes, and it earns no extra dashboard card. ADMIN ONLY —
+// the doctor's view of this page is unchanged from before it existed.
 
 interface PageProps {
-  searchParams: { clinicId?: string }
+  searchParams: { clinicId?: string; tab?: string }
 }
 
 export default async function VideosPage({ searchParams }: PageProps) {
@@ -27,7 +36,8 @@ export default async function VideosPage({ searchParams }: PageProps) {
   if (!clinicId) redirect('/dashboard')
 
   const supabase = createServerClient()
-  const [{ data: clinic }, { data: recordingRows }, clips] = await Promise.all([
+  const [{ data: clinic }, { data: recordingRows }, clips, floorRows, floorFolderId] =
+    await Promise.all([
     supabase.from('clinics').select('name, full_name').eq('id', clinicId).single(),
     supabase
       .from('clinic_recordings')
@@ -37,6 +47,15 @@ export default async function VideosPage({ searchParams }: PageProps) {
       .order('created_at', { ascending: false })
       .limit(100),
     loadRecentClips(clinicId, 100).catch(() => []),
+    // Admin-only feed, so a doctor's page load doesn't even query it.
+    // Fail-soft on both: migration 052 not applied yet must not take the
+    // doctor's own library down with it.
+    access.role === 'admin'
+      ? loadFloorMedia(clinicId, 300).catch(() => [])
+      : Promise.resolve([]),
+    access.role === 'admin'
+      ? getFloorFolderId(clinicId).catch(() => null)
+      : Promise.resolve(null),
   ])
   if (!clinic) redirect('/dashboard')
 
@@ -69,6 +88,20 @@ export default async function VideosPage({ searchParams }: PageProps) {
       createdAt: c.completed_at ?? c.created_at,
     }))
 
+  const floorItems: FloorItem[] = floorRows.map((m) => ({
+    id: m.id,
+    kind: m.kind,
+    fileName: m.file_name,
+    driveUrl: m.drive_url,
+    thumbnailUrl: m.thumbnail_url,
+    fileId: m.drive_file_id,
+    uploader: m.uploader,
+    folderName: m.drive_folder_name,
+    durationSec: m.duration_sec,
+    sizeBytes: m.size_bytes,
+    uploadedAt: m.uploaded_at,
+  }))
+
   const back = access.role === 'admin' ? `/dashboard?clinicId=${clinicId}` : '/dashboard'
 
   return (
@@ -78,13 +111,23 @@ export default async function VideosPage({ searchParams }: PageProps) {
           eyebrow={clinic.full_name ?? clinic.name}
           eyebrowColor="text-violet-500"
           title="My videos"
-          subtitle="Everything you recorded in the teleprompter, plus the edited versions when they're ready."
+          subtitle="Your teleprompter takes, and what the team shot on the floor."
           back={back}
         />
+        <div className="-mt-2 flex justify-end">
+          {/* The only place a device can subscribe — without it the
+              "new recording" / "new from the floor" pings go nowhere. */}
+          <PushToggle clinicId={clinicId} compact />
+        </div>
         <VideoLibrary
           recordings={recordings}
           edited={edited}
           teleprompterHref={access.role === 'admin' ? `/teleprompter?clinicId=${clinicId}` : '/teleprompter'}
+          clinicId={clinicId}
+          isAdmin={access.role === 'admin'}
+          floorItems={floorItems}
+          floorConnected={Boolean(floorFolderId)}
+          initialTab={searchParams.tab === 'floor' ? 'floor' : 'mine'}
         />
       </div>
     </main>

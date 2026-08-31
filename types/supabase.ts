@@ -62,6 +62,7 @@ export type Database = {
           plan_error: string | null
           hellometrix_client_id: string | null
           shoot_board_token: string | null
+          drive_floor_folder_id: string | null
         }
         Insert: {
           audience?: string | null
@@ -89,6 +90,7 @@ export type Database = {
           plan_error?: string | null
           hellometrix_client_id?: string | null
           shoot_board_token?: string | null
+          drive_floor_folder_id?: string | null
         }
         Update: {
           audience?: string | null
@@ -116,6 +118,7 @@ export type Database = {
           plan_error?: string | null
           hellometrix_client_id?: string | null
           shoot_board_token?: string | null
+          drive_floor_folder_id?: string | null
         }
         Relationships: [
           {
@@ -1074,6 +1077,71 @@ export type Database = {
           },
         ]
       }
+      floor_media: {
+        Row: {
+          id: string
+          clinic_id: string
+          drive_file_id: string
+          file_name: string
+          kind: string
+          mime_type: string
+          size_bytes: number | null
+          width: number | null
+          height: number | null
+          duration_sec: number | null
+          uploader: string | null
+          drive_folder_name: string | null
+          drive_url: string
+          thumbnail_url: string | null
+          uploaded_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          drive_file_id: string
+          file_name: string
+          kind: string
+          mime_type: string
+          size_bytes?: number | null
+          width?: number | null
+          height?: number | null
+          duration_sec?: number | null
+          uploader?: string | null
+          drive_folder_name?: string | null
+          drive_url: string
+          thumbnail_url?: string | null
+          uploaded_at: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          drive_file_id?: string
+          file_name?: string
+          kind?: string
+          mime_type?: string
+          size_bytes?: number | null
+          width?: number | null
+          height?: number | null
+          duration_sec?: number | null
+          uploader?: string | null
+          drive_folder_name?: string | null
+          drive_url?: string
+          thumbnail_url?: string | null
+          uploaded_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_media_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           id: string
@@ -1082,6 +1150,7 @@ export type Database = {
           p256dh: string
           auth: string
           user_agent: string | null
+          is_admin: boolean
           created_at: string
         }
         Insert: {
@@ -1091,6 +1160,7 @@ export type Database = {
           p256dh: string
           auth: string
           user_agent?: string | null
+          is_admin?: boolean
           created_at?: string
         }
         Update: {
@@ -1100,6 +1170,7 @@ export type Database = {
           p256dh?: string
           auth?: string
           user_agent?: string | null
+          is_admin?: boolean
           created_at?: string
         }
         Relationships: [

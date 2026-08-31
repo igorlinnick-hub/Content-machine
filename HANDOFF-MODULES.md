@@ -603,6 +603,39 @@ and `…/canva-posts-runbook.md`. See also memory `[[project_canva_runner]]`.
   «My videos» на дашборде (не adminOnly) + «Watch all →» в телепромптере. Не проверено
   визуально на Vercel (локальный dev не поднимался — RAM).
 
+### 6b. From the floor — MA uploads (добавлено 2026-08-31, миграция 052 НЕ применена)
+- **Does:** медассистенты грузят 2-3 фото/клипа в день через Google Form (раздатка
+  `HWC-MA-Photos-and-Videos`, QR уже напечатан — форму НЕ трогаем). Форма пишет в
+  Drive-папку `«<Form> (File responses)»` с подпапкой на каждый вопрос; CM зеркалит
+  эту папку в таблицу `floor_media` и показывает её **вкладкой внутри `/videos`**
+  («From the floor»), отдельно от телепромптерных дублей врача. Новой карточки на
+  дашборде нет — по требованию Игоря: бейдж «N new» висит на существующей «My videos».
+- **Подключение папки — в UI, не в env:** админ вставляет ссылку на папку во вкладке →
+  `POST /api/floor/folder` валидирует её через Drive (`describeFolder`) и пишет
+  `clinics.drive_floor_folder_id`. Env `GOOGLE_DRIVE_FLOOR_FOLDER_ID` — только fallback
+  для `CLIPS_DEFAULT_CLINIC_ID`.
+- **Три способа синка:** cron `/api/cron/floor-media` (`0 7 * * *` = 21:00 Hawaii, после
+  смен — единственный, кто шлёт push и делает prune), кнопка Sync now, и тихий синк при
+  открытии вкладки (поэтому галерея никогда не старше момента открытия).
+- **Уведомления:** один агрегированный push на синк («3 clips · 2 photos … — Kaila, Jen»),
+  ведёт на `/videos?clinicId=…&tab=floor`. Push-подписки стали **admin-scoped**
+  (`push_subscriptions.is_admin`, миграция 052): устройство админа получает пинги ВСЕХ
+  клиник — «Made записал», «Shawn записал», «MA залили», — а не только той клиники, что
+  была на экране при подписке. `sendPushToClinic` делает fan-out клиника+админы с
+  дедупом по endpoint и fail-soft'ом, если 052 ещё не применена.
+- **Кнопка подписки вернулась в UI** (`PushToggle` compact в шапке `/videos`) — до этого
+  её убрали, и новым устройствам негде было подписаться, т.е. пуши физически никому не
+  приходили. Текст обобщён: «Notify me about new videos».
+- **Code:** `lib/floor/{drive,store,sync}.ts`, `app/api/floor/{sync,folder,summary}`,
+  `app/api/cron/floor-media`, `app/videos/FloorPanel.tsx` (+ табы в `VideoLibrary`),
+  `app/dashboard/components/NewFloorBadge.tsx`, миграция `052_floor_media.sql`.
+- **Гоча Drive:** файлы формы принадлежат владельцу формы. Аккаунт, чей
+  `GOOGLE_DRIVE_USER_REFRESH_TOKEN` стоит в проде, должен иметь на папку **Editor** —
+  синк ставит каждому новому файлу link-view, иначе превью-плитки серые у любого, кто
+  залогинен в другой Google-аккаунт. Viewer'а хватит только чтобы читать список.
+- **Не проверено вживую:** миграцию 052 надо прогнать в Supabase SQL Editor, папку —
+  подключить в UI; ни одного реального файла формы через пайплайн ещё не проходило.
+
 ### 7. Studio (talking-head creator product)
 - **Does:** TikTok ingest via Apify, format analysis (cover+caption vision), shot
   lists, Trash funnel, storage cleanup. Consumer-facing, transcript-based manual edit.

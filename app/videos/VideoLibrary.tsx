@@ -1,12 +1,25 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
+import FloorPanel, { type FloorItem } from './FloorPanel'
 
 // Doctor's video library — a gallery of takes with one in-app player.
 // Desktop: player pinned on the right, list scrolls on the left.
 // Phone: player on top, list below. Selecting a card swaps the embed.
 // Read-only by design (see app/videos/page.tsx).
+//
+// Two tabs, deliberately separate feeds: "My videos" is what the
+// doctor recorded in the teleprompter (plus the edited versions), and
+// "From the floor" is what the medical assistants upload through the
+// Google Form. Same screen, no extra dashboard card — but never mixed
+// into one gallery: different shooters, different purpose.
+//
+// The floor tab is ADMIN ONLY (asked for 2026-08-31): the MA feed is
+// raw, unreviewed b-roll for the content team. A doctor opening this
+// page sees exactly what they saw before — their own takes, no tabs.
+
+export type Tab = 'mine' | 'floor'
 
 export interface LibraryItem {
   id: string
@@ -18,8 +31,6 @@ export interface LibraryItem {
   sizeBytes: number | null
   createdAt: string
 }
-
-type Tab = 'recording' | 'edited'
 
 function fmtDuration(sec: number | null): string {
   if (sec == null) return '—'
@@ -102,11 +113,6 @@ function Thumb({ item, active }: { item: LibraryItem; active: boolean }) {
       <span className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
         {fmtDuration(item.durationSec)}
       </span>
-      {item.kind === 'edited' && (
-        <span className="absolute left-2 top-2 rounded-md bg-emerald-500/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-          Edited
-        </span>
-      )}
     </div>
   )
 }
@@ -115,21 +121,36 @@ export default function VideoLibrary({
   recordings,
   edited,
   teleprompterHref,
+  clinicId,
+  isAdmin,
+  floorItems,
+  floorConnected,
+  initialTab = 'mine',
 }: {
   recordings: LibraryItem[]
   edited: LibraryItem[]
   teleprompterHref: string
+  clinicId: string
+  isAdmin: boolean
+  floorItems: FloorItem[]
+  floorConnected: boolean
+  initialTab?: Tab
 }) {
+  // A push about an MA upload deep-links straight to its tab (?tab=floor).
+  const [tab, setTab] = useState<Tab>(initialTab)
   // Recordings are owned locally so a delete updates the gallery without a
   // round-trip re-render; edited clips are read-only on this screen.
   const [recs, setRecs] = useState<LibraryItem[]>(recordings)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
-  const hasEdited = edited.length > 0
-  // Land on the edited tab when the team has already delivered something —
-  // that's the version the doctor actually wants to see first.
-  const [tab, setTab] = useState<Tab>(hasEdited ? 'edited' : 'recording')
-  const items = tab === 'edited' ? edited : recs
+  // One flat gallery — edited versions and raw takes together, newest first.
+  const items = useMemo(
+    () =>
+      [...edited, ...recs].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      ),
+    [edited, recs]
+  )
   const [selectedId, setSelectedId] = useState<string | null>(items[0]?.id ?? null)
 
   async function deleteRecording(item: LibraryItem) {
@@ -166,12 +187,6 @@ export default function VideoLibrary({
     }
   }
 
-  // Switching tabs re-points the player at the first item of the new list.
-  useEffect(() => {
-    setSelectedId(items[0]?.id ?? null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab])
-
   const selected = useMemo(
     () => items.find((i) => i.id === selectedId) ?? null,
     [items, selectedId]
@@ -189,8 +204,7 @@ export default function VideoLibrary({
     return Array.from(map.entries())
   }, [items])
 
-  if (recs.length === 0 && edited.length === 0) {
-    return (
+  const emptyMine = (
       <div className="rounded-2xl p-10 text-center" style={GLASS}>
         <div
           className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl text-violet-500"
@@ -212,39 +226,14 @@ export default function VideoLibrary({
           Open teleprompter
         </Link>
       </div>
-    )
-  }
+  )
 
-  return (
+  const mine = (
     <div className="flex flex-col gap-5">
-      {/* Tabs */}
       <div className="flex items-center justify-between gap-3">
-        <div className="inline-flex rounded-xl p-1" style={GLASS}>
-          {(['edited', 'recording'] as Tab[])
-            .filter((t) => t === 'recording' || hasEdited)
-            .map((t) => {
-              const count = t === 'edited' ? edited.length : recs.length
-              const active = tab === t
-              return (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition ${
-                    active ? 'bg-neutral-900 text-white shadow-sm' : 'text-neutral-600 hover:bg-white/70'
-                  }`}
-                >
-                  {t === 'edited' ? 'Edited' : 'Recordings'}
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ${
-                      active ? 'bg-white/20 text-white' : 'bg-neutral-900/5 text-neutral-500'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-        </div>
+        <p className="px-1 text-sm text-neutral-500">
+          {items.length} {items.length === 1 ? 'video' : 'videos'}
+        </p>
         <Link
           href={teleprompterHref}
           className="hidden items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-500 sm:inline-flex"
@@ -277,8 +266,6 @@ export default function VideoLibrary({
                         {selected.title}
                       </h2>
                       <p className="mt-0.5 text-xs text-neutral-500">
-                        {selected.kind === 'edited' ? 'Edited video' : 'Raw recording'}
-                        {' · '}
                         {fmtDate(selected.createdAt)}, {fmtTimeOfDay(selected.createdAt)}
                         {' · '}
                         {fmtDuration(selected.durationSec)}
@@ -329,15 +316,6 @@ export default function VideoLibrary({
                 </div>
               )}
             </div>
-            {tab === 'recording' && hasEdited && (
-              <p className="mt-2 px-1 text-xs text-neutral-400">
-                Edited versions of your takes live under the{' '}
-                <button onClick={() => setTab('edited')} className="font-medium text-violet-600 hover:underline">
-                  Edited
-                </button>{' '}
-                tab.
-              </p>
-            )}
           </div>
         </div>
 
@@ -345,9 +323,7 @@ export default function VideoLibrary({
         <div className="order-2 flex flex-col gap-5 lg:order-1">
           {items.length === 0 ? (
             <div className="rounded-2xl p-6 text-sm text-neutral-500" style={GLASS}>
-              {tab === 'edited'
-                ? 'No edited videos yet — the team is on it.'
-                : 'No recordings yet.'}
+              No videos yet.
             </div>
           ) : (
             groups.map(([day, list]) => (
@@ -430,6 +406,48 @@ export default function VideoLibrary({
         <span className="h-2 w-2 rounded-full bg-white" />
         Record new
       </Link>
+    </div>
+  )
+
+  // Doctors get the plain gallery, no tab strip at all.
+  if (!isAdmin) return recs.length === 0 && edited.length === 0 ? emptyMine : mine
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center gap-1 self-start rounded-xl p-1" style={GLASS}>
+        {(
+          [
+            ['mine', `My videos${items.length ? ` ${items.length}` : ''}`, 'bg-violet-600'],
+            ['floor', `From the floor${floorItems.length ? ` ${floorItems.length}` : ''}`, 'bg-teal-600'],
+          ] as Array<[Tab, string, string]>
+        ).map(([key, label, active]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setTab(key)}
+            className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+              tab === key ? `${active} text-white` : 'text-neutral-500 hover:text-neutral-800'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'mine' ? (
+        recs.length === 0 && edited.length === 0 ? (
+          emptyMine
+        ) : (
+          mine
+        )
+      ) : (
+        <FloorPanel
+          clinicId={clinicId}
+          isAdmin={isAdmin}
+          initialItems={floorItems}
+          folderConnected={floorConnected}
+        />
+      )}
     </div>
   )
 }

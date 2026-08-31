@@ -9,6 +9,11 @@ export const dynamic = 'force-dynamic'
 // Called by app/components/PushToggle.tsx after the user grants
 // notification permission. Admins pass ?clinicId=…, clinic sessions
 // use their own clinic.
+//
+// An admin's device is flagged is_admin (migration 052): the editor
+// works across every clinic, so their phone gets every clinic's pings
+// — a doctor recording, an MA upload — not only the clinic that was
+// on screen when they subscribed.
 
 interface SubscriptionBody {
   subscription?: {
@@ -57,6 +62,7 @@ export async function POST(req: Request) {
       p256dh,
       auth,
       user_agent: req.headers.get('user-agent')?.slice(0, 300) ?? null,
+      is_admin: access.role === 'admin',
     },
     { onConflict: 'endpoint' }
   )

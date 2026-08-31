@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Meteors } from '@/app/components/ui/meteors'
 import NewClipsBadge from './NewClipsBadge'
+import NewFloorBadge from './NewFloorBadge'
 
 
 const GLASS_CARD = {
@@ -192,12 +193,15 @@ export function DashBento({
     },
     {
       title: 'My videos',
-      desc: 'Watch your takes · edited versions',
+      desc: 'Your takes · edited · from the floor',
       href: `/videos?${q}`,
       tag: 'Watch',
       tagColor: '#8b5cf6',
       iconBg: 'linear-gradient(135deg,#8b5cf6,#6d28d9)',
       icon: <IconFilm />,
+      // MA uploads live in a tab on this page — they get a badge here
+      // rather than a card of their own. Admin only, like the tab.
+      badge: isAdmin ? <NewFloorBadge clinicId={clinicId} /> : undefined,
       adminOnly: false,
     },
     {

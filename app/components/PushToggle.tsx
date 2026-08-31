@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 
-// "Notify me when clips are ready" toggle (HANDOFF §22.2 п.9).
-// Registers /sw.js, asks notification permission, subscribes via the
-// Push API and stores the subscription server-side. On iPhone this
-// only works when the app is installed to the Home Screen (iOS
-// 16.4+) — when Push is unavailable we show the install hint instead
-// of a dead button.
+// The notifications toggle (HANDOFF §22.2 п.9). Registers /sw.js, asks
+// notification permission, subscribes via the Push API and stores the
+// subscription server-side. It covers every ping the app sends to this
+// device — a doctor's new recording, a clip finishing its edit, the MA
+// team's uploads from the floor — so the copy is deliberately generic.
+// On iPhone Push only exists inside an installed PWA (iOS 16.4+): when
+// it is unavailable we show the install hint instead of a dead button.
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4)
@@ -94,8 +95,8 @@ export default function PushToggle({
     if (compact) return null
     return (
       <p className="text-xs text-neutral-400">
-        To get &quot;clip ready&quot; notifications on iPhone, add this app
-        to your Home Screen first (Share → Add to Home Screen).
+        To get notifications on iPhone, add this app to your Home Screen
+        first (Share → Add to Home Screen).
       </p>
     )
   }
@@ -105,7 +106,7 @@ export default function PushToggle({
     return (
       <p className="text-xs text-neutral-400">
         Notifications are blocked for this site — enable them in browser
-        settings to get &quot;clip ready&quot; pings.
+        settings to get new-video pings.
       </p>
     )
   }
@@ -113,7 +114,7 @@ export default function PushToggle({
   if (state === 'on') {
     return (
       <span className={`text-xs font-medium text-emerald-600 ${compact ? '' : 'py-1'}`}>
-        Clip notifications on
+        Notifications on
       </span>
     )
   }
@@ -129,7 +130,7 @@ export default function PushToggle({
           : 'w-full rounded-2xl border border-violet-200 bg-violet-50 py-3 text-sm font-semibold text-violet-700 hover:bg-violet-100 disabled:opacity-60'
       }
     >
-      {state === 'busy' ? 'Enabling…' : 'Notify me when clips are ready'}
+      {state === 'busy' ? 'Enabling…' : 'Notify me about new videos'}
     </button>
   )
 }

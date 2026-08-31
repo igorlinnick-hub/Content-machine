@@ -20,15 +20,32 @@ self.addEventListener('push', (event) => {
   )
 })
 
+// Open the screen the notification points at. It used to focus ANY
+// open /clips window regardless of the payload — with more than one
+// kind of ping (clip ready, new recording, MA uploads → /videos?tab=
+// floor) that sent every tap to the wrong page.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const url = (event.notification.data && event.notification.data.url) || '/clips'
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard'
+  const target = new URL(url, self.location.origin)
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
       for (const win of wins) {
-        if (win.url.includes('/clips') && 'focus' in win) return win.focus()
+        let winUrl
+        try {
+          winUrl = new URL(win.url)
+        } catch {
+          continue
+        }
+        if (winUrl.pathname !== target.pathname) continue
+        // Same page, different query (another clinic, another tab) —
+        // re-navigate where the browser allows it, else just focus.
+        if (winUrl.search !== target.search && 'navigate' in win) {
+          return win.navigate(target.href).then((w) => (w ? w.focus() : null))
+        }
+        if ('focus' in win) return win.focus()
       }
-      return clients.openWindow(url)
+      return clients.openWindow(target.href)
     })
   )
 })

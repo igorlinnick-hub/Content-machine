@@ -89,7 +89,22 @@
 - Маршруты `/api/visual/photo-*` не существуют; `/install` вживую не видели. Песочница: `googleapis`
   виснет (JWT через `crypto.createSign`); `slide_sets` читать PostgREST'ом с ключом из `…/HWC/canva-runner/env`.
 
+- **From the floor — папка MA подключена к CM (31.08, не задеплоено, миграция 052 не применена).**
+  Google-форма медассистентов (раздатка с QR уже роздана) пишет в Drive-папку; CM зеркалит её в
+  `floor_media` и показывает **вкладкой в `/videos`** — отдельно от телепромптерных дублей, без новой
+  карточки на дашборде (бейдж «N new» на «My videos»). Папка подключается вставкой ссылки прямо во
+  вкладке (`clinics.drive_floor_folder_id`), синк — cron `0 7 * * *` (21:00 Hawaii, он же шлёт push),
+  Sync now и тихий синк при открытии вкладки. Push-подписки стали admin-scoped
+  (`push_subscriptions.is_admin`) — устройство Игоря теперь получает и «Made/Shawn записал», и «MA
+  залили» по всем клиникам; `PushToggle` вернулся в UI (в шапке `/videos`) — без него подписаться было
+  негде и пуши физически никому не приходили. Детали и грабли Drive-доступа — `HANDOFF-MODULES.md` §6b.
+
 ## Следующий шаг
 После пуша Игоря сгенерировать один aesthetics-пост (Made): `photo_brief` — SKIN только шея/плечо/кисть,
 лицевые темы в TOOLS/ROOM, clinic ≤ 25%; во время его сборки плашка в /visual не краснеет — тогда
 коммитить фото-доктрину.
+
+Параллельно (floor): прогнать `supabase/migrations/052_floor_media.sql` в SQL Editor, открыть
+`/videos` → вкладка **From the floor** → вставить ссылку на папку ответов формы, включить
+«Notify me about new videos» на телефоне. Аккаунт из `GOOGLE_DRIVE_USER_REFRESH_TOKEN` должен быть
+**Editor** на этой папке — иначе плитки серые.
