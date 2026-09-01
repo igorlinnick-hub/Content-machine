@@ -94,6 +94,60 @@ export const CTA_KEYWORD_BY_TOPIC_SLUG: Record<string, string> = {
   'standard-blood-panel-gaps': 'PROGRAM',
 }
 
+// ── Keyword enforcement (Igor 2026-08-31) ────────────────────────────────
+// ManyChat only answers words that exist as triggers. The Made SPF post
+// shipped with `Comment "PREVENTION"` — a word the model invented, absent from
+// every list — so the CTA on the slide was dead on arrival. Nothing outside
+// these pools may reach a slide: the splitter resolves through here.
+
+// Used only when no candidate and no topic word resolves. Both are real
+// triggers, deliberately the broadest ones in their pool.
+export const DEFAULT_CTA_KEYWORD_BY_NICHE: Record<string, string> = {
+  aesthetics: 'ALOHA',
+  regenerative_medicine: 'REGENERATIVE',
+}
+
+export function isValidCtaKeyword(
+  keyword: string | null | undefined,
+  niche: string | null | undefined
+): boolean {
+  if (!keyword?.trim()) return false
+  const needle = keyword.trim().toUpperCase()
+  return keywordPoolForNiche(niche).keywords.some(
+    (k) => k.toUpperCase() === needle
+  )
+}
+
+/**
+ * Resolve the CTA keyword to one the ManyChat bot actually knows.
+ *
+ * Candidates are tried in the caller's priority order (plan-assigned first,
+ * then whatever the model produced); the first VALID one wins. If none is
+ * valid, a pool word named in the topic is used, and only then the niche
+ * default — the result is always a real trigger, never an invention.
+ */
+export function resolveCtaKeyword(
+  candidates: Array<string | null | undefined>,
+  opts: { niche?: string | null; topic?: string | null } = {}
+): string {
+  const pool = keywordPoolForNiche(opts.niche).keywords
+  for (const c of candidates) {
+    if (isValidCtaKeyword(c, opts.niche)) return c!.trim().toUpperCase()
+  }
+  const topic = (opts.topic ?? '').toLowerCase()
+  if (topic) {
+    // Longest first so "GLP-1" wins over "GLP" and "NAD+" over "NAD".
+    const byLength = [...pool].sort((a, b) => b.length - a.length)
+    const hit = byLength.find((k) => topic.includes(k.toLowerCase()))
+    if (hit) return hit.toUpperCase()
+  }
+  const n = (opts.niche ?? '').trim().toLowerCase()
+  const fallback = n.includes('aesthetic')
+    ? DEFAULT_CTA_KEYWORD_BY_NICHE.aesthetics
+    : DEFAULT_CTA_KEYWORD_BY_NICHE.regenerative_medicine
+  return fallback.toUpperCase()
+}
+
 export function suggestCtaKeyword(topicSlug: string | null | undefined): string | null {
   if (!topicSlug) return null
   return CTA_KEYWORD_BY_TOPIC_SLUG[topicSlug.toLowerCase().trim()] ?? null

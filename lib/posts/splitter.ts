@@ -6,7 +6,11 @@ import type {
   PostPlanPhotoBrief,
   PostPlanSource,
 } from '@/types'
-import { suggestCtaKeyword, isMentalHealthAcute } from '@/lib/seeds/cta-keywords'
+import {
+  suggestCtaKeyword,
+  isMentalHealthAcute,
+  resolveCtaKeyword,
+} from '@/lib/seeds/cta-keywords'
 import { generatePhotoBriefs } from './photo-brief'
 import type { CtaMode } from '@/lib/niche/profiles'
 
@@ -48,14 +52,30 @@ For each body slide:
 
 For the cover:
   • title: mixed case headline (NOT all-caps — that was the legacy renderer).
-    HARD CAP: at most 7 words, ONE sentence, no trailing period. If the
-    script's cover line is longer (e.g. a compliance rewrite expanded it),
-    COMPRESS it to the headline it was meant to be — keep the format promise
-    ("Four Things To Know", "How X Works") or the core noun phrase, and move
-    any hedge/qualifier ("investigational", "talk to your doctor") into the
-    hook or drop it if the hook already carries it. Never emit a multi-sentence
-    title.
-  • hook: one specific stat or framing line from the script. STRIP any trailing "Swipe →" / "swipe" prompt if the script has one — it must never appear on the post.
+    HARD CAP: at most 7 words, ONE sentence, no trailing period. Never emit a
+    multi-sentence title.
+    A title must state WHAT THE READER GETS and NAME ITS OBJECT. The shape
+    that works is <count> + <verb> + <object>: "Five Things That Build
+    Mitochondria", "Four Things That Rebuild Tissue", "Two Tests To Ask For".
+    Two forms are BANNED (both were rejected by the reviewer on live posts,
+    2026-08-31):
+      - the bare topic noun — "Repair", "Peptides", "Five Signals". The topic
+        already sits in the cover's pill, so a title that only repeats it
+        tells the reader nothing about what is inside.
+      - a verb with no object — "Four Things That Help", "Four Ways To
+        Rebuild". Help what? Rebuild what? Name it.
+    Do NOT shorten a title to make it fit a template: the composer resizes the
+    box, and a 32-38 character title fits every master. If the script's cover
+    line is longer (e.g. a compliance rewrite expanded it), COMPRESS to the
+    headline it was meant to be — the format promise and its object survive,
+    the hedge/qualifier ("investigational", "talk to your doctor") moves into
+    the hook or drops if the hook already carries it.
+  • hook: ONE line that says what the post actually covers — prefer naming the
+    items ("A walk, glycine, cold water, sleep, two weeks off alcohol.") or a
+    specific stat from the script. It must NOT restate the title's count: a
+    cover reading "Four Things That Help" over "Four things that help each one"
+    was rejected as repetitive. STRIP any trailing "Swipe →" / "swipe" prompt
+    if the script has one — it must never appear on the post.
 
 For the CTA stack:
   • keyword: ALL-CAPS single word from the script (e.g. "VITALITY"). If no keyword in the script, infer from topic or use "CONNECT".
@@ -95,6 +115,19 @@ export interface SplitToPostPlanResult {
   // entry (Replicate for 'ai', Drive for 'drive', etc.) when the
   // marketer presses "Compose in Canva".
   photo_brief: PostPlanPhotoBrief[]
+}
+
+/**
+ * Strip a script's own scaffolding label off a slide line.
+ *
+ * The writer numbers its beats ("Tip 3.", "Step 2:", "Slide 4 —") and the
+ * splitter used to carry them straight into `intro`/`close`. One shipped: the
+ * tissue-repair post's page 6 opened with "Tip 3. Even with good nutrition…"
+ * and the reviewer counted it as a spelling mistake (Igor 2026-08-31). The
+ * label is never content — the slide's position already says which beat it is.
+ */
+function stripScriptLabel(line: string): string {
+  return line.replace(/^\s*(?:tip|step|slide|point|part)\s*#?\d+\s*[.:)—–-]\s*/i, '').trim()
 }
 
 export async function splitScriptToPostPlan(
@@ -164,11 +197,12 @@ export async function splitScriptToPostPlan(
       const bullets = Array.isArray(s.bullets)
         ? s.bullets
             .filter((b): b is string => typeof b === 'string' && b.trim().length > 0)
-            .map((b) => b.trim())
+            .map((b) => stripScriptLabel(b))
+            .filter((b) => b.length > 0)
         : []
       const heading = s.heading?.trim() || null
-      const intro = s.intro?.trim() || null
-      const close = s.close?.trim() || null
+      const intro = s.intro ? stripScriptLabel(s.intro) || null : null
+      const close = s.close ? stripScriptLabel(s.close) || null : null
       if (!heading && !intro && !close && bullets.length === 0) return null
       return { n, kind, heading, intro, bullets, close }
     })
@@ -203,20 +237,24 @@ export async function splitScriptToPostPlan(
   const forcedKeyword = context?.ctaKeyword?.trim()
     ? context.ctaKeyword.trim().toUpperCase()
     : null
+  // The pool is BINDING (Igor 2026-08-31). Candidates are offered in priority
+  // order and the first one that is a real ManyChat trigger wins; an invented
+  // word (the Made SPF post shipped `Comment "PREVENTION"`, which the bot has
+  // no trigger for) is dropped here rather than printed on a slide.
   const keyword = ctaMode === 'booking'
     ? 'BOOK'
-    : (
-        forcedKeyword ||
-        ctaRaw.keyword?.toString().trim() ||
-        fallbackKeyword ||
-        'CONNECT'
-      ).toUpperCase()
+    : resolveCtaKeyword(
+        [forcedKeyword, ctaRaw.keyword?.toString(), fallbackKeyword],
+        { niche: context?.niche, topic: context?.topic }
+      )
 
-  // If the plan forces the keyword but the script's comment line quotes
-  // a different word, rewrite the quoted word in place.
+  // The script's comment line quotes the keyword. Rewrite the quoted word
+  // whenever it is not the keyword we resolved to — otherwise the slide keeps
+  // asking for a word the CTA no longer uses.
   const parsedCommentLine = ctaRaw.comment_line?.trim() || null
+  const quoted = parsedCommentLine?.match(/"([A-Za-z0-9+\- ]+)"/)?.[1] ?? null
   const commentLine =
-    parsedCommentLine && forcedKeyword
+    parsedCommentLine && quoted && quoted.toUpperCase() !== keyword
       ? parsedCommentLine.replace(/"[A-Za-z0-9+\- ]+"/, `"${keyword}"`)
       : parsedCommentLine
 
