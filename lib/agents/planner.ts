@@ -16,6 +16,14 @@ const FORMAT_BLOCK = POST_FORMATS.map(
   (f, i) => `  ${i + 1}. ${f.name} — ${f.hint}`
 ).join('\n')
 
+// The rotation ceiling has to scale with the catalog, not sit hardcoded at 4
+// (Igor 2026-08-31). With 9 formats "at most 4 uses" left slack; the moment the
+// catalog was trimmed to 5, 5 x 4 = 20 < 24 made the rule unsatisfiable and the
+// planner would break it somewhere unpredictable. The formula reproduces the
+// old value at 9 formats and gives one slot of slack at any size.
+const PLAN_POST_COUNT = 24
+const FORMAT_MAX_USES = Math.ceil(PLAN_POST_COUNT / POST_FORMATS.length) + 1
+
 // Aesthetics reads differently from regenerative medicine: the audience is
 // browsing, not troubleshooting a chronic problem (Igor 2026-08-20). Same
 // topic-quality rules, different mood — light, practical, encouraging.
@@ -43,9 +51,10 @@ Rules:
 - Rotate pillars across the 8 weeks — don't repeat the same pillar more than 2-3 times unless the clinic has fewer than 4 pillars
 - If the PUBLISHED CONTENT HISTORY shows that a pillar was recently posted 2+ times, deprioritize that pillar — don't assign it to Week 1 or 2; give the audience a break from it first
 - Each post has a TOPIC (the specific video/carousel topic, patient-facing, 6-12 words), a KEYWORD (the ManyChat CTA trigger word — must be chosen ONLY from the lists below), and a FORMAT
-- FORMAT must be one of these structural templates — rotate them across the 24 posts so every format is used at least twice and none more than four times:
+- FORMAT must be one of these structural templates — rotate them across the ${PLAN_POST_COUNT} posts so every format is used at least twice and none more than ${FORMAT_MAX_USES} times:
 ${FORMAT_BLOCK}
 - Rotate formats so each week has at most 2 posts of the same format
+- "Treatment explainer" is the ONLY format that lands on a service the clinic actually sells. Assign it at most ONCE per week, and only when the week's theme has a real service behind it in the clinic's Services list. Its topic still enters through the reader's door — it names their situation or the limit they hit on their own, NEVER the service. The service belongs inside the post, not in the topic.
 - Every week should mix registers: do not give a week three explainers or three list posts. A week that teaches a mechanism, gives a practical list, and flags what to check reads far better than three of a kind
 - Match the format to the topic: a mechanism topic wants Educational explainer or Diagnostic deep-dive; a self-care / routine topic wants Practical tips; a "should I get this checked" topic wants Warning signs; a widely-believed falsehood wants Myth-busting
 - Topics must be educational, mechanism-focused, or patient-question-based (not generic)

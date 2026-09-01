@@ -6,6 +6,25 @@
 // panels, and `ensureDefaultScriptTemplates` seeds each clinic's
 // `script_templates` rows from it so the Writer has the scaffold to follow.
 // Add a format HERE and it appears in all three places.
+//
+// Trimmed 9 → 5, then "Treatment explainer" added back as the 6th
+// (Igor 2026-08-31). Retired: "System critique" and "Expert
+// secrets" (both ran on "the system / other doctors are wrong", which POST-CRAFT
+// §1 forbids — the post names the hard part to help the reader understand it,
+// never to indict their old doctor); "Medicine philosophy" (doctor-as-hero,
+// against the planner's binding "the reader is the hero of every topic" rule);
+// "Diagnostic deep-dive" (a duplicate of Educational explainer — the planner
+// itself offered them interchangeably for mechanism topics). Its one distinct
+// door — entering through a symptom the reader feels, and the wrong story they
+// were told — moved into Educational explainer. Retiring a name here does NOT
+// deactivate the `script_templates` rows already seeded for a clinic: see
+// supabase/migrations/053_retire_post_formats.sql.
+//
+// "Treatment explainer" is the only format that lands on a service the clinic
+// sells — the client asked for a post that references one, and nothing in the
+// catalog obliged a post to. Frequency is not hardcoded anywhere: the planner's
+// rotation ceiling scales with the catalog, so at 6 formats it lands 2-5 times
+// per 24-post plan.
 
 export type FormatLengthBias = 'short' | 'long' | null
 
@@ -36,7 +55,7 @@ export interface PostFormat {
    * so "Practical tips" came out as an explainer carrying one checklist slide
    * instead of the list post people actually save and send on. Formats that
    * ARE a structure own their arc here. Formats that are an angle
-   * (Educational explainer, System critique, Patient story, …) leave it unset
+   * (Educational explainer, Patient story, …) leave it unset
    * and keep the default arc, which is already the right shape for them.
    */
   carouselArc?: string
@@ -46,11 +65,12 @@ export const POST_FORMATS: PostFormat[] = [
   {
     name: 'Educational explainer',
     label: 'Educational',
-    hint: 'How it actually works — real science, said simply. No jargon, no hype.',
-    coverTitle: `"How X Actually Works" / "What X Really Does" — the mechanism promise in plain words, where X is the everyday name of the thing (not an acronym)`,
+    hint: 'How it actually works — real science, said simply. Enters through the mechanism or through a symptom the reader feels.',
+    coverTitle: `"How X Actually Works" / "What X Really Does" — the mechanism promise in plain words, where X is the everyday name of the thing (not an acronym). When the post enters through a symptom, the title is that symptom as the reader says it, phrased as the question the post answers: "Why You're Always Tired"`,
     description:
       'Teach one mechanism properly. Scientific in substance, plain in language — the reader should be able to repeat it to a friend.',
-    scaffold: `[Hook — a concrete fact about the mechanism, stated flatly. No teaser, no "here's why".]
+    scaffold: `[Hook — a concrete fact about the mechanism, stated flatly. No teaser, no "here's why". Or enter through the symptom instead: the question a patient types into Google at 2am, in their own words.]
+[The wrong story — what most people are told about this, in one line. OPTIONAL: only when a common wrong story actually exists. Correct it with the fact, never with mockery.]
 [The everyday picture — one comparison a non-medical reader already understands. Keep the same comparison for the whole post; do not stack metaphors.]
 [The mechanism, step by step — what happens first, what that causes, what that causes. Name the real structures (the cell, the hormone, the tissue) and unpack each term in the same sentence you use it.]
 [What the research shows — one real study or body of evidence, with what it measured and how much. Numbers stay in the range the source actually reports. Never "studies show" without a source.]
@@ -90,7 +110,7 @@ distinct — two phrasings of the same advice is one tip.`,
     name: 'Warning signs',
     label: 'Warning signs',
     hint: "Signals worth checking — basic tests to ask for, and when to see a doctor. Never a diagnosis.",
-    coverTitle: `"Signs Worth Checking" / "Three Signs To Take Seriously" / "Don't Ignore These" — calm, never alarmist`,
+    coverTitle: `"Signs Worth Checking" / "Three Signs To Take Seriously" / "What's Normal And What Isn't" — calm, never alarmist. No "Don't Ignore These", no urgency framing`,
     description:
       'The signals a reader should not sit on, what a basic work-up would look like, and when to book. Informational — it tells people to get checked, it never tells them what they have.',
     scaffold: `[Hook — name the thing people wave off, in the reader's own words ("Tired by 3pm every day" beats "Fatigue").]
@@ -141,33 +161,6 @@ reason, and naming that reason is what makes the correction land.`,
     length_bias: null,
   },
   {
-    name: 'System critique',
-    label: 'System critique',
-    hint: 'Why mainstream care keeps failing this problem — and what that costs the patient.',
-    coverTitle: `"Why Standard Care Misses This" / "What Your Visit Skips" — the failure promise, no clinic-bashing words`,
-    description:
-      'Why mainstream care fails this problem and what that means for the patient.',
-    scaffold: `[Hook — a sentence that contradicts the standard medical line on this topic.]
-[Why the system gets it wrong — one specific reason, not a vague rant. Mechanism or incentive, not buzzwords.]
-[What gets missed — the thing patients keep paying for that does not actually move the needle.]
-[What we do instead — concrete, mechanism-backed, named. Show the actual decision, not slogans.]
-[CTA — a single specific next step.]`,
-    length_bias: null,
-  },
-  {
-    name: 'Diagnostic deep-dive',
-    label: 'Deep-dive',
-    hint: 'One symptom, taken apart down to the real mechanism.',
-    coverTitle: `"Why You're Always Tired" — the symptom in the reader's own words, as the question the post answers`,
-    description: 'Take one symptom or condition and unpack the real mechanism.',
-    scaffold: `[Hook — a symptom-as-question, the kind a patient types into Google at 2am.]
-[The wrong story — what most people are told about it.]
-[The actual mechanism — explained in everyday physical terms, not jargon. Use a concrete metaphor.]
-[Why this changes the treatment — what you stop doing, what you start doing.]
-[CTA — book the right kind of evaluation.]`,
-    length_bias: null,
-  },
-  {
     name: 'Patient story',
     label: 'Patient story',
     hint: 'An anonymised case the doctor sees every week, told as a small narrative.',
@@ -182,32 +175,34 @@ reason, and naming that reason is what makes the correction land.`,
     length_bias: null,
   },
   {
-    name: 'Expert secrets',
-    label: 'Expert secrets',
-    hint: 'What the doctor tells a friend but never fits into a 10-minute visit.',
-    coverTitle: `"What I Tell My Friends" / "Three Things Doctors Skip" — the insider promise`,
+    name: 'Treatment explainer',
+    label: 'Treatment',
+    hint: "What one of the clinic's own services actually does — for the reader who has already hit the limit of what they can do at home.",
+    coverTitle: `"What A Chemical Peel Actually Does" / "When Skincare Isn't Enough" — either the treatment in plain patient words, or the moment the reader runs out of road at home. Never the clinic's name, never a price, never "book now"`,
     description:
-      'What the doctor would tell a friend that he does not say in a 10-minute visit.',
-    scaffold: `[Hook — "Here is what most doctors will not tell you about ___."]
-[Reveal #1 — a counter-intuitive fact about the topic. One sentence.]
-[Reveal #2 — a step the patient can take or watch for, that most clinicians never mention. One sentence.]
-[Reveal #3 — what the doctor actually looks for when deciding the treatment plan. One sentence.]
-[Why this matters — what changes if you act on it.]
-[CTA — invite a real conversation, not a generic booking line.]`,
-    length_bias: null,
-  },
-  {
-    name: 'Medicine philosophy',
-    label: 'Philosophy',
-    hint: 'A short opinionated piece on how this doctor thinks about treating people.',
-    coverTitle: `"Why I Treat This Differently" — the stance in 3-5 words`,
-    description:
-      'A short, opinionated piece on how the doctor thinks about treating this kind of patient.',
-    scaffold: `[Hook — a strong opinion stated plainly. Not "I think". Just the claim.]
-[Where this opinion comes from — clinical observation, not theory. Be specific.]
-[What it means for how we treat — the practical decision the philosophy drives.]
-[What it does NOT mean — clear up the obvious counter-argument before someone makes it.]
-[CTA — find out if this approach fits you.]`,
+      'The one format in the rotation that lands on something the clinic actually does (Igor 2026-08-31, from the client asking for a post that references a service). Still teaching, not selling: it explains what the treatment physically does, who it fits, who it does not, and what it will not do. The reader must be able to finish it and decide the treatment is not for them.',
+    scaffold: `[Hook — the limit the reader has already hit at home, in their own words ("You can't exfoliate your way out of this one" beats "Introducing our peels"). Enter through THEIR situation, never through the clinic.]
+[Where home care stops — what the at-home version genuinely does and the specific point it cannot get past. Be fair to it: a post that trashes home care to sell a treatment fails.]
+[The treatment — pick exactly ONE service from the clinic's Services list and name it plainly. What it physically does to the tissue, in the same everyday language the explainer format uses.]
+[Who it fits — the concrete situations this is actually for.]
+[The honest limit — who it is NOT for, or what it will not do. Never drop this beat: it is what separates the post from an ad.]
+[What the visit is like — how long, how many sessions are typical, what recovery looks like. Ranges only.]
+[CTA — the Book line names the service.]
+
+Hard rules for this format: ONE service per post, never a menu. No prices, no packages, no discounts, no urgency ("limited time", "spots left"). No before/after claims, no outcome promises, no timeline stated as a certainty — "results typically last", never "you will". Every therapeutic claim carries a hedge. Nothing may say or imply the treatment cures, permanently removes, or is the only option.`,
+    carouselArc: `SLIDE ARC FOR THIS FORMAT (in order) — this is the post that lands on something the clinic DOES:
+  Slide 1   Cover        — the limit the reader hit at home, or the treatment in plain patient words. No clinic name, no price, no "book now". No swipe prompt.
+  Slide 2   Where home care stops — what the at-home version genuinely does, and the specific point it cannot get past. Be fair to it; a post that trashes home care in order to sell a treatment fails.
+  Slide 3   The bridge — name ONE service from the clinic's Services list and say what it physically does to the tissue. This slide is the point of the post and the ONLY place the service is explained.
+  Slide 4   Who it's for — a checklist of concrete situations, one per line with breathing room.
+  Slide 5   The honest limit — who it is NOT for, or what it will not do. Never drop this slide.
+  Slide 6   What the visit is like — how long, how many sessions are typical, what recovery looks like. Ranges, never promises.
+  Final     CTA stack    — the Book line names the service.
+
+ONE service per post, never a menu. No prices, no packages, no discounts, no
+urgency. No before/after, no outcome promises. The reader must be able to finish
+this post and decide the treatment is NOT for them — if that reading is
+impossible, this is an ad, not a post.`,
     length_bias: null,
   },
 ]
