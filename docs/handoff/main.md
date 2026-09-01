@@ -43,13 +43,19 @@ VOLUME, SMOOTH, REFRESH. Пул Made (`AESTHETICS_CTA_KEYWORDS`) отдельн�
 
 ## Сломано / не доделано
 - **12 триггеров ещё не заведены в ManyChat HWC** — до этого слова печатаются на слайде вхолостую.
-- **053 не применена** — в живом плане остаются чипы `System critique`. **052_floor_media.sql** тоже.
+- **052_floor_media.sql** не применена. (053 применена 31.08: в плане не осталось `pending` тем с
+  удалёнными форматами — только `done`, их формат намеренно не переписан.)
 - **Treatment explainer живьём не прогонялся**: не видели, берёт ли писатель ровно одну услугу и
   доезжает ли `book_line` до CTA-слайда.
 - `clinics.services` у Made не проверены; от Phil'а нужен список услуг по приоритету.
-- `set-notes.sh` не закоммичен и в compose-runner не подключён. Прогнать по `DAHTcwfPHnA`,
-  `DAHTa8Dj7bA`, `DAHTcKwCtjQ`, `DAHTP_HYGCY` (p1 пустая или с чужим caption; тексты лежат
-  комментариями там же). На `DAHTbk2F2F8` уже сделано и проверено через API.
+- Notes и имена четырёх постов ПОЧИНЕНЫ 31.08 (`set-notes.sh` закоммичен, в §6 3a раннера подключён,
+  как и `update_title` шагом 0): `DAHTa8Dj7bA` → «Repair Fuel — NAD+», `DAHTcwfPHnA` → «4 Skin
+  Habits…», `DAHTP_HYGCY` → «Make More Energy — Mitochondria», `DAHTbk2F2F8` → «4 Things That
+  Rebuild Tissue»; у всех p1 несёт свой caption (проверено через API). Осталось: `DAHTP_HYGCY`
+  **страница 7** с чужими notes про гормоны — скрипт пишет только p1.
+- На SPF-посте ключ `PREVENTION` остался на слайде 7 и в описании — он невалидный, ManyChat не
+  ответит. Новые посты его не получат (гейт в сплиттере), этот надо править вручную.
+- Хештеги в описаниях ограничены пятью (`capHashtags` в `lib/agents/captioner.ts`).
 - На обложке `DAHTP_HYGCY` слиплось «Foursleep» и счётчик «Four» при пяти пунктах.
 - Фото в мастере Aesthetic — донорские regenmed. Панели (диагонали/волны) через MCP не адресуются.
 - main ahead от origin, пуш делает Игорь; некоммиченный хвост — CTA-ключи, фото-доктрина, серверный
