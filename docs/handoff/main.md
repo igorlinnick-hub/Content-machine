@@ -1,67 +1,60 @@
 # Main — compose-поллер, каталог форматов, фото по нише, ManyChat-ключи
 
-Обновлено: 2026-08-31 · ветка: main
+Обновлено: 2026-09-01 · ветка: main
 
 ## Состояние
 **Рабочая копия — `~/Code/Content-machine`**; путь под `~/Documents` — симлинк. Файл, читающийся
 пустым при ненулевом размере, проверять `ls -lO` на `dataless`.
 
 **Compose-поллер** `com.hwc.canva-runner` в `gui/501`, тик 2 мин; ставить только
-`bash scripts/canva-runner/install.sh` (`--check` — здоровье), `launchctl load` запрещён. launchd не
-тикает во время сборки (25–40 мин) — heartbeat `poller_ts` стучит из фонового цикла в `run.sh`.
+`bash scripts/canva-runner/install.sh` (`--check` — здоровье), `launchctl load` запрещён. launchd
+не тикает во время сборки (25–40 мин) — heartbeat `poller_ts` стучит из фонового цикла в `run.sh`;
 `run.sh`/`SKILL.md` при живой сборке править только `cp → .new && mv`. Источник SKILL.md —
-`~/.claude/skills/canva-compose-runner/`, не репо (деплоенная копия была протухшей с 27.08,
-синхронизирована 31.08). Блокировки → `stage='blocked'` + push.
+`~/.claude/skills/canva-compose-runner/`, не репо. Блокировки → `stage='blocked'` + push.
 
 **Canva:** MCP не пишет notes — это делает `scripts/canva-runner/set-notes.sh` через Safari
-(нативный сеттер + `input` + `blur` + 12 с; панель биндится к странице под вьюпортом — скроллим
-канвас в 0 и проверяем чтением API). Caption → **notes страницы 1**, комментарий остался fallback.
-Донорские notes/title на уже сделанных копиях не вычищаются (`copy-design` не принимает title).
-Мастер Aesthetic (`DAHMHS1wLls`, style 5) — типографика Style 1, `bodySlots` 6.
+(панель биндится к странице под вьюпортом: скроллим канвас в 0, проверяем чтением API).
+Caption → notes страницы 1, комментарий — fallback. Мастер Aesthetic `DAHMHS1wLls` (style 5).
 
-**Тексты:** формат = HOW, тема = WHAT. Каталог форматов — 6 (`lib/posts/formats.ts`), из них
-**Treatment explainer** единственный приземляется на услугу из `clinics.services`, ≤1 раз в неделю.
+**Тексты:** формат = HOW, тема = WHAT. Каталог форматов — 6 (`lib/posts/formats.ts`), один
+источник для планировщика, кнопок и сидинга `script_templates`. **Treatment explainer** —
+единственный, кто приземляется на услугу из `clinics.services`, но это учебный пост: механизм и
+«что сделать самому» идут первыми, услуга владеет одним битом из семи, два слайда из трёх обязаны
+быть полезны тому, кто не запишется.
 
-**CTA-ключи ManyChat** — `lib/seeds/cta-keywords.ts` единственный источник правды; пул BINDING,
-выдуманное слово режется в `resolveCtaKeyword`. У HWC (`regenerative_medicine`) теперь **5 пилларов**:
-к четырём добавлен `aesthetics` — BOTOX, FILLER, LIPS, SCULPTRA, MICRO, COLLAGEN, GLOW, SKIN, RENEW,
-VOLUME, SMOOTH, REFRESH. Пул Made (`AESTHETICS_CTA_KEYWORDS`) отдельный, не трогали.
-
-**Фото — доктрина ПО НИШЕ (v4.1)** в `photo-brief.ts`/`cover-brief.ts` по `clinics.niche`: regenmed =
-3D-рендеры + Гавайи, ~40% Drive, Pexels ≤2; aesthetics (Made) = только реальные фото, клиника ≤25%.
-**From the floor** — Google-форма зеркалится в `floor_media`, вкладка в `/videos`, cron `0 7 * * *`.
+**CTA-ключи ManyChat** — `lib/seeds/cta-keywords.ts` единственный источник правды, выдуманное
+слово режется в `resolveCtaKeyword`; у HWC 5 пилларов, `aesthetics` добавлен (12 слов).
+**Фото — доктрина ПО НИШЕ (v4.1)** по `clinics.niche`: regenmed = 3D + Гавайи, ~40% Drive,
+Pexels ≤2; aesthetics (Made) = только реальные фото, клиника ≤25%.
 
 ## Последний заход
-- Собран Aesthetics-пиллар для HWC по `hawaiiwellnessclinic.com/aesthetics/` (Botox, Microneedling,
-  Lip Filler, Sculptra, Stem Cell Aesthetics) — 12 слов, все уникальны против прежних 48.
-- Сознательно без PRP и STEMCELL: у HWC оба читаются как суставные, лицевой пост увёл бы человека в
-  суставной флоу. Стем-клеточная эстетика закрыта словом RENEW.
-- В `REGENMED_MANYCHAT_KEYWORDS` (`lib/niche/profiles.ts`) добавлен блок с логикой выбора и запретом
-  тащить эстетические слова в суставы/вес/ментальное и наоборот.
-- Проверено: `tsc --noEmit` чисто; резолвер даёт Botox→BOTOX, микронидлинг→MICRO, lip filler→FILLER,
-  Sculptra→SCULPTRA, stem cell aesthetics→RENEW, суставная тема→JOINT (не сломана).
+- Переписан Treatment explainer: был пост от услуги (три бита из семи), стал учебный —
+  ситуация → механизм → что делать самому → где это упирается → одна услуга → кому не подходит →
+  как проходит визит. Предохранитель: услуга в трёх битах = реклама, пост не проходит.
+- В `planner.ts` тема формата обязана учить сама по себе; убран ретайрнутый **Diagnostic
+  deep-dive** из правила подбора формата — планировщик проставлял формат, которого нет в
+  каталоге, и генерация пришла бы без скаффолда.
+- Причина «изменений в форматах не видно»: 6 коммитов не запушены, прод собирается с
+  `origin/main` (= `ad8194d`), а `FormatPicker` читает `FORMAT_CHOICES` из бандла.
+- Услуги HWC в БД (миграция 043) — 16 штук, все regenmed/ментал/вес; эстетики с сайта
+  (Botox, Microneedling, Lip Filler, Sculptra, Stem Cell Aesthetics) и пятого пиллара там нет.
+- Supabase из локали не читается: значения в `.env.vercel.local` — редакченные плейсхолдеры
+  Vercel (~11 символов), не ключи. Данные клиники смотреть через приложение или Vercel.
 
 ## Сломано / не доделано
-- **12 триггеров ещё не заведены в ManyChat HWC** — до этого слова печатаются на слайде вхолостую.
-- **052_floor_media.sql** не применена. (053 применена 31.08: в плане не осталось `pending` тем с
-  удалёнными форматами — только `done`, их формат намеренно не переписан.)
-- **Treatment explainer живьём не прогонялся**: не видели, берёт ли писатель ровно одну услугу и
-  доезжает ли `book_line` до CTA-слайда.
+- **Каталог форматов не задеплоен** — 6 коммитов ahead от origin, пуш делает Игорь.
+- **Эстетика недостижима для Treatment explainer**: нужна миграция 054 (пиллар `Aesthetics` +
+  5 услуг + deep-dive темы для HWC), иначе писатель эстетическую услугу не видит.
+- **Treatment explainer живьём не прогонялся** — берёт ли писатель ровно одну услугу и доезжает
+  ли её имя до CTA-слайда, не проверено.
+- **12 эстетических триггеров не заведены в ManyChat HWC**; **052_floor_media.sql** не применена.
+- `DAHTP_HYGCY`: p7 с чужими донорскими notes (скрипт пишет только p1), на обложке слиплось
+  «Foursleep». На SPF-посте невалидный ключ `PREVENTION` — править вручную.
 - `clinics.services` у Made не проверены; от Phil'а нужен список услуг по приоритету.
-- Notes и имена четырёх постов ПОЧИНЕНЫ 31.08 (`set-notes.sh` закоммичен, в §6 3a раннера подключён,
-  как и `update_title` шагом 0): `DAHTa8Dj7bA` → «Repair Fuel — NAD+», `DAHTcwfPHnA` → «4 Skin
-  Habits…», `DAHTP_HYGCY` → «Make More Energy — Mitochondria», `DAHTbk2F2F8` → «4 Things That
-  Rebuild Tissue»; у всех p1 несёт свой caption (проверено через API). Осталось: `DAHTP_HYGCY`
-  **страница 7** с чужими notes про гормоны — скрипт пишет только p1.
-- На SPF-посте ключ `PREVENTION` остался на слайде 7 и в описании — он невалидный, ManyChat не
-  ответит. Новые посты его не получат (гейт в сплиттере), этот надо править вручную.
-- Хештеги в описаниях ограничены пятью (`capHashtags` в `lib/agents/captioner.ts`).
-- На обложке `DAHTP_HYGCY` слиплось «Foursleep» и счётчик «Four» при пяти пунктах.
-- Фото в мастере Aesthetic — донорские regenmed. Панели (диагонали/волны) через MCP не адресуются.
-- main ahead от origin, пуш делает Игорь; некоммиченный хвост — CTA-ключи, фото-доктрина, серверный
-  рендер (`lib/render/`, `lib/photos/*`, 047/051/053, шрифты, `ADS-CRAFT.md`), floor.
-- Pre-flight `claude mcp list` в `run.sh` ~5 мин → тик при непустой очереди 5–8 мин.
+- Фото в мастере Aesthetic — донорские regenmed; панели через MCP не адресуются.
+- Некоммиченный хвост: CTA-ключи, фото-доктрина, серверный рендер (`lib/render/`,
+  `lib/photos/*`, 047/051, шрифты, `ADS-CRAFT.md`), floor.
 
 ## Следующий шаг
-Дождаться, пока Игорь заведёт 12 эстетических триггеров в ManyChat HWC, закоммитить правки
-`cta-keywords.ts` + `profiles.ts` и задеплоить; сразу после — применить `053_retire_post_formats.sql`.
+Запушить main (6 коммитов) — без деплоя новый каталог форматов не виден ни в пикере, ни в плане;
+сразу после проверить, что `ensureDefaultScriptTemplates` дозалил строку Treatment explainer.

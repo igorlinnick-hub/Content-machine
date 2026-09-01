@@ -54,9 +54,9 @@ Rules:
 - FORMAT must be one of these structural templates — rotate them across the ${PLAN_POST_COUNT} posts so every format is used at least twice and none more than ${FORMAT_MAX_USES} times:
 ${FORMAT_BLOCK}
 - Rotate formats so each week has at most 2 posts of the same format
-- "Treatment explainer" is the ONLY format that lands on a service the clinic actually sells. Assign it at most ONCE per week, and only when the week's theme has a real service behind it in the clinic's Services list. Its topic still enters through the reader's door — it names their situation or the limit they hit on their own, NEVER the service. The service belongs inside the post, not in the topic.
+- "Treatment explainer" is the ONLY format that lands on a service the clinic actually sells. Assign it at most ONCE per week, and only when the week's theme has a real service behind it in the clinic's Services list. Its topic still enters through the reader's door — it names their situation or the limit they hit on their own, NEVER the service. The service belongs inside the post, not in the topic — and the topic must teach on its own, so the post is still worth reading for someone who never books.
 - Every week should mix registers: do not give a week three explainers or three list posts. A week that teaches a mechanism, gives a practical list, and flags what to check reads far better than three of a kind
-- Match the format to the topic: a mechanism topic wants Educational explainer or Diagnostic deep-dive; a self-care / routine topic wants Practical tips; a "should I get this checked" topic wants Warning signs; a widely-believed falsehood wants Myth-busting
+- Match the format to the topic: a mechanism topic wants Educational explainer; a self-care / routine topic wants Practical tips; a "should I get this checked" topic wants Warning signs; a widely-believed falsehood wants Myth-busting
 - Topics must be educational, mechanism-focused, or patient-question-based (not generic)
 - Each week's 3 posts should build on each other (e.g. mechanism → patient question → result/protocol)
 - Ground topics in the clinic's actual services and deep-dive topics

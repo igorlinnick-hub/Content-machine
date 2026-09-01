@@ -22,9 +22,11 @@
 //
 // "Treatment explainer" is the only format that lands on a service the clinic
 // sells — the client asked for a post that references one, and nothing in the
-// catalog obliged a post to. Frequency is not hardcoded anywhere: the planner's
-// rotation ceiling scales with the catalog, so at 6 formats it lands 2-5 times
-// per 24-post plan.
+// catalog obliged a post to. It is still a TEACHING post (Igor 2026-09-01): the
+// mechanism and the do-it-yourself beat come first, the service owns exactly one
+// beat, and a reader who never books still leaves with something. Frequency is
+// not hardcoded anywhere: the planner's rotation ceiling scales with the
+// catalog, so at 6 formats it lands 2-5 times per 24-post plan.
 
 export type FormatLengthBias = 'short' | 'long' | null
 
@@ -177,32 +179,34 @@ reason, and naming that reason is what makes the correction land.`,
   {
     name: 'Treatment explainer',
     label: 'Treatment',
-    hint: "What one of the clinic's own services actually does — for the reader who has already hit the limit of what they can do at home.",
-    coverTitle: `"What A Chemical Peel Actually Does" / "When Skincare Isn't Enough" — either the treatment in plain patient words, or the moment the reader runs out of road at home. Never the clinic's name, never a price, never "book now"`,
+    hint: 'The mechanism behind a problem, what to do about it at home, and the one clinic service that starts where home care stops.',
+    coverTitle: `"Why Your Knee Still Hurts After Six Months Of Rest" / "What A Chemical Peel Actually Does" — the reader's situation in their own words, or the treatment in plain patient language. Never the clinic's name, never a price, never "book now"`,
     description:
-      'The one format in the rotation that lands on something the clinic actually does (Igor 2026-08-31, from the client asking for a post that references a service). Still teaching, not selling: it explains what the treatment physically does, who it fits, who it does not, and what it will not do. The reader must be able to finish it and decide the treatment is not for them.',
-    scaffold: `[Hook — the limit the reader has already hit at home, in their own words ("You can't exfoliate your way out of this one" beats "Introducing our peels"). Enter through THEIR situation, never through the clinic.]
-[Where home care stops — what the at-home version genuinely does and the specific point it cannot get past. Be fair to it: a post that trashes home care to sell a treatment fails.]
-[The treatment — pick exactly ONE service from the clinic's Services list and name it plainly. What it physically does to the tissue, in the same everyday language the explainer format uses.]
-[Who it fits — the concrete situations this is actually for.]
-[The honest limit — who it is NOT for, or what it will not do. Never drop this beat: it is what separates the post from an ad.]
-[What the visit is like — how long, how many sessions are typical, what recovery looks like. Ranges only.]
-[CTA — the Book line names the service.]
+      'Teach the mechanism first, give the reader what they can do on their own, then name the ONE clinic service that picks up where that stops. Most of the post has to be useful to someone who never books.',
+    scaffold: `[Hook — the reader's situation in their own words, not the treatment ("Six months of rest and the knee still gives out" beats "Introducing PRP").]
+[What's actually going on — the mechanism, at the depth of an Educational explainer: name the real structure and unpack each term in the same sentence you use it.]
+[What helps on your own — two or three specific things worth doing without the clinic: what, how much, how often. A reader who never books must leave with this.]
+[Where that stops — the point self-care cannot get past, and WHY, in the same mechanism. Be fair to it; a post that trashes home care to sell a treatment fails.]
+[The treatment — exactly ONE service from the clinic's Services list, named plainly: what it physically does to that same mechanism. One beat, not the post.]
+[Who it fits, who it doesn't — concrete situations on both sides. Never drop the second half: it is what separates this from an ad.]
+[What the visit is like, then the CTA — how long, how many sessions are typical, what recovery looks like, in ranges. The Book line names the service.]
 
-Hard rules for this format: ONE service per post, never a menu. No prices, no packages, no discounts, no urgency ("limited time", "spots left"). No before/after claims, no outcome promises, no timeline stated as a certainty — "results typically last", never "you will". Every therapeutic claim carries a hedge. Nothing may say or imply the treatment cures, permanently removes, or is the only option.`,
-    carouselArc: `SLIDE ARC FOR THIS FORMAT (in order) — this is the post that lands on something the clinic DOES:
-  Slide 1   Cover        — the limit the reader hit at home, or the treatment in plain patient words. No clinic name, no price, no "book now". No swipe prompt.
-  Slide 2   Where home care stops — what the at-home version genuinely does, and the specific point it cannot get past. Be fair to it; a post that trashes home care in order to sell a treatment fails.
-  Slide 3   The bridge — name ONE service from the clinic's Services list and say what it physically does to the tissue. This slide is the point of the post and the ONLY place the service is explained.
-  Slide 4   Who it's for — a checklist of concrete situations, one per line with breathing room.
-  Slide 5   The honest limit — who it is NOT for, or what it will not do. Never drop this slide.
-  Slide 6   What the visit is like — how long, how many sessions are typical, what recovery looks like. Ranges, never promises.
+Hard rules for this format: ONE service per post, never a menu, and it owns ONE beat — if the service shows up in three beats, this is an ad. No prices, no packages, no discounts, no urgency ("limited time", "spots left"). No before/after claims, no outcome promises, no timeline stated as a certainty — "results typically last", never "you will". Every therapeutic claim carries a hedge. Nothing may say or imply the treatment cures, permanently removes, or is the only option.`,
+    carouselArc: `SLIDE ARC FOR THIS FORMAT (in order) — this post TEACHES, and the clinic's service is one slide inside it:
+  Slide 1   Cover        — the reader's situation in their own words, or the treatment in plain patient language. No clinic name, no price, no "book now". No swipe prompt.
+  Slide 2   Mechanism    — what is actually going on, at full explainer depth. The deepest slide; never thin it.
+  Slide 3   What you can do yourself — 2-3 specific actions with the what/how much/how often, one per line with breathing room. Nothing here may require the clinic.
+  Slide 4   Where that stops — the point self-care cannot get past, and why, in the same mechanism.
+  Slide 5   The treatment — ONE service from the clinic's Services list and what it physically does to that mechanism. The ONLY slide that explains the service.
+  Slide 6   Who it's for / who it isn't — both halves on one slide, concrete situations. Never drop the second half.
+  Slide 7   What the visit is like — how long, how many sessions are typical, what recovery looks like. Ranges, never promises.
   Final     CTA stack    — the Book line names the service.
 
-ONE service per post, never a menu. No prices, no packages, no discounts, no
-urgency. No before/after, no outcome promises. The reader must be able to finish
-this post and decide the treatment is NOT for them — if that reading is
-impossible, this is an ad, not a post.`,
+Two of every three slides must be worth reading for someone who will never
+book. ONE service per post, never a menu. No prices, no packages, no urgency,
+no before/after, no outcome promises. The reader must be able to finish this
+post and decide the treatment is NOT for them — if that reading is impossible,
+this is an ad, not a post.`,
     length_bias: null,
   },
 ]
