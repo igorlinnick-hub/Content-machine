@@ -1,4 +1,4 @@
-# Main — compose-поллер, каталог форматов, фото по нише, подписи к постам
+# Main — compose-поллер, каталог форматов, фото по нише, ManyChat-ключи
 
 Обновлено: 2026-08-31 · ветка: main
 
@@ -10,61 +10,52 @@
 `bash scripts/canva-runner/install.sh` (`--check` — здоровье), `launchctl load` запрещён. launchd не
 тикает во время сборки (25–40 мин) — heartbeat `poller_ts` стучит из фонового цикла в `run.sh`.
 `run.sh`/`SKILL.md` при живой сборке править только `cp → .new && mv`. Источник SKILL.md —
-`~/.claude/skills/canva-compose-runner/`, не репо. Блокировки → `stage='blocked'` + push.
+`~/.claude/skills/canva-compose-runner/`, не репо (деплоенная копия была протухшей с 27.08,
+синхронизирована 31.08). Блокировки → `stage='blocked'` + push.
 
-**Canva:** MCP по-прежнему не пишет notes, но это делает `scripts/canva-runner/set-notes.sh` через
-Safari (нативный сеттер + `input` + `blur` + 12 с; панель биндится к странице под вьюпортом — скроллим
-канвас в 0 и проверяем чтением API). Caption кладётся в **notes страницы 1** (слот инстаграм-описания);
-комментарий остался только как fallback. Донорские notes и title на уже сделанных копиях НЕ
-вычищаются: чистка мастеров на них не распространяется, а `copy-design` не принимает title.
+**Canva:** MCP не пишет notes — это делает `scripts/canva-runner/set-notes.sh` через Safari
+(нативный сеттер + `input` + `blur` + 12 с; панель биндится к странице под вьюпортом — скроллим
+канвас в 0 и проверяем чтением API). Caption → **notes страницы 1**, комментарий остался fallback.
+Донорские notes/title на уже сделанных копиях не вычищаются (`copy-design` не принимает title).
 Мастер Aesthetic (`DAHMHS1wLls`, style 5) — типографика Style 1, `bodySlots` 6.
 
-**Тексты:** формат = HOW, тема = WHAT. **Каталог форматов — 6** (`lib/posts/formats.ts`, было 9):
-Educational explainer · Practical tips · Warning signs · Myth-busting · Patient story ·
-**Treatment explainer** — единственный, который приземляется на услугу из `clinics.services`,
-максимум 1 раз в неделю; потолок ротации `Math.ceil(24 / N) + 1`, не хардкод.
+**Тексты:** формат = HOW, тема = WHAT. Каталог форматов — 6 (`lib/posts/formats.ts`), из них
+**Treatment explainer** единственный приземляется на услугу из `clinics.services`, ≤1 раз в неделю.
 
-**Фото — доктрина ПО НИШЕ (v4.1)** в `photo-brief.ts` / `cover-brief.ts` по `clinics.niche`.
-Regenmed = 3D-рендеры + Гавайи, ~40% Drive, Pexels ≤2. Aesthetics (Made) = только реальные фото:
-SKIN нелицевые зоны, TOOLS натюрморт, ROOM пустой кабинет, клиника ≤25%. Текст темы во Flux не
-уходит. **From the floor** — папка Google-формы зеркалится в `floor_media`, вкладка в `/videos`,
-cron `0 7 * * *`.
+**CTA-ключи ManyChat** — `lib/seeds/cta-keywords.ts` единственный источник правды; пул BINDING,
+выдуманное слово режется в `resolveCtaKeyword`. У HWC (`regenerative_medicine`) теперь **5 пилларов**:
+к четырём добавлен `aesthetics` — BOTOX, FILLER, LIPS, SCULPTRA, MICRO, COLLAGEN, GLOW, SKIN, RENEW,
+VOLUME, SMOOTH, REFRESH. Пул Made (`AESTHETICS_CTA_KEYWORDS`) отдельный, не трогали.
+
+**Фото — доктрина ПО НИШЕ (v4.1)** в `photo-brief.ts`/`cover-brief.ts` по `clinics.niche`: regenmed =
+3D-рендеры + Гавайи, ~40% Drive, Pexels ≤2; aesthetics (Made) = только реальные фото, клиника ≤25%.
+**From the floor** — Google-форма зеркалится в `floor_media`, вкладка в `/videos`, cron `0 7 * * *`.
 
 ## Последний заход
-- Вручную переписаны подписи к 4 живым постам (`DAHTa8Dj7bA` NAD+, `DAHTP_HYGCY` митохондрии,
-  `DAHTbk2F2F8` tissue repair, `DAHTcwfPHnA` skin habits) — в чат, на дизайны не повешены.
-- Причина: в notes этих копий лежали **чужие** подписи (GLP-1 у NAD+, одна и та же CARTILAGE у двух
-  постов, пусто у skin), title тоже донорские («Spravato»). То есть без шага «caption комментарием»
-  пост уезжает с описанием от донора, и это видно клиенту.
-- Каталог форматов 9 → 6: убраны System critique / Expert secrets / Medicine philosophy (один
-  регистр «система и другие врачи неправы», против POST-CRAFT §1) и Diagnostic deep-dive как дубль
-  Educational explainer; добавлен Treatment explainer со слайдом-мостиком и «честным пределом».
-- Миграция `053_retire_post_formats.sql`: правки в TS мало — `ensureDefaultScriptTemplates` только
-  INSERT'ит, писатель читает активные `script_templates` из таблицы. Деактивирует строки и
-  перекатывает **только `pending`** топики.
+- Собран Aesthetics-пиллар для HWC по `hawaiiwellnessclinic.com/aesthetics/` (Botox, Microneedling,
+  Lip Filler, Sculptra, Stem Cell Aesthetics) — 12 слов, все уникальны против прежних 48.
+- Сознательно без PRP и STEMCELL: у HWC оба читаются как суставные, лицевой пост увёл бы человека в
+  суставной флоу. Стем-клеточная эстетика закрыта словом RENEW.
+- В `REGENMED_MANYCHAT_KEYWORDS` (`lib/niche/profiles.ts`) добавлен блок с логикой выбора и запретом
+  тащить эстетические слова в суставы/вес/ментальное и наоборот.
+- Проверено: `tsc --noEmit` чисто; резолвер даёт Botox→BOTOX, микронидлинг→MICRO, lip filler→FILLER,
+  Sculptra→SCULPTRA, stem cell aesthetics→RENEW, суставная тема→JOINT (не сломана).
 
 ## Сломано / не доделано
-- **053 не применена** — в живом плане остаются чипы `System critique`.
+- **12 триггеров ещё не заведены в ManyChat HWC** — до этого слова печатаются на слайде вхолостую.
+- **053 не применена** — в живом плане остаются чипы `System critique`. **052_floor_media.sql** тоже.
 - **Treatment explainer живьём не прогонялся**: не видели, берёт ли писатель ровно одну услугу и
-  доезжает ли `book_line` до CTA-слайда (в `DAHTcwfPHnA` там была только comment-строка).
-- `clinics.services` у Made не проверены; от Phil'а нужен список услуг **по приоритету**.
-- `scripts/canva-runner/set-notes.sh` (запись notes через Safari/osascript) появился вне этой
-  сессии, не закоммичен и в compose-runner не подключён — работоспособность не проверена.
+  доезжает ли `book_line` до CTA-слайда.
+- `clinics.services` у Made не проверены; от Phil'а нужен список услуг по приоритету.
+- `set-notes.sh` не закоммичен и в compose-runner не подключён. Прогнать по `DAHTcwfPHnA`,
+  `DAHTa8Dj7bA`, `DAHTcKwCtjQ`, `DAHTP_HYGCY` (p1 пустая или с чужим caption; тексты лежат
+  комментариями там же). На `DAHTbk2F2F8` уже сделано и проверено через API.
 - На обложке `DAHTP_HYGCY` слиплось «Foursleep» и счётчик «Four» при пяти пунктах.
 - Фото в мастере Aesthetic — донорские regenmed. Панели (диагонали/волны) через MCP не адресуются.
-- `defaultStyleForNiche()` работает только после деплоя. Миграция `052_floor_media.sql` не применена.
-- main ahead от origin, пуш делает Игорь; некоммиченный хвост — фото-доктрина, серверный рендер
-  (`lib/render/`, `lib/photos/*`, 047/051/053, шрифты, `ADS-CRAFT.md`), floor.
-- Pre-flight `claude mcp list` в `run.sh` ~5 мин → реальный тик при непустой очереди 5–8 мин.
+- main ahead от origin, пуш делает Игорь; некоммиченный хвост — CTA-ключи, фото-доктрина, серверный
+  рендер (`lib/render/`, `lib/photos/*`, 047/051/053, шрифты, `ADS-CRAFT.md`), floor.
+- Pre-flight `claude mcp list` в `run.sh` ~5 мин → тик при непустой очереди 5–8 мин.
 
 ## Следующий шаг
-Применить `053_retire_post_formats.sql` в SQL Editor и после пуша/деплоя сгенерировать для Made один
-пост в формате **Treatment explainer**: проверить, что взята ровно одна услуга из `clinics.services`,
-что слайд «честный предел» на месте и что Book-строка называет услугу.
-
-## Хвост по notes (31.08)
-- Прогнать `set-notes.sh` по уже собранным: `DAHTcwfPHnA`, `DAHTa8Dj7bA`, `DAHTcKwCtjQ`,
-  `DAHTP_HYGCY` — p1 пустая или с чужим caption; правильные тексты лежат комментариями на них же.
-  На `DAHTbk2F2F8` уже сделано (тест) и проверено через API.
-- **Деплоенный `SKILL.md` был устаревшим с 27.08** — без правил перестроенного мастера Style 5.
-  Раннер всё это время собирал по старой редакции. Синхронизирован 31.08.
+Дождаться, пока Игорь заведёт 12 эстетических триггеров в ManyChat HWC, закоммитить правки
+`cta-keywords.ts` + `profiles.ts` и задеплоить; сразу после — применить `053_retire_post_formats.sql`.
