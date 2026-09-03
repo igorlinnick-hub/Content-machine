@@ -151,6 +151,33 @@ or date. No verified fact → retitle the slide to what it really delivers (the
 test to ask for, the question to bring to the visit). Never fill a data heading
 with reassurance — that was the `DAHQn_1_j2s` p5 defect.
 
+### 2c. THE COVER TITLE names the promise AND its object (binding, Igor 2026-08-31)
+
+The cover has three slots and they divide the work. Repeat between them and the
+cover reads as overloaded; leave one empty and it sells nothing.
+
+- **Pill** — the category ("TISSUE REPAIR · DAILY BASICS"). The title must not
+  repeat it.
+- **Title** — `<count> + <verb> + <object>`: "Five Things That Build
+  Mitochondria", "Four Things That Rebuild Tissue", "Two Tests To Ask For".
+- **Subtitle** — what is actually inside, in plain words: "A walk, glycine,
+  cold water, sleep, two weeks off alcohol." Never restates the title's count.
+
+Two title shapes are banned. Both shipped and both were rejected by the
+clinic's reviewer:
+
+| Shipped | Why it failed |
+|---|---|
+| `Repair`, `Peptides`, `5 Signals`, `Two Tests` | The bare topic noun — the pill already said it. "Doesn't explain at all what I'm going to be reading about." |
+| `Four Things That Help`, `Four Ways To Rebuild` | A verb with no object. Help what? Rebuild what? |
+
+**Never shorten a title to fit the template.** All four failures came from the
+composer trimming words to fit a narrow box — the box is resizable, and a
+32-38 character title fits every master. Fitting is geometry, not wording: the
+numbers live in the `canva-compose-runner` skill (chars per line ≈ box width ÷
+(0.63 × font size); a word that will not fit means lower the font, never cut
+or hyphenate the word).
+
 ---
 
 ## 3. SPACING & SEPARATION (binding — Igor 2026-07-28)
