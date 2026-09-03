@@ -23,8 +23,11 @@
 // "Treatment explainer" is the only format that lands on a service the clinic
 // sells — the client asked for a post that references one, and nothing in the
 // catalog obliged a post to. It is still a TEACHING post (Igor 2026-09-01): the
-// mechanism and the do-it-yourself beat come first, the service owns exactly one
-// beat, and a reader who never books still leaves with something. Frequency is
+// mechanism and the do-it-yourself beat come first and stand on their own, and
+// the service is explained in exactly one beat rather than spread across the
+// post. The ratio was first written as "two slides in three" and fought the
+// arc it governs — six body slides split three/three — so it now names the
+// slides instead of a fraction (2026-09-03). Frequency is
 // not hardcoded anywhere: the planner's rotation ceiling scales with the
 // catalog, so at 6 formats it lands 2-5 times per 24-post plan.
 
@@ -182,7 +185,7 @@ reason, and naming that reason is what makes the correction land.`,
     hint: 'The mechanism behind a problem, what to do about it at home, and the one clinic service that starts where home care stops.',
     coverTitle: `"Why Your Knee Still Hurts After Six Months Of Rest" / "What A Chemical Peel Actually Does" — the reader's situation in their own words, or the treatment in plain patient language. Never the clinic's name, never a price, never "book now"`,
     description:
-      'Teach the mechanism first, give the reader what they can do on their own, then name the ONE clinic service that picks up where that stops. Most of the post has to be useful to someone who never books.',
+      'Teach the mechanism first, give the reader what they can do on their own, then name the ONE clinic service that picks up where that stops. The teaching half stands on its own — a reader who stops before the service still leaves with something usable.',
     scaffold: `[Hook — the reader's situation in their own words, not the treatment ("Six months of rest and the knee still gives out" beats "Introducing PRP").]
 [What's actually going on — the mechanism, at the depth of an Educational explainer: name the real structure and unpack each term in the same sentence you use it.]
 [What helps on your own — two or three specific things worth doing without the clinic: what, how much, how often. A reader who never books must leave with this.]
@@ -191,7 +194,7 @@ reason, and naming that reason is what makes the correction land.`,
 [Who it fits, who it doesn't — concrete situations on both sides. Never drop the second half: it is what separates this from an ad.]
 [What the visit is like, then the CTA — how long, how many sessions are typical, what recovery looks like, in ranges. The Book line names the service.]
 
-Hard rules for this format: ONE service per post, never a menu, and it owns ONE beat — if the service shows up in three beats, this is an ad. No prices, no packages, no discounts, no urgency ("limited time", "spots left"). No before/after claims, no outcome promises, no timeline stated as a certainty — "results typically last", never "you will". Every therapeutic claim carries a hedge. Nothing may say or imply the treatment cures, permanently removes, or is the only option.`,
+Hard rules for this format: ONE service per post, never a menu, and it is EXPLAINED in exactly one beat — the fifth. The two beats after it qualify the reader and set expectations; they do not sell it again, and nothing before it may name it. No prices, no packages, no discounts, no urgency ("limited time", "spots left"). No before/after claims, no outcome promises, no timeline stated as a certainty — "results typically last", never "you will". Every therapeutic claim carries a hedge. Nothing may say or imply the treatment cures, permanently removes, or is the only option.`,
     carouselArc: `SLIDE ARC FOR THIS FORMAT (in order) — this post TEACHES, and the clinic's service is one slide inside it:
   Slide 1   Cover        — the reader's situation in their own words, or the treatment in plain patient language. No clinic name, no price, no "book now". No swipe prompt.
   Slide 2   Mechanism    — what is actually going on, at full explainer depth. The deepest slide; never thin it.
@@ -202,11 +205,14 @@ Hard rules for this format: ONE service per post, never a menu, and it owns ONE 
   Slide 7   What the visit is like — how long, how many sessions are typical, what recovery looks like. Ranges, never promises.
   Final     CTA stack    — the Book line names the service.
 
-Two of every three slides must be worth reading for someone who will never
-book. ONE service per post, never a menu. No prices, no packages, no urgency,
-no before/after, no outcome promises. The reader must be able to finish this
-post and decide the treatment is NOT for them — if that reading is impossible,
-this is an ad, not a post.`,
+Slides 2-4 belong to the reader and must stand on their own: someone who
+stops before slide 5 still leaves with a mechanism they understand and
+something they can do this week. The service is explained on slide 5 and
+nowhere else — slides 6 and 7 qualify it and say what to expect, they do not
+sell it again. ONE service per post, never a menu. No prices, no packages, no
+urgency, no before/after, no outcome promises. The reader must be able to
+finish this post and decide the treatment is NOT for them — if that reading is
+impossible, this is an ad, not a post.`,
     length_bias: null,
   },
 ]
