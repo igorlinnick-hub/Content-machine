@@ -34,6 +34,10 @@ const nextConfig = {
       '/api/clips/process': ['./assets/fonts/**'],
       '/api/clips/from-recording': ['./assets/fonts/**'],
       '/api/cron/clips-inbox': ['./assets/fonts/**'],
+      // Same trap, different renderer: lib/render/fonts.ts inlines the
+      // brand faces as data: URIs, and without them Chromium falls back
+      // to Times New Roman and every slide comes out off-brand.
+      '/api/posts/[slideSetId]/render': ['./assets/fonts/**'],
     },
   },
 };
