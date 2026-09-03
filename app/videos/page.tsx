@@ -84,13 +84,17 @@ export default async function VideosPage({ searchParams }: PageProps) {
       label: 'Finished videos',
       url: folderUrl(clinic.drive_finals_folder_id),
     })
-  if (clinic.drive_inbox_folder_id)
+  // The Inbox is the team's internal door into auto-edit — the doctor's
+  // channels are the teleprompter and the MA form (Igor 2026-09-03).
+  if (clinic.drive_inbox_folder_id && access.role === 'admin')
     folders.push({
       key: 'inbox',
       label: 'Uploads inbox',
       url: folderUrl(clinic.drive_inbox_folder_id),
     })
-  if (clinic.photo_library_folder_id)
+  // Admin-only, like the inbox: the photo library feeds the Posts
+  // workspace, which doctors don't have.
+  if (clinic.photo_library_folder_id && access.role === 'admin')
     folders.push({
       key: 'photos',
       label: 'Photo library',

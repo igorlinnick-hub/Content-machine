@@ -1,6 +1,7 @@
-// Renders the per-doctor "Welcome to Content Machine" PDF — personal access
-// code + QR install link, teleprompter walkthrough, the doctor's own Drive
-// folder links, and the Access & Terms page (Hello Systems LLC).
+// Renders the per-doctor "Welcome to Content Machine" PDF — one clean page in
+// the app's own style (Inter, violet accent, no HWC dressing): login link +
+// personal code, what's inside, the doctor's Drive folder links, and the
+// Hello Systems LLC access terms as small print at the bottom.
 //
 // One command does everything: reads the clinic + doctor token from Supabase
 // (creating a memorable code if the token has none), makes sure the clinic's
@@ -26,15 +27,15 @@
 //                                    link instead of resolving it via Drive
 //                                    (for runs without Drive OAuth env)
 //
-// Output: samples/doctor-guide-<code>.pdf (+ .html alongside for debugging)
+// Output: "Hawaii Wellness Clinic/Content Machine PDFs/doctor-guide-<code>.pdf"
+// (falls back to samples/ when the HWC Documents folder isn't reachable)
 
-import { readFileSync, existsSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomBytes } from 'node:crypto'
 import puppeteer from 'puppeteer-core'
-import QRCode from 'qrcode'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
@@ -63,26 +64,20 @@ const APP_URL = (
   'https://content-machine-gules.vercel.app'
 ).replace(/\/$/, '')
 
-// ── visual system — same family as scripts/render-staff-guide.mjs ───────
+// ── visual system — Content Machine app style, not HWC branding ─────────
 const C = {
-  navy: '#1E3A5F',
-  ink: '#2B3A4A',
-  blue: '#2F6BFF',
-  sky: '#6BA8FF',
-  mist: '#EAF2FF',
-  line: '#E6EEF8',
+  violet: '#7C3AED',
+  ink: '#171717',
+  sub: '#6B7280',
+  line: '#E5E7EB',
+  mist: '#F5F3FF',
 }
 
-// The HWC wave logo lives in-repo (assets/) — the iCloud copies under
-// ~/Documents go dataless under Optimize Mac Storage and vanish from reads.
-const LOGO_CANDIDATES = [
-  join(root, 'assets', 'hwc-logo.png'),
-  '/Users/igorlinnik/Documents/Code Projects/Hawaii Wellness Clinic/clinic-landings/HWC-Landing-pages/wellness/logo.png',
-]
-const LOGO_PATH = LOGO_CANDIDATES.find((p) => existsSync(p))
-const LOGO_DATA = LOGO_PATH
-  ? `data:image/png;base64,${readFileSync(LOGO_PATH).toString('base64')}`
-  : null
+// The deliverables live in Igor's working HWC folder (the Finder-sidebar
+// one in Downloads), not in the repo's samples/. If that folder ever
+// disappears, fall back to samples/ rather than fail.
+const HWC_PDF_DIR = '/Users/igorlinnik/Downloads/HWC/Content Machine PDFs'
+const OUT_DIR = existsSync(dirname(HWC_PDF_DIR)) ? HWC_PDF_DIR : join(root, 'samples')
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -225,11 +220,10 @@ async function loadRealData() {
   const finalsId = clinic.drive_finals_folder_id ?? (LEGACY_FOLDERS ? process.env.GOOGLE_DRIVE_CLIPS_CLEANED_ID : null)
   if (finalsId)
     folders.push({ id: finalsId, label: 'Finished videos', sub: 'Edited, captioned versions ready to post', url: folderUrl(finalsId) })
-  const inboxId = clinic.drive_inbox_folder_id ?? (LEGACY_FOLDERS ? process.env.GOOGLE_DRIVE_CLIPS_INBOX_ID : null)
-  if (inboxId)
-    folders.push({ id: inboxId, label: 'Uploads inbox', sub: 'Drop raw phone videos here for editing', url: folderUrl(inboxId) })
-  if (clinic.photo_library_folder_id)
-    folders.push({ id: clinic.photo_library_folder_id, label: 'Photo library', sub: 'The clinic photos used across your posts', url: folderUrl(clinic.photo_library_folder_id) })
+  // Uploads inbox and Photo library deliberately absent (Igor 2026-09-03):
+  // the Inbox is the team's internal door into auto-edit, and the photo
+  // library feeds the Posts workspace the doctor can't see — both are
+  // kitchen, not something to advertise in the doctor's handout.
   if (clinic.drive_floor_folder_id)
     folders.push({ id: clinic.drive_floor_folder_id, label: 'Photos & clips from the floor', sub: 'What the team captures at the clinic', url: folderUrl(clinic.drive_floor_folder_id) })
 
@@ -282,28 +276,18 @@ function placeholderData() {
   }
 }
 
-// ── HTML ────────────────────────────────────────────────────────────────
+// ── HTML — one page, Content Machine app style ──────────────────────────
 
-function step(num, title, body) {
-  return `
-  <div class="step">
-    <div class="step-num">${num}</div>
-    <div class="step-body"><h3>${title}</h3>${body}</div>
-  </div>`
-}
-
-function buildHTML(d, qrDataUrl, videosQrDataUrl) {
+function buildHTML(d) {
   const firstName = d.doctorName.replace(/^Dr\.?\s*/i, '').split(' ')[0]
-  const footer = (page) => `
-    <div class="footer"><span>Hello Systems · Content Machine — ${d.clinicName}</span><span>${page} / 4</span></div>`
 
-  const folderCards = d.folders
+  const folderRows = d.folders
     .map(
       (f) => `
-      <a class="folder" href="${f.url}">
-        <div class="folder-icon">▸</div>
-        <div><div class="folder-label">${f.label}</div>
-        <div class="folder-sub">${f.sub}</div></div>
+      <a class="frow" href="${f.url}">
+        <span class="frow-label">${f.label}</span>
+        <span class="frow-sub">${f.sub}</span>
+        <span class="frow-url">${f.url}</span>
       </a>`
     )
     .join('')
@@ -311,247 +295,83 @@ function buildHTML(d, qrDataUrl, videosQrDataUrl) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
   * { margin:0; padding:0; box-sizing:border-box; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   html,body { font-family:'Inter',sans-serif; color:${C.ink}; }
-  .page { position:relative; width:210mm; height:297mm; padding:20mm 18mm;
-    background:#ffffff; overflow:hidden; page-break-after:always; }
-  .page:last-child { page-break-after:auto; }
-  .blob { position:absolute; border-radius:50%; filter:blur(60px); opacity:.55; }
-  .b1 { width:150mm; height:150mm; background:${C.sky};  right:-55mm; top:-60mm; }
-  .b2 { width:120mm; height:120mm; background:${C.mist}; left:-50mm;  bottom:-45mm; opacity:.9; }
-  .b3 { width:90mm;  height:90mm;  background:${C.blue}; right:-30mm; bottom:-30mm; opacity:.18; }
-  .wrap { position:relative; z-index:1; }
-  .logo { height:15mm; margin-bottom:10pt; }
-  .eyebrow { font-size:9.5pt; letter-spacing:.24em; text-transform:uppercase; color:${C.blue}; font-weight:700; }
-  h1 { font-family:'Playfair Display',serif; font-size:31pt; line-height:1.08; color:${C.navy}; font-weight:700; margin-top:7pt; }
-  h1 .accent { color:${C.blue}; }
-  .lede { font-size:12pt; margin-top:11pt; max-width:152mm; line-height:1.55; }
-  .rule { height:3px; width:52mm; background:linear-gradient(90deg,${C.blue},${C.sky}); border-radius:3px; margin:14pt 0 18pt; }
-  .step { display:flex; gap:14pt; margin-bottom:16pt; align-items:flex-start; }
-  .step-num { flex:0 0 auto; width:30pt; height:30pt; border-radius:50%;
-    background:linear-gradient(135deg,${C.blue},${C.sky}); color:#fff;
-    font-family:'Playfair Display',serif; font-weight:700; font-size:15pt;
-    display:flex; align-items:center; justify-content:center; }
-  .step-body h3 { font-family:'Playfair Display',serif; font-size:16pt; color:${C.navy}; margin-bottom:5pt; }
-  ul { list-style:none; margin-top:5pt; }
-  li { font-size:11pt; line-height:1.6; padding-left:16pt; position:relative; }
-  li::before { content:''; position:absolute; left:0; top:7pt; width:6pt; height:6pt; border-radius:50%; background:${C.sky}; }
-  b { color:${C.navy}; }
-  .pill { display:inline-block; background:${C.mist}; color:${C.navy}; border-radius:999px;
-    padding:3pt 10pt; font-size:9.5pt; font-weight:600; margin:4pt 4pt 0 0; }
-  .card { background:rgba(255,255,255,.75); border:1px solid ${C.line}; border-radius:16pt;
-    padding:16pt 18pt; box-shadow:0 8pt 30pt rgba(47,107,255,.08); }
-  .footer { position:absolute; z-index:1; left:18mm; right:18mm; bottom:14mm;
-    font-size:8.5pt; color:${C.sky}; display:flex; justify-content:space-between;
-    border-top:1px solid ${C.line}; padding-top:8pt; }
-  .qr-wrap { display:flex; gap:18pt; align-items:center; }
-  .qr-wrap img.qr { width:46mm; height:46mm; border:8px solid #fff; border-radius:12pt;
-    box-shadow:0 8pt 26pt rgba(47,107,255,.16); }
-  .qr-text h3 { font-family:'Playfair Display',serif; color:${C.navy}; font-size:18pt; margin-bottom:6pt; }
-  .qr-text p { font-size:11pt; line-height:1.5; }
-  .code-box { background:${C.mist}; border:1px solid ${C.line}; border-radius:10pt; padding:9pt 14pt; margin-top:9pt; display:inline-block; }
-  .code-box .who { font-size:8.5pt; letter-spacing:.1em; text-transform:uppercase; color:${C.blue}; font-weight:700; }
-  .code-box .val { font-family:monospace; font-size:17pt; font-weight:700; color:${C.navy}; margin-top:2pt; }
-  .link { font-family:monospace; font-size:9pt; color:${C.blue}; word-break:break-all; }
-
-  .folders { display:grid; grid-template-columns:1fr 1fr; gap:10pt; margin-top:10pt; }
-  .folder { display:flex; gap:10pt; align-items:flex-start; text-decoration:none;
-    background:rgba(255,255,255,.8); border:1px solid ${C.line}; border-radius:12pt; padding:11pt 13pt; }
-  .folder-icon { flex:0 0 auto; width:22pt; height:22pt; border-radius:8pt; color:#fff; font-size:11pt;
-    background:linear-gradient(135deg,${C.blue},${C.sky}); display:flex; align-items:center; justify-content:center; }
-  .folder-label { font-size:11.5pt; font-weight:700; color:${C.navy}; }
-  .folder-sub { font-size:9.5pt; color:${C.ink}; margin-top:2pt; line-height:1.4; }
-
-  .terms h2 { font-family:'Playfair Display',serif; font-size:24pt; color:${C.navy}; }
-  .terms .intro { font-size:10.5pt; line-height:1.6; margin-top:8pt; max-width:155mm; }
-  .clause { display:flex; gap:12pt; margin-top:13pt; }
-  .clause-num { flex:0 0 auto; font-family:'Playfair Display',serif; font-weight:700; font-size:13pt; color:${C.blue}; width:16pt; }
-  .clause h4 { font-size:11.5pt; color:${C.navy}; margin-bottom:3pt; }
-  .clause p { font-size:10.5pt; line-height:1.55; }
-  .clause.hl { background:${C.mist}; border:1px solid ${C.line}; border-radius:12pt; padding:11pt 13pt 11pt 13pt; margin-left:-13pt; }
+  .page { width:210mm; height:297mm; padding:16mm 16mm 12mm; background:#ffffff;
+    display:flex; flex-direction:column; }
+  .eyebrow { font-size:9pt; letter-spacing:.28em; text-transform:uppercase; color:${C.violet}; font-weight:800; }
+  h1 { font-size:25pt; font-weight:800; letter-spacing:-.01em; margin-top:5pt; }
+  .sub { font-size:11pt; color:${C.sub}; margin-top:3pt; }
+  .card { border:1px solid ${C.line}; border-radius:12pt; padding:13pt 15pt; margin-top:11pt; }
+  h2 { font-size:12.5pt; font-weight:700; margin-bottom:8pt; }
+  .kv { display:flex; gap:10pt; align-items:stretch; }
+  .box { flex:1; background:${C.mist}; border-radius:10pt; padding:9pt 12pt; }
+  .box .k { font-size:8pt; letter-spacing:.14em; text-transform:uppercase; color:${C.violet}; font-weight:700; }
+  .box .v { font-family:'SF Mono',Menlo,monospace; font-size:13pt; font-weight:700; margin-top:3pt; word-break:break-all; }
+  .box .v.small { font-size:10pt; font-weight:600; padding-top:3pt; }
+  .box .v a { color:${C.violet}; text-decoration:none; }
+  .hint { font-size:9.5pt; color:${C.sub}; margin-top:8pt; line-height:1.55; }
+  .hint a { color:${C.violet}; text-decoration:none; word-break:break-all; }
+  ul { list-style:none; }
+  li { font-size:10.5pt; line-height:1.75; padding-left:14pt; position:relative; }
+  li::before { content:''; position:absolute; left:0; top:8.5pt; width:5pt; height:5pt; border-radius:50%; background:${C.violet}; }
+  b { font-weight:700; }
+  .frow { display:block; text-decoration:none; color:inherit; padding:7pt 0; border-top:1px solid ${C.line}; }
+  .frow.first { border-top:none; padding-top:0; }
+  .frow-label { font-size:10.5pt; font-weight:700; }
+  .frow-sub { font-size:9.5pt; color:${C.sub}; margin-left:6pt; }
+  .frow-url { display:block; font-family:'SF Mono',Menlo,monospace; font-size:8pt; color:${C.violet}; margin-top:2pt; word-break:break-all; }
+  .terms { margin-top:auto; padding-top:10pt; border-top:1px solid ${C.line}; }
+  .terms h3 { font-size:8.5pt; font-weight:700; text-transform:uppercase; letter-spacing:.1em; margin-bottom:4pt; color:#111111; }
+  .terms p { font-size:7.6pt; line-height:1.55; color:#111111; }
+  .foot { display:flex; justify-content:space-between; font-size:8pt; color:${C.sub}; margin-top:8pt; }
 </style></head>
 <body>
-
-  <!-- PAGE 1 — welcome + login -->
   <section class="page">
-    <div class="blob b1"></div><div class="blob b2"></div>
-    <div class="wrap">
-      ${LOGO_DATA ? `<img class="logo" src="${LOGO_DATA}" alt=""/>` : ''}
-      <div class="eyebrow">Content Machine · Personal access</div>
-      <h1>${firstName ? `Dr. ${firstName}` : d.doctorName}, your <span class="accent">content studio</span> is ready</h1>
-      <p class="lede">Content Machine writes your scripts, runs your teleprompter,
-        keeps every take you record, and hands the finished videos back to you —
-        all in one place, on your phone. Setup takes two minutes.</p>
-      <div class="rule"></div>
+    <div class="eyebrow">Content Machine</div>
+    <h1>Dr. ${firstName || d.doctorName}</h1>
+    <p class="sub">${d.clinicName} — personal access</p>
 
-      <div class="qr-wrap">
-        <img class="qr" src="${qrDataUrl}" alt="Personal login QR" />
-        <div class="qr-text">
-          <h3>Log in — scan with your phone</h3>
-          <p>Scanning signs this phone in automatically — no password, nothing to remember.
-          On a computer, open the site and choose <b>“I have a code or link”</b>, then type your code:</p>
-          <div class="code-box"><div class="who">Your personal code</div><div class="val">${d.code}</div></div>
-          <p style="margin-top:8pt;" class="link">${APP_URL}</p>
-        </div>
+    <div class="card">
+      <h2>Log in</h2>
+      <div class="kv">
+        <div class="box"><div class="k">App</div><div class="v small"><a href="${APP_URL}">${APP_URL.replace('https://', '')}</a></div></div>
+        <div class="box"><div class="k">Your personal code</div><div class="v">${d.code}</div></div>
       </div>
-
-      <div class="card" style="margin-top:16pt;">
-        <p style="font-size:11pt; line-height:1.6;"><b>Tip — make it feel like an app:</b>
-        after logging in on your phone, tap <b>Share → Add to Home Screen</b>.
-        Content Machine opens full-screen from its own icon, like any other app.</p>
-        <div style="margin-top:6pt;">
-          <span class="pill">Your code is personal — please don't forward it</span>
-          <span class="pill">Works on any phone or computer</span>
-        </div>
-      </div>
+      <p class="hint">Open the app → <b>&ldquo;I have a code or link&rdquo;</b> → enter the code. Or use your
+      one-tap login link: <a href="${d.installUrl}">${d.installUrl}</a><br>
+      The code is personal — please don't forward it.</p>
     </div>
-    ${footer(1)}
-  </section>
 
-  <!-- PAGE 2 — record -->
-  <section class="page">
-    <div class="blob b1" style="left:-55mm;right:auto;top:-55mm;"></div>
-    <div class="blob b3"></div>
-    <div class="wrap">
-      ${LOGO_DATA ? `<img class="logo" src="${LOGO_DATA}" alt=""/>` : ''}
-      <div class="eyebrow">Recording</div>
-      <h1 style="font-size:26pt;">Open the teleprompter. <span class="accent">Read. Done.</span></h1>
-      <div class="rule"></div>
-
-      ${step('1', 'Pick a script', `
-        <ul>
-          <li>From the dashboard, open the <b>Teleprompter</b>.</li>
-          <li>Your scripts are already there — written for you and refreshed by the team.</li>
-          <li>Pick one, skim it once, and you're ready.</li>
-        </ul>`)}
-
-      ${step('2', 'Record', `
-        <ul>
-          <li>The script <b>scrolls on screen while the camera records</b> — just read naturally.</li>
-          <li>Do <b>2–3 takes</b>; keep whichever felt best. Takes are short — under a minute.</li>
-          <li>Tap <b>save</b> — the video uploads by itself. Nothing to export, nothing to send.</li>
-        </ul>`)}
-
-      ${step('3', 'The team takes it from there', `
-        <ul>
-          <li>Your take lands in <b>My videos</b> the moment the upload finishes.</li>
-          <li>The team edits it — cuts, captions, polish — and the <b>finished version appears
-              right next to your raw take</b>.</li>
-          <li>Nothing is posted anywhere without the clinic's sign-off.</li>
-        </ul>`)}
-
-      <div class="card">
-        <p class="eyebrow" style="margin-bottom:8pt;">Thirty-second filming checklist</p>
-        <div>
-          <span class="pill">Face a window — light on you, not behind you</span>
-          <span class="pill">Quiet room, phone close for sound</span>
-          <span class="pill">Wipe the lens</span>
-          <span class="pill">Natural pace — the prompter follows you</span>
-        </div>
-      </div>
-
-      <div class="card" style="margin-top:14pt;">
-        <p style="font-size:11pt; line-height:1.6;"><b>Want to cover something specific?</b>
-        A treatment you love, a question patients keep asking — tell the team, and your
-        next script will be about exactly that.</p>
-      </div>
+    <div class="card">
+      <h2>What you'll find inside</h2>
+      <ul>
+        <li><b>Teleprompter</b> — your scripts, ready to read and record; every take uploads itself.</li>
+        <li><b>My videos</b> — each take and its finished, edited version; watch, download, share.</li>
+        <li>Nothing is posted anywhere without the clinic's sign-off.</li>
+      </ul>
     </div>
-    ${footer(2)}
-  </section>
 
-  <!-- PAGE 3 — your videos & your files -->
-  <section class="page">
-    <div class="blob b1"></div><div class="blob b2"></div>
-    <div class="wrap">
-      ${LOGO_DATA ? `<img class="logo" src="${LOGO_DATA}" alt=""/>` : ''}
-      <div class="eyebrow">Your library</div>
-      <h1 style="font-size:26pt;">Every video, every photo — <span class="accent">always yours</span></h1>
-      <p class="lede" style="font-size:11pt;">Open <b>My videos</b> in the app to watch any take or finished
-        edit right there. Tap <b>“Open in Drive”</b> on any video to download or share it. And your source
-        material lives in your own Google Drive folders — open them any time, from any device:</p>
-      <div class="rule"></div>
-
-      <div class="folders">${folderCards}</div>
-
-      <div class="card" style="margin-top:14pt;">
-        <p style="font-size:11pt; line-height:1.6;"><b>These folders are yours.</b>
-        The links open for anyone on your team — no Google sign-in needed. Everything the platform
-        records or produces for the clinic stays the clinic's property, and you can ask for a full
-        copy of all of it at any time. The details are on the last page.</p>
-      </div>
-
-      <div class="qr-wrap" style="margin-top:18pt;">
-        <img class="qr" style="width:34mm;height:34mm;" src="${videosQrDataUrl}" alt="My videos QR" />
-        <div class="qr-text">
-          <h3 style="font-size:15pt;">Straight to your library</h3>
-          <p>Scan to open <b>My videos</b> on your phone — watch any take,
-          download the finished versions, jump into your Drive folders.</p>
-          <p style="margin-top:6pt;" class="link">${APP_URL}/videos</p>
-        </div>
-      </div>
+    <div class="card">
+      <h2>Your files in Google Drive</h2>
+      ${folderRows.replace('class="frow"', 'class="frow first"')}
+      <p class="hint">The links open for anyone on your team — no Google sign-in needed.</p>
     </div>
-    ${footer(3)}
-  </section>
 
-  <!-- PAGE 4 — access & terms -->
-  <section class="page terms">
-    <div class="blob b2" style="left:auto; right:-50mm;"></div>
-    <div class="wrap">
-      ${LOGO_DATA ? `<img class="logo" src="${LOGO_DATA}" alt=""/>` : ''}
-      <div class="eyebrow">Access &amp; Terms</div>
-      <h2>The terms your access comes with</h2>
-      <p class="intro">The Content Machine platform is provided to <b>${d.clinicName}</b> by
-        <b>Hello Systems LLC</b>. Using the platform means these terms are accepted — there is
-        nothing to sign.</p>
-      <div class="rule"></div>
-
-      <div class="clause">
-        <div class="clause-num">1</div>
-        <div><h4>License</h4>
-        <p>Hello Systems LLC grants ${d.clinicName} a non-exclusive, non-transferable right to use
-        the Content Machine platform to create and manage the clinic's own content.</p></div>
-      </div>
-
-      <div class="clause">
-        <div class="clause-num">2</div>
-        <div><h4>Term</h4>
-        <p>Access runs month-to-month and stays active while the subscription is paid.</p></div>
-      </div>
-
-      <div class="clause hl">
-        <div class="clause-num">3</div>
-        <div><h4>Your content stays yours</h4>
-        <p>All content and materials created by or for the clinic — recordings, edited videos,
-        photos, scripts — remain the clinic's property. The Drive folders on page 3 always hold
-        the current library, and a complete copy can be requested at any time.</p></div>
-      </div>
-
-      <div class="clause hl">
-        <div class="clause-num">4</div>
-        <div><h4>If access ever ends</h4>
-        <p>Should access end for any reason, Hello Systems LLC provides a full export of the
-        clinic's content. Nothing is ever lost by leaving.</p></div>
-      </div>
-
-      <div class="clause">
-        <div class="clause-num">5</div>
-        <div><h4>The platform</h4>
-        <p>The platform, its software and source code remain the property of Hello Systems LLC.
-        No ownership transfers; access may not be sublicensed, resold, or shared outside the
-        clinic.</p></div>
-      </div>
-
-      <div class="clause">
-        <div class="clause-num">6</div>
-        <div><h4>Acceptance</h4>
-        <p>Use of the platform constitutes acceptance of these terms. Questions are always
-        welcome — just ask.</p></div>
-      </div>
+    <div class="terms">
+      <h3>Access &amp; terms — Hello Systems LLC</h3>
+      <p>The Content Machine platform is provided to ${d.clinicName} by Hello Systems LLC on a
+      non-exclusive, non-transferable, month-to-month basis, active while the subscription is paid.
+      The platform, its software and source code remain the property of Hello Systems LLC; access may
+      not be sublicensed, resold, or shared outside the clinic. All content and materials created by or
+      for the clinic — recordings, edited videos, photos, scripts — remain the clinic's property: the
+      folders above always hold the current library, and a complete copy can be requested at any time.
+      If access ends for any reason, Hello Systems LLC provides a full export of the clinic's content.
+      Use of the platform constitutes acceptance of these terms.</p>
+      <div class="foot"><span>Hello Systems LLC · Content Machine</span><span>${APP_URL.replace('https://', '')}</span></div>
     </div>
-    ${footer(4)}
   </section>
-
 </body></html>`
 }
 
@@ -559,16 +379,11 @@ function buildHTML(d, qrDataUrl, videosQrDataUrl) {
 
 async function main() {
   const d = DRY ? placeholderData() : await loadRealData()
-
-  const qrOpts = { margin: 1, width: 640, color: { dark: C.navy, light: '#ffffff' } }
-  const qrDataUrl = await QRCode.toDataURL(d.installUrl, qrOpts)
-  const videosQrDataUrl = await QRCode.toDataURL(`${APP_URL}/videos`, qrOpts)
-  const html = buildHTML(d, qrDataUrl, videosQrDataUrl)
+  const html = buildHTML(d)
 
   const slug = slugify(d.code || d.clinicName)
-  const outPdf = OUT_OVERRIDE ?? join(root, 'samples', `doctor-guide-${slug}.pdf`)
+  const outPdf = OUT_OVERRIDE ?? join(OUT_DIR, `doctor-guide-${slug}.pdf`)
   await mkdir(dirname(outPdf), { recursive: true })
-  await writeFile(outPdf.replace(/\.pdf$/, '.html'), html)
 
   if (!CHROME) throw new Error('No Chrome found. Set CHROME_PATH.')
   const browser = await puppeteer.launch({
@@ -584,12 +399,11 @@ async function main() {
     await browser.close()
   }
 
-  console.log(`\n✓ wrote ${outPdf}`)
+  console.log(`\n✓ wrote ${outPdf}${DRY ? '   (DRY RUN — placeholder data)' : ''}`)
   console.log(`  doctor:  ${d.doctorName} — ${d.clinicName}`)
   console.log(`  code:    ${d.code}`)
   console.log(`  install: ${d.installUrl}`)
   for (const f of d.folders) console.log(`  folder:  ${f.label} → ${f.url}`)
-  console.log(`  logo:    ${LOGO_PATH ? 'embedded' : 'MISSING'}${DRY ? '   (DRY RUN — placeholder data)' : ''}`)
 }
 
 main().catch((e) => {
