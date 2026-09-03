@@ -63,6 +63,7 @@ export type Database = {
           hellometrix_client_id: string | null
           shoot_board_token: string | null
           drive_floor_folder_id: string | null
+          photo_library_folder_id: string | null
         }
         Insert: {
           audience?: string | null
@@ -91,6 +92,7 @@ export type Database = {
           hellometrix_client_id?: string | null
           shoot_board_token?: string | null
           drive_floor_folder_id?: string | null
+          photo_library_folder_id?: string | null
         }
         Update: {
           audience?: string | null
@@ -119,6 +121,7 @@ export type Database = {
           hellometrix_client_id?: string | null
           shoot_board_token?: string | null
           drive_floor_folder_id?: string | null
+          photo_library_folder_id?: string | null
         }
         Relationships: [
           {

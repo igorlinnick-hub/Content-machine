@@ -3,6 +3,7 @@ import {
   getUserDriveClient,
   getServiceAccountToken,
   getUserAccessToken,
+  allowLinkView,
 } from './drive'
 import { Readable } from 'node:stream'
 
@@ -13,7 +14,8 @@ export interface UploadRecordingResult {
 
 async function getOrCreateFolder(
   parentId: string | null,
-  name: string
+  name: string,
+  opts: { linkViewOnCreate?: boolean } = {}
 ): Promise<string> {
   const drive = getUserDriveClient() ?? getDriveClient()
   const parentClause = parentId ? `'${parentId}' in parents` : `'root' in parents`
@@ -38,7 +40,40 @@ async function getOrCreateFolder(
     fields: 'id',
     supportsAllDrives: true,
   })
-  return created.data.id!
+  const id = created.data.id!
+  // The doctor gets a direct link to this folder (/videos, doctor guide
+  // PDF) and may not be signed into any Google account — same unlisted-link
+  // decision as for the files themselves (2026-07-23, extended 2026-09-03).
+  if (opts.linkViewOnCreate) await allowLinkView(id).catch(() => {})
+  return id
+}
+
+// clinicName → per-clinic Recordings folder id. The folder is stable once
+// created, so one Drive round-trip per clinic per server instance is enough —
+// /videos calls this on every doctor page load.
+const recordingsFolderCache = new Map<string, string>()
+
+// Resolve (creating if needed) the clinic's teleprompter-recordings folder —
+// <DRIVE_RECORDINGS_ROOT>/Recordings/<clinicName> — so the doctor can be
+// handed a direct Drive folder link. Null when Drive isn't configured or
+// the lookup fails: callers render no link instead of erroring the page.
+export async function getClinicRecordingsFolderId(
+  clinicName: string
+): Promise<string | null> {
+  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID
+  if (!contentMachineId) return null
+  const cached = recordingsFolderCache.get(clinicName)
+  if (cached) return cached
+  try {
+    const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
+    const id = await getOrCreateFolder(recordingsParentId, clinicName, {
+      linkViewOnCreate: true,
+    })
+    recordingsFolderCache.set(clinicName, id)
+    return id
+  } catch {
+    return null
+  }
 }
 
 export async function uploadRecording(
@@ -62,7 +97,9 @@ export async function uploadRecording(
     )
   }
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
-  const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName)
+  const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName, {
+    linkViewOnCreate: true,
+  })
 
   const readable = Readable.from(buffer)
   const res = await drive.files.create({
@@ -102,7 +139,9 @@ export async function createUploadSession(
     )
   }
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
-  const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName)
+  const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName, {
+    linkViewOnCreate: true,
+  })
 
   // User OAuth first — the recordings root lives in the user's
   // personal Drive, which the service account can't see (the SA

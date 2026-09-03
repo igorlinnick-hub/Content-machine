@@ -1,4 +1,4 @@
-import { getDriveClient, getUserDriveClient } from './drive'
+import { getDriveClient, getUserDriveClient, allowLinkView } from './drive'
 import { createServerClient } from '@/lib/supabase/server'
 
 // Per-clinic Drive workspace (HANDOFF §22.2 п.7). On clinic creation
@@ -60,6 +60,10 @@ export async function provisionClinicDriveFolders(params: {
     ? `${params.clinicName} — ${params.doctorName}`
     : params.clinicName
   const rootId = await createDriveFolder(folderName, parentId)
+  // Link-view on the root — children inherit, so the doctor's folder links
+  // (/videos, doctor guide PDF) open without a Google sign-in. Same
+  // unlisted-link decision as for the clip files themselves (2026-07-23).
+  await allowLinkView(rootId).catch(() => {})
   const [inboxId, originalsId, finalsId] = await Promise.all([
     createDriveFolder('Inbox', rootId),
     createDriveFolder('Originals', rootId),

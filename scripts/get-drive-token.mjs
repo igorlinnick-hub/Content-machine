@@ -40,7 +40,9 @@ const params = new URLSearchParams({
 const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params}`
 
 console.log('\n─────────────────────────────────────────')
-console.log('Open this URL in your browser (log in with hellosystems111@gmail.com):')
+console.log('Open this URL in your browser — LOG IN AS THE ACCOUNT CONTENT MACHINE SHOULD USE.')
+console.log('(Whoever you log in as becomes the owner of every file the app writes,')
+console.log(' and its Drive quota is the one that fills up.)')
 console.log('\n' + authUrl + '\n')
 console.log('─────────────────────────────────────────')
 console.log('Waiting for callback on localhost:' + REDIRECT_PORT + ' ...\n')

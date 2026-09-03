@@ -21,6 +21,14 @@ import FloorPanel, { type FloorItem } from './FloorPanel'
 
 export type Tab = 'mine' | 'floor'
 
+// A direct link to one of the clinic's own Drive folders (recordings,
+// finished edits, raw uploads, photos). Built server-side in page.tsx.
+export interface FolderLink {
+  key: string
+  label: string
+  url: string
+}
+
 export interface LibraryItem {
   id: string
   kind: 'recording' | 'edited'
@@ -120,6 +128,7 @@ function Thumb({ item, active }: { item: LibraryItem; active: boolean }) {
 export default function VideoLibrary({
   recordings,
   edited,
+  folders,
   teleprompterHref,
   clinicId,
   isAdmin,
@@ -129,6 +138,7 @@ export default function VideoLibrary({
 }: {
   recordings: LibraryItem[]
   edited: LibraryItem[]
+  folders: FolderLink[]
   teleprompterHref: string
   clinicId: string
   isAdmin: boolean
@@ -203,6 +213,37 @@ export default function VideoLibrary({
     }
     return Array.from(map.entries())
   }, [items])
+
+  // "Your files live in your Drive" made tangible: one chip per folder.
+  // Shown above the gallery for doctors and admins alike — the folders are
+  // the clinic's own materials, promised exportable at any time.
+  const folderRow =
+    folders.length > 0 ? (
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+          Your folders in Drive
+        </span>
+        {folders.map((f) => (
+          <a
+            key={f.key}
+            href={f.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:text-neutral-900"
+            style={GLASS}
+            title={`Open the ${f.label} folder in Google Drive (view / download / share)`}
+          >
+            <svg className="h-3.5 w-3.5 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+            </svg>
+            {f.label}
+            <svg className="h-3 w-3 text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+          </a>
+        ))}
+      </div>
+    ) : null
 
   const emptyMine = (
       <div className="rounded-2xl p-10 text-center" style={GLASS}>
@@ -409,8 +450,15 @@ export default function VideoLibrary({
     </div>
   )
 
-  // Doctors get the plain gallery, no tab strip at all.
-  if (!isAdmin) return recs.length === 0 && edited.length === 0 ? emptyMine : mine
+  // Doctors get the plain gallery, no tab strip at all. The folder row still
+  // renders on an empty library — the photo folders exist before take one.
+  if (!isAdmin)
+    return (
+      <div className="flex flex-col gap-5">
+        {folderRow}
+        {recs.length === 0 && edited.length === 0 ? emptyMine : mine}
+      </div>
+    )
 
   return (
     <div className="flex flex-col gap-5">
@@ -435,11 +483,10 @@ export default function VideoLibrary({
       </div>
 
       {tab === 'mine' ? (
-        recs.length === 0 && edited.length === 0 ? (
-          emptyMine
-        ) : (
-          mine
-        )
+        <>
+          {folderRow}
+          {recs.length === 0 && edited.length === 0 ? emptyMine : mine}
+        </>
       ) : (
         <FloorPanel
           clinicId={clinicId}

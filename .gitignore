@@ -54,3 +54,10 @@ jobflow-*.json
 .env*
 .shots/
 __pycache__/
+
+# Generated handouts that carry live credentials — this repo is public.
+# Doctor guides print a personal install code; the folder cards print an
+# anyone-with-link Drive URL. Regenerate them with the scripts in scripts/.
+samples/doctor-guide-*-doctor.html
+samples/doctor-guide-*-doctor.pdf
+samples/floor-folder-access*.pdf

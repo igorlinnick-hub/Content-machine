@@ -2,10 +2,11 @@ import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
 import { loadRecentClips } from '@/lib/clips/store'
+import { getClinicRecordingsFolderId } from '@/lib/google/recordings'
 import { getFloorFolderId, loadFloorMedia } from '@/lib/floor/store'
 import { PageHeader } from '@/app/components/PageHeader'
 import PushToggle from '@/app/components/PushToggle'
-import VideoLibrary, { type LibraryItem } from './VideoLibrary'
+import VideoLibrary, { type FolderLink, type LibraryItem } from './VideoLibrary'
 import type { FloorItem } from './FloorPanel'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +39,13 @@ export default async function VideosPage({ searchParams }: PageProps) {
   const supabase = createServerClient()
   const [{ data: clinic }, { data: recordingRows }, clips, floorRows, floorFolderId] =
     await Promise.all([
-    supabase.from('clinics').select('name, full_name').eq('id', clinicId).single(),
+    supabase
+      .from('clinics')
+      .select(
+        'name, full_name, drive_root_folder_id, drive_inbox_folder_id, drive_finals_folder_id, photo_library_folder_id, drive_floor_folder_id'
+      )
+      .eq('id', clinicId)
+      .single(),
     supabase
       .from('clinic_recordings')
       .select('id, title, drive_file_id, drive_url, duration_sec, size_bytes, created_at')
@@ -58,6 +65,43 @@ export default async function VideosPage({ searchParams }: PageProps) {
       : Promise.resolve(null),
   ])
   if (!clinic) redirect('/dashboard')
+
+  // "Their materials stay theirs" (Access & Terms) made concrete: direct
+  // links to the clinic's own Drive folders — teleprompter takes, finished
+  // edits, raw uploads, photos. The folders carry anyone-with-link reader
+  // (see allowLinkView call sites), so a doctor signed into no Google
+  // account still gets in. Absent id = absent chip, never an error.
+  const recordingsFolderId = await getClinicRecordingsFolderId(clinic.name).catch(
+    () => null
+  )
+  const folderUrl = (id: string) => `https://drive.google.com/drive/folders/${id}`
+  const folders: FolderLink[] = []
+  if (recordingsFolderId)
+    folders.push({ key: 'recordings', label: 'Recordings', url: folderUrl(recordingsFolderId) })
+  if (clinic.drive_finals_folder_id)
+    folders.push({
+      key: 'finals',
+      label: 'Finished videos',
+      url: folderUrl(clinic.drive_finals_folder_id),
+    })
+  if (clinic.drive_inbox_folder_id)
+    folders.push({
+      key: 'inbox',
+      label: 'Uploads inbox',
+      url: folderUrl(clinic.drive_inbox_folder_id),
+    })
+  if (clinic.photo_library_folder_id)
+    folders.push({
+      key: 'photos',
+      label: 'Photo library',
+      url: folderUrl(clinic.photo_library_folder_id),
+    })
+  if (clinic.drive_floor_folder_id)
+    folders.push({
+      key: 'floor',
+      label: 'Clinic photos & clips',
+      url: folderUrl(clinic.drive_floor_folder_id),
+    })
 
   const recordings: LibraryItem[] = (recordingRows ?? []).map((r) => ({
     id: r.id,
@@ -122,6 +166,7 @@ export default async function VideosPage({ searchParams }: PageProps) {
         <VideoLibrary
           recordings={recordings}
           edited={edited}
+          folders={folders}
           teleprompterHref={access.role === 'admin' ? `/teleprompter?clinicId=${clinicId}` : '/teleprompter'}
           clinicId={clinicId}
           isAdmin={access.role === 'admin'}
