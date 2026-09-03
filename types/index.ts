@@ -95,7 +95,11 @@ export interface ScriptExample {
   score: number | null
 }
 
-export type ScriptLengthTarget = 'short' | 'long'
+// 'ad' is the paid-promotion target added 2026-08-20: ~90-140 words / 25-45s,
+// roughly half of 'short'. It never appears on a script_templates row (ads
+// live in their own registry, lib/scripts/ad-formats.ts) — it is only ever
+// passed to the Writer and the Critic for a single generation.
+export type ScriptLengthTarget = 'short' | 'long' | 'ad'
 
 export interface ScriptFormatTemplate {
   id: string

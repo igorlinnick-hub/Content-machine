@@ -10,10 +10,28 @@ import { findTeaserLines, findClicheLines } from './teaser-lines'
 const LENGTH_BANDS: Record<ScriptLengthTarget, { min: number; max: number; label: string }> = {
   short: { min: 200, max: 220, label: '60-90s boost cut' },
   long: { min: 420, max: 540, label: '2-3min organic' },
+  ad: { min: 90, max: 140, label: '25-45s paid spot' },
 }
+
+// Two of the six criteria mean something different for a paid spot, and
+// scoring an ad against the organic rubric reliably fails a correct script
+// (Igor 2026-08-20): a 100-word ad has no room to cite a trial, and its hook
+// is deliberately a flat declarative rather than the "concrete fact or
+// question" the organic rubric rewards. This block is appended only for the
+// 'ad' target; everything else in the rubric still binds.
+const AD_RUBRIC_OVERRIDE = `
+
+THIS IS A PAID AD SPOT — TWO CRITERIA ARE READ DIFFERENTLY:
+- science_present: for an ad, a MECHANISM sentence satisfies this criterion in full — what physically happens, in plain words, ending on the part that is genuinely remarkable ("the material integrates with your body's own biology and what grows back is real living bone"). A named study is NOT required and usually cannot fit at this length; do not mark a variant down for lacking one. Do mark it down if the mechanism is absent, vague, or overstated beyond what is true.
+- hook_quality: an ad hook MUST be a flat declarative carrying a stance. A question ("Did you know…", "Are you struggling with…"), an opening statistic, a count-promise ("Three things about…") or a command ("Stop doing X") scores ≤ 3 and approved = false — these are the exact shapes real doctor ads avoid.
+
+AND ONE ADDITIONAL HARD FAIL, SPECIFIC TO ADS:
+- ENGAGEMENT BAIT IN THE SPOKEN SCRIPT. An ad's call-to-action lives in the caption and the ad unit, never in the doctor's voice. If the script contains "comment", "DM", "link in bio", "save this", "share this", "watch till the end", "swipe", "tap", "click", or any paraphrase asking the viewer to interact, set hook_quality ≤ 3, approved = false, and quote the sentence. A quiet closing line of possibility ("There's always a way forward.") is NOT bait and must not be flagged.
+- Abstract-noun payoffs are a tone_match failure here: "confidence", "freedom", "journey", "quality of life", "transform" as the result of the procedure → tone_match ≤ 5. The result belongs in ordinary verbs ("you brush them, you eat with them").`
 
 function buildSystemPrompt(target: ScriptLengthTarget): string {
   const band = LENGTH_BANDS[target]
+  const adOverride = target === 'ad' ? AD_RUBRIC_OVERRIDE : ''
   return `You are an editor for medical content. Evaluate scripts strictly — the doctor's reputation depends on it.
 
 The variants below were written for a ${band.label} (${target}). Their target length is ${band.min}-${band.max} words.
@@ -30,7 +48,7 @@ The brief may list DETECTED TEASER LINES / DETECTED CLICHÉS found by a pattern 
 total_score = average of the six criteria, rounded to one decimal place.
 approved = true only if total_score >= 7 AND no_promises >= 8 AND compliance_safe >= 8 AND the script contains no teaser / announcer line AND fewer than two cliché sentences AND the script does not violate any clinic medical_restrictions.
 
-For each variant, write feedback that is short and actionable — point to the specific sentence or rule to fix. Do not praise; focus on what would make the rewrite better. If the variant is already strong, say so in one sentence.`
+For each variant, write feedback that is short and actionable — point to the specific sentence or rule to fix. Do not praise; focus on what would make the rewrite better. If the variant is already strong, say so in one sentence.${adOverride}`
 }
 
 function buildCriticBrief(ctx: SharedContext, variants: WriterOutput): string {

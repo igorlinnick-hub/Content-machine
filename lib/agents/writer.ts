@@ -10,6 +10,7 @@ import type { ArsenalBeat } from '@/lib/arsenal/store'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
 import { getNicheProfile, type NicheProfile } from '@/lib/niche/profiles'
 import { getFormat } from '@/lib/posts/formats'
+import { getAdFormat, buildAdFormatBlock, isKnownAdFormat } from '@/lib/scripts/ad-formats'
 
 // A single reference video pinned as THE format to use (Studio). When
 // present, the Writer drops the "pick one of N templates" choice and
@@ -40,7 +41,7 @@ export function joinRoleBlocks(blocks: RoleBlock[]): string {
 }
 
 interface LengthSpec {
-  label: 'short' | 'long'
+  label: 'short' | 'long' | 'ad'
   word_min: number
   word_max: number
   seconds_min: number
@@ -74,6 +75,24 @@ const LENGTH_SPECS: Record<ScriptLengthTarget, LengthSpec> = {
     approachWords: 220,
     ctaWords: 50,
   },
+  // Paid spot (Igor 2026-08-20). Measured off four high-performing doctor
+  // ads: 77-131 words over 25-46s, i.e. 2.8-3.5 words/sec. The band is set
+  // at the top of that range because a clinic script carries a hedge or two
+  // the reference dental ads did not need. The per-beat budget below is
+  // NEVER used — an ad format owns its own beats — but the shape has to be
+  // filled, so it mirrors the real proportions: the qualifier/list beat is
+  // the biggest thing in the script and there is no CTA at all.
+  ad: {
+    label: 'ad',
+    word_min: 90,
+    word_max: 140,
+    seconds_min: 25,
+    seconds_max: 45,
+    hookWords: 18,
+    scienceWords: 30,
+    approachWords: 60,
+    ctaWords: 0,
+  },
 }
 
 // The niche-persona line is the ONLY part of the base prompt that varies
@@ -97,7 +116,7 @@ HARD RULES:
 
 FACT-ACCURACY RULES (the compliance gate flags each of these — write so it has nothing to flag):
 - No specific numeric statistic (percentage, patient count, response rate, time-to-result) unless the SAME sentence names its source (trial acronym, journal, institution) — and even then hedge the number ("roughly", "about"). No source at hand → qualitative phrasing: "many patients", "studies suggest", "a meaningful share of patients".
-- No years/dates for FDA approvals or trial results. Say "FDA-cleared for X" — never "since 2008" / "approved in 2023".
+- No years/dates for FDA approvals or trial results. Say "FDA-cleared for X" — never "since 2008" / "approved in 2023". ONE exception: a study from the REAL STUDIES block (retrieved from PubMed, so the year is real) — there the year rides with the journal/trial name in the same sentence, never as a bare "2021: …" list item.
 - Dosages and protocol specifics always carry "typically" / "commonly", or stay general ("over several weeks").
 - No currency claims: "currently", "as of [year]", "the only FDA-approved". State facts without a time anchor.
 
@@ -438,13 +457,31 @@ Each variant's JSON gains:
     { "speaker": "Patient", "text": "..." }
   ]`
 
+const LENGTH_LABELS: Record<ScriptLengthTarget, string> = {
+  short: '~90s boost cut',
+  long: '~2.5min organic',
+  ad: '25-45s paid spot',
+}
+
 function buildLengthSpecBlock(target: ScriptLengthTarget): string {
   const spec = LENGTH_SPECS[target]
-  return `LENGTH SPEC — TARGET: ${spec.label.toUpperCase()} (${
-    spec.label === 'short' ? '~90s boost cut' : '~2.5min organic'
-  })
+  const head = `LENGTH SPEC — TARGET: ${spec.label.toUpperCase()} (${LENGTH_LABELS[target]})
 - Word count: ${spec.word_min}-${spec.word_max} words. Count before you finish.
-- Estimated seconds: ${spec.seconds_min}-${spec.seconds_max}.
+- Estimated seconds: ${spec.seconds_min}-${spec.seconds_max}.`
+
+  // An ad is too short to carry the four-beat organic budget, and its beats
+  // are dictated by the chosen AD FORMAT instead. Spelling out a hook /
+  // science / approach / CTA budget here would fight that block — and the
+  // CTA line in particular would reintroduce exactly the ask the ad rules
+  // ban. So the ad target ships the budget the length itself implies.
+  if (target === 'ad') {
+    return `${head}
+- This is the whole script. There is no room for a preamble, a recap, or a second example — every sentence is load-bearing.
+- Pace: write for roughly 3 words per second of calm, unhurried delivery. If the script runs long, cut a beat rather than speeding it up.
+- The BEATS come from the AD FORMAT block below, not from this spec. Do not add a call-to-action beat: an ad script has none.`
+  }
+
+  return `${head}
 - Beat budget (in order):
   1. Hook — ~${spec.hookWords} words. Concrete fact or question, not a generic opening. End it on the fact itself — never on a teaser line ("Here's why…", "Here's what's actually happening", "Let me explain").
   2. Science / fact — ~${spec.scienceWords} words. What the research actually shows.
@@ -494,7 +531,8 @@ function buildContextBrief(
   excludeHooks?: string[],
   planContext?: import('@/types').PlanContext | null,
   postCarouselMode?: boolean,
-  formatOverride?: string | null
+  formatOverride?: string | null,
+  adFormatName?: string | null
 ): string {
   const parts: string[] = []
 
@@ -535,7 +573,14 @@ function buildContextBrief(
     ? ctx.format_templates.find((t) => t.name === planPinnedName) ?? null
     : null
 
-  if (pinnedFormat) {
+  // 0. An AD format (lib/scripts/ad-formats.ts) short-circuits the whole
+  // template resolution above: ads have their own registry, their own beats
+  // and their own craft rules, and they never draw from script_templates.
+  const adFormat = getAdFormat(adFormatName)
+
+  if (adFormat) {
+    parts.push(buildAdFormatBlock(adFormat))
+  } else if (pinnedFormat) {
     // Studio: one format pinned to a reference video.
     parts.push(buildPinnedFormatBlock(pinnedFormat))
   } else if (planPinnedTemplate) {
@@ -558,9 +603,15 @@ function buildContextBrief(
     // already lives in the style pill and the hook. Igor 2026-08-20: a tips
     // post shipped with the bare word "PEPTIDES" as its cover; the promise
     // ("Four Things To Know") is what earns the swipe.
+    //
+    // 2026-08-31: the same defect reached the clinic's reviewer twice more
+    // ("Repair", "5 Signals"), so the rule now also lives unconditionally in
+    // the SLIDE ARC above — this block only fires when a catalog format is
+    // pinned. The second half of the rule is new: the promise must name its
+    // OBJECT. "Four Things That Help" was rejected as loudly as "Repair".
     const coverTitleBlock =
       postCarouselMode && pinnedCatalogFormat?.coverTitle
-        ? `\n\nCOVER TITLE (BINDING): the cover's title line is the FORMAT'S PROMISE, 3-6 words, Mixed Case, in the shape: ${pinnedCatalogFormat.coverTitle}. If the title names a count, it must match the post's real item count. Do NOT use the bare topic word as the title — it already sits in the pill; the hook carries the topic specifics.`
+        ? `\n\nCOVER TITLE (BINDING): the cover's title line is the FORMAT'S PROMISE, 3-6 words, Mixed Case, in the shape: ${pinnedCatalogFormat.coverTitle}. If the title names a count, it must match the post's real item count. Do NOT use the bare topic word as the title — it already sits in the pill; the hook carries the topic specifics. The promise must NAME ITS OBJECT ("Four Things That Rebuild Tissue"), never dangle ("Four Things That Help").`
         : ''
 
     parts.push(
@@ -579,9 +630,10 @@ function buildContextBrief(
     if (templates.length > 0) {
       parts.push(
         `FORMAT TEMPLATES — pick exactly one per variant. These are STRUCTURAL scaffolds (not topics or words). Different variants should pick different templates when more than one is provided. Each template tells you HOW to lay out the post.\n\n${templates
-          // The catalog is 9 formats since 2026-08-19; a 6-slot window would
-          // hide whichever ones sit last in a clinic's template order (the
-          // newly back-filled ones always do).
+          // The catalog is 6 formats since 2026-08-31 (was 9); the window
+          // stays at 9 so a clinic's own custom templates and the retired
+          // defaults it kept active still reach the Writer instead of being
+          // silently cut off the end of its template order.
           .slice(0, 9)
           .map(
             (t, idx) =>
@@ -739,10 +791,16 @@ export interface RunWriterParams {
   // format, loses to a Studio pinnedFormat. Must name a template the clinic
   // has in script_templates — otherwise it degrades to "Writer picks".
   formatOverride?: string | null
+  // The AD format button (Igor 2026-08-20). Names one of AD_FORMATS. When
+  // set it outranks every other format source — pinnedFormat, formatOverride
+  // and the plan's format are all ignored — and it forces the 'ad' length
+  // target, because an ad shape at 200+ words is not an ad.
+  adFormat?: string | null
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
-  const target: ScriptLengthTarget = params.lengthTarget ?? 'short'
+  const isAd = isKnownAdFormat(params.adFormat)
+  const target: ScriptLengthTarget = isAd ? 'ad' : params.lengthTarget ?? 'short'
   const brief = buildContextBrief(
     params.context,
     target,
@@ -751,7 +809,8 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     params.excludeHooks,
     params.planContext,
     params.postCarouselMode,
-    params.formatOverride
+    params.formatOverride,
+    params.adFormat
   )
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
   const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)

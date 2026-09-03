@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
 import { SparkleSpinner } from '@/app/components/ui/icons'
+import { AdFormatPicker } from '@/app/components/AdFormatPicker'
 
 import { type StructuredPlanWeek } from '@/lib/content-plan/store'
 
@@ -175,6 +176,9 @@ export function ScriptGenerator({
   // the note arrives pre-filled from the week — so on the common run the
   // doctor reads one topic and taps generate instead of scanning five boxes.
   const [detailsOpen, setDetailsOpen] = useState(false)
+  // null = organic script (the default). A name switches the run to a
+  // paid ad spot; see lib/scripts/ad-formats.ts.
+  const [adFormat, setAdFormat] = useState<string | null>(null)
 
   // New batch of variants → jump back to the first card.
   useEffect(() => {
@@ -318,6 +322,7 @@ export function ScriptGenerator({
           ...(plannedPost
             ? { planTopicId: plannedPost.id, topicHint: note.trim() || undefined }
             : { topicHint: [topic.trim(), note.trim()].filter(Boolean).join(' — ') || undefined }),
+          ...(adFormat ? { adFormat } : {}),
         }),
       })
 
@@ -572,6 +577,10 @@ export function ScriptGenerator({
           </div>
         )}
 
+        {/* Ad mode — off by default; picking a shape here replaces the whole
+            organic script pipeline with the paid-spot one. */}
+        <AdFormatPicker value={adFormat} onChange={setAdFormat} disabled={loading} />
+
         {/* Phone: stacked full-width actions (primary on top) instead of two
             buttons fighting for one cramped row. Row layout returns ≥sm. */}
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
@@ -591,7 +600,7 @@ export function ScriptGenerator({
             disabled={loading}
             className="cm-btn cm-btn-primary w-full py-3 text-base sm:w-auto sm:px-7"
           >
-            {loading ? <><SparkleSpinner size={16} /> Generating…</> : 'Generate 3 variants'}
+            {loading ? <><SparkleSpinner size={16} /> Generating…</> : adFormat ? 'Generate 3 ad spots' : 'Generate 3 variants'}
           </button>
         </div>
       </div>

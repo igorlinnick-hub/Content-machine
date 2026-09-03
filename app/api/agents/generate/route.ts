@@ -7,7 +7,8 @@ import { convergeCompliance } from '@/lib/agents/compliance-loop'
 import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { resolveAccess } from '@/lib/auth/session'
 import { getCurrentPlanContext } from '@/lib/content-plan/store'
-import type { CriticOutput, ComplianceResult, ScriptVariant } from '@/types'
+import { isKnownAdFormat } from '@/lib/scripts/ad-formats'
+import type { CriticOutput, ComplianceResult, ScriptVariant, ScriptLengthTarget } from '@/types'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -18,6 +19,10 @@ interface GeneratePostBody {
   // Planned mode (90% path): pass the content_plan_topics.id so the
   // Writer receives the full pillar/theme/keyword context.
   planTopicId?: string
+  // Ad mode (Igor 2026-08-20): one of AD_FORMATS by name. Switches the whole
+  // run to the paid-spot shape — ad beats, 'ad' length target, ad rubric in
+  // the Critic. Ignored (and the run stays organic) if the name is unknown.
+  adFormat?: string
 }
 
 export async function POST(req: Request) {
@@ -44,6 +49,11 @@ export async function POST(req: Request) {
 
   const topicHint = body.topicHint?.trim() || undefined
   const planTopicId = body.planTopicId?.trim() || undefined
+  // Resolve against the registry rather than trusting the client string —
+  // an unknown name must degrade to a normal organic run, not reach the
+  // Writer as a bogus format block.
+  const adFormat = isKnownAdFormat(body.adFormat) ? body.adFormat!.trim() : undefined
+  const lengthTarget: ScriptLengthTarget | undefined = adFormat ? 'ad' : undefined
 
   // Resolve plan context: either from a specific plan topic or null (ad-hoc)
   const planContext = planTopicId
@@ -77,10 +87,10 @@ export async function POST(req: Request) {
         const context = await loadSharedContext(clinicId)
 
         stage('start')
-        let variants = await runWriter({ context, topicHint, planContext })
+        let variants = await runWriter({ context, topicHint, planContext, adFormat, lengthTarget })
         stage('writer:done')
 
-        let scores = await runCritic({ context, variants })
+        let scores = await runCritic({ context, variants, lengthTarget })
         stage('critic:done')
 
         const bestScore = Math.max(...scores.scores.map((s) => s.total_score))
@@ -88,9 +98,9 @@ export async function POST(req: Request) {
         if (needsRewrite) {
           stage('start')
           const feedback = buildFeedback(scores)
-          variants = await runWriter({ context, feedback, topicHint, planContext })
+          variants = await runWriter({ context, feedback, topicHint, planContext, adFormat, lengthTarget })
           stage('writer:done')
-          scores = await runCritic({ context, variants })
+          scores = await runCritic({ context, variants, lengthTarget })
           stage('critic:done')
         }
 
@@ -145,6 +155,10 @@ export async function POST(req: Request) {
               word_count: v.word_count,
               critic_score: s?.total_score ?? 0,
               approved: s?.approved ?? false,
+              // Ads carry their band so the library can tell a 30-second
+              // spot from a 90-second organic script; organic runs keep
+              // leaving this null, exactly as before.
+              length_target: lengthTarget ?? null,
               template_used: v.template_name ?? null,
             }
           })
