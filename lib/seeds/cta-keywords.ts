@@ -26,6 +26,16 @@ export const MANYCHAT_CTA_CATEGORIES = {
     'Semaglutide', 'Tirzepatide', 'Retatrutide', 'Ozempic', 'Mounjaro',
     'GLP-1', 'Injection', 'Program', 'Results', 'Appetite', 'Metabolism',
   ],
+  // HWC's 5th pillar (Igor 2026-08-31) — the /aesthetics/ page of
+  // hawaiiwellnessclinic.com: Botox, Microneedling, Lip Filler, Sculptra,
+  // Stem Cell Aesthetics, peptide-supported aesthetic wellness.
+  // Deliberately no PRP / STEMCELL here: both already read as joint work at
+  // HWC, and a face post must not land in the joint flow. Every word below is
+  // unique across the five pillars.
+  aesthetics: [
+    'BOTOX', 'FILLER', 'LIPS', 'SCULPTRA', 'MICRO', 'COLLAGEN',
+    'GLOW', 'SKIN', 'RENEW', 'PREVENTION', 'SMOOTH', 'REFRESH',
+  ],
 } as const
 
 // ── Aesthetics niche (Dr. Made) keyword pool ──────────────────────────────
@@ -57,12 +67,14 @@ export function keywordPoolForNiche(niche: string | null | undefined): {
       ...MANYCHAT_CTA_CATEGORIES.pain_joint,
       ...MANYCHAT_CTA_CATEGORIES.wellness_vitality,
       ...MANYCHAT_CTA_CATEGORIES.weight_loss,
+      ...MANYCHAT_CTA_CATEGORIES.aesthetics,
     ],
     promptBlock: [
       `Mental Health pillar: ${MANYCHAT_CTA_CATEGORIES.mental_health.join(', ')}`,
       `Pain & Joint pillar: ${MANYCHAT_CTA_CATEGORIES.pain_joint.join(', ')}`,
       `Wellness & Vitality pillar: ${MANYCHAT_CTA_CATEGORIES.wellness_vitality.join(', ')}`,
       `Weight Loss pillar: ${MANYCHAT_CTA_CATEGORIES.weight_loss.join(', ')}`,
+      `Aesthetics pillar: ${MANYCHAT_CTA_CATEGORIES.aesthetics.join(', ')}`,
     ].join('\n'),
   }
 }
@@ -99,6 +111,8 @@ export const CTA_KEYWORD_BY_TOPIC_SLUG: Record<string, string> = {
 // shipped with `Comment "PREVENTION"` — a word the model invented, absent from
 // every list — so the CTA on the slide was dead on arrival. Nothing outside
 // these pools may reach a slide: the splitter resolves through here.
+// (PREVENTION is now a real HWC aesthetics trigger — but still NOT in Made's
+// pool, so the same word on a Made post is still dropped.)
 
 // Used only when no candidate and no topic word resolves. Both are real
 // triggers, deliberately the broadest ones in their pool.

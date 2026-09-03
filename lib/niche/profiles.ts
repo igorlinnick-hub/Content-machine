@@ -10,7 +10,10 @@
 // Unknown niche → fallback to regenerative_medicine (zero breakage for
 // existing HWC clinics that have no niche set).
 
-import { AESTHETICS_CTA_KEYWORDS } from '@/lib/seeds/cta-keywords'
+import {
+  AESTHETICS_CTA_KEYWORDS,
+  MANYCHAT_CTA_CATEGORIES,
+} from '@/lib/seeds/cta-keywords'
 
 export type CtaMode = 'manychat' | 'booking'
 
@@ -77,7 +80,10 @@ const REGENMED_MANYCHAT_KEYWORDS = `KEYWORD must be chosen from the ManyChat tri
   ⚖️ Medical Weight Loss:
     Semaglutide, Tirzepatide, Retatrutide, Ozempic, Mounjaro, GLP-1, Injection, Program, Results, Appetite, Metabolism
 
-  Selection logic: identify which category the script belongs to → pick the word that most specifically names the treatment or mechanism covered (e.g. a TMS script → TMS, not Mood; a peptides script → Peptide, not Boost). If topic matches the 24-post deterministic map in lib/seeds/cta-keywords.ts, that exact keyword overrides this list.`
+  💎 Aesthetics (Botox, Microneedling, Lip Filler, Sculptra, Stem Cell Aesthetics):
+    ${MANYCHAT_CTA_CATEGORIES.aesthetics.join(', ')}
+
+  Selection logic: identify which category the script belongs to → pick the word that most specifically names the treatment or mechanism covered (e.g. a TMS script → TMS, not Mood; a peptides script → Peptide, not Boost; a Botox script → BOTOX, not SMOOTH; lip work → LIPS; microneedling → MICRO; Sculptra / collagen stimulation → SCULPTRA or COLLAGEN; stem cell facial or skin renewal → RENEW; preventative / «baby Botox» / starting early → PREVENTION; broad skin-quality or glow-up posts → SKIN, GLOW, or REFRESH). Aesthetics words are for FACE/SKIN posts only — never use them for joint, weight, or mental-health scripts, and never use PRP/Regenerative for a facial script (those route to the joint flow). If topic matches the 24-post deterministic map in lib/seeds/cta-keywords.ts, that exact keyword overrides this list.`
 
 const REGENMED_COMPLIANCE_FACTS = `  • NEVER claim a therapy "treats / cures / reverses / regenerates / restores" anything. Use "supports", "may help", "studies report", "pilot data shows".
   • NEVER state "FDA-approved" or "FDA-cleared" unless literally true for that exact product. Verified dates:
