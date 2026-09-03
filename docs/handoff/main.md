@@ -84,9 +84,12 @@ Evidence-слайд — студии из PubMed (`lib/posts/studies.ts`), по�
   переписанных на «только очередь». **Не деплоить, пока нет `scripts/clips-runner`** — иначе
   Drive-инбокс копит строки, а кодировать их некому (`/api/clips/from-recording` пока на старом
   пути, жуёт видео в лямбде с её потолком ~70 с материала).
-- **Не закоммичено — заход второй сессии 03.09:** правка `app/videos/page.tsx` (Uploads inbox
-  только админу), пересборка `scripts/render-doctor-guide.mjs`, удалённые `samples/*.html`
-  (все регенерируются скриптами) и этот файл. Их не трогали — сессия была активна.
+- **Хвост второй сессии закоммичен** (`3fe0daf`): «Inbox/Photo library только админу» в
+  `/videos`, одностраничный `render-doctor-guide.mjs`, вычищенные `samples/*.html`.
+- **Утечка в истории git:** до скраба 03.09 этот файл уходил в public-репо с кодами врачей и id
+  папки записей; дефолты `hwc-team`/`hwc-doctor` и раньше лежали в `render-staff-guide.mjs`.
+  Решить: сделать репозиторий приватным ИЛИ перевыпустить коды врачей (PDF перегенерятся одной
+  командой). До решения считать коды засвеченными.
 - **Публичный репозиторий.** `samples/doctor-guide-*-doctor.*` и `samples/floor-folder-access*.pdf`
   ушли в `.gitignore`: первый печатает рабочий install-код врача, второй — capability-ссылку на
   Drive-папку. `render-folder-card.mjs` берёт ссылку из `FOLDER_URL`, в исходнике её больше нет.
@@ -101,20 +104,17 @@ Evidence-слайд — студии из PubMed (`lib/posts/studies.ts`), по�
 - Canva MCP в этой сессии отвалился (просит авторизацию через настройки коннекторов claude.ai).
 
 ## Следующий шаг
-1. **PDF готовы** (03.09): `~/Downloads/HWC/Content Machine PDFs/` (рабочая HWC-папка Игоря)
-   — `doctor-guide-hwc-doctor.pdf` (Shawn, код `hwc-doctor`) и `doctor-guide-made-doctor.pdf`
-   (Made, код `made-doctor`); скрипт теперь пишет туда по умолчанию (fallback — `samples/`).
-   Формат финальный: одна страница в стиле приложения (Inter/violet, без QR и HWC-лого), папки
-   врача = Recordings + Finished videos (+ floor у Made); Inbox и Photo library — только админу
-   (и в чипах `/videos`). Терms — мелким текстом внизу. Генерация шла с runner-env
-   (Supabase есть, Drive-ключей нет) — `vercel env pull` бесполезен: prod-переменные Sensitive,
-   pull пишет `[SENSITIVE]`. Папка записей передана флагом `--recordings-folder`
-   `1q97nn6GF3ZlE5IiLp0ggniqZ7AzPqvyJ` (= Recordings/Hawaii Wellness Clinic, общая для обеих
-   клиник). Все остальные ссылки папок проверены curl — открыты.
-2. **Один клик руками:** открыть по ссылке папку Recordings `1q97nn6…` (Drive → Share →
-   Anyone with the link, владелец hellosystems111) — до этого её ссылка в PDF и будущий чип
-   в `/videos` дают запрос доступа.
-3. Закоммитить хвост второй сессии (`page.tsx` + пересобранный `render-doctor-guide.mjs`) —
-   чипы папок в `/videos` уже в проде, но правка «Inbox только админу» ещё нет.
-4. Дописать `scripts/clips-runner` по образцу `canva-runner` и только тогда коммитить клипы.
-5. Дождаться первого штатного крона floor-media (07:00 UTC) и проверить пуш-дайджест.
+1. **PDF готовы и отданы в руки** (03.09): `~/Downloads/HWC/Content Machine PDFs/` (рабочая
+   HWC-папка Игоря) — по одному на Shawn и Made; скрипт пишет туда по умолчанию (fallback —
+   `samples/`). Формат финальный: одна страница в стиле приложения (Inter/violet, без QR и
+   HWC-лого), папки врача = Recordings + Finished videos (+ floor у Made); Inbox и Photo
+   library — только админу (и в чипах `/videos`). Терms — мелким текстом внизу. Коды и
+   инсталл-ссылки напечатаны в самих PDF — **в репо их не держим, репозиторий публичный**.
+   Генерация шла с runner-env (Supabase есть, Drive-ключей нет) — `vercel env pull` бесполезен:
+   prod-переменные Sensitive, pull пишет `[SENSITIVE]`. Папка записей (общая для обеих клиник)
+   передаётся флагом `--recordings-folder <id>`; id — в Drive (`Recordings/Hawaii Wellness
+   Clinic`). Она открыта anyone-with-link (Игорь, 03.09); все ссылки папок проверены curl.
+2. Задеплоить хвост второй сессии (закоммичен `3fe0daf`) — «Inbox/Photo library только админу»
+   в `/videos` попадёт в прод со следующим деплоем.
+3. Дописать `scripts/clips-runner` по образцу `canva-runner` и только тогда коммитить клипы.
+4. Дождаться первого штатного крона floor-media (07:00 UTC) и проверить пуш-дайджест.
