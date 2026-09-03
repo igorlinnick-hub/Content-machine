@@ -7,7 +7,7 @@ import { MODEL_HAIKU, callAgentJSON } from '@/lib/agents/base'
 // Writer falls back to the static VERIFIED FACTS block (never blocks a post).
 //
 // Source: NCBI E-utilities (free, no API key). We stay polite with a `tool` +
-// `email` param and a small per-post request budget (1 esearch + 1 esummary +
+// `email` param and a small per-post request budget (1-2 esearch + 1 esummary +
 // 1 efetch). Quality is enforced three ways: (1) PubMed publication-type filter
 // (RCT / meta-analysis / systematic review / review), (2) a recency window,
 // (3) a top-journal preference at the LLM selection step. An LLM builds a
@@ -215,11 +215,21 @@ export async function fetchStudiesForTopic(params: {
     const core = await buildQuery(topic, params.keyword ?? null)
     const typeFilter =
       '(Meta-Analysis[ptyp] OR systematic[sb] OR Randomized Controlled Trial[ptyp] OR Clinical Trial[ptyp] OR Review[ptyp])'
-    // Primary: quality types + last 7 years, human, English.
-    let ids = await esearch(
-      `(${core}) AND ${typeFilter} AND ("last 7 years"[dp]) AND English[lang] AND humans[mesh]`
-    )
-    // Relax once if empty: drop the type filter, widen to 10 years.
+    const base = `(${core}) AND ${typeFilter} AND English[lang] AND humans[mesh]`
+    // Recency tiers (Igor 2026-08-26, the NAD+ "three key studies" lesson): a
+    // flat 7-year window sorted by relevance let 2021 papers outrank 2025 ones,
+    // so evidence slides read stale in 2026. Fresh tier first (last 3 years);
+    // top up from the 7-year pool only when the fresh tier is thin, and keep
+    // the fresh ids at the head so the selector's "recent > old" has something
+    // to prefer.
+    const MIN_FRESH = 6
+    const fresh = await esearch(`${base} AND ("last 3 years"[dp])`)
+    let ids = fresh
+    if (fresh.length < MIN_FRESH) {
+      const wider = await esearch(`${base} AND ("last 7 years"[dp])`)
+      ids = [...fresh, ...wider.filter((id) => !fresh.includes(id))]
+    }
+    // Relax once more if still empty: drop the type filter, widen to 10 years.
     if (ids.length === 0) {
       ids = await esearch(`(${core}) AND ("last 10 years"[dp]) AND English[lang]`)
     }
@@ -261,6 +271,13 @@ evidence, not list citations):
   that names the journal or trial + year AND says what it found and why it
   matters to the reader (NOT a terse "Trial X: Y" one-liner). Blank line between
   each so they read as separate, breathing points.
+- The year rides WITH the journal/trial name in the SAME sentence ("a 2025
+  trial in Nature Medicine found…"). NEVER a bare-year list ("2021: …",
+  "2023: …", "2024: …") — that shape is what the compliance gate flags
+  (R-FACT-02) and it reads as a pasted timeline, not evidence.
+- Say what each study FOUND. Never "trials are testing…" / "underway" /
+  "being studied" — an ongoing-trial line is a currency claim that expires
+  (R-CURR-01) and dates the post the moment those trials report.
 - Close with a one-line takeaway that ties them together.
 - Fill the slide (~55-90 words total). Never a one-line-per-study citation dump,
   never a run-on wall.
