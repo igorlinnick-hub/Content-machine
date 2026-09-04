@@ -53,6 +53,58 @@ async function getOrCreateFolder(
 // /videos calls this on every doctor page load.
 const recordingsFolderCache = new Map<string, string>()
 
+// The recordings root is a folder in a personal Drive, and whose Drive that
+// is changed on 2026-09-03: the app now runs on a kinnil.official token,
+// which cannot see the hellosystems111-owned folder DRIVE_RECORDINGS_ROOT_FOLDER_ID
+// still points at. Every save then died in the folder lookup with a bare
+// Drive 404 ("File not found: <id>") before a byte left the phone. Probe the
+// configured root once per instance and fall back to the Drive root the app
+// itself owns — GOOGLE_DRIVE_FOLDER_ID, which already holds a Recordings
+// folder — so a mis-shared root degrades into the wrong folder, never into
+// a doctor losing a take.
+let recordingsRootPromise: Promise<string> | null = null
+
+async function resolveRecordingsRootId(): Promise<string> {
+  if (recordingsRootPromise) return recordingsRootPromise
+
+  const configured = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID
+  const fallback = process.env.GOOGLE_DRIVE_FOLDER_ID
+  if (!configured && !fallback) {
+    throw new Error(
+      'DRIVE_RECORDINGS_ROOT_FOLDER_ID is not set. ' +
+      'Create a folder in your Google Drive, share it with the service account (Editor), ' +
+      'and set this env var to its folder ID.'
+    )
+  }
+
+  recordingsRootPromise = (async () => {
+    if (!configured) return fallback!
+    const drive = getUserDriveClient() ?? getDriveClient()
+    try {
+      await drive.files.get({ fileId: configured, fields: 'id', supportsAllDrives: true })
+      return configured
+    } catch (e) {
+      const code = (e as { code?: number }).code
+      if ((code === 404 || code === 403) && fallback) {
+        console.warn(
+          `[recordings] DRIVE_RECORDINGS_ROOT_FOLDER_ID (${configured}) is not readable by ` +
+          `the Drive account this deploy runs as (${code}); using GOOGLE_DRIVE_FOLDER_ID ` +
+          `(${fallback}) instead. Share the configured root with that account, or repoint the env var.`
+        )
+        return fallback
+      }
+      throw e
+    }
+  })()
+
+  try {
+    return await recordingsRootPromise
+  } catch (e) {
+    recordingsRootPromise = null // a transient failure must not stick
+    throw e
+  }
+}
+
 // Resolve (creating if needed) the clinic's teleprompter-recordings folder —
 // <DRIVE_RECORDINGS_ROOT>/Recordings/<clinicName> — so the doctor can be
 // handed a direct Drive folder link. Null when Drive isn't configured or
@@ -60,12 +112,11 @@ const recordingsFolderCache = new Map<string, string>()
 export async function getClinicRecordingsFolderId(
   clinicName: string
 ): Promise<string | null> {
-  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID
-  if (!contentMachineId) return null
   const cached = recordingsFolderCache.get(clinicName)
   if (cached) return cached
   try {
-    const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
+    const rootId = await resolveRecordingsRootId()
+    const recordingsParentId = await getOrCreateFolder(rootId, 'Recordings')
     const id = await getOrCreateFolder(recordingsParentId, clinicName, {
       linkViewOnCreate: true,
     })
@@ -88,14 +139,7 @@ export async function uploadRecording(
   // Structure: DRIVE_RECORDINGS_ROOT_FOLDER_ID → {clinicName} → file
   // This MUST be a folder in a personal Google Drive shared with the SA (Editor).
   // Service accounts have no storage quota — files must live in a user-owned folder.
-  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID
-  if (!contentMachineId) {
-    throw new Error(
-      'DRIVE_RECORDINGS_ROOT_FOLDER_ID is not set. ' +
-      'Create a folder in your Google Drive, share it with the service account (Editor), ' +
-      'and set this env var to its folder ID.'
-    )
-  }
+  const contentMachineId = await resolveRecordingsRootId()
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
   const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName, {
     linkViewOnCreate: true,
@@ -130,14 +174,7 @@ export async function createUploadSession(
   mimeType: string,
   clientOrigin = ''
 ): Promise<{ uploadUrl: string }> {
-  const contentMachineId = process.env.DRIVE_RECORDINGS_ROOT_FOLDER_ID
-  if (!contentMachineId) {
-    throw new Error(
-      'DRIVE_RECORDINGS_ROOT_FOLDER_ID is not set. ' +
-      'Create a folder in your Google Drive, share it with the service account (Editor), ' +
-      'and set this env var to its folder ID.'
-    )
-  }
+  const contentMachineId = await resolveRecordingsRootId()
   const recordingsParentId = await getOrCreateFolder(contentMachineId, 'Recordings')
   const clinicFolderId = await getOrCreateFolder(recordingsParentId, clinicName, {
     linkViewOnCreate: true,
