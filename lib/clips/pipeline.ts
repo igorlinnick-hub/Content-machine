@@ -16,7 +16,12 @@ import {
   type ClinicDriveFolders,
 } from '@/lib/google/clinicFolders'
 import { allowLinkView } from '@/lib/google/drive'
-import { cutAndBurn, extractAudioMp3, normalizeSource } from './ffmpeg'
+import {
+  cutAndBurn,
+  extractAudioMp3,
+  probeDurationSec,
+  probeSourceFps,
+} from './ffmpeg'
 import { buildKaraokeAss } from './ass'
 import { buildSrt } from './srt'
 import {
@@ -86,7 +91,6 @@ export async function processClip(params: {
 
   const work = await mkdtemp(join(tmpdir(), 'clip-'))
   const rawPath = join(work, 'raw.mp4')
-  const normPath = join(work, 'norm.mp4')
   const audioPath = join(work, 'audio.mp3')
   const srtPath = join(work, 'transcript.srt')
   const finalPath = join(work, 'final.mp4')
@@ -106,17 +110,21 @@ export async function processClip(params: {
     const rawBuf = await downloadDriveFileToBuffer(inboxClip.id)
     await writeFile(rawPath, rawBuf)
 
-    // 1b. Normalize to clean 30fps CFR on the 9:16 Reels canvas —
-    //     browser webm timestamps are broken; every later stage
-    //     (Whisper audio, trims, burn) works off this file.
-    await stage('normalize')
-    await normalizeSource(rawPath, normPath)
-    await unlink(rawPath).catch(() => {})
+    // 1b. Measure the source instead of re-encoding it. The container
+    //     cannot be trusted (a browser take declared 600fps), so the real
+    //     rate is counted off the media and forced on the single encode
+    //     later; the duration comes off the audio track, which browsers
+    //     get right. Both probes only demux — under a second each.
+    await stage('probe')
+    const inputFps = await probeSourceFps(rawPath)
+    const mediaDuration = await probeDurationSec(rawPath)
 
     // 2. Extract low-bitrate mono mp3 for Whisper, then drop raw
-    //    bytes from memory to save heap.
+    //    bytes from memory to save heap. Audio comes off the SAME file the
+    //    trims will run on, so transcript time and video time are one
+    //    timeline.
     await stage('audio')
-    await extractAudioMp3(normPath, audioPath)
+    await extractAudioMp3(rawPath, audioPath)
     const audioBuf = await readFile(audioPath)
 
     // 3. Transcribe.
@@ -134,13 +142,24 @@ export async function processClip(params: {
     //    drops and the pipeline continues with filler/silence only.
     await stage('retakes')
     const retakes = await detectRetakeDrops(whisper.segments)
-    const liveSegments =
-      retakes.count > 0
-        ? whisper.segments.filter((s) => !retakes.dropIds.has(s.id))
-        : whisper.segments
 
     // 5. Plan cuts.
-    const plan = planCuts(liveSegments, whisper.duration)
+    // The media's own duration, not the last segment's end — Whisper stops
+    // timing where speech stops, and clamping the tail to that would shave
+    // whatever the doctor left after the final word.
+    const plan = planCuts(
+      whisper.segments,
+      whisper.words,
+      mediaDuration || whisper.duration,
+      retakes.dropIds
+    )
+    if (plan.refused_count > 0) {
+      // Not an error: the planner found no silence it could cut in and kept
+      // the flub rather than clipping the words around it.
+      console.warn(
+        `clips: ${plan.refused_count} cut(s) refused — no silence to cut in`
+      )
+    }
     if (plan.keep.length === 0) {
       throw new Error(
         'cut planner produced 0 keep intervals — clip is all filler / silence?'
@@ -151,19 +170,20 @@ export async function processClip(params: {
     //    cuts + caption burn in ONE encode — the only visible
     //    generation on top of the near-lossless normalize
     //    (Правила монтажа: ≤2 поколений кодирования).
-    const srt = buildSrt(plan.cues, plan.keep)
+    const srt = buildSrt({ words: plan.words, cues: plan.cues, keep: plan.keep })
     await writeFile(srtPath, srt, 'utf8')
 
     const captionStyle = resolveCaptionStyle(
       await getClinicCaptionStyle(clinicId)
     )
     await stage('cut+burn')
-    if (captionStyle.animated && captionStyle.ass && whisper.words.length > 0) {
+    if (captionStyle.animated && captionStyle.ass && plan.words.length > 0) {
       const assPath = srtPath.replace(/\.srt$/, '.ass')
-      const ass = buildKaraokeAss(whisper.words, plan.keep, captionStyle.ass)
+      const ass = buildKaraokeAss(plan.words, plan.keep, captionStyle.ass)
       await writeFile(assPath, ass, 'utf8')
       await cutAndBurn({
-        inputPath: normPath,
+        inputPath: rawPath,
+        inputFps,
         outputPath: finalPath,
         intervals: plan.keep,
         subtitlePath: assPath,
@@ -171,14 +191,15 @@ export async function processClip(params: {
       await unlink(assPath).catch(() => {})
     } else {
       await cutAndBurn({
-        inputPath: normPath,
+        inputPath: rawPath,
+        inputFps,
         outputPath: finalPath,
         intervals: plan.keep,
         subtitlePath: srtPath,
         forceStyle: captionStyle.forceStyle,
       })
     }
-    await unlink(normPath).catch(() => {})
+    await unlink(rawPath).catch(() => {})
 
     // 9. Upload artifacts to a per-clip folder — under the clinic's
     //    Finals/ or the legacy global Cleaned/.
