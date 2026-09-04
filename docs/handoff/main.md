@@ -9,9 +9,12 @@
 **Drive приложения = `kinnil.official@gmail.com` (с 03.09).** `GOOGLE_DRIVE_USER_REFRESH_TOKEN` в
 Vercel перевыпущен на этот аккаунт (`scripts/get-drive-token.mjs`, клиент `drive-upload`, Desktop,
 но требует `GOOGLE_OAUTH_CLIENT_SECRET`). Было `hellosystems111` с бесплатными 15 ГБ → стало 107 ГБ
-(занято ~34). Корни `content-machine` (записи) и `Clinic Clips` (папки клиник) и так принадлежали
-kinnil, поэтому шарить ничего не пришлось; старые файлы остались за hellosystems111 — читаются,
-но кнопка удаления по ним откажет. Секреты клиента в Vercel — write-only, читать только в GCP
+(занято ~34). `Clinic Clips` принадлежал kinnil, а **корень записей — нет**: старое значение
+`DRIVE_RECORDINGS_ROOT_FOLDER_ID` (`1XDZ…`) — папка hellosystems111, расшарена была только её
+дочерняя `Recordings`, и телесуфлёр из-за этого перестал сохранять (см. «Последний заход»).
+Теперь корень записей = `content-machine` (`1rqNJb…`, владелец kinnil), файлы ложатся в
+`content-machine/Recordings/<клиника>`; папка клиники создаётся с anyone-reader. Старые 8 записей
+(по 22.08) остались за hellosystems111 — читаются, но кнопка удаления по ним откажет. Секреты клиента в Vercel — write-only, читать только в GCP
 (Client secrets → Add secret, старый показать нельзя).
 
 **Деплой — автоматический по `git push`.** GitHub-интеграция Vercel поднимает Production на
@@ -40,6 +43,13 @@ BINDING, выдуманное слово режется в `resolveCtaKeyword`. 
 FILLER, LIPS, SCULPTRA, MICRO, COLLAGEN, GLOW, SKIN, RENEW, VOLUME, SMOOTH, REFRESH) **заведены
 в ManyChat HWC** — подтверждено Игорем 03.09, цепочка пост → комментарий → бот замкнута.
 
+**Гайды врачей — розданы (03.09).** По одному PDF на Shawn и Made в `~/Downloads/HWC/Content
+Machine PDFs/` (скрипт пишет туда, fallback — `samples/`). Формат финальный: одна страница в стиле
+приложения (Inter/violet, без QR и лого), папки = Recordings + Finished videos (+ floor у Made),
+Inbox и Photo library — только админу, terms мелким внизу. Коды и инсталл-ссылки напечатаны в самих
+PDF — **в репо не держим, репозиторий публичный**. Прод-переменные sensitive, поэтому `env pull` для
+генерации бесполезен: папка записей передаётся флагом `--recordings-folder <id>`.
+
 **Тексты:** формат = HOW, тема = WHAT; клише забанены тестом «сказал бы врач одному пациенту?».
 Каталог форматов — 6 (`lib/posts/formats.ts`), один источник для планировщика, кнопок и сидинга
 `script_templates`. **Treatment explainer** — единственный, кто приземляется на услугу из
@@ -56,6 +66,12 @@ Evidence-слайд — студии из PubMed (`lib/posts/studies.ts`), по�
 кабинет, BOTANICAL — аналогии; клиника ≤25%. Правила и грабли Flux: `POST-CRAFT.md §5a`, `SKILL.md §4`.
 
 ## Последний заход
+- **Телесуфлёр не сохранял в Drive — починено, в проде (03.09).** После смены аккаунта каждое
+  «Save to Drive» падало 404 на поиске корневой папки, врач видел голое `File not found: <id>`;
+  файл ≥4 МБ не спасал и прокси-фолбэк. `lib/google/recordings.ts` теперь один раз проверяет корень
+  (`files.get`) и при 404/403 уходит в `GOOGLE_DRIVE_FOLDER_ID`, оставив предупреждение в логе
+  (`e72a618`); `DRIVE_RECORDINGS_ROOT_FOLDER_ID` переписан на `1rqNJb…`. Проверено живьём: запись
+  8.2 МБ легла в `content-machine/Recordings/Hawaii Wellness Clinic`, владелец — kinnil.
 - **Врачебный доступ к материалам (03.09, не задеплоено).** По решению Игоря «их контент остаётся
   их»: (1) `/videos` теперь показывает врачу ряд чипов **«Your folders in Drive»** — Recordings /
   Finished videos / Uploads inbox / Photo library / Clinic photos&clips, строится из колонок
@@ -72,8 +88,6 @@ Evidence-слайд — студии из PubMed (`lib/posts/studies.ts`), по�
   MA пишет в Drive-папку `Untitled form (File responses)`; CM зеркалит её в `floor_media` и показывает
   **вкладкой в `/videos`** — админской, доктор её не видит. Подробности модуля — `HANDOFF-MODULES.md` §6b
   и `docs/handoff/floor-media.md`.
-- Папка привязана к клинике Made (`clinics.drive_floor_folder_id`), в базе 10 файлов: 9 клипов
-  (8 от Madé Alder, 31.08) + 1 тестовое фото. **Фото от MA пока нет ни одного** — грузят только видео.
 - Push стали admin-scoped (`push_subscriptions.is_admin`), floor-пинги уходят ТОЛЬКО админам;
   `PushToggle` вернулся в UI (шапка `/videos`) — подписок теперь 2, обе админские Игоря.
   Починен `public/sw.js`: клик по уведомлению вёл в `/clips` независимо от payload.
@@ -81,18 +95,11 @@ Evidence-слайд — студии из PubMed (`lib/posts/studies.ts`), по�
   копии лежат в `Documents/Code Projects/Hawaii Wellness Clinic/HWC-Floor-Folder-Access[-BW].pdf`.
 
 ## Сломано / открытые хвосты
-- **Хвосты разобраны и запушены 03.09** (`8957eee`…`19d8145`): обложка §2c, ярусы PubMed,
-  эстетические CTA-ключи, рекламный контур целиком (`ad-formats.ts`, `AdFormatPicker`,
-  `ADS-CRAFT.md`, 051), серверный рендер (`lib/render/`, `lib/photos/*`, 047, шрифты + трассировка
-  шрифтов в лямбду рендера), папки врача и `render-doctor-guide.mjs`, `render-folder-card.mjs`,
-  `floor-media.md`, `get-drive-token.mjs`, `types/supabase.ts`, миграция 054.
 - **Клипы закоммичены и в проде** (`8fcadb6`), область сужена до телесуфлёра (Игорь 03.09):
   резы только в тишине по словам, общий таймлайн для прожига и `.srt`, один проход кодирования
   вместо двух. Модульный хендофф — `docs/handoff/clips.md`. Переписанные на «только очередь»
   `/api/clips/process` и `/api/cron/clips-inbox` **запаркованы в `git stash`** (раннера нет,
   очередь копила бы строки молча). Не проверено живьём на настоящем MediaRecorder-файле.
-- **Хвост второй сессии закоммичен** (`3fe0daf`): «Inbox/Photo library только админу» в
-  `/videos`, одностраничный `render-doctor-guide.mjs`, вычищенные `samples/*.html`.
 - **Коды врачей в истории public-репо — риск принят Игорем 03.09** («забей, никто не будет
   трогать их коды»): до скраба они были в этом файле, дефолты `hwc-team`/`hwc-doctor` — в
   `render-staff-guide.mjs`. Не перевыпускаем и репо не закрываем; вопрос закрыт, заново не
@@ -105,22 +112,23 @@ Evidence-слайд — студии из PubMed (`lib/posts/studies.ts`), по�
   никто не ссылается (гайд финализирован без лого), но фраза «переложен в репо» неверна.
 - Vercel **Hobby** с шестью cron-записями: деплой прошёл, но если сборка когда-нибудь упрётся в лимит —
   первой снимать `/api/cron/floor-media` (модуль переживёт: останутся Sync now и синк при открытии).
+- Первый штатный крон `/api/cron/floor-media` (07:00 UTC) ещё не отрабатывал — проверить, что
+  пуш-дайджест уходит.
 - Превью части видео Made ещё генерируются Drive (у файлов от 28.08 они уже есть) — не баг, плитка
   сама перезапрашивает 4 раза по 45 с.
 - Доступ «Anyone with the link» на папке формы **снимать НЕЛЬЗЯ** (передумано 03.09): на нём держатся
   врачебные ссылки на папки в `/videos` и в PDF-гайде — врачи ходят по ссылке без Google-логина.
+- **Розданные PDF-гайды указывают на СТАРУЮ папку записей** (`1q97nn…`, дерево hellosystems111):
+  новые записи туда больше не попадают. В `/videos` чипы считаются живьём и ведут куда надо —
+  расходятся только напечатанные ссылки. Чинится перегенерацией с `--recordings-folder
+  1Zn1cerArg3p5E-oDQD0BYhv2gfXjRQEL`.
+- **`DRIVE_RECORDINGS_ROOT_FOLDER_ID` не читается обратно:** политика проекта держит переменную
+  sensitive, пересоздание через CLI флаг не снимает, `env pull` отдаёт `[SENSITIVE]`. Значит
+  записанное значение нельзя проверить чтением — только по поведению. Снимается в дашборде
+  (Settings → Environment Variables) с последующим пересозданием переменной.
 - Canva MCP в этой сессии отвалился (просит авторизацию через настройки коннекторов claude.ai).
 
 ## Следующий шаг
-1. **PDF готовы и отданы в руки** (03.09): `~/Downloads/HWC/Content Machine PDFs/` (рабочая
-   HWC-папка Игоря) — по одному на Shawn и Made; скрипт пишет туда по умолчанию (fallback —
-   `samples/`). Формат финальный: одна страница в стиле приложения (Inter/violet, без QR и
-   HWC-лого), папки врача = Recordings + Finished videos (+ floor у Made); Inbox и Photo
-   library — только админу (и в чипах `/videos`). Терms — мелким текстом внизу. Коды и
-   инсталл-ссылки напечатаны в самих PDF — **в репо их не держим, репозиторий публичный**.
-   Генерация шла с runner-env (Supabase есть, Drive-ключей нет) — `vercel env pull` бесполезен:
-   prod-переменные Sensitive, pull пишет `[SENSITIVE]`. Папка записей (общая для обеих клиник)
-   передаётся флагом `--recordings-folder <id>`; id — в Drive (`Recordings/Hawaii Wellness
-   Clinic`). Она открыта anyone-with-link (Игорь, 03.09); все ссылки папок проверены curl.
-2. Дописать `scripts/clips-runner` по образцу `canva-runner` и только тогда коммитить клипы.
-3. Дождаться первого штатного крона floor-media (07:00 UTC) и проверить пуш-дайджест.
+Перегенерировать оба PDF-гайда с новым id папки записей — `node --env-file=.env.vercel.local
+scripts/render-doctor-guide.mjs --clinic shawn|made --recordings-folder 1Zn1cerArg3p5E-oDQD0BYhv2gfXjRQEL`
+— у врачей на руках версия со ссылкой в старое дерево, куда новые записи уже не попадают.
