@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
-import { allowLinkView, restrictDownload } from '@/lib/google/drive'
+import {
+  allowLinkView,
+  readDownloadLock,
+  restrictDownload,
+} from '@/lib/google/drive'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -47,16 +51,42 @@ export async function POST(req: Request) {
     ...(clips ?? []).map((c) => c.cleaned_file_id as string | null),
   ].filter((id): id is string => Boolean(id))
 
+  // Per file: did the lock actually land? Read the flag back from Drive
+  // instead of trusting the write — a swallowed error here is how the
+  // first run reported success while the files stayed downloadable.
+  const results: {
+    id: string
+    locked: boolean | null
+    shared: boolean
+    error?: string
+  }[] = []
   let fixed = 0
   for (const id of ids) {
+    let shared = false
     try {
       await allowLinkView(id)
+      shared = true
       fixed += 1
     } catch {
       // Already shared (create rejects a duplicate) or the file is gone —
       // the download flag below is the point of a re-run either way.
     }
-    await restrictDownload(id, !unlock).catch(() => {})
+    let error: string | undefined
+    try {
+      await restrictDownload(id, !unlock)
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e)
+    }
+    const locked = await readDownloadLock(id).catch(() => null)
+    results.push({ id, locked, shared, ...(error ? { error } : {}) })
   }
-  return NextResponse.json({ ok: true, total: ids.length, fixed, unlock })
+  const locked = results.filter((r) => r.locked === true).length
+  return NextResponse.json({
+    ok: true,
+    total: ids.length,
+    fixed,
+    locked,
+    unlock,
+    results,
+  })
 }

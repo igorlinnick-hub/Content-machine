@@ -78,6 +78,19 @@ export async function restrictDownload(
   })
 }
 
+// What Drive actually holds for the download lock, straight from the
+// file. The write can fail on a file we don't own; asking afterwards is
+// the only honest confirmation.
+export async function readDownloadLock(fileId: string): Promise<boolean | null> {
+  const drive = getUserDriveClient() ?? getDriveClient()
+  const { data } = await drive.files.get({
+    fileId,
+    fields: 'copyRequiresWriterPermission, ownedByMe, capabilities/canEdit',
+    supportsAllDrives: true,
+  })
+  return data.copyRequiresWriterPermission ?? null
+}
+
 export interface Photo {
   id: string
   name: string
