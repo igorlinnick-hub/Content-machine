@@ -36,7 +36,7 @@ const LINK_VIEW_BATCH = 30
 
 async function makeViewable(rows: FloorMediaRow[]): Promise<void> {
   for (const row of rows.slice(0, LINK_VIEW_BATCH)) {
-    await allowLinkView(row.drive_file_id).catch(() => {})
+    await allowLinkView(row.drive_file_id, { noDownload: true }).catch(() => {})
   }
 }
 

@@ -39,11 +39,41 @@ export async function getUserAccessToken(): Promise<string | null> {
 // are private, and the viewer's browser may be signed into a
 // different Google account. Unlisted-link exposure is accepted for
 // clinic raw/cleaned videos (decided 2026-07-23).
-export async function allowLinkView(fileId: string): Promise<void> {
+export async function allowLinkView(
+  fileId: string,
+  opts: { noDownload?: boolean } = {}
+): Promise<void> {
   const drive = getUserDriveClient() ?? getDriveClient()
   await drive.permissions.create({
     fileId,
     requestBody: { role: 'reader', type: 'anyone' },
+    supportsAllDrives: true,
+  })
+  // Link-view alone still hands a reader the Download button. Every
+  // *file* we share this way is watch-only for the clinic (2026-09-10):
+  // the edit is the service we sell, the doctor watches, we deliver.
+  // Never pass this for folders — the flag is file-only.
+  if (opts.noDownload) await restrictDownload(fileId).catch(() => {})
+}
+
+// Readers and commenters lose download / print / copy — the file still
+// plays in the /preview embed we use everywhere. Owner and writers (us)
+// are unaffected, so auto-edit and our own downloads keep working.
+// Idempotent: safe to re-run over files that already carry it.
+// Unverified against live Drive: whether the gallery's
+// drive.google.com/thumbnail tiles survive the flag for an anonymous
+// viewer. They degrade to the gradient tile if not (see Thumb in
+// app/videos/VideoLibrary.tsx) — nothing breaks. Roll back per file with
+// restrictDownload(id, false), or per clinic via
+// POST /api/studio/recordings/fix-permissions?clinicId=…&unlock=1.
+export async function restrictDownload(
+  fileId: string,
+  restricted = true
+): Promise<void> {
+  const drive = getUserDriveClient() ?? getDriveClient()
+  await drive.files.update({
+    fileId,
+    requestBody: { copyRequiresWriterPermission: restricted },
     supportsAllDrives: true,
   })
 }

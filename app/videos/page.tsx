@@ -18,6 +18,12 @@ export const metadata = { title: 'My videos — Content Machine' }
 // (files are made link-viewable on upload, see allowLinkView). No editing,
 // no deleting here: the editor's tools live in admin-only /clips.
 //
+// Watch-only for the doctor (Igor 2026-09-10): no Drive folder chips, no
+// "Open in Drive" on a take, and the files themselves carry
+// copyRequiresWriterPermission so the Drive player shows no Download
+// either. We run the edit and deliver the finished file; downloading raw
+// takes is ours. Admin sees every door as before.
+//
 // Second tab (added 2026-08-31): "From the floor" — the photos and clips the
 // medical assistants upload through the clinic's Google Form, mirrored from
 // its Drive folder (lib/floor/*). Its own tab on purpose: MA b-roll is not
@@ -66,46 +72,48 @@ export default async function VideosPage({ searchParams }: PageProps) {
   ])
   if (!clinic) redirect('/dashboard')
 
-  // "Their materials stay theirs" (Access & Terms) made concrete: direct
-  // links to the clinic's own Drive folders — teleprompter takes, finished
-  // edits, raw uploads, photos. The folders carry anyone-with-link reader
-  // (see allowLinkView call sites), so a doctor signed into no Google
-  // account still gets in. Absent id = absent chip, never an error.
-  const recordingsFolderId = await getClinicRecordingsFolderId(clinic.name).catch(
-    () => null
-  )
+  // Direct links to the clinic's Drive folders — teleprompter takes,
+  // finished edits, raw uploads, photos. ADMIN ONLY since 2026-09-10:
+  // a Drive folder is a download button, and the doctor's side of this
+  // screen is watch-only (we do the editing, we hand over the files).
+  // Absent id = absent chip, never an error.
+  const canOpenDrive = access.role === 'admin'
+  const recordingsFolderId = canOpenDrive
+    ? await getClinicRecordingsFolderId(clinic.name).catch(() => null)
+    : null
   const folderUrl = (id: string) => `https://drive.google.com/drive/folders/${id}`
   const folders: FolderLink[] = []
-  if (recordingsFolderId)
-    folders.push({ key: 'recordings', label: 'Recordings', url: folderUrl(recordingsFolderId) })
-  if (clinic.drive_finals_folder_id)
-    folders.push({
-      key: 'finals',
-      label: 'Finished videos',
-      url: folderUrl(clinic.drive_finals_folder_id),
-    })
-  // The Inbox is the team's internal door into auto-edit — the doctor's
-  // channels are the teleprompter and the MA form (Igor 2026-09-03).
-  if (clinic.drive_inbox_folder_id && access.role === 'admin')
-    folders.push({
-      key: 'inbox',
-      label: 'Uploads inbox',
-      url: folderUrl(clinic.drive_inbox_folder_id),
-    })
-  // Admin-only, like the inbox: the photo library feeds the Posts
-  // workspace, which doctors don't have.
-  if (clinic.photo_library_folder_id && access.role === 'admin')
-    folders.push({
-      key: 'photos',
-      label: 'Photo library',
-      url: folderUrl(clinic.photo_library_folder_id),
-    })
-  if (clinic.drive_floor_folder_id)
-    folders.push({
-      key: 'floor',
-      label: 'Clinic photos & clips',
-      url: folderUrl(clinic.drive_floor_folder_id),
-    })
+  if (canOpenDrive) {
+    if (recordingsFolderId)
+      folders.push({ key: 'recordings', label: 'Recordings', url: folderUrl(recordingsFolderId) })
+    if (clinic.drive_finals_folder_id)
+      folders.push({
+        key: 'finals',
+        label: 'Finished videos',
+        url: folderUrl(clinic.drive_finals_folder_id),
+      })
+    // The Inbox is the team's internal door into auto-edit — the doctor's
+    // channels are the teleprompter and the MA form (Igor 2026-09-03).
+    if (clinic.drive_inbox_folder_id)
+      folders.push({
+        key: 'inbox',
+        label: 'Uploads inbox',
+        url: folderUrl(clinic.drive_inbox_folder_id),
+      })
+    // The photo library feeds the Posts workspace, which doctors don't have.
+    if (clinic.photo_library_folder_id)
+      folders.push({
+        key: 'photos',
+        label: 'Photo library',
+        url: folderUrl(clinic.photo_library_folder_id),
+      })
+    if (clinic.drive_floor_folder_id)
+      folders.push({
+        key: 'floor',
+        label: 'Clinic photos & clips',
+        url: folderUrl(clinic.drive_floor_folder_id),
+      })
+  }
 
   const recordings: LibraryItem[] = (recordingRows ?? []).map((r) => ({
     id: r.id,
@@ -159,7 +167,11 @@ export default async function VideosPage({ searchParams }: PageProps) {
           eyebrow={clinic.full_name ?? clinic.name}
           eyebrowColor="text-violet-500"
           title="My videos"
-          subtitle="Your teleprompter takes, and what the team shot on the floor."
+          subtitle={
+            canOpenDrive
+              ? 'Your teleprompter takes, and what the team shot on the floor.'
+              : 'Your teleprompter takes and the finished edits — watch any of them here. We handle the editing and send you the final files.'
+          }
           back={back}
         />
         <div className="-mt-2 flex justify-end">

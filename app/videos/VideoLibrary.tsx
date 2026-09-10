@@ -22,7 +22,9 @@ import FloorPanel, { type FloorItem } from './FloorPanel'
 export type Tab = 'mine' | 'floor'
 
 // A direct link to one of the clinic's own Drive folders (recordings,
-// finished edits, raw uploads, photos). Built server-side in page.tsx.
+// finished edits, raw uploads, photos). Built server-side in page.tsx —
+// admin only, so for a doctor this list arrives empty and the row is
+// not rendered at all.
 export interface FolderLink {
   key: string
   label: string
@@ -214,9 +216,9 @@ export default function VideoLibrary({
     return Array.from(map.entries())
   }, [items])
 
-  // "Your files live in your Drive" made tangible: one chip per folder.
-  // Shown above the gallery for doctors and admins alike — the folders are
-  // the clinic's own materials, promised exportable at any time.
+  // One chip per Drive folder, above the gallery. page.tsx hands this
+  // list to admins only (2026-09-10): a folder link is a download button
+  // and the doctor's view is watch-only.
   const folderRow =
     folders.length > 0 ? (
       <div className="flex flex-wrap items-center gap-2 px-1">
@@ -314,18 +316,23 @@ export default function VideoLibrary({
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <a
-                        href={selected.driveUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-white hover:text-neutral-900"
-                        title="Open in Google Drive (download / share)"
-                      >
-                        Open in Drive
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                        </svg>
-                      </a>
+                      {/* Admin only — this is the download door, and the
+                          doctor's side of this screen is watch-only
+                          (see app/videos/page.tsx). */}
+                      {isAdmin && (
+                        <a
+                          href={selected.driveUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-medium text-neutral-600 transition hover:bg-white hover:text-neutral-900"
+                          title="Open in Google Drive (download / share)"
+                        >
+                          Open in Drive
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                          </svg>
+                        </a>
+                      )}
                       {selected.kind === 'recording' && (
                         <button
                           onClick={() => deleteRecording(selected)}
@@ -450,8 +457,9 @@ export default function VideoLibrary({
     </div>
   )
 
-  // Doctors get the plain gallery, no tab strip at all. The folder row still
-  // renders on an empty library — the photo folders exist before take one.
+  // Doctors get the plain gallery, no tab strip at all — and no folder row
+  // either: page.tsx hands them an empty `folders` list, so `folderRow` is
+  // null and this stays a watch-only screen.
   if (!isAdmin)
     return (
       <div className="flex flex-col gap-5">

@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 
   // Link-view permission so the admin preview iframe can play the
   // file regardless of which Google account the browser holds.
-  await allowLinkView(body.fileId).catch(() => {})
+  await allowLinkView(body.fileId, { noDownload: true }).catch(() => {})
 
   // Same "new recording" ping the proxy upload path sends — the
   // direct-to-Drive path lands here instead. Best-effort.

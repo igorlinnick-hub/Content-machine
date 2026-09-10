@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 })
 
   // Link-view permission for the admin preview iframe. Best-effort.
-  await allowLinkView(fileId).catch(() => {})
+  await allowLinkView(fileId, { noDownload: true }).catch(() => {})
 
   // Ping the editing team (§22.2 п.9): the doctor's job ends at
   // upload — the editor picks the recording up in /clips. Best-effort.
