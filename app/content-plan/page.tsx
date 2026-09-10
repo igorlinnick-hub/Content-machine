@@ -141,6 +141,7 @@ export default async function ContentPlanPage({
                 week={week}
                 clinicId={clinicId}
                 isCurrent={currentWeek?.id === week.id}
+                isAdmin={isAdmin}
               />
             ))}
           </div>

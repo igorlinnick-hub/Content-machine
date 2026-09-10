@@ -152,7 +152,9 @@ export function DashBento({
   const allCards = [
     {
       title: 'Scripts',
-      desc: 'Your scripts · generate new',
+      // Doctors don't generate any more (2026-09-10) — for them this card
+      // leads to the list we starred for them, nothing else.
+      desc: isAdmin ? 'Your scripts · generate new' : 'Ready to record',
       href: `/scripts?${q}`,
       tag: 'Write',
       tagColor: '#818cf8',

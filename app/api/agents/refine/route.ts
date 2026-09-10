@@ -23,6 +23,15 @@ interface RefinePostBody {
 export async function POST(req: Request) {
   const access = await resolveAccess()
   if (!access) return NextResponse.json({ error: 'authentication required' }, { status: 401 })
+  // A refine is a fresh Writer run that saves a new script — same rule as
+  // /api/agents/generate: admin only (Igor 2026-09-10). The doctor still
+  // edits a script's text by hand via PATCH /api/scripts/[id].
+  if (access.role !== 'admin') {
+    return NextResponse.json(
+      { error: 'script generation is admin-only' },
+      { status: 403 }
+    )
+  }
 
   const off = await disabledHttpResponse()
   if (off) return off
@@ -41,9 +50,8 @@ export async function POST(req: Request) {
       { status: 400 }
     )
   }
-  if (access.role !== 'admin' && ('clinicId' in access) && access.clinicId !== clinicId) {
-    return NextResponse.json({ error: 'access denied' }, { status: 403 })
-  }
+  // No per-clinic check below: the admin gate above already means the
+  // caller may act on any clinic.
 
   try {
     const supabase = createServerClient()

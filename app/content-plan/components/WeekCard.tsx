@@ -9,10 +9,14 @@ export function WeekCard({
   week,
   clinicId,
   isCurrent,
+  // Script generation is admin-only (2026-09-10). A doctor who lands on
+  // /content-plan by URL reads the plan; she gets no door into the generator.
+  isAdmin = false,
 }: {
   week: StructuredPlanWeek
   clinicId: string
   isCurrent: boolean
+  isAdmin?: boolean
 }) {
   const color = pillarColor(week.pillar)
   const [skipping, setSkipping] = useState(false)
@@ -233,7 +237,7 @@ export function WeekCard({
         </button>
       </div>
 
-      {clinicId && (
+      {clinicId && isAdmin && (
         <a
           href={`/scripts?clinicId=${clinicId}&tab=generate`}
           className="mt-1 self-start rounded-lg px-3 py-1.5 text-[12px] font-semibold transition hover:opacity-80"

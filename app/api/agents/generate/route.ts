@@ -28,6 +28,16 @@ interface GeneratePostBody {
 export async function POST(req: Request) {
   const access = await resolveAccess()
   if (!access) return Response.json({ error: 'authentication required' }, { status: 401 })
+  // Writing scripts is ours, not the clinic's (Igor 2026-09-10): we
+  // generate, we star what we want filmed, the doctor records it. The
+  // /scripts UI hides the Generate tab from doctors — this is the gate
+  // that makes it true for anyone hitting the endpoint directly.
+  if (access.role !== 'admin') {
+    return Response.json(
+      { error: 'script generation is admin-only' },
+      { status: 403 }
+    )
+  }
 
   const off = await disabledHttpResponse()
   if (off) return off
@@ -43,9 +53,8 @@ export async function POST(req: Request) {
   if (!clinicId) {
     return Response.json({ error: 'clinicId is required' }, { status: 400 })
   }
-  if (access.role !== 'admin' && ('clinicId' in access) && access.clinicId !== clinicId) {
-    return Response.json({ error: 'access denied' }, { status: 403 })
-  }
+  // No per-clinic check below: the admin gate above already means the
+  // caller may act on any clinic.
 
   const topicHint = body.topicHint?.trim() || undefined
   const planTopicId = body.planTopicId?.trim() || undefined

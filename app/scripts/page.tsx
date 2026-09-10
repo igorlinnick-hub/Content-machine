@@ -67,7 +67,13 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
   // Recent is the landing tab: the doctor should see the scripts the
   // marketing team already picked for her, not the generator. 'input' is
   // still reachable by URL (?tab=input) — only its nav button is hidden.
-  const validTabs: ScriptsTab[] = ['recent', 'generate', 'input']
+  //
+  // Generating is admin-only (Igor 2026-09-10) — we write the scripts, the
+  // doctor records the starred ones. ?tab=generate on a doctor session
+  // falls back to her list instead of rendering the generator.
+  const validTabs: ScriptsTab[] = isAdmin
+    ? ['recent', 'generate', 'input']
+    : ['recent', 'input']
   const tab: ScriptsTab = validTabs.includes(searchParams.tab as ScriptsTab)
     ? (searchParams.tab as ScriptsTab)
     : 'recent'
@@ -116,11 +122,13 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
             href={`/scripts?clinicId=${clinicId}&tab=recent`}
             active={tab === 'recent'}
           />
-          <TabLink
-            label="Generate"
-            href={`/scripts?clinicId=${clinicId}&tab=generate`}
-            active={tab === 'generate'}
-          />
+          {isAdmin && (
+            <TabLink
+              label="Generate"
+              href={`/scripts?clinicId=${clinicId}&tab=generate`}
+              active={tab === 'generate'}
+            />
+          )}
           {/* "Today's input" button pulled 2026-08-26 at the clinic's request.
               The tab itself still renders at /scripts?clinicId=…&tab=input —
               re-add this TabLink to bring the button back:
@@ -153,7 +161,7 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
           </Link>
         )}
 
-        {tab === 'generate' && (
+        {tab === 'generate' && isAdmin && (
           // Phone: slim outer padding so the nested card/strip frames don't
           // stack up into a narrow column. Original ≥sm.
           <section className="flex flex-col gap-4 rounded-2xl border border-sky-200 bg-sky-50 p-3.5 shadow-sm sm:p-7">
