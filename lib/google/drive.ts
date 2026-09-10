@@ -60,12 +60,18 @@ export async function allowLinkView(
 // plays in the /preview embed we use everywhere. Owner and writers (us)
 // are unaffected, so auto-edit and our own downloads keep working.
 // Idempotent: safe to re-run over files that already carry it.
-// Unverified against live Drive: whether the gallery's
-// drive.google.com/thumbnail tiles survive the flag for an anonymous
-// viewer. They degrade to the gradient tile if not (see Thumb in
-// app/videos/VideoLibrary.tsx) — nothing breaks. Roll back per file with
+//
+// Verified on prod 2026-09-10: an anonymous uc?export=download gets
+// Drive's "Can't download file" page, while /preview and the gallery's
+// drive.google.com/thumbnail tiles keep working. Roll back per file with
 // restrictDownload(id, false), or per clinic via
 // POST /api/studio/recordings/fix-permissions?clinicId=…&unlock=1.
+//
+// Owner-only: Drive answers "Only the owner or an organizer can modify
+// the viewersCanCopyContent restriction" for a file we merely edit. That
+// is why the recordings made before the Drive account switch (owner
+// hellosystems111, the app now runs as kinnil.official) cannot be locked
+// from here — they need the owning account.
 export async function restrictDownload(
   fileId: string,
   restricted = true
