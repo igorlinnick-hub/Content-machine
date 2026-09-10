@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
 import {
   allowLinkView,
+  driveIdentity,
   readDownloadLock,
   restrictDownload,
 } from '@/lib/google/drive'
@@ -57,6 +58,9 @@ export async function POST(req: Request) {
   const results: {
     id: string
     locked: boolean | null
+    owner: string | null
+    ownedByMe: boolean | null
+    canChange: boolean | null
     shared: boolean
     error?: string
   }[] = []
@@ -77,16 +81,26 @@ export async function POST(req: Request) {
     } catch (e) {
       error = e instanceof Error ? e.message : String(e)
     }
-    const locked = await readDownloadLock(id).catch(() => null)
-    results.push({ id, locked, shared, ...(error ? { error } : {}) })
+    const state = await readDownloadLock(id).catch(() => null)
+    results.push({
+      id,
+      locked: state?.locked ?? null,
+      owner: state?.owner ?? null,
+      ownedByMe: state?.ownedByMe ?? null,
+      canChange: state?.canChange ?? null,
+      shared,
+      ...(error ? { error } : {}),
+    })
   }
   const locked = results.filter((r) => r.locked === true).length
+  const identity = await driveIdentity().catch(() => null)
   return NextResponse.json({
     ok: true,
     total: ids.length,
     fixed,
     locked,
     unlock,
+    identity,
     results,
   })
 }

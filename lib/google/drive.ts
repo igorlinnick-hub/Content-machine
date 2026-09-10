@@ -79,16 +79,45 @@ export async function restrictDownload(
 }
 
 // What Drive actually holds for the download lock, straight from the
-// file. The write can fail on a file we don't own; asking afterwards is
-// the only honest confirmation.
-export async function readDownloadLock(fileId: string): Promise<boolean | null> {
+// file — plus who owns it and whether this client is even allowed to
+// change it. The write can fail on a file we don't own; asking
+// afterwards is the only honest confirmation.
+export interface FileLockState {
+  locked: boolean | null
+  ownedByMe: boolean | null
+  owner: string | null
+  canChange: boolean | null
+}
+
+export async function readDownloadLock(fileId: string): Promise<FileLockState> {
   const drive = getUserDriveClient() ?? getDriveClient()
   const { data } = await drive.files.get({
     fileId,
-    fields: 'copyRequiresWriterPermission, ownedByMe, capabilities/canEdit',
+    fields:
+      'copyRequiresWriterPermission, ownedByMe, owners(emailAddress), capabilities(canEdit, canChangeCopyRequiresWriterPermission)',
     supportsAllDrives: true,
   })
-  return data.copyRequiresWriterPermission ?? null
+  return {
+    locked: data.copyRequiresWriterPermission ?? null,
+    ownedByMe: data.ownedByMe ?? null,
+    owner: data.owners?.[0]?.emailAddress ?? null,
+    canChange: data.capabilities?.canChangeCopyRequiresWriterPermission ?? null,
+  }
+}
+
+// Which Google account the Drive calls actually run as. The file lock is
+// owner-only, so "who are we" is the first question when it is refused.
+export async function driveIdentity(): Promise<{
+  client: 'user' | 'service'
+  email: string | null
+}> {
+  const user = getUserDriveClient()
+  const drive = user ?? getDriveClient()
+  const { data } = await drive.about.get({ fields: 'user(emailAddress)' })
+  return {
+    client: user ? 'user' : 'service',
+    email: data.user?.emailAddress ?? null,
+  }
 }
 
 export interface Photo {
