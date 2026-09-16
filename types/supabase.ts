@@ -133,6 +133,50 @@ export type Database = {
           }
         ]
       }
+      clinic_objections: {
+        Row: {
+          id: string
+          clinic_id: string
+          number: number
+          group_no: number
+          question: string
+          state: string
+          note: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          number: number
+          group_no: number
+          question: string
+          state?: string
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          number?: number
+          group_no?: number
+          question?: string
+          state?: string
+          note?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_objections_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       clinic_recordings: {
         Row: {
           id: string
@@ -642,6 +686,7 @@ export type Database = {
           format_template_id: string | null
           starred: boolean | null
           updated_at: string | null
+          objection_id: string | null
         }
         Insert: {
           approved?: boolean | null
@@ -666,6 +711,7 @@ export type Database = {
           role_blocks?: Json | null
           compliance?: Json | null
           format_template_id?: string | null
+          objection_id?: string | null
         }
         Update: {
           approved?: boolean | null
@@ -690,6 +736,7 @@ export type Database = {
           format_template_id?: string | null
           starred?: boolean | null
           updated_at?: string | null
+          objection_id?: string | null
         }
         Relationships: [
           {

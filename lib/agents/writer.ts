@@ -152,7 +152,8 @@ Respond with ONLY valid JSON, no markdown fences, no commentary:
 
 /** Build the base system prompt with niche-specific persona injected at the top. */
 function buildSystemBase(profile: NicheProfile): string {
-  return `${profile.writerPersona}\n\n${SYSTEM_PROMPT_BASE_SHARED}`
+  const budget = profile.writerBudget ? `\n\n${profile.writerBudget}` : ''
+  return `${profile.writerPersona}${budget}\n\n${SYSTEM_PROMPT_BASE_SHARED}`
 }
 
 // Appended to the base system prompt for the POST CAROUSEL pipeline
@@ -533,7 +534,8 @@ function buildContextBrief(
   planContext?: import('@/types').PlanContext | null,
   postCarouselMode?: boolean,
   formatOverride?: string | null,
-  adFormatName?: string | null
+  adFormatName?: string | null,
+  pinnedQuestion?: string | null
 ): string {
   const parts: string[] = []
 
@@ -592,6 +594,37 @@ Before you write a variant, pick ONE narrow segment inside the clinic's audience
   const planPinnedTemplate = planPinnedName
     ? ctx.format_templates.find((t) => t.name === planPinnedName) ?? null
     : null
+
+  // The question, as data. `Patient question` is the one format whose
+  // subject is a literal string a patient said, and the first two live runs
+  // (2026-09-16) proved the scaffold alone does not hold it: handed the
+  // question as a topic hint, the Writer returned a patient story, a
+  // mechanism explainer and a checklist of questions to go ask someone
+  // else. Every one of them answered the question somewhere in the body —
+  // and not one opened on it, which is the half that makes the answer
+  // findable later. So the question is pinned here, above the format block,
+  // and it owns the first line.
+  if (pinnedQuestion?.trim()) {
+    const q = pinnedQuestion.trim()
+    parts.push(
+      `PATIENT QUESTION (BINDING) — this script answers exactly ONE question, and it is this one:
+
+"${q}"
+
+The FIRST LINE of every variant is that question, reproduced word for word as
+written above. Not a paraphrase, not a clinical restatement, not a scene that
+leads up to it — the question itself, then the answer begins immediately.
+
+All variants answer the SAME question. They differ by WHICH PATIENT it is
+answered for — the one deciding tonight vs the one who already tried something
+else, the one flying in vs the one down the road — never by switching to
+another service, another condition or another question. A variant that answers
+a different question has failed, however good it is.
+
+Never print the question's number or say how many questions there are: the
+numbering is our library index, not the patient's business.`
+    )
+  }
 
   // 0. An AD format (lib/scripts/ad-formats.ts) short-circuits the whole
   // template resolution above: ads have their own registry, their own beats
@@ -830,6 +863,12 @@ export interface RunWriterParams {
   // and the plan's format are all ignored — and it forces the 'ad' length
   // target, because an ad shape at 200+ words is not an ad.
   adFormat?: string | null
+  // One patient question, verbatim, from clinic_objections (migration 056).
+  // The `Patient question` format is about ANSWERING it, and two live runs
+  // showed the shape does not survive being passed as a topic hint — the
+  // question has to arrive as data and pin the first line. Null for every
+  // other format.
+  pinnedQuestion?: string | null
 }
 
 export async function runWriter(params: RunWriterParams): Promise<WriterOutput> {
@@ -844,7 +883,8 @@ export async function runWriter(params: RunWriterParams): Promise<WriterOutput> 
     params.planContext,
     params.postCarouselMode,
     params.formatOverride,
-    params.adFormat
+    params.adFormat,
+    params.pinnedQuestion
   )
   const count = Math.max(1, Math.min(3, params.variantCount ?? 3))
   const roleMode = Boolean(params.pinnedFormat?.rolePlan?.speakers?.length)

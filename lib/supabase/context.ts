@@ -513,6 +513,9 @@ export interface ScoredVariant {
   // the dashboard can show "made with: punchy-question-hook" on every
   // recent script card.
   template_used?: string | null
+  // Which question from clinic_objections this script answers (056).
+  // Null for every format but `Patient question`.
+  objection_id?: string | null
   // Studio: speaker breakdown (who says what) + the format template
   // this idea was generated for. Both nullable — monologue scripts
   // leave them unset. Studio stores a {steps, blocks} payload; legacy /
@@ -541,6 +544,7 @@ export async function saveScripts(
     template_used: v.template_used ?? null,
     role_blocks: (v.role_blocks ?? null) as unknown as Json,
     format_template_id: v.format_template_id ?? null,
+    objection_id: v.objection_id ?? null,
   }))
   const { data, error } = await supabase.from('scripts').insert(rows).select('id, variant_id')
   if (error) throw error

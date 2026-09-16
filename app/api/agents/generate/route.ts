@@ -9,6 +9,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { getCurrentPlanContext } from '@/lib/content-plan/store'
 import { isKnownAdFormat } from '@/lib/scripts/ad-formats'
 import { isKnownFormat } from '@/lib/posts/formats'
+import { loadObjection, nextUnansweredObjection } from '@/lib/objections/store'
 import type { CriticOutput, ComplianceResult, ScriptVariant, ScriptLengthTarget } from '@/types'
 
 export const runtime = 'nodejs'
@@ -30,6 +31,11 @@ interface GeneratePostBody {
   // showed up as a choice on the Generate screen. Same field and same
   // semantics as /api/posts/generate: it outranks the planned format.
   format?: string
+  // One question from clinic_objections (056) — the subject of a
+  // `Patient question` script. 'next' takes the clinic's first unanswered
+  // question instead, which is what turns a shooting day into twenty
+  // answers in a row. Pinning a question also pins the format.
+  objectionId?: string
 }
 
 export async function POST(req: Request) {
@@ -76,8 +82,25 @@ export async function POST(req: Request) {
   const formatOverride =
     !adFormat && isKnownFormat(body.format) ? body.format!.trim() : null
 
-  // Resolve plan context: either from a specific plan topic or null (ad-hoc)
-  const planContext = planTopicId
+  // The question, if this run answers one. 'next' walks the clinic's map to
+  // the first question no script has answered yet — the shooting-day path.
+  // A pinned question implies the format: answering one is what
+  // `Patient question` IS, and letting the plan's format win here would
+  // produce an explainer wrapped around someone's literal words.
+  const objectionRef = body.objectionId?.trim()
+  const objection = objectionRef
+    ? await (objectionRef === 'next'
+        ? nextUnansweredObjection(clinicId)
+        : loadObjection(objectionRef, clinicId)
+      ).catch(() => null)
+    : null
+  const pinnedQuestion = objection?.question ?? null
+  const effectiveFormat =
+    !adFormat && pinnedQuestion ? 'Patient question' : formatOverride
+
+  // Resolve plan context: either from a specific plan topic or null (ad-hoc).
+  // A pinned question replaces the plan's topic — the question IS the topic.
+  const planContext = planTopicId && !pinnedQuestion
     ? await getCurrentPlanContext(clinicId, planTopicId).catch(() => null)
     : null
 
@@ -108,7 +131,7 @@ export async function POST(req: Request) {
         const context = await loadSharedContext(clinicId)
 
         stage('start')
-        let variants = await runWriter({ context, topicHint, planContext, adFormat, lengthTarget, formatOverride })
+        let variants = await runWriter({ context, topicHint, planContext, adFormat, lengthTarget, formatOverride: effectiveFormat, pinnedQuestion })
         stage('writer:done')
 
         let scores = await runCritic({ context, variants, lengthTarget })
@@ -119,7 +142,7 @@ export async function POST(req: Request) {
         if (needsRewrite) {
           stage('start')
           const feedback = buildFeedback(scores)
-          variants = await runWriter({ context, feedback, topicHint, planContext, adFormat, lengthTarget, formatOverride })
+          variants = await runWriter({ context, feedback, topicHint, planContext, adFormat, lengthTarget, formatOverride: effectiveFormat, pinnedQuestion })
           stage('writer:done')
           scores = await runCritic({ context, variants, lengthTarget })
           stage('critic:done')
@@ -181,6 +204,8 @@ export async function POST(req: Request) {
               // leaving this null, exactly as before.
               length_target: lengthTarget ?? null,
               template_used: v.template_name ?? null,
+              // The library index: which question this script answers.
+              objection_id: objection?.id ?? null,
             }
           })
         )
