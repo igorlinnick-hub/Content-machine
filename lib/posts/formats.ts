@@ -346,7 +346,7 @@ profession; the target is always the missing SPECIFIC, never a person.`,
     label: 'Question',
     hint: 'Answers one question patients actually ask before booking — in their words, with a real answer.',
     hookShape:
-      'THE QUESTION, VERBATIM, IN THE PATIENT\'S WORDS — asked the way it is asked at the front desk or typed into a DM at midnight, then one flat line that it deserves a straight answer. "How much does this cost? Nobody puts that on a website, so here it is." Never the clinical paraphrase ("patients often inquire about affordability"), never a tease, and never a swipe at whoever has not answered it.',
+      'THE QUESTION, VERBATIM, IN THE PATIENT\'S WORDS, then the first piece of the answer — not a comment on the question. "How much does this cost? It is a course, not a single visit, and here is how the number is built." Ask it the way it is asked at the front desk or typed into a DM at midnight, never the clinical paraphrase ("patients often inquire about affordability"). BANNED in the hook and everywhere else: "nobody tells you", "no one puts that on a website", "they won\'t say" — the first live run of this format opened on exactly that line and it is an indictment of the industry, which is what retired two formats (POST-CRAFT §1). The silence is not the subject; the answer is.',
     coverTitle: `The question itself, in the patient's words, short enough to read at a glance — "What Does It Actually Cost?" / "Whose Cells Are These?" / "Can It Make Me Worse?". Never a count of questions, never "the answer they don't want you to hear"`,
     description:
       'One question a patient asks before they book, answered straight. Built for the groups clinics leave unanswered — is it safe, what does it cost and how long, why you and not someone else — where an evasive answer is worse than silence. The post says what is actually known, what it depends on, and where the honest limits are, so a patient deciding tonight can find the answer instead of calling to get it.',
@@ -358,6 +358,14 @@ profession; the target is always the missing SPECIFIC, never a person.`,
 
 Hard rules for this format: ONE question per script — a second one makes it an
 FAQ roundup and the answer stops being findable, which is the entire point.
+THE SCRIPT ANSWERS THE QUESTION ITSELF, in the clinic's own voice. Two failures
+came out of the first live run and both are banned: a list of questions the
+patient should go ask somebody ("four things to ask before you book") is a
+"Practical tips" post, and one patient's story about the question is a
+"Patient story" post — in this format the clinic is the one being asked, and it
+answers. If the honest answer genuinely depends on the patient's insurance or
+their starting point, the script still gives the structure, the part that is
+knowable, and what decides the rest.
 Answer the question that was asked, in the order the patient cares about: the
 number, the risk or the name FIRST, the explanation second. Never indict anyone
 for not having answered it — not other clinics, not "the industry", not the
@@ -370,7 +378,7 @@ if there is a reaction; hedge outcomes ("most patients", "may"), never promise
 one. Never print a count of questions or a question number in the script — the
 numbering is our internal library, not the patient's business.`,
     carouselArc: `SLIDE ARC FOR THIS FORMAT (in order) — this post answers ONE question:
-  Slide 1   Cover        — the question itself, in the patient's words, short. No swipe prompt, no question number, no count.
+  Slide 1   Cover        — the question itself, in the patient's words, short. No swipe prompt, no question number, no count, and never "nobody tells you".
   Slide 2   Why it's asked — what sits behind the question: the fear, the prior experience, what they read. In the patient's frame, never defensive.
   Slides 3-4 The answer  — the straight one. Ranges, structure, sequence, whose cells, what is measured — the concrete half on slide 3, what it depends on and why that changes things on slide 4. Never split the answer so the reader has to swipe to learn whether they got one.
   Slide 5   Honest limits — who it is not for, where it will not work, what is not promised, what happens if it does not work.
