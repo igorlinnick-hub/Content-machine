@@ -6,6 +6,7 @@ import type { CriticScore, ScriptVariant, ComplianceResult } from '@/types'
 import { ScriptCard } from './ScriptCard'
 import { SparkleSpinner } from '@/app/components/ui/icons'
 import { AdFormatPicker } from '@/app/components/AdFormatPicker'
+import { FormatPicker } from '@/app/components/FormatPicker'
 
 import { type StructuredPlanWeek } from '@/lib/content-plan/store'
 
@@ -169,6 +170,9 @@ export function ScriptGenerator({
   const [plannedPost, setPlannedPost] = useState<{
     id: string; topic: string; keyword: string | null
     week_number: number; pillar: string
+    // What the plan asked this topic to be shaped as — shown next to the
+    // Format picker so an empty picker still says what will happen.
+    format: string | null
   } | null>(null)
   const [progress, setProgress] = useState<ScriptProgressState>(emptyProgress())
   // The topic field and the starting note are folded away by default. In the
@@ -179,6 +183,10 @@ export function ScriptGenerator({
   // null = organic script (the default). A name switches the run to a
   // paid ad spot; see lib/scripts/ad-formats.ts.
   const [adFormat, setAdFormat] = useState<string | null>(null)
+  // null = let the plan (or the Writer) choose the shape. A name pins one
+  // format for this run — POST_FORMATS by name, same field the posts
+  // pipeline already accepts.
+  const [format, setFormat] = useState<string | null>(null)
 
   // New batch of variants → jump back to the first card.
   useEffect(() => {
@@ -211,6 +219,7 @@ export function ScriptGenerator({
       keyword: post.keyword,
       week_number: currentWeek.week_number,
       pillar: currentWeek.pillar,
+      format: post.format ?? null,
     })
     setTopic(post.topic)
     // Auto-fill the starting note with the week's angle — orientation, editable.
@@ -323,6 +332,8 @@ export function ScriptGenerator({
             ? { planTopicId: plannedPost.id, topicHint: note.trim() || undefined }
             : { topicHint: [topic.trim(), note.trim()].filter(Boolean).join(' — ') || undefined }),
           ...(adFormat ? { adFormat } : {}),
+          // Organic shape for this run; omitted = the plan's format stands.
+          ...(!adFormat && format ? { format } : {}),
         }),
       })
 
@@ -574,6 +585,32 @@ export function ScriptGenerator({
             >
               Hide
             </button>
+          </div>
+        )}
+
+        {/* Format — the HOW of this script (Igor 2026-09-10). Until now the
+            shape could only be set upstream on a plan topic, so a format
+            added to the catalog never appeared as a choice here. Empty =
+            keep whatever the plan chose. Hidden in ad mode: an ad format
+            already owns the shape. */}
+        {!adFormat && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-400">
+              Format
+            </span>
+            <FormatPicker
+              value={format}
+              onChange={setFormat}
+              disabled={loading}
+              align="left"
+            />
+            {!format && (
+              <span className="text-[12px] text-neutral-400">
+                {plannedPost?.format
+                  ? `From the plan: ${plannedPost.format}`
+                  : 'Writer picks one'}
+              </span>
+            )}
           </div>
         )}
 

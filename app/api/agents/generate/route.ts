@@ -8,6 +8,7 @@ import { disabledHttpResponse } from '@/lib/agents/disabled'
 import { resolveAccess } from '@/lib/auth/session'
 import { getCurrentPlanContext } from '@/lib/content-plan/store'
 import { isKnownAdFormat } from '@/lib/scripts/ad-formats'
+import { isKnownFormat } from '@/lib/posts/formats'
 import type { CriticOutput, ComplianceResult, ScriptVariant, ScriptLengthTarget } from '@/types'
 
 export const runtime = 'nodejs'
@@ -23,6 +24,12 @@ interface GeneratePostBody {
   // run to the paid-spot shape — ad beats, 'ad' length target, ad rubric in
   // the Critic. Ignored (and the run stays organic) if the name is unknown.
   adFormat?: string
+  // Organic format for THIS run — one of POST_FORMATS by name (Igor
+  // 2026-09-10). Until now the shape of a teleprompter script could only be
+  // set upstream, on the plan topic, so a format added to the catalog never
+  // showed up as a choice on the Generate screen. Same field and same
+  // semantics as /api/posts/generate: it outranks the planned format.
+  format?: string
 }
 
 export async function POST(req: Request) {
@@ -63,6 +70,11 @@ export async function POST(req: Request) {
   // Writer as a bogus format block.
   const adFormat = isKnownAdFormat(body.adFormat) ? body.adFormat!.trim() : undefined
   const lengthTarget: ScriptLengthTarget | undefined = adFormat ? 'ad' : undefined
+  // Same guard for the organic format: an unknown name falls back to the
+  // planned format rather than reaching the Writer as a bogus block. An ad
+  // run ignores it — the ad format already owns the shape of that script.
+  const formatOverride =
+    !adFormat && isKnownFormat(body.format) ? body.format!.trim() : null
 
   // Resolve plan context: either from a specific plan topic or null (ad-hoc)
   const planContext = planTopicId
@@ -96,7 +108,7 @@ export async function POST(req: Request) {
         const context = await loadSharedContext(clinicId)
 
         stage('start')
-        let variants = await runWriter({ context, topicHint, planContext, adFormat, lengthTarget })
+        let variants = await runWriter({ context, topicHint, planContext, adFormat, lengthTarget, formatOverride })
         stage('writer:done')
 
         let scores = await runCritic({ context, variants, lengthTarget })
@@ -107,7 +119,7 @@ export async function POST(req: Request) {
         if (needsRewrite) {
           stage('start')
           const feedback = buildFeedback(scores)
-          variants = await runWriter({ context, feedback, topicHint, planContext, adFormat, lengthTarget })
+          variants = await runWriter({ context, feedback, topicHint, planContext, adFormat, lengthTarget, formatOverride })
           stage('writer:done')
           scores = await runCritic({ context, variants, lengthTarget })
           stage('critic:done')
