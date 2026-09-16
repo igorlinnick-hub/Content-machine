@@ -9,7 +9,7 @@ import type {
 import type { ArsenalBeat } from '@/lib/arsenal/store'
 import { MODEL_DEFAULT, callAgentJSON } from './base'
 import { getNicheProfile, type NicheProfile } from '@/lib/niche/profiles'
-import { getFormat } from '@/lib/posts/formats'
+import { getFormat, buildHookShapeBlock } from '@/lib/posts/formats'
 import { getAdFormat, buildAdFormatBlock, isKnownAdFormat } from '@/lib/scripts/ad-formats'
 
 // A single reference video pinned as THE format to use (Studio). When
@@ -108,6 +108,7 @@ The lists below are EXAMPLES OF CATEGORIES, not an exhaustive blocklist. Anythin
 4. The tidy antithesis bow — "It's not X, it's Y.", "Same drug, different outcome.", "The problem was never A — it's B." At most ONE in a whole script, and the script is better with none.
 5. Rule-of-three abstract-noun lists ("sleep, stress and inflammation all play a role") — pick ONE concrete thing and make it real. Perfectly parallel, symmetric sentences read machine-made; real speech is uneven.
 6. Ending every beat on a neat wrap-up line. Sometimes just stop on the useful detail.
+7. Payoffs written as abstract nouns instead of ordinary verbs. This rule has held for every ad since 2026-08-20 (AD_CRAFT §7) and belongs to organic scripts too (Igor 2026-09-07): whenever the script says what changes for the reader, say it as something they physically DO on a Tuesday. Right: "you carry the groceries up in one trip", "you get through the afternoon without the second coffee", "you sleep through to the alarm". Wrong: "confidence", "freedom", "vitality", "quality of life", "a new lease on life", "transform how you feel". If a payoff line contains an abstract noun, rewrite it as an action — and keep it inside what is claimable: an ordinary verb still carries a hedge ("many patients find they…"), and it describes what the mechanism does, never a result promised to this reader.
 
 HARD RULES:
 - No medical promises ("will cure", "guaranteed", "100%", "always works").
@@ -483,7 +484,7 @@ function buildLengthSpecBlock(target: ScriptLengthTarget): string {
 
   return `${head}
 - Beat budget (in order):
-  1. Hook — ~${spec.hookWords} words. Concrete fact or question, not a generic opening. End it on the fact itself — never on a teaser line ("Here's why…", "Here's what's actually happening", "Let me explain").
+  1. Hook — ~${spec.hookWords} words. Its SHAPE is set by the HOOK SHAPE block below, which binds; this line only sets the budget. End it on the fact itself — never on a teaser line ("Here's why…", "Here's what's actually happening", "Let me explain").
   2. Science / fact — ~${spec.scienceWords} words. What the research actually shows.
   3. Clinic approach — ~${spec.approachWords} words. How we do this differently. Use the chosen FORMAT TEMPLATE here — that's where the structural variety lives.
   4. Call to action — ~${spec.ctaWords} words. One specific action.`
@@ -544,7 +545,26 @@ function buildContextBrief(
 - Name: ${p.name}
 - Doctor: ${p.doctor_name || 'n/a'}
 - Services: ${p.services.join(', ') || 'n/a'}
+- Audience: ${p.audience?.trim() || 'not specified'}
 - Medical restrictions: ${p.medical_restrictions.join('; ') || 'none'}`
+  )
+
+  // ONE SEGMENT PER SCRIPT (Igor 2026-09-07). The clinic's `audience` reached
+  // the planner and stopped there: the Writer had never been told who it was
+  // writing to, and the field's own default ("adult patients considering
+  // treatments") is the written form of "my product is for everyone" — the
+  // failure the reference-reel teardown names as the one that costs enquiries,
+  // not views. The fix is not a better audience string; it is forcing a
+  // narrower pick INSIDE it, per variant.
+  parts.push(
+    `ONE SEGMENT PER SCRIPT (HARD):
+Before you write a variant, pick ONE narrow segment inside the clinic's audience and write the whole script to that one person — not to the audience as a whole, and never to "anyone who". A segment is a person you could picture: what their week looks like, what they have already tried, what specifically is going wrong for them. "Runners in their 40s whose knee only hurts going downstairs" is a segment. "People with joint pain" is an audience, and a script written to it lands on no one.
+
+- The HOOK is written in that segment's own words. If the hook would read the same for every possible viewer, the segment was not narrow enough.
+- Narrow the SEGMENT, never the medicine. The mechanism, the evidence and the hedges stay exactly as accurate as they would be for anyone else, and nothing in the script may say or imply the treatment is only for — or is certain to work for — that group.
+- Every variant picks a DIFFERENT segment. Two variants written to the same person are one variant.
+- Do not invent facts about the segment to make it vivid: pick it from the clinic's audience, services and raw insights, and keep it plausible for this practice. If the audience field is not specified, infer a narrow segment from the services and the content pillars rather than writing to everyone.
+- Naming the segment inside the script is optional and usually better left implicit — the reader should recognise themselves from the specifics, not be labelled ("if you're a woman over 50…" is a label; describing the stairs is recognition).`
   )
 
   if (p.content_pillars.length) {
@@ -630,11 +650,13 @@ function buildContextBrief(
     if (templates.length > 0) {
       parts.push(
         `FORMAT TEMPLATES — pick exactly one per variant. These are STRUCTURAL scaffolds (not topics or words). Different variants should pick different templates when more than one is provided. Each template tells you HOW to lay out the post.\n\n${templates
-          // The catalog is 6 formats since 2026-08-31 (was 9); the window
-          // stays at 9 so a clinic's own custom templates and the retired
-          // defaults it kept active still reach the Writer instead of being
-          // silently cut off the end of its template order.
-          .slice(0, 9)
+          // The catalog is 8 formats since 2026-09-07 (6 before that, 9
+          // before 2026-08-31). The window sits above the catalog size so a
+          // clinic's own custom templates and the retired defaults it kept
+          // active still reach the Writer instead of being silently cut off
+          // the end of its template order — at 8 defaults, a window of 9 left
+          // room for exactly one of them.
+          .slice(0, 14)
           .map(
             (t, idx) =>
               `=== Template ${idx + 1}: ${t.name}${
@@ -644,6 +666,18 @@ function buildContextBrief(
           .join('\n\n')}`
       )
     }
+  }
+
+  // HOOK SHAPE (Igor 2026-09-07). Ads bring their own hook shape inside
+  // `buildAdFormatBlock`, and a Studio-pinned reference video dictates its
+  // opening from the reference itself — so this block is for the organic
+  // paths only. With a catalog format pinned, that format's shape binds;
+  // otherwise the Writer picks from the menu, one shape per variant.
+  if (!adFormat && !pinnedFormat) {
+    const pinnedHookShape = planPinnedTemplate
+      ? getFormat(planPinnedTemplate.name)?.hookShape ?? null
+      : null
+    parts.push(buildHookShapeBlock(pinnedHookShape))
   }
 
   if (excludeHooks && excludeHooks.length) {
