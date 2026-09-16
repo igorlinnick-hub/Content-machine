@@ -1,6 +1,7 @@
 import { MODEL_HAIKU, callAgentTool } from './base'
 import type { ComplianceFinding } from '@/types'
 import { getNicheProfile } from '@/lib/niche/profiles'
+import { stripAddedReviewerNotes } from './compliance-notes'
 
 // Compliance auto-rewriter — applies REWORD corrections from compliance gate.
 // Haiku-powered: mechanical edit task, not creative writing.
@@ -71,7 +72,22 @@ HARD RULES:
     maxTokens: 4096,
   })
 
-  return typeof result?.script === 'string' && result.script.length > 50
-    ? result.script
-    : input.script
+  if (typeof result?.script !== 'string' || result.script.length <= 50) {
+    return input.script
+  }
+
+  // The prompt forbids reviewer notes; this is what happens when the model
+  // does it anyway. One reached a doctor's teleprompter script on
+  // 2026-08-22 ("A medical professional should confirm this
+  // characterization … for public-facing patient communication") and was
+  // there to be read on camera. Only sentences the rewriter ADDED are
+  // dropped — the writer's own text is the gate's business, not ours.
+  const { text, removed } = stripAddedReviewerNotes(result.script, input.script)
+  if (removed.length > 0) {
+    console.warn(
+      `[compliance-rewriter] dropped ${removed.length} reviewer note(s) from the rewrite:`,
+      removed.map((s) => s.slice(0, 120))
+    )
+  }
+  return text.length > 50 ? text : input.script
 }
