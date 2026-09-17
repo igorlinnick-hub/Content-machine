@@ -127,6 +127,42 @@ function Thumb({ item, active }: { item: LibraryItem; active: boolean }) {
   )
 }
 
+// The take plays from our own origin, not from Drive's /preview iframe.
+// Drive will not play a file until it has built its own rendition, so a take
+// that finished uploading a minute ago answers "This video file is still being
+// processed for playback" — the first thing a doctor sees after recording.
+// The original is already an H.264 mp4 the phone can decode, so we stream those
+// bytes (app/api/recordings/[fileId]/stream) and skip Drive's queue.
+// The iframe stays as the fallback: older takes recorded as WebM on desktop
+// Chrome won't decode in Safari, and there Drive's transcode is the only way.
+function Player({ item }: { item: LibraryItem }) {
+  const [fellBack, setFellBack] = useState(false)
+  return (
+    <div className="aspect-video w-full bg-black">
+      {fellBack ? (
+        <iframe
+          src={`https://drive.google.com/file/d/${item.fileId}/preview`}
+          className="h-full w-full"
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          title={item.title}
+        />
+      ) : (
+        // eslint-disable-next-line jsx-a11y/media-has-caption
+        <video
+          src={`/api/recordings/${item.fileId}/stream`}
+          className="h-full w-full"
+          controls
+          playsInline
+          preload="metadata"
+          controlsList="nodownload"
+          onError={() => setFellBack(true)}
+        />
+      )}
+    </div>
+  )
+}
+
 export default function VideoLibrary({
   recordings,
   edited,
@@ -154,7 +190,13 @@ export default function VideoLibrary({
   // round-trip re-render; edited clips are read-only on this screen.
   const [recs, setRecs] = useState<LibraryItem[]>(recordings)
   const [deleting, setDeleting] = useState<string | null>(null)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null)
+  // Which take is asking "are you sure?" right now. This used to be
+  // window.confirm(), and that is why Delete looked dead on the phone
+  // (Igor 2026-09-17): iOS Safari lets the user silence a page's dialogs,
+  // and from then on confirm() returns false instantly — every tap became
+  // a no-op with nothing on screen to explain it. The question is ours now.
+  const [confirmId, setConfirmId] = useState<string | null>(null)
   // One flat gallery — edited versions and raw takes together, newest first.
   const items = useMemo(
     () =>
@@ -167,10 +209,7 @@ export default function VideoLibrary({
 
   async function deleteRecording(item: LibraryItem) {
     if (deleting || item.kind !== 'recording') return
-    const ok = window.confirm(
-      `Delete "${item.title}"?\n\nThis removes the video from the app and from the clinic's Drive folder. It cannot be undone.`
-    )
-    if (!ok) return
+    setConfirmId(null)
     setDeleting(item.id)
     setDeleteError(null)
     try {
@@ -193,7 +232,10 @@ export default function VideoLibrary({
         return next
       })
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : 'Delete failed')
+      setDeleteError({
+        id: item.id,
+        message: e instanceof Error ? e.message : 'Delete failed',
+      })
     } finally {
       setDeleting(null)
     }
@@ -293,16 +335,7 @@ export default function VideoLibrary({
             <div className="overflow-hidden rounded-2xl" style={GLASS}>
               {selected ? (
                 <>
-                  <div className="aspect-video w-full bg-black">
-                    <iframe
-                      key={selected.fileId}
-                      src={`https://drive.google.com/file/d/${selected.fileId}/preview`}
-                      className="h-full w-full"
-                      allow="autoplay; fullscreen"
-                      allowFullScreen
-                      title={selected.title}
-                    />
-                  </div>
+                  <Player key={selected.fileId} item={selected} />
                   <div className="flex items-start justify-between gap-3 p-4">
                     <div className="min-w-0">
                       <h2 className="truncate text-base font-semibold text-neutral-900">
@@ -333,28 +366,61 @@ export default function VideoLibrary({
                           </svg>
                         </a>
                       )}
-                      {selected.kind === 'recording' && (
-                        <button
-                          onClick={() => deleteRecording(selected)}
-                          disabled={deleting === selected.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
-                          title="Delete this recording from the app and Drive"
-                        >
-                          {deleting === selected.id ? (
-                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-rose-200 border-t-rose-600" />
-                          ) : (
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      {selected.kind === 'recording' &&
+                        (confirmId === selected.id ? (
+                          // Two taps, both in the page. The second one is the
+                          // destructive-looking one, so a mis-tap on the first
+                          // costs nothing.
+                          <>
+                            <button
+                              onClick={() => deleteRecording(selected)}
+                              disabled={deleting === selected.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-500 disabled:opacity-50"
+                            >
+                              {deleting === selected.id && (
+                                <span className="h-3 w-3 animate-spin rounded-full border-2 border-rose-200 border-t-white" />
+                              )}
+                              Delete for good
+                            </button>
+                            <button
+                              onClick={() => setConfirmId(null)}
+                              disabled={deleting === selected.id}
+                              className="rounded-lg px-2 py-1.5 text-xs font-medium text-neutral-500 transition hover:text-neutral-800 disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setDeleteError(null)
+                              setConfirmId(selected.id)
+                            }}
+                            disabled={deleting === selected.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
+                            title="Delete this recording from the app and Drive"
+                          >
+                            {deleting === selected.id ? (
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-rose-200 border-t-rose-600" />
+                            ) : (
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                             </svg>
-                          )}
-                          Delete
-                        </button>
-                      )}
+                            )}
+                            Delete
+                          </button>
+                        ))}
                     </div>
                   </div>
-                  {deleteError && (
+                  {confirmId === selected.id && deleteError?.id !== selected.id && (
                     <p className="border-t border-rose-100 bg-rose-50/70 px-4 py-2 text-xs text-rose-700">
-                      {deleteError}
+                      This removes the video from the app and from the clinic&apos;s Drive
+                      folder. It cannot be undone.
+                    </p>
+                  )}
+                  {deleteError?.id === selected.id && (
+                    <p className="border-t border-rose-100 bg-rose-50/70 px-4 py-2 text-xs text-rose-700">
+                      {deleteError.message}
                     </p>
                   )}
                 </>
@@ -422,7 +488,8 @@ export default function VideoLibrary({
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              deleteRecording(it)
+                              setDeleteError(null)
+                              setConfirmId(it.id)
                             }}
                             disabled={busy}
                             aria-label="Delete recording"
@@ -435,6 +502,47 @@ export default function VideoLibrary({
                               <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                             </svg>
                           </button>
+                        )}
+                        {confirmId === it.id && (
+                          // The question lives on the card itself — the
+                          // native confirm() it replaced was being swallowed
+                          // by Safari, which is what made Delete look dead.
+                          <div
+                            className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl bg-neutral-900/80 px-3 text-center backdrop-blur-sm"
+                            role="alertdialog"
+                            aria-label={`Delete ${it.title}?`}
+                          >
+                            <p className="text-[11px] font-medium leading-snug text-white">
+                              Delete this take? Gone from the app and from Drive.
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  deleteRecording(it)
+                                }}
+                                disabled={busy}
+                                className="rounded-lg bg-rose-600 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-rose-500 disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setConfirmId(null)
+                                }}
+                                disabled={busy}
+                                className="rounded-lg bg-white/15 px-3 py-1.5 text-[11px] font-medium text-white transition hover:bg-white/25 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {deleteError?.id === it.id && (
+                          <p className="px-1 pb-1 text-[11px] leading-snug text-rose-600">
+                            {deleteError.message}
+                          </p>
                         )}
                       </div>
                     )
