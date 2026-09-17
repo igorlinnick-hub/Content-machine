@@ -2,11 +2,7 @@ import type { ClinicProfile } from '@/types'
 import { MODEL_DEFAULT, MODEL_HAIKU, callAgentTool } from './base'
 import type { ReplaceWeekInput } from '@/lib/content-plan/store'
 import { keywordPoolForNiche } from '@/lib/seeds/cta-keywords'
-import {
-  formatsForNiche,
-  formatNamesForNiche,
-  getFormat,
-} from '@/lib/posts/formats'
+import { POST_FORMATS, FORMAT_NAMES, getFormat } from '@/lib/posts/formats'
 import { getNicheProfile } from '@/lib/niche/profiles'
 
 export interface PlannerOutput {
@@ -16,20 +12,9 @@ export interface PlannerOutput {
 // The catalog is `lib/posts/formats.ts` — the same list the marketer's format
 // buttons write into content_plan_topics.format. The planner only picks a
 // starting rotation; the button is what finally decides HOW a post is written.
-//
-// Both of these are per-NICHE: a niche with its own catalog (yedino) must not
-// be offered the clinical formats, and vice versa — the planner would
-// otherwise assign "Treatment explainer" to an agency post. The flat
-// catalog-wide versions they replaced were left behind unused (07.09).
-function formatBlockFor(niche: string | null | undefined): string {
-  return formatsForNiche(niche)
-    .map((f, i) => `  ${i + 1}. ${f.name} — ${f.hint}`)
-    .join('\n')
-}
-
-function formatMaxUsesFor(niche: string | null | undefined): number {
-  return Math.ceil(PLAN_POST_COUNT / Math.max(1, formatsForNiche(niche).length)) + 1
-}
+const FORMAT_BLOCK = POST_FORMATS.map(
+  (f, i) => `  ${i + 1}. ${f.name} — ${f.hint}`
+).join('\n')
 
 // The rotation ceiling has to scale with the catalog, not sit hardcoded at 4
 // (Igor 2026-08-31). With 9 formats "at most 4 uses" left slack; the moment the
@@ -37,6 +22,7 @@ function formatMaxUsesFor(niche: string | null | undefined): number {
 // planner would break it somewhere unpredictable. The formula reproduces the
 // old value at 9 formats and gives one slot of slack at any size.
 const PLAN_POST_COUNT = 24
+const FORMAT_MAX_USES = Math.ceil(PLAN_POST_COUNT / POST_FORMATS.length) + 1
 
 // Aesthetics reads differently from regenerative medicine: the audience is
 // browsing, not troubleshooting a chronic problem (Igor 2026-08-20). Same
@@ -55,13 +41,7 @@ function toneBlockFor(niche: string | null | undefined): string {
     : ''
 }
 
-function buildPlanPrompt(
-  keywordBlock: string,
-  toneBlock: string,
-  niche: string | null | undefined
-): string {
-  const FORMAT_BLOCK = formatBlockFor(niche)
-  const FORMAT_MAX_USES = formatMaxUsesFor(niche)
+function buildPlanPrompt(keywordBlock: string, toneBlock: string): string {
   return `You are an editorial content strategist for a medical clinic's social media (Instagram, TikTok, YouTube Shorts).
 
 Given a clinic's profile — their services, content pillars, deep-dive topics, audience, and tone — generate an 8-week content plan with exactly 3 posts per week (24 posts total).
@@ -100,12 +80,7 @@ Pick the keyword that best matches the post topic. Never invent a keyword not in
 // still fits the same week's theme + pillar and doesn't collide with
 // anything else in the plan.
 
-function buildRerollPrompt(
-  keywordBlock: string,
-  toneBlock: string,
-  niche: string | null | undefined
-): string {
-  const FORMAT_BLOCK = formatBlockFor(niche)
+function buildRerollPrompt(keywordBlock: string, toneBlock: string): string {
   return `You are an editorial content strategist for a medical clinic's social media.
 
 Generate exactly ONE new post topic for the given week of a content plan — either REPLACING a topic the marketer rejected, or ADDING one more on top of the existing ones (the task line in the input says which).
@@ -163,11 +138,7 @@ AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' |
 
   return callAgentTool<RerolledTopic>({
     model: MODEL_DEFAULT,
-    systemPrompt: buildRerollPrompt(
-      pool.promptBlock,
-      toneBlockFor(profile.niche),
-      profile.niche
-    ),
+    systemPrompt: buildRerollPrompt(pool.promptBlock, toneBlockFor(profile.niche)),
     userContent,
     toolName: 'submit_replacement_topic',
     toolDescription: 'Submit the single replacement post topic',
@@ -177,7 +148,7 @@ AVOID (already planned or recently posted): ${(input.avoidTopics ?? []).join(' |
       properties: {
         topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
         keyword: { type: 'string', enum: pool.keywords, description: 'CTA trigger keyword for this niche' },
-        format: { type: 'string', enum: formatNamesForNiche(profile.niche), description: 'Structural format template' },
+        format: { type: 'string', enum: FORMAT_NAMES, description: 'Structural format template' },
       },
     },
     maxTokens: 500,
@@ -276,11 +247,7 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
 
   return callAgentTool<PlannerOutput>({
     model: MODEL_DEFAULT,
-    systemPrompt: buildPlanPrompt(
-      pool.promptBlock,
-      toneBlockFor(profile.niche),
-      profile.niche
-    ),
+    systemPrompt: buildPlanPrompt(pool.promptBlock, toneBlockFor(profile.niche)),
     userContent,
     toolName: 'submit_content_plan',
     toolDescription: 'Submit the generated 8-week content plan',
@@ -310,7 +277,7 @@ Tone: ${profile.tone || 'educational'}${publishedBlock}`
                   properties: {
                     topic: { type: 'string', description: 'Patient-facing post topic, 6-12 words' },
                     keyword: { type: 'string', enum: pool.keywords, description: 'CTA trigger keyword — must be one of the valid keywords for this niche' },
-                    format: { type: 'string', enum: formatNamesForNiche(profile.niche), description: 'Structural format template for this post' },
+                    format: { type: 'string', enum: FORMAT_NAMES, description: 'Structural format template for this post' },
                   },
                 },
               },
