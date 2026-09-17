@@ -53,6 +53,13 @@ export interface NicheProfile {
    */
   complianceNicheRules?: string
   /**
+   * Hard per-slide text budget, injected right after the persona. Exists for
+   * niches whose Canva master carries LITTLE text and cannot grow to fit:
+   * the writer must land inside the budget, because nothing downstream
+   * shrinks the font (POST-CRAFT §4a / YEDINO-STYLE §8b both forbid it).
+   */
+  writerBudget?: string
+  /**
    * Optional gold-standard tone reference for the writer (regenmed only).
    * Points to canonical posts the Writer can use as examples.
    */
