@@ -62,6 +62,13 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const [saveTitle, setSaveTitle] = useState('')
   const [speed, setSpeed] = useState(25) // px per second — Igor's comfortable pace
   const [fontSize, setFontSize] = useState(30)
+  // 16:9 mode keeps its own, much larger size: the phone is on a tripod a
+  // couple of metres away, not in the doctor's hand.
+  const [fontSizeWide, setFontSizeWide] = useState(56)
+  const [isLandscape, setIsLandscape] = useState(false)
+  // null = follow the device. A manual tap pins the layout until the next
+  // physical rotation, which hands control back to the sensor.
+  const [wideOverride, setWideOverride] = useState<boolean | null>(null)
   const [isScrolling, setIsScrolling] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [wantCamera, setWantCamera] = useState(true)
@@ -101,6 +108,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Sub-pixel accumulator so any speed value advances smoothly
   const scrollAccRef = useRef(0)
+  // Last known position as a fraction — survives the reflow when the phone is
+  // rotated or the text size changes, so the doctor keeps their place.
+  const progressRef = useRef(0)
 
   speedRef.current = speed
 
@@ -115,6 +125,36 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── Orientation ──────────────────────────────────────────────────────────────
+  // Turning the phone sideways IS the gesture — the doctor's hands are busy and
+  // a tripod-mounted phone can't be tapped mid-take. The manual toggle exists
+  // only for rotation-locked phones and for desktop rehearsal; any real
+  // rotation clears it so the sensor is always the last word.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(orientation: landscape)')
+    setIsLandscape(mq.matches)
+    const handler = (e: MediaQueryListEvent) => {
+      setIsLandscape(e.matches)
+      setWideOverride(null)
+    }
+    if (mq.addEventListener) {
+      mq.addEventListener('change', handler)
+      return () => mq.removeEventListener('change', handler)
+    }
+    // Safari < 14 has no addEventListener on MediaQueryList
+    mq.addListener(handler)
+    return () => mq.removeListener(handler)
+  }, [])
+
+  const wide = wideOverride ?? isLandscape
+  const readingFont = wide ? fontSizeWide : fontSize
+
+  function bumpReadingFont(delta: number) {
+    if (wide) setFontSizeWide((v) => Math.min(120, Math.max(28, v + delta)))
+    else setFontSize((v) => Math.min(72, Math.max(20, v + delta)))
+  }
 
   // Check for a pending draft on mount (survives page refresh)
   useEffect(() => {
@@ -174,7 +214,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       scrollPosRef.current = Math.min(scrollPosRef.current + whole, total)
       scrollAccRef.current -= whole
       inner.style.transform = `translateY(-${scrollPosRef.current}px)`
-      setProgress(scrollPosRef.current / total)
+      progressRef.current = scrollPosRef.current / total
+      setProgress(progressRef.current)
     }
     if (scrollPosRef.current < total) {
       rafRef.current = requestAnimationFrame(scrollLoop)
@@ -391,7 +432,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     if (textInnerRef.current)
       textInnerRef.current.style.transform = `translateY(-${pos}px)`
     const total = getTotal()
-    setProgress(total > 0 ? pos / total : 0)
+    progressRef.current = total > 0 ? pos / total : 0
+    setProgress(progressRef.current)
   }
 
   function seekByFraction(fraction: number) {
@@ -409,11 +451,27 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     applyPos(Math.min(total > 0 ? total : scrollPosRef.current, scrollPosRef.current + speedRef.current * 5))
   }
 
+  // Rotating the phone reflows the text: the same pixel offset now points at a
+  // different line. Re-seek to the same fraction once the new layout has
+  // settled — the doctor should look up and find the line they were on.
+  useEffect(() => {
+    if (phase !== 'reading') return
+    const frac = progressRef.current
+    if (frac <= 0) return
+    const t = setTimeout(() => {
+      const total = getTotal()
+      if (total > 0) applyPos(total * frac)
+    }, 80)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wide, readingFont, phase])
+
   // ── Enter reading phase — show camera first, wait for doctor to tap Start ───
   async function enterReading() {
     if (!text.trim()) return
     scrollPosRef.current = 0
     scrollAccRef.current = 0
+    progressRef.current = 0
     if (textInnerRef.current) textInnerRef.current.style.transform = ''
     setProgress(0)
     setReadyToStart(true)
@@ -907,10 +965,17 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
               className="flex h-6 w-6 items-center justify-center rounded-lg bg-neutral-100 text-xs hover:bg-neutral-200"
             >A−</button>
             <button
-              onClick={() => setFontSize((v) => Math.min(52, v + 2))}
+              onClick={() => setFontSize((v) => Math.min(72, v + 2))}
               className="flex h-6 w-6 items-center justify-center rounded-lg bg-neutral-100 text-xs hover:bg-neutral-200"
             >A+</button>
           </div>
+
+          {/* The 16:9 mode has its own, larger size — set live while reading. */}
+          <p className="w-full text-xs text-neutral-400">
+            Turn the phone sideways while reading to switch to 16:9 — bigger text,
+            readable from across the room. There&apos;s a 16:9 button in the
+            teleprompter too, for a rotation-locked phone.
+          </p>
         </div>
 
         {/* Start button */}
@@ -1072,14 +1137,21 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           )
         })()}
 
-        {/* Toolbar — two rows so nothing overflows on phone */}
+        {/* Toolbar — two rows so nothing overflows on phone. In 16:9 it floats
+            over the text instead of taking a slice of the (tiny) height. */}
         <div
-          className="relative z-10 shrink-0 px-4 pb-2 pt-3"
+          className={
+            wide
+              ? 'absolute inset-x-0 top-0 z-20 px-4 pb-6 pt-2'
+              : 'relative z-10 shrink-0 px-4 pb-2 pt-3'
+          }
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 80%, transparent 100%)' }}
         >
           {/* Row 1: status badge (left) + Done/Exit (right) */}
-          <div className="mb-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className={`flex items-center justify-between gap-2 ${wide ? '' : 'mb-2.5'}`}>
+            {/* Badges wrap rather than push the buttons off a narrow phone —
+                the 16:9 toggle made this row one control tighter. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               {isRecording && (
                 <span className="flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-1 text-xs font-bold">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
@@ -1112,20 +1184,34 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                 </span>
               )}
             </div>
-            <button
-              onClick={() => {
-                cancelAnimationFrame(rafRef.current)
-                setIsScrolling(false)
-                if (isRecording) {
-                  stopRecordingFn()
-                } else {
-                  resetToSetup()
-                }
-              }}
-              className="rounded-xl bg-white/10 px-5 py-2 text-sm font-semibold text-white/90 backdrop-blur-sm hover:bg-white/20 active:scale-95"
-            >
-              {isRecording ? 'Done' : 'Exit'}
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* 16:9 ↔ 9:16 — normally the phone's own rotation does this;
+                  the button is the escape hatch for a rotation-locked phone. */}
+              <button
+                onClick={() => setWideOverride(!wide)}
+                className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2 text-xs font-semibold tabular-nums text-white/80 backdrop-blur-sm hover:bg-white/20 active:scale-95"
+                title={wide ? 'Back to 9:16 (portrait) layout' : 'Switch to 16:9 — bigger text, readable from across the room'}
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 9a8 8 0 0113.7-5.7L20 6m0 0V2m0 4h-4M20 15a8 8 0 01-13.7 5.7L4 18m0 0v4m0-4h4" />
+                </svg>
+                {wide ? '9:16' : '16:9'}
+              </button>
+              <button
+                onClick={() => {
+                  cancelAnimationFrame(rafRef.current)
+                  setIsScrolling(false)
+                  if (isRecording) {
+                    stopRecordingFn()
+                  } else {
+                    resetToSetup()
+                  }
+                }}
+                className="rounded-xl bg-white/10 px-5 py-2 text-sm font-semibold text-white/90 backdrop-blur-sm hover:bg-white/20 active:scale-95"
+              >
+                {isRecording ? 'Done' : 'Exit'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1134,20 +1220,24 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             Inner div moves via translateY (not scrollTop) — reliable on iOS Safari. */}
         <div
           ref={scrollRef}
-          className="relative z-10 flex-1 overflow-hidden px-6 sm:px-16"
+          className={`relative z-10 flex-1 overflow-hidden ${wide ? 'px-10 sm:px-20' : 'px-6 sm:px-16'}`}
           style={{
             userSelect: 'none',
-            maskImage:
-              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
+            // 16:9 fades harder: the viewport is ~390 px tall and both toolbars
+            // float over the text, so the clear band has to be the middle.
+            maskImage: wide
+              ? 'linear-gradient(to bottom, transparent 0%, black 24%, black 76%, transparent 100%)'
+              : 'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
+            WebkitMaskImage: wide
+              ? 'linear-gradient(to bottom, transparent 0%, black 24%, black 76%, transparent 100%)'
+              : 'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
           }}
         >
-          <div ref={textInnerRef} style={{ willChange: 'transform', paddingTop: '20vh' }}>
+          <div ref={textInnerRef} style={{ willChange: 'transform', paddingTop: wide ? '28vh' : '20vh' }}>
             <p
-              className="mx-auto max-w-2xl text-center leading-relaxed"
+              className={`mx-auto text-center leading-relaxed ${wide ? 'max-w-5xl' : 'max-w-2xl'}`}
               style={{
-                fontSize: fontSize,
+                fontSize: readingFont,
                 lineHeight: 1.6,
                 whiteSpace: 'pre-wrap',
                 color: 'rgba(255,255,255,0.92)',
@@ -1161,9 +1251,12 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           </div>
         </div>
 
+        {/* Progress bar + transport — one block so 16:9 can float both over the
+            text rather than stacking them into a 390 px-tall viewport. */}
+        <div className={wide ? 'absolute inset-x-0 bottom-0 z-20' : 'relative z-10 shrink-0'}>
         {/* Progress bar — click anywhere to seek */}
         <div
-          className="relative z-10 h-2 w-full shrink-0 cursor-pointer bg-white/10"
+          className="relative z-10 h-2 w-full cursor-pointer bg-white/10"
           title="Click to seek"
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect()
@@ -1184,7 +1277,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         {/* Transport controls — anchored at the bottom, in thumb reach. Up top
             they forced the doctor's eyes (and hand) away from the lens. */}
         <div
-          className="tp-controls-safe relative z-10 shrink-0 px-4 pt-3"
+          className={`tp-controls-safe relative z-10 px-4 ${wide ? 'pt-2' : 'pt-3'}`}
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.45) 70%, transparent 100%)' }}
         >
           <div className="flex items-center justify-center gap-3">
@@ -1229,6 +1322,24 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
               </svg>
             </button>
 
+            {/* A− size A+ — only in 16:9: the distance to the phone is what
+                makes this a live dial, and the portrait row has no room. */}
+            {wide && (
+              <div className="flex items-center rounded-xl bg-white/10 backdrop-blur-sm">
+                <button
+                  onClick={() => bumpReadingFont(-4)}
+                  className="flex h-11 w-9 items-center justify-center rounded-l-xl text-xs font-semibold text-white hover:bg-white/20 active:scale-90"
+                  title="Smaller text"
+                >A−</button>
+                <span className="min-w-[30px] text-center text-sm font-semibold tabular-nums text-white/80">{fontSizeWide}</span>
+                <button
+                  onClick={() => bumpReadingFont(4)}
+                  className="flex h-11 w-9 items-center justify-center rounded-r-xl text-base font-semibold text-white hover:bg-white/20 active:scale-90"
+                  title="Bigger text"
+                >A+</button>
+              </div>
+            )}
+
             {/* − speed N + */}
             <div className="flex items-center rounded-xl bg-white/10 backdrop-blur-sm">
               <button
@@ -1258,6 +1369,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
               </button>
             )}
           </div>
+        </div>
         </div>
       </div>
     )

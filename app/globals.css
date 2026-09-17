@@ -708,6 +708,13 @@ button.bg-fuchsia-600:hover {
   .tp-controls-safe {
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5rem);
   }
+  /* Landscape (16:9 reading mode): Safari's bar is a thin strip, and the whole
+     viewport is only ~390 px tall — 5rem of clearance would eat the text. */
+  @media (orientation: landscape) {
+    .tp-controls-safe {
+      padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.75rem);
+    }
+  }
 }
 
 /* ── Hawaii Wellness Clinic brand tokens ────────────────────────────────────
