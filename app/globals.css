@@ -696,6 +696,19 @@ button.bg-fuchsia-600:hover {
   color: #0f172a;
 }
 
+/* Teleprompter runs viewport-fit=cover (see app/teleprompter/page.tsx), so the
+   page now reaches under the notch and the home indicator instead of being
+   letterboxed. Everything the doctor taps or reads gets that clearance back —
+   max(), so a phone without insets keeps the plain padding. */
+.tp-safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+.tp-read-safe-x {
+  padding-left: max(5rem, env(safe-area-inset-left, 0px));
+  padding-right: max(5rem, env(safe-area-inset-right, 0px));
+}
+
 /* Teleprompter: the transport controls sit at the bottom of a `fixed inset-0`
    overlay, where iOS Safari floats its own address bar on top of the viewport.
    safe-area-inset alone doesn't account for that bar, so in browser tabs we

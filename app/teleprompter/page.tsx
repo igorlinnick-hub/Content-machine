@@ -1,3 +1,4 @@
+import type { Viewport } from 'next'
 import { redirect } from 'next/navigation'
 import { resolveAccess } from '@/lib/auth/session'
 import { createServerClient } from '@/lib/supabase/server'
@@ -6,6 +7,18 @@ import { spokenScript } from '@/lib/posts/spoken'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Teleprompter — Content Machine' }
+
+// Scoped to this route on purpose. The reading screen is edge-to-edge camera,
+// and without `cover` iOS keeps the whole page inside the safe area and paints
+// black bars around it — very visible in landscape, where the notch inset is on
+// the side (seen on a 16 Pro Max, 17.09). Putting the clearance back where the
+// controls actually live is ours to do (`.tp-safe-x`); the rest of the app keeps
+// the default inset behaviour.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
 
 interface PageProps {
   searchParams: { clinicId?: string; scriptId?: string }

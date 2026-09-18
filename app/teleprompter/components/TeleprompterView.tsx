@@ -1083,7 +1083,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           const cameraFailed = wantCamera && !!cameraError
           const canStart = !wantCamera || (hasStream && !cameraError)
           return (
-            <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 px-6 text-center backdrop-blur-[2px]">
+            <div className="tp-safe-x absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/40 text-center backdrop-blur-[2px]">
               <button
                 onClick={beginRecording}
                 disabled={!canStart}
@@ -1142,8 +1142,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         <div
           className={
             wide
-              ? 'absolute inset-x-0 top-0 z-20 px-4 pb-6 pt-2'
-              : 'relative z-10 shrink-0 px-4 pb-2 pt-3'
+              ? 'tp-safe-x absolute inset-x-0 top-0 z-20 pb-6 pt-2'
+              : 'tp-safe-x relative z-10 shrink-0 pb-2 pt-3'
           }
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 80%, transparent 100%)' }}
         >
@@ -1220,7 +1220,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             Inner div moves via translateY (not scrollTop) — reliable on iOS Safari. */}
         <div
           ref={scrollRef}
-          className={`relative z-10 flex-1 overflow-hidden ${wide ? 'px-10 sm:px-20' : 'px-6 sm:px-16'}`}
+          className={`relative z-10 flex-1 overflow-hidden ${wide ? 'tp-read-safe-x' : 'px-6 sm:px-16'}`}
           style={{
             userSelect: 'none',
             // 16:9 fades harder: the viewport is ~390 px tall and both toolbars
@@ -1275,10 +1275,16 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         </div>
 
         {/* Transport controls — anchored at the bottom, in thumb reach. Up top
-            they forced the doctor's eyes (and hand) away from the lens. */}
+            they forced the doctor's eyes (and hand) away from the lens. 16:9
+            leans on a heavier scrim: there the text scrolls right behind this
+            row, and a half-visible line under the buttons reads as a bug. */}
         <div
-          className={`tp-controls-safe relative z-10 px-4 ${wide ? 'pt-2' : 'pt-3'}`}
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.45) 70%, transparent 100%)' }}
+          className={`tp-controls-safe tp-safe-x relative z-10 ${wide ? 'pt-2' : 'pt-3'}`}
+          style={{
+            background: wide
+              ? 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.80) 55%, transparent 100%)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.45) 70%, transparent 100%)',
+          }}
         >
           <div className="flex items-center justify-center gap-3">
             {/* ◄◄ -5 s */}
