@@ -65,6 +65,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   // 16:9 mode keeps its own, much larger size: the phone is on a tripod a
   // couple of metres away, not in the doctor's hand.
   const [fontSizeWide, setFontSizeWide] = useState(56)
+  // 16:9 hands the whole screen to the text and the lens: the chrome fades out
+  // while the script is running and comes back on a tap (or on pause).
+  const [chromePinned, setChromePinned] = useState(false)
   const [isLandscape, setIsLandscape] = useState(false)
   // null = follow the device. A manual tap pins the layout until the next
   // physical rotation, which hands control back to the sensor.
@@ -111,6 +114,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   // Last known position as a fraction — survives the reflow when the phone is
   // rotated or the text size changes, so the doctor keeps their place.
   const progressRef = useRef(0)
+  const chromeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   speedRef.current = speed
 
@@ -151,6 +155,26 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const wide = wideOverride ?? isLandscape
   const readingFont = wide ? fontSizeWide : fontSize
 
+  // Portrait never hides anything — the phone is in the doctor's hand there and
+  // the controls are the point. In 16:9 they earn their space back only while
+  // the script is paused, or for a few seconds after a tap.
+  const chromeVisible = !wide || !isScrolling || readyToStart || chromePinned
+
+  // In 16:9 the text has to duck under whatever is on screen: hard fades while
+  // the toolbars float over it, a near-full page once they are gone.
+  const maskGradient = !wide
+    ? 'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)'
+    : chromeVisible
+      ? 'linear-gradient(to bottom, transparent 0%, black 24%, black 76%, transparent 100%)'
+      : 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)'
+
+  function revealChrome() {
+    if (!wide) return
+    setChromePinned(true)
+    if (chromeTimerRef.current) clearTimeout(chromeTimerRef.current)
+    chromeTimerRef.current = setTimeout(() => setChromePinned(false), 3000)
+  }
+
   function bumpReadingFont(delta: number) {
     if (wide) setFontSizeWide((v) => Math.min(120, Math.max(28, v + delta)))
     else setFontSize((v) => Math.min(72, Math.max(20, v + delta)))
@@ -177,6 +201,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     return () => {
       cancelAnimationFrame(rafRef.current)
       if (timerRef.current) clearInterval(timerRef.current)
+      if (chromeTimerRef.current) clearTimeout(chromeTimerRef.current)
       streamRef.current?.getTracks().forEach((t) => t.stop())
       if (recorderRef.current) {
         recorderRef.current.onstop = null
@@ -1058,7 +1083,10 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     return (
       // flex-col is load-bearing: the scroll loop needs flex-1 to give the
       // scroll container an explicit clientHeight so scrollHeight > clientHeight
-      <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+      <div
+        className="fixed inset-0 z-50 flex flex-col bg-black text-white"
+        onPointerDown={revealChrome}
+      >
 
         {/* Camera — absolute, sits behind everything */}
         <video
@@ -1073,6 +1101,21 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         />
         {/* Slight veil so white text pops on bright backgrounds */}
         <div className="pointer-events-none absolute inset-0 bg-black/25" />
+
+        {/* With the chrome gone, this dot is the only thing left saying whether
+            tape is rolling — red pulsing = recording, orange = camera live but
+            not recording. Nothing worse than delivering a take to a dead
+            recorder, and that cannot be traded for a clean screen. */}
+        {wide && !chromeVisible && wantCamera && hasStream && (
+          <div className="tp-safe-x pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-end pt-3">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${
+                isRecording ? 'animate-pulse bg-red-500' : 'bg-orange-400'
+              }`}
+              style={{ boxShadow: '0 0 10px rgba(0,0,0,0.95)' }}
+            />
+          </div>
+        )}
 
         {/* Pre-flight overlay — doctor checks framing before recording begins */}
         {readyToStart && (() => {
@@ -1140,11 +1183,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         {/* Toolbar — two rows so nothing overflows on phone. In 16:9 it floats
             over the text instead of taking a slice of the (tiny) height. */}
         <div
-          className={
+          className={`transition-opacity duration-300 ${
             wide
               ? 'tp-safe-x absolute inset-x-0 top-0 z-20 pb-6 pt-2'
               : 'tp-safe-x relative z-10 shrink-0 pb-2 pt-3'
-          }
+          } ${chromeVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.40) 80%, transparent 100%)' }}
         >
           {/* Row 1: status badge (left) + Done/Exit (right) */}
@@ -1223,14 +1266,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           className={`relative z-10 flex-1 overflow-hidden ${wide ? 'tp-read-safe-x' : 'px-6 sm:px-16'}`}
           style={{
             userSelect: 'none',
-            // 16:9 fades harder: the viewport is ~390 px tall and both toolbars
-            // float over the text, so the clear band has to be the middle.
-            maskImage: wide
-              ? 'linear-gradient(to bottom, transparent 0%, black 24%, black 76%, transparent 100%)'
-              : 'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
-            WebkitMaskImage: wide
-              ? 'linear-gradient(to bottom, transparent 0%, black 24%, black 76%, transparent 100%)'
-              : 'linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)',
+            maskImage: maskGradient,
+            WebkitMaskImage: maskGradient,
           }}
         >
           <div ref={textInnerRef} style={{ willChange: 'transform', paddingTop: wide ? '28vh' : '20vh' }}>
@@ -1253,7 +1290,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
 
         {/* Progress bar + transport — one block so 16:9 can float both over the
             text rather than stacking them into a 390 px-tall viewport. */}
-        <div className={wide ? 'absolute inset-x-0 bottom-0 z-20' : 'relative z-10 shrink-0'}>
+        <div
+          className={`transition-opacity duration-300 ${
+            wide ? 'absolute inset-x-0 bottom-0 z-20' : 'relative z-10 shrink-0'
+          } ${chromeVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        >
         {/* Progress bar — click anywhere to seek */}
         <div
           className="relative z-10 h-2 w-full cursor-pointer bg-white/10"
