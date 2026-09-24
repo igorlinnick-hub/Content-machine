@@ -127,6 +127,22 @@ export async function POST(req: Request) {
         emit('stage', { name, elapsed_ms: Date.now() - startMs })
       }
 
+      // The Writer runs for minutes and the stream says nothing while it
+      // does. An idle SSE connection does not survive that: the proxy
+      // closes it, the browser throws "Stream ended without result", and
+      // the run looks failed even though it finishes and saves — which is
+      // exactly what the clinic saw on 2026-09-24 (two scripts in the
+      // library, an error on screen). A comment frame every 10s keeps the
+      // pipe warm; the client parser ignores it, since it carries no
+      // `data:` line.
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(encoder.encode(`: keepalive ${Date.now() - startMs}\n\n`))
+        } catch {
+          // client gone — the pipeline still runs to completion
+        }
+      }, 10_000)
+
       try {
         const context = await loadSharedContext(clinicId)
 
@@ -226,6 +242,7 @@ export async function POST(req: Request) {
         const msg = e instanceof Error ? e.message : 'unknown error'
         emit('error', { error: msg })
       } finally {
+        clearInterval(heartbeat)
         try { controller.close() } catch { /* already closed */ }
         resolveWork()
       }

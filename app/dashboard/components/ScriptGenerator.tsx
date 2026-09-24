@@ -387,7 +387,18 @@ export function ScriptGenerator({
       }
 
       if (streamError) throw new Error(streamError)
-      if (!finalResult) throw new Error('Stream ended without result')
+      // A dropped connection is not a failed run: the route finishes the
+      // pipeline and saves regardless (waitUntil), so the scripts land in
+      // the library while the browser sees a truncated stream. Say that
+      // instead of "failed" — on 2026-09-24 it read as a broken generator
+      // when two finished scripts were already saved. The heartbeat in the
+      // route makes this rare; the message is here for when it still happens.
+      if (!finalResult) {
+        router.refresh()
+        throw new Error(
+          'Connection dropped before the scripts came back. They usually finish saving anyway — check the Scripts tab in a minute.'
+        )
+      }
 
       setResult(finalResult)
       saveScriptDraft(clinicId, finalResult)
