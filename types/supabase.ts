@@ -1202,6 +1202,7 @@ export type Database = {
           source: string
           tidy_status: string
           tidy_flags: string[]
+          tidy_issues: Json
           image_urls: string[]
           storage_paths: string[]
           pinned: boolean
@@ -1218,6 +1219,7 @@ export type Database = {
           source?: string
           tidy_status?: string
           tidy_flags?: string[]
+          tidy_issues?: Json
           image_urls?: string[]
           storage_paths?: string[]
           pinned?: boolean
@@ -1234,6 +1236,7 @@ export type Database = {
           source?: string
           tidy_status?: string
           tidy_flags?: string[]
+          tidy_issues?: Json
           image_urls?: string[]
           storage_paths?: string[]
           pinned?: boolean

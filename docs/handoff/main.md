@@ -41,12 +41,25 @@ anyone-reader. Замок скачивания — право владельца
 
 **Дистрибуция через Buffer — решение созревает (23.09).** Buffer в 2026 заново открыл API: есть на free-плане
 (1 личный API-ключ на аккаунт, OAuth для сторонних приложений ещё не включён), 11 каналов, есть MCP/CLI.
-План: два Buffer-аккаунта (HWC + Yedino), ключи в `.env`, маппинг «клиника → ключ + каналы». Очерёдность:
-посты (signed URL слайдов из бакета) → approve-флаг в `/videos` → видео. Видео-цепочка ложится на уже
-существующий per-клинику Drive-workspace (`lib/google/clinicFolders.ts`: `Inbox/Originals/Finals`, white-label
-— папка на нашем Drive, расшаренная клиенту). Гоча: Buffer'у нужен прямой скачиваемый URL, Drive-шаралинк не
-подходит — отдавать через свой прокси/подписанную ссылку. Не проверено: принимает ли Buffer API видео по URL
-на free-плане (один curl с личным ключом).
+План: Buffer-аккаунты (Yedino + HireDrop), личные ключи в `.env`, маппинг «клиника → ключ + каналы».
+**Yedino подключён (23.09):** ключ лежит как `BUFFER_ACCESS_TOKEN_YEDINO` (Vercel prod/preview/dev +
+`.env.local`), аккаунт `igor.linnick@gmail.com`, orgId `696c48ee111da9195976b964`, каналы:
+instagram `6ab468f5ea19ca0bdece1589`, threads `6ab46922ea19ca0bdece184b` (оба @yedino.systems).
+API — GraphQL, единственный эндпоинт `POST https://api.buffer.com`, `Authorization: Bearer <key>`;
+`channels` требует `input: {organizationId}`. **HireDrop-ключа ещё нет — ждём Игоря.**
+Очерёдность: посты (signed URL слайдов из бакета) → approve-флаг
+в `/videos` (кнопка «подтвердить» для клиник — будущий шаблон) → видео. Гоча: Buffer'у нужен прямой
+скачиваемый URL, Drive-шаралинк не подходит — отдавать через свой прокси/подписанную ссылку. Не проверено:
+принимает ли Buffer API видео по URL на free-плане (один curl с личным ключом).
+**Бренды заведены в CM (23.09, сессия main).** Yedino Systems `c072746d-e302-45ae-a992-7980ee615551` —
+Drive-workspace допровизионен (`POST /api/clinics/provision-drive`), root `152f_Nrdh4WRa2lhZinawtV5cvvgIuiLb`.
+HireDrop создан через `POST /api/onboarding` — clinicId `261b5a34-8584-405c-aa52-b55dfbd0fa09`, niche
+`hiredrop` (профиля в `lib/niche/profiles.ts` НЕТ — генерацию не запускать, уедет в дефолт), root
+`1G6UN4dOvdlPkATdQ0KuCKPkN9qcKp0Vx`, коды доступа `hiredrop-doctor` / `hiredrop-team`. В обоих root'ах
+сервис-аккаунтом создана папка **`Static Posts`** (Yedino `16kpRyxETXOfTcRWwwIEQtqMpkSKcaYcV`, HireDrop
+`1hMByaQOXSjixGHE6YsjP0X_62HIpJ2DF`; владелец — SA, не kinnil). Семантика по шаблону: `Inbox` = raw,
+`Finals` = готовые. ADMIN_KEY и Google SA в `.env.vercel.local` НЕ замаскированы — прод-API и Drive
+доступны из сессии (Supabase — через CLI, ref `pscqjvkuqqmvmcbxdwtu`).
 
 **Compose-поллер** `com.hwc.canva-runner` ставится только `bash scripts/canva-runner/install.sh`.
 **Canva:** серверный автофил мёртв, карусели собирает Claude+MCP runner копированием мастера; реестр —
@@ -59,9 +72,9 @@ v4.1**, грабли Flux в `POST-CRAFT.md §5a`. **Себестоимость:
 **Notes** — блокнот идей рядом с Generate (вкладка на `/scripts`, миграция 057 прогнана): хендофф `notes.md`.
 
 ## Последний заход
-- Исследован вопрос Игоря про Buffer (см. блок «Дистрибуция через Buffer» в Состоянии): API жив и бесплатен,
-  цепочка «нейромонтаж → папка клиники на Drive → approve в CM → Buffer» собирается из существующих кусков;
-  нового кода в этой сессии нет.
+- Buffer-исследование + заведение брендов: Yedino допровизионен на Drive, HireDrop создан в CM целиком
+  (клиника, группа, токены, Drive-workspace), в оба root'а добавлена папка `Static Posts`. Все id — в блоке
+  «Дистрибуция через Buffer». Кода в репо сессия не меняла — всё через прод-API и Drive SA.
 - Собрана партия из 5 постов Yedino копированием нового мастера `DAHVe9aREe4` (детали, карта текстовых
   слотов и правило «считать строки, а не символы» — в `yedino.md`). Мастер довёл Игорь руками в Canva.
 - В `/visual` добавлен попап **Notes** рядом с полем Topic: заголовок заметки уходит в Topic, тело — в
@@ -80,9 +93,9 @@ v4.1**, грабли Flux в `POST-CRAFT.md §5a`. **Себестоимость:
 - **Рабочая копия грязная у двух сессий сразу** (`app/visual/*` + `lib/notes/`, `app/scripts/*`,
   `app/api/notes/ideas/`, `lib/agents/note-tidy.ts`). Коммитить с оглядкой на правило «обе половины одним
   коммитом», иначе снова уроним прод.
-- **Пайплайн нельзя дёрнуть из сессии**: в `.env.vercel.local` `SERVICE_TOKEN`, `SUPABASE_*`,
-  `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_APP_URL` замазаны `[SENSITIVE]`; эндпоинта со списком клиник нет,
-  `clinicId` ниши `yedino` неизвестен. Разбор путей — в `yedino.md`.
+- **Пайплайн нельзя дёрнуть из сессии напрямую**: `SERVICE_TOKEN`, `SUPABASE_*`, `ANTHROPIC_API_KEY`
+  замазаны `[SENSITIVE]`. НО: ADMIN_KEY читается → прод-роуты доступны; клиники читаются через Supabase
+  CLI; `clinicId` yedino теперь известен (см. Состояние). Разбор путей — в `yedino.md`.
 - **Перекраска акцента через Canva MCP невозможна** — проверено дважды, подробности в `yedino.md`.
 - **Стрим-плеер не смотрен живьём**: ни воспроизведение сразу после записи, ни перемотка на длинном дубле,
   ни как 300-секундная функция Vercel держит стрим большого файла.

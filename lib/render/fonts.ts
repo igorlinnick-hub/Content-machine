@@ -15,6 +15,10 @@ const FACES = [
   { family: 'Playfair Display', file: 'PlayfairDisplay-Italic[wght].ttf', style: 'italic' },
   { family: 'Inter', file: 'Inter[opsz,wght].ttf', style: 'normal' },
   { family: 'Inter', file: 'Inter-Italic[opsz,wght].ttf', style: 'italic' },
+  // Script face for the Style 6 kicker ("Doctor" over the cover headline).
+  // Great Vibes, SIL Open Font Licence — embeddable, unlike the master's
+  // Canva faces. Static, not variable; the weight range below is harmless.
+  { family: 'Great Vibes', file: 'GreatVibes-Regular.ttf', style: 'normal' },
 ] as const
 
 let cached: string | null = null

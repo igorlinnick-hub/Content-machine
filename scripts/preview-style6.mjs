@@ -26,7 +26,9 @@ if (!post) throw new Error(`no post ${which} in posts.json`)
 
 /** posts.json → RenderSlide[], the same six pages the master carries. */
 const slides = [
-  { page: 1, shape: 'cover', heading: post.cover },
+  // The one-word kicker over the cover headline. Who the post is talking to,
+  // not what it is about — the audience is the constant across every Yedino post.
+  { page: 1, shape: 'cover', chip: post.eyebrow ?? 'Doctor', heading: post.cover },
   ...post.body.map((b, i) => ({
     page: i + 2,
     shape: 'prose',
@@ -37,6 +39,10 @@ const slides = [
 ]
 
 const fontCss = await fontFaceCss()
+// Inlined, not linked: the renderer must not depend on a file path or a
+// network fetch resolving at screenshot time.
+const logoBytes = await readFile(join(process.cwd(), 'assets/brand/yedino-logo-512.png'))
+const logoUrl = `data:image/png;base64,${logoBytes.toString('base64')}`
 const outDir = join(R4, 'render', `post${which}`)
 await mkdir(outDir, { recursive: true })
 
@@ -54,6 +60,7 @@ try {
       slide,
       skin: style6,
       fontCss,
+      logoUrl,
       handle: '@yedino.systems',
     })
     await page.setContent(html, { waitUntil: ['load'] })

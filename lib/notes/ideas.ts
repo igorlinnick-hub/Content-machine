@@ -1,10 +1,20 @@
 import { randomBytes } from 'crypto'
 import { createServerClient } from '@/lib/supabase/server'
+import type { Json } from '@/types/supabase'
 
 const BUCKET = 'note-photos'
 
 export type NoteSourceKind = 'typed' | 'photo'
 export type TidyStatus = 'raw' | 'tidied' | 'failed'
+
+// One uncertain word, resolvable with a tap in the UI: `text` is the
+// exact spelling inside body (so applying a choice is a string
+// replace), options are the 1-3 candidate readings the model saw.
+export interface TidyIssue {
+  text: string
+  options: string[]
+  note?: string
+}
 
 export interface IdeaNote {
   id: string
@@ -15,6 +25,7 @@ export interface IdeaNote {
   source: NoteSourceKind
   tidy_status: TidyStatus
   tidy_flags: string[]
+  tidy_issues: TidyIssue[]
   image_urls: string[]
   storage_paths: string[]
   pinned: boolean
@@ -24,7 +35,7 @@ export interface IdeaNote {
 }
 
 const COLUMNS =
-  'id, clinic_id, title, body, raw_body, source, tidy_status, tidy_flags, image_urls, storage_paths, pinned, archived, created_at, updated_at'
+  'id, clinic_id, title, body, raw_body, source, tidy_status, tidy_flags, tidy_issues, image_urls, storage_paths, pinned, archived, created_at, updated_at'
 
 export async function loadIdeaNotes(
   clinicId: string,
@@ -42,7 +53,7 @@ export async function loadIdeaNotes(
     .order('updated_at', { ascending: false })
     .limit(200)
   if (error) throw error
-  return (data ?? []) as IdeaNote[]
+  return (data ?? []) as unknown as IdeaNote[]
 }
 
 export async function loadIdeaNote(noteId: string): Promise<IdeaNote | null> {
@@ -53,7 +64,7 @@ export async function loadIdeaNote(noteId: string): Promise<IdeaNote | null> {
     .eq('id', noteId)
     .maybeSingle()
   if (error) throw error
-  return (data as IdeaNote | null) ?? null
+  return (data as unknown as IdeaNote | null) ?? null
 }
 
 export interface CreateNoteInput {
@@ -63,6 +74,7 @@ export interface CreateNoteInput {
   source?: NoteSourceKind
   tidyStatus?: TidyStatus
   tidyFlags?: string[]
+  tidyIssues?: TidyIssue[]
   imageUrls?: string[]
   storagePaths?: string[]
 }
@@ -84,13 +96,14 @@ export async function createIdeaNote(
       source: input.source ?? 'typed',
       tidy_status: input.tidyStatus ?? 'raw',
       tidy_flags: input.tidyFlags ?? [],
+      tidy_issues: (input.tidyIssues ?? []) as unknown as Json,
       image_urls: input.imageUrls ?? [],
       storage_paths: input.storagePaths ?? [],
     })
     .select(COLUMNS)
     .single()
   if (error || !data) throw error ?? new Error('createIdeaNote: no row returned')
-  return data as IdeaNote
+  return data as unknown as IdeaNote
 }
 
 export interface UpdateNoteInput {
@@ -98,6 +111,7 @@ export interface UpdateNoteInput {
   body?: string
   tidyStatus?: TidyStatus
   tidyFlags?: string[]
+  tidyIssues?: TidyIssue[]
   pinned?: boolean
   archived?: boolean
 }
@@ -113,6 +127,9 @@ export async function updateIdeaNote(
     ...(patch.body !== undefined ? { body: patch.body } : {}),
     ...(patch.tidyStatus !== undefined ? { tidy_status: patch.tidyStatus } : {}),
     ...(patch.tidyFlags !== undefined ? { tidy_flags: patch.tidyFlags } : {}),
+    ...(patch.tidyIssues !== undefined
+      ? { tidy_issues: patch.tidyIssues as unknown as Json }
+      : {}),
     ...(patch.pinned !== undefined ? { pinned: patch.pinned } : {}),
     ...(patch.archived !== undefined ? { archived: patch.archived } : {}),
   }
@@ -124,7 +141,7 @@ export async function updateIdeaNote(
     .select(COLUMNS)
     .single()
   if (error || !data) throw error ?? new Error('updateIdeaNote: no row returned')
-  return data as IdeaNote
+  return data as unknown as IdeaNote
 }
 
 export async function deleteIdeaNote(noteId: string): Promise<void> {

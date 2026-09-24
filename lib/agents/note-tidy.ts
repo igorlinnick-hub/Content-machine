@@ -19,10 +19,17 @@ import { llmAgentsEnabled } from './disabled'
 // they are two. When in doubt, keep the user's words.
 // ============================================================
 
+export interface TidyIssueOut {
+  text: string
+  options: string[]
+  note?: string
+}
+
 export interface TidyResult {
   title: string
   body: string
   flags: string[]
+  issues: TidyIssueOut[]
 }
 
 const TIDY_SYSTEM = `You are a note janitor for a content-ideas scratchpad. The user dumps raw ideas — mixed Russian/English, typos, fragments, no order.
@@ -40,7 +47,12 @@ HARD RULES — breaking any of these is a failure:
 - Unsure whether two lines are one idea or two? They are two.
 - Unreadable or ambiguous fragment? Keep it verbatim and add a flag describing what was unclear.
 
-Flags are short notes about anything you could not confidently handle (e.g. "line 4: unclear abbreviation 'скв' — left as written"). Empty array when everything was clear.`
+UNCERTAIN WORDS go into \`issues\`, not into prose. When you are not sure what a word was meant to be (bad handwriting transcription, ambiguous typo like "focou" → follow? focus?):
+- keep your single best reading in the body (verbatim if you truly can't guess),
+- add an issue: \`text\` = the word EXACTLY as it appears in your body output (character-for-character, so the app can find-and-replace it), \`options\` = 1-3 candidate readings the user can tap, \`note\` = optional few words of location context ("in the line about camera"). Do NOT include the option you already used in body as body text twice.
+- one issue per uncertain word; do not repeat it in flags.
+
+\`flags\` is only for remarks that are not a word choice: something crossed out, a placement guess, an incomplete thought kept as is. Short, one line each. Routine corrections you were confident about (obvious typos you fixed) need NO flag and NO issue — silence about them is fine. Empty arrays when everything was clear.`
 
 const TIDY_SCHEMA = {
   type: 'object' as const,
@@ -54,17 +66,56 @@ const TIDY_SCHEMA = {
     flags: {
       type: 'array',
       items: { type: 'string' },
-      description: 'Anything unclear/ambiguous, kept verbatim in body',
+      description:
+        'Non-choice remarks only (crossed-out text, placement guesses). No confident-fix reports.',
+    },
+    issues: {
+      type: 'array',
+      description:
+        'Uncertain words the user should resolve with a tap. text = exact spelling in body.',
+      items: {
+        type: 'object',
+        properties: {
+          text: {
+            type: 'string',
+            description: 'The word exactly as it appears in body',
+          },
+          options: {
+            type: 'array',
+            items: { type: 'string' },
+            minItems: 1,
+            maxItems: 3,
+            description: 'Candidate readings, most likely first',
+          },
+          note: {
+            type: 'string',
+            description: 'Optional few words of location context',
+          },
+        },
+        required: ['text', 'options'],
+      },
     },
   },
-  required: ['title', 'body', 'flags'],
+  required: ['title', 'body', 'flags', 'issues'],
 }
 
-export async function tidyNote(rawText: string): Promise<TidyResult> {
+// `hints` — the transcriber's own doubts ("'focou' may be follow or
+// focus"), passed through so the tidy pass turns them into tappable
+// issues instead of the user re-reading them as prose.
+export async function tidyNote(
+  rawText: string,
+  hints: string[] = []
+): Promise<TidyResult> {
+  const hintBlock =
+    hints.length > 0
+      ? `\n\nThe transcriber flagged these uncertainties — turn word-choice ones into issues:\n${hints
+          .map((h) => `- ${h}`)
+          .join('\n')}`
+      : ''
   return callAgentTool<TidyResult>({
     model: MODEL_HAIKU,
     systemPrompt: TIDY_SYSTEM,
-    userContent: `Tidy this note:\n\n${rawText}`,
+    userContent: `Tidy this note:\n\n${rawText}${hintBlock}`,
     toolName: 'save_tidied_note',
     toolDescription: 'Save the tidied version of the note',
     inputSchema: TIDY_SCHEMA,

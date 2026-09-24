@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   try {
     // Tidy is best-effort: if the pass is off or throws, the note still
     // saves with the raw text and tidy_status says what happened.
-    let tidied: { title: string; body: string; flags: string[] } | null = null
+    let tidied: Awaited<ReturnType<typeof tidyNote>> | null = null
     let tidyStatus: TidyStatus = 'raw'
     if (!body.keepRaw && noteTidyEnabled()) {
       try {
@@ -94,6 +94,7 @@ export async function POST(req: Request) {
       source: 'typed',
       tidyStatus,
       tidyFlags: tidied?.flags ?? [],
+      tidyIssues: tidied?.issues ?? [],
     })
     return NextResponse.json({ note })
   } catch (e) {
@@ -105,6 +106,9 @@ interface PatchBody {
   noteId?: string
   title?: string | null
   body?: string
+  // Resolving an uncertain word sends the new body together with the
+  // remaining issues, so one tap is one request.
+  tidyIssues?: { text: string; options: string[]; note?: string }[]
   pinned?: boolean
   archived?: boolean
   // 'revert' swaps body back to raw_body; 'retidy' runs the pass again
@@ -138,6 +142,7 @@ export async function PATCH(req: Request) {
         body: existing.raw_body,
         tidyStatus: 'raw',
         tidyFlags: [],
+        tidyIssues: [],
       })
       return NextResponse.json({ note })
     }
@@ -152,6 +157,7 @@ export async function PATCH(req: Request) {
         body: tidied.body,
         tidyStatus: 'tidied',
         tidyFlags: tidied.flags,
+        tidyIssues: tidied.issues,
       })
       return NextResponse.json({ note })
     }
@@ -160,8 +166,14 @@ export async function PATCH(req: Request) {
       title: body.title,
       // A manual edit makes the on-screen text the user's own again —
       // stale "couldn't read line 4" flags would point at text that may
-      // no longer exist.
-      ...(body.body !== undefined ? { body: body.body, tidyFlags: [] } : {}),
+      // no longer exist. A tap-resolve sends tidyIssues explicitly and
+      // keeps the rest.
+      ...(body.body !== undefined && body.tidyIssues === undefined
+        ? { body: body.body, tidyFlags: [], tidyIssues: [] }
+        : body.body !== undefined
+          ? { body: body.body }
+          : {}),
+      tidyIssues: body.tidyIssues,
       pinned: body.pinned,
       archived: body.archived,
     })

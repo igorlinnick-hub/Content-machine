@@ -126,30 +126,90 @@ function paperTexture(tint: string): string {
   )
 }
 
-/** Brush underline that sits under the cover title. */
-function brushUnderline(color: string, left: number, top: number, width: number): string {
-  return `<svg class="doodle" viewBox="0 0 600 52" preserveAspectRatio="none"
-    style="left:${left}px;top:${top}px;width:${width}px;height:52px">
+/** Brush underline. The script parks it under the title's real last line. */
+function brushUnderline(color: string): string {
+  return `<svg class="doodle brush" viewBox="0 0 600 52" preserveAspectRatio="none"
+    style="width:600px;height:52px">
     <path d="M4 40 C 140 14, 330 10, 596 22" stroke="${color}" stroke-width="13"
       stroke-linecap="round" fill="none"/></svg>`
 }
 
-/** Dashed arc with an arrow head — the master's travelling dotted line. */
-function dottedArrow(color: string, opts: { left: number; top: number; flip: boolean }): string {
-  const t = opts.flip ? 'scale(-1,1) translate(-430,0)' : ''
-  return `<svg class="doodle" viewBox="0 0 430 190"
-    style="left:${opts.left}px;top:${opts.top}px;width:430px;height:190px">
-    <g transform="${t}">
-      <path d="M10 150 C 90 150, 150 70, 250 46" stroke="${color}" stroke-width="12"
-        stroke-linecap="round" stroke-dasharray="26 30" fill="none"/>
-      <path d="M244 12 L300 46 L244 78 Z" fill="${color}"/>
-    </g></svg>`
+// ── The chain ───────────────────────────────────────
+// ONE wave drawn across the WHOLE carousel, not a doodle per slide.
+//
+// Think of the six slides as a single 6480px-wide sheet. The line is a
+// sine over that sheet; each slide renders its own 1080px window of it.
+// Two things fall out for free, which is why it is done this way:
+//   · the line never breaks — the y at a slide's right edge IS the y at
+//     the next slide's left edge, because it is the same function;
+//   · it rides up and down as you swipe, since a slide shows a little
+//     over half a period.
+// Nothing here is random: the same page number always yields the same
+// window of the same wave.
+const WAVE = { base: 1104, amp: 54, lambda: 1730 }
+
+function waveY(globalX: number): number {
+  return WAVE.base + WAVE.amp * Math.sin((2 * Math.PI * globalX) / WAVE.lambda)
 }
 
-/** Save-this-post bookmark, drawn next to the CTA line. */
-function bookmark(color: string, left: number, top: number): string {
+/**
+ * The slide's window of the wave. `head` draws the arrow that hands the eye
+ * to the next slide — the last slide receives the line and keeps it.
+ */
+function chainWave(color: string, page: number, head: boolean): string {
+  const originX = (page - 1) * CANVAS.width
+  // The head is where the line STOPS. Drawing dashes past it left a stub
+  // poking out of the triangle, which is what made the seam look broken.
+  const hx = CANVAS.width - 96
+  const step = 16
+  const last = head ? hx - 30 : CANVAS.width + 60
+  const pts: string[] = []
+  for (let x = -60; x <= last; x += step) {
+    pts.push(`${x} ${waveY(originX + x).toFixed(1)}`)
+  }
+  const d = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p).join(' ')
+
+  // The head sits ON the line and leans along it, so it reads as the tip of
+  // the stroke rather than a triangle parked nearby.
+  const y1 = waveY(originX + hx - 12)
+  const y2 = waveY(originX + hx + 12)
+  const angle = (Math.atan2(y2 - y1, 24) * 180) / Math.PI
+  const arrow = head
+    ? `<g transform="translate(${hx} ${waveY(originX + hx).toFixed(1)}) rotate(${angle.toFixed(2)})">
+         <path d="M-26 -26 L32 0 L-26 26 Z" fill="${color}"/></g>`
+    : ''
+
+  return `<svg class="doodle" viewBox="0 0 ${CANVAS.width} ${CANVAS.height}"
+    style="left:0;top:0;width:${CANVAS.width}px;height:${CANVAS.height}px">
+    <path d="${d}" stroke="${color}" stroke-width="12" stroke-linecap="round"
+      stroke-dasharray="26 30" fill="none"/>${arrow}</svg>`
+}
+
+/**
+ * The signal arcs in the bottom-left corner of the cover — the "ringing"
+ * mark from the master. Concentric quarter-arcs centred on the corner
+ * itself, so they read as something radiating in from off-frame rather
+ * than a badge stuck on the page.
+ */
+function signalArcs(): string {
+  const RINGS = [
+    { r: 150, w: 44, c: '#b9b2dd' },
+    { r: 250, w: 46, c: '#c7c1e6' },
+    { r: 352, w: 44, c: '#aca4d3' },
+  ]
+  const arcs = RINGS.map(({ r, w, c }) => {
+    // Quarter arc from due-east of the corner round to due-north.
+    const d = `M ${r} ${CANVAS.height} A ${r} ${r} 0 0 0 0 ${CANVAS.height - r}`
+    return `<path d="${d}" stroke="${c}" stroke-width="${w}" fill="none" stroke-linecap="round"/>`
+  }).join('')
+  return `<svg class="doodle" viewBox="0 0 ${CANVAS.width} ${CANVAS.height}"
+    style="left:0;top:0;width:${CANVAS.width}px;height:${CANVAS.height}px">${arcs}</svg>`
+}
+
+/** Save-this-post bookmark, sitting beside the CTA title. */
+function bookmark(color: string): string {
   return `<svg class="doodle" viewBox="0 0 108 128"
-    style="left:${left}px;top:${top}px;width:108px;height:128px">
+    style="left:790px;top:470px;width:108px;height:128px">
     <path d="M12 8 H96 V120 L54 88 L12 120 Z" stroke="${color}" stroke-width="9"
       fill="none" stroke-linejoin="round"/></svg>`
 }
@@ -157,21 +217,15 @@ function bookmark(color: string, left: number, top: number): string {
 function paperDoodles(slide: RenderSlide, skin: Skin): string {
   if (!skin.doodles) return ''
   const c = skin.highlight ?? skin.accent
-  // Alternate the side by page so a swipe does not repeat the same corner.
-  const flip = slide.page % 2 === 0
   switch (slide.shape) {
+    // The cover starts the chain; nothing arrives into it.
     case 'cover':
-      return dottedArrow(c, { left: 700, top: 980, flip: false })
+      return signalArcs() + brushUnderline(c) + chainWave(c, slide.page, true)
+    // The CTA ends it: the line arrives and stops at the bookmark.
     case 'cta':
-      return (
-        dottedArrow(c, { left: -40, top: 560, flip: false }) +
-        bookmark(c, 760, 470)
-      )
+      return chainWave(c, slide.page, false) + bookmark(c)
     default:
-      return (
-        dottedArrow(c, { left: flip ? 720 : 700, top: 560, flip }) +
-        dottedArrow(c, { left: flip ? -120 : -140, top: 700, flip: !flip })
-      )
+      return chainWave(c, slide.page, true)
   }
 }
 
@@ -180,8 +234,9 @@ function paperSlideBody(slide: RenderSlide, skin: Skin): string {
   switch (slide.shape) {
     case 'cover':
       return `
+        ${slide.chip ? `<div class="p-eyebrow" id="eyebrow">${esc(slide.chip)}</div>` : ''}
         <h1 class="p-cover" id="fit-title">${heading}</h1>
-        ${skin.doodles ? brushUnderline(skin.highlight ?? skin.accent, 108, 946, 600) : ''}`
+        `
     case 'cta':
       return `<h1 class="p-cta" id="fit-title">${heading}</h1>`
     default: {
@@ -206,10 +261,23 @@ html,body{width:${CANVAS.width}px;height:${CANVAS.height}px}
 body{position:relative;overflow:hidden;${paperTexture(tint)};
   font-family:${skin.bodyFamily};color:${ink};-webkit-font-smoothing:antialiased}
 .doodle{position:absolute;overflow:visible}
+.brush{visibility:hidden}
 .logo{position:absolute;top:83px;right:64px;width:132px;height:132px;object-fit:contain}
 .handle{position:absolute;left:114px;top:1201px;font-size:35px;color:#161616;letter-spacing:.01em}
 /* Titles are anchored, not centred: the cover reads up from the underline,
    body slides hang from the top. Sizes mirror the master (150 / 112 / 107). */
+/* One word over the headline. The gradient runs through the glyphs
+   themselves (background-clip:text), light at the top edge into full ink —
+   so it reads as the word surfacing out of the paper rather than as a
+   coloured label. */
+/* The kicker is handwritten, not set in caps: on the cover it reads as an
+   address to the reader ("Doctor"), and the silver gradient keeps it behind
+   the headline in the hierarchy instead of competing with it. */
+.p-eyebrow{position:absolute;left:104px;top:0;visibility:hidden;
+  font-family:'Great Vibes', cursive;font-weight:400;font-size:132px;
+  line-height:1;letter-spacing:.01em;padding:0 18px 18px 0;
+  background:linear-gradient(168deg,#e2ded6 0%,#a49c8d 38%,#6f6759 68%,#453f38 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent}
 .p-cover{position:absolute;left:108px;width:864px;bottom:420px;
   font-family:${skin.headingFamily};font-weight:${skin.headingWeight};
   text-transform:${skin.headingTransform};font-size:150px;line-height:.92;letter-spacing:-.015em}
@@ -219,7 +287,7 @@ body{position:relative;overflow:hidden;${paperTexture(tint)};
 .p-cta{position:absolute;left:180px;width:640px;top:520px;
   font-family:${skin.headingFamily};font-weight:${skin.headingWeight};
   text-transform:${skin.headingTransform};font-size:107px;line-height:.92;letter-spacing:-.015em}
-.p-body{position:absolute;left:180px;width:660px;top:760px;
+.p-body{position:absolute;left:180px;width:660px;top:652px;
   font-size:${skin.bodySize}px;font-weight:${skin.bodyWeight};line-height:1.74}
 /* The stepped highlight: 'clone' repeats the padding on every wrapped line,
    which is exactly the ragged block the master draws by hand. */
@@ -255,11 +323,28 @@ ${handle ? `<div class="handle">${esc(handle)}</div>` : ''}
   if (body) {
     var bsize = parseFloat(getComputedStyle(body).fontSize)
     var bscale = 1
-    while (body.getBoundingClientRect().bottom > 1150 && bscale > 0.78) {
+    while (body.getBoundingClientRect().bottom > 1040 && bscale > 0.74) {
       bscale -= 0.03
       body.style.fontSize = (bsize * bscale) + 'px'
     }
     scale = Math.min(scale, bscale)
+  }
+  // The brush belongs to the title, so it is parked under the title's real
+  // last line rather than at a guessed y — that is what kept it off the
+  // words when a cover ran one line longer than planned.
+  var eyebrow = document.getElementById('eyebrow')
+  if (eyebrow && title) {
+    var tr = title.getBoundingClientRect()
+    eyebrow.style.top = (tr.top - eyebrow.getBoundingClientRect().height + 26) + 'px'
+    eyebrow.style.visibility = 'visible'
+  }
+  var brush = document.querySelector('.brush')
+  if (brush && title) {
+    var tb = title.getBoundingClientRect()
+    brush.style.left = tb.left + 'px'
+    brush.style.top = (tb.bottom + 10) + 'px'
+    brush.style.width = Math.min(620, Math.max(300, tb.width * 0.72)) + 'px'
+    brush.style.visibility = 'visible'
   }
   window.__fit = { scale: scale, overflow: scale <= 0.7 }
 })()

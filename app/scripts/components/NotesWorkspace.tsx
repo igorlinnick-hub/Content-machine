@@ -11,6 +11,12 @@ import { useEffect, useRef, useState } from 'react'
 // the raw original is always one toggle away ("Original" / revert).
 // ============================================================
 
+interface TidyIssue {
+  text: string
+  options: string[]
+  note?: string
+}
+
 interface IdeaNote {
   id: string
   title: string | null
@@ -19,6 +25,7 @@ interface IdeaNote {
   source: 'typed' | 'photo'
   tidy_status: 'raw' | 'tidied' | 'failed'
   tidy_flags: string[]
+  tidy_issues: TidyIssue[]
   image_urls: string[]
   pinned: boolean
   archived: boolean
@@ -185,9 +192,89 @@ export function NotesWorkspace({ clinicId }: Props) {
           on — it lands here organized, with the original kept.
         </p>
       )}
-      {notes?.map((note) => (
-        <NoteCard key={note.id} note={note} onChange={upsertNote} onRemoved={(id) => setNotes((prev) => (prev ?? []).filter((n) => n.id !== id))} />
-      ))}
+      {notes && notes.length > 0 && (
+        <NotesRibbon
+          notes={notes}
+          onChange={upsertNote}
+          onRemoved={(id) => setNotes((prev) => (prev ?? []).filter((n) => n.id !== id))}
+        />
+      )}
+    </div>
+  )
+}
+
+// Horizontal snap ribbon (Igor 2026-09-23): notes sit side by side,
+// newest first, and you flick between them like dates in a calendar —
+// swipe on the phone, ‹ › on desktop. One card fills the phone screen.
+function NotesRibbon({
+  notes,
+  onChange,
+  onRemoved,
+}: {
+  notes: IdeaNote[]
+  onChange: (note: IdeaNote) => void
+  onRemoved: (noteId: string) => void
+}) {
+  const scroller = useRef<HTMLDivElement>(null)
+  const [index, setIndex] = useState(0)
+
+  function onScroll() {
+    const el = scroller.current
+    if (!el || el.children.length === 0) return
+    const card = el.children[0] as HTMLElement
+    const step = card.offsetWidth + 16 // gap-4
+    setIndex(Math.max(0, Math.min(notes.length - 1, Math.round(el.scrollLeft / step))))
+  }
+
+  function jump(delta: number) {
+    const el = scroller.current
+    if (!el || el.children.length === 0) return
+    const card = el.children[0] as HTMLElement
+    el.scrollBy({ left: delta * (card.offsetWidth + 16), behavior: 'smooth' })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-xs text-neutral-400">
+        <span>
+          {index + 1} / {notes.length} ·{' '}
+          {new Date(notes[index]?.updated_at ?? notes[index]?.created_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          })}
+        </span>
+        <span className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => jump(-1)}
+            disabled={index === 0}
+            aria-label="Newer note"
+            className="rounded-lg px-2 py-0.5 text-base leading-none text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => jump(1)}
+            disabled={index >= notes.length - 1}
+            aria-label="Older note"
+            className="rounded-lg px-2 py-0.5 text-base leading-none text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30"
+          >
+            ›
+          </button>
+        </span>
+      </div>
+      <div
+        ref={scroller}
+        onScroll={onScroll}
+        className="-mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2"
+      >
+        {notes.map((note) => (
+          <div key={note.id} className="w-[92%] shrink-0 snap-center sm:w-[480px]">
+            <NoteCard note={note} onChange={onChange} onRemoved={onRemoved} />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -270,7 +357,7 @@ function NoteCard({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function patch(body: Record<string, unknown>) {
+  async function patch(body: Record<string, unknown>): Promise<void> {
     setBusy(true)
     setError(null)
     try {
@@ -385,11 +472,37 @@ function NoteCard({
         </div>
       ) : (
         <div
-          className={`whitespace-pre-wrap text-sm leading-relaxed ${
+          className={`max-h-[55vh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed ${
             showRaw ? 'rounded-xl bg-amber-50 p-3 text-neutral-700' : 'text-neutral-800'
           }`}
         >
           {displayText}
+        </div>
+      )}
+
+      {note.tidy_issues.length > 0 && !showRaw && !editing && (
+        <div className="flex flex-col gap-2 rounded-xl border border-sky-100 bg-sky-50/70 px-3 py-2.5">
+          <p className="text-xs font-medium text-neutral-600">
+            Not sure about {note.tidy_issues.length === 1 ? 'one word' : `${note.tidy_issues.length} words`} — tap the right one:
+          </p>
+          {note.tidy_issues.map((issue) => (
+            <IssueRow
+              key={issue.text}
+              issue={issue}
+              busy={busy}
+              onResolve={(replacement) => {
+                const remaining = note.tidy_issues.filter((i) => i.text !== issue.text)
+                // First occurrence only — the model guarantees `text` is
+                // the exact body spelling, and repeats are near-impossible
+                // for a misread word.
+                const nextBody =
+                  replacement === issue.text
+                    ? note.body
+                    : note.body.replace(issue.text, replacement)
+                return patch({ body: nextBody, tidyIssues: remaining })
+              }}
+            />
+          ))}
         </div>
       )}
 
@@ -411,7 +524,7 @@ function NoteCard({
       {note.tidy_flags.length > 0 && !showRaw && !editing && (
         <div className="rounded-xl bg-neutral-50 px-3 py-2">
           <p className="text-xs font-medium text-neutral-500">
-            What the organizer wasn&apos;t sure about:
+            Side notes from reading the page:
           </p>
           <ul className="mt-1 list-disc pl-4 text-xs text-neutral-500">
             {note.tidy_flags.map((f, i) => (
@@ -423,6 +536,92 @@ function NoteCard({
 
       {error && <p className="text-xs text-red-500">{error}</p>}
     </article>
+  )
+}
+
+// One uncertain word: the word, its candidate readings as buttons, a
+// pencil for "let me type it", and "keep" to accept it as written.
+function IssueRow({
+  issue,
+  busy,
+  onResolve,
+}: {
+  issue: TidyIssue
+  busy: boolean
+  onResolve: (replacement: string) => Promise<void> | void
+}) {
+  const [custom, setCustom] = useState<string | null>(null)
+
+  if (custom !== null) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-neutral-500 line-through">
+          {issue.text}
+        </span>
+        <input
+          autoFocus
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && custom.trim()) onResolve(custom.trim())
+            if (e.key === 'Escape') setCustom(null)
+          }}
+          placeholder="type the word…"
+          className="cm-input h-8 min-w-0 flex-1 text-xs"
+        />
+        <button
+          type="button"
+          disabled={!custom.trim() || busy}
+          onClick={() => onResolve(custom.trim())}
+          className="cm-btn cm-btn-primary h-8 px-2.5 text-xs"
+        >
+          ✓
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span
+        className="rounded bg-white px-1.5 py-0.5 font-mono text-xs font-semibold text-neutral-800"
+        title={issue.note}
+      >
+        {issue.text}
+      </span>
+      <span className="text-xs text-neutral-400">→</span>
+      {issue.options
+        .filter((o) => o !== issue.text)
+        .map((option) => (
+          <button
+            key={option}
+            type="button"
+            disabled={busy}
+            onClick={() => onResolve(option)}
+            className="rounded-lg border border-sky-200 bg-white px-2.5 py-1 text-xs font-medium text-sky-700 transition hover:bg-sky-100 active:scale-95"
+          >
+            {option}
+          </button>
+        ))}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setCustom('')}
+        title="Type it yourself"
+        className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-500 transition hover:bg-neutral-100"
+      >
+        ✏️
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onResolve(issue.text)}
+        title="It's right as written"
+        className="rounded-lg px-2 py-1 text-xs text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
+      >
+        keep
+      </button>
+    </div>
   )
 }
 

@@ -101,10 +101,12 @@ export async function POST(req: Request) {
     }
 
     // 3. Tidy pass over the transcription. Best-effort, like typed notes.
-    let tidied: { title: string; body: string; flags: string[] } | null = null
+    let tidied: Awaited<ReturnType<typeof tidyNote>> | null = null
     let tidyStatus: TidyStatus = 'raw'
     try {
-      tidied = await tidyNote(rawText)
+      // The transcriber's doubts ride along so word-choice ones become
+      // tappable issues instead of prose the user has to act on by hand.
+      tidied = await tidyNote(rawText, transcription.flags)
       tidyStatus = 'tidied'
     } catch {
       tidyStatus = 'failed'
@@ -118,7 +120,11 @@ export async function POST(req: Request) {
       tidyStatus,
       // Transcription flags (unreadable words) matter even more than
       // tidy flags — surface both.
-      tidyFlags: [...transcription.flags, ...(tidied?.flags ?? [])],
+      // When tidy ran, its flags already absorbed the transcriber's
+      // (word-choice ones became issues); raw fallback keeps the
+      // transcriber's prose so nothing is lost.
+      tidyFlags: tidied ? tidied.flags : transcription.flags,
+      tidyIssues: tidied?.issues ?? [],
       imageUrls: urls,
       storagePaths: paths,
     })
