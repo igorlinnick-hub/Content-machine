@@ -5,7 +5,7 @@
 //
 //   FOLDER_URL="https://drive.google.com/drive/folders/<id>" node scripts/render-folder-card.mjs
 //
-// Output: samples/floor-folder-access.pdf
+// Output: "HWC/Content Machine PDFs/floor-folder-access.pdf" (samples/ as fallback)
 
 import { readFileSync, existsSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
@@ -16,6 +16,12 @@ import QRCode from 'qrcode'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
+
+// Every PDF this repo hands to a clinic lands in one folder, so nothing gets
+// lost across Downloads/samples/Documents. Same target as
+// scripts/render-doctor-guide.mjs; falls back to samples/ off this machine.
+const HWC_PDF_DIR = '/Users/igorlinnik/Downloads/HWC/Content Machine PDFs'
+const OUT_DIR = existsSync(dirname(HWC_PDF_DIR)) ? HWC_PDF_DIR : join(root, 'samples')
 
 // The folder link is a capability URL — anyone holding it reads the clinic's
 // material — and this repository is public, so it is never hardcoded here.
@@ -228,6 +234,7 @@ async function main() {
   })
   const html = mono ? buildMonoHTML(qrDataUrl) : buildHTML(qrDataUrl)
   await mkdir(join(root, 'samples'), { recursive: true })
+  await mkdir(OUT_DIR, { recursive: true })
 
   if (!CHROME) throw new Error('No Chrome found. Set CHROME_PATH.')
   const browser = await puppeteer.launch({
@@ -239,7 +246,7 @@ async function main() {
     const page = await browser.newPage()
     await page.setContent(html, { waitUntil: 'networkidle0' })
     const base = mono ? 'floor-folder-access-bw' : 'floor-folder-access'
-    const outPath = join(root, 'samples', `${base}.pdf`)
+    const outPath = join(OUT_DIR, `${base}.pdf`)
     await page.pdf({ path: outPath, format: 'A4', printBackground: true, preferCSSPageSize: true })
     // A PNG next to it, so the layout can be eyeballed without a PDF viewer.
     await page.setViewport({ width: 992, height: 1403, deviceScaleFactor: 2 })

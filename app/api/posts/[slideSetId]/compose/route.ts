@@ -7,7 +7,11 @@ import { pingCanvaRunner } from '@/lib/posts/ping-canva-runner'
 import { composeInCanva, ComposeCancelled, ComposeError } from '@/lib/canva/orchestrator'
 import { canvaIsConfigured } from '@/lib/canva/oauth'
 import { autofillIsConfigured } from '@/lib/canva/template-map'
-import { normalizeStyleId } from '@/lib/posts/style-templates'
+import {
+  getStyleTemplate,
+  normalizeStyleId,
+  styleIsComposable,
+} from '@/lib/posts/style-templates'
 import { coverBriefForStyle } from '@/lib/posts/cover-brief'
 
 export const runtime = 'nodejs'
@@ -67,6 +71,19 @@ export async function POST(
   if (!canCompose(row.status)) {
     return NextResponse.json(
       { error: `cannot compose from status='${row.status}'` },
+      { status: 409 }
+    )
+  }
+  // A style whose Canva master has not been built yet has an empty design id.
+  // Refuse here rather than stranding the row in the queue for a runner that
+  // will fail on `copy-design ''` twenty minutes later.
+  if (!styleIsComposable(row.canva_style)) {
+    const style = getStyleTemplate(row.canva_style)
+    return NextResponse.json(
+      {
+        error: `style '${style.name}' has no Canva master yet`,
+        hint: `Build it, then set canvaDesignId for style ${style.id} in lib/posts/style-templates.ts and mirror it in the runner skill.`,
+      },
       { status: 409 }
     )
   }

@@ -72,6 +72,14 @@ export interface PostFormat {
    * promised outcome — see the hard line in HOOK_SHAPE_RULES.
    */
   hookShape: string
+  /**
+   * `clinics.niche` values allowed to use this format. Undefined = every
+   * clinic, which is every HWC format. Mirrors `stylesForNiche()`: a niche
+   * that declares its own formats sees ONLY those. Yedino sells to clinics
+   * rather than treating patients, so none of the clinical formats fit it and
+   * none of its formats belong in a clinic's planner.
+   */
+  niches?: string[]
   /** The structural beats the Writer follows. */
   scaffold: string
   length_bias: FormatLengthBias
@@ -391,23 +399,80 @@ indict another clinic, a profession, or the patient's previous doctor, and no
 slide may carry a question count or number.`,
     length_bias: 'short',
   },
+  // ── Yedino Systems (niche 'yedino') — B2B, doctor-facing ──────────
+  // Audience: owners of regenerative-medicine practices (stem cell, BHRT,
+  // neuropathy and the like). They are doctors, not patients: the post never
+  // teaches medicine, it talks about the practice. Four formats, all SHORT —
+  // the master carries little text (docs/YEDINO-STYLE.md §13).
+  {
+    name: 'Why it matters',
+    label: 'Why',
+    niches: ['yedino'],
+    hookShape:
+      'THE STATE THE DOCTOR ALREADY LIVES IN, stated flatly — something true about their month that they can check against their own numbers. "Your best month this year came from one referral, and you cannot explain why it happened." Never open on the subject ("branding is important for clinics"), never on us.',
+    hint: 'One reason growing the practice\'s own name changes its economics.',
+    coverTitle: `The consequence in plain words — "Why Referrals Dry Up" / "The Patients Who Never Call". Names what the doctor sees, not what we sell.`,
+    description:
+      'Make ONE argument for why a practice with its own audience runs differently from one without. Concrete and economic — where patients come from, what they cost, what happens when the source stops. Never a lecture about marketing.',
+    scaffold: `[Hook — a flat sentence about the doctor's own month. No "in today's digital world".]
+[The mechanism — why that happens, in one plain line. The practice has no audience of its own, so every patient is rented from someone else.]
+[What it costs — the consequence, stated once, concretely.]
+[What changes when it is fixed — the shape of the difference, never a promised number.]
+[CTA — one specific next step.]`,
+    length_bias: 'short',
+  },
+  {
+    name: 'Objection',
+    label: 'Objection',
+    niches: ['yedino'],
+    hookShape:
+      'THE OBJECTION IN THE DOCTOR\'S OWN WORDS, quoted flat and without a setup: "I do not have time to be on camera." Never soften it, never strawman it, never answer it in the same line.',
+    hint: 'Name what the doctor actually says out loud, then answer it straight.',
+    coverTitle: `The objection itself, in quotes — "I Don't Have Time For This"`,
+    description:
+      'Take one real objection seriously and answer it without defensiveness. The objection is treated as REASONABLE — it usually is. No pressure, no "but actually", no implying the doctor is behind. If the honest answer is "then this is not for you", say that.',
+    scaffold: `[Hook — the objection, quoted, nothing else.]
+[Why it is fair — grant the part that is true, in one line. This is not a concession tactic; it has to be genuinely true.]
+[What is actually being asked — restate the objection as the real underlying question.]
+[The straight answer — what is actually required of them, concretely. Minutes, not adjectives.]
+[CTA — one specific next step.]`,
+    length_bias: 'short',
+  },
+  {
+    name: 'One fix',
+    label: 'One fix',
+    niches: ['yedino'],
+    hookShape:
+      'THE MISTAKE, NOT THE TOPIC — the thing the practice is doing right now that works against it, in one flat sentence. "Your front desk answers Instagram DMs once a day, at the end of the shift." Never the count, never the subject word.',
+    hint: 'One concrete change the practice can make this week — even without us.',
+    coverTitle: `The fix as an instruction — "Answer The DM In An Hour" / "Film Before The First Patient"`,
+    description:
+      'Give away ONE thing that actually works, specific enough to do on Monday. It must stand on its own for a practice that never hires us — a tip that only works if you buy something is an ad, not advice.',
+    scaffold: `[Hook — the mistake, flat.]
+[Why it costs them — one line, concrete.]
+[The fix — exactly what to do, in a form someone can follow without asking a question.]
+[The catch — the part that makes it hard to sustain, named honestly.]
+[CTA — one specific next step.]`,
+    length_bias: 'short',
+  },
+  {
+    name: 'What it costs',
+    label: 'Cost',
+    niches: ['yedino'],
+    hookShape:
+      'A CONCRETE SCENE OR NUMBER FROM THEIR WEEK, stated flatly — "Your MA edits Reels after her shift, unpaid, on her phone." Real and checkable, never a statistic about the industry.',
+    hint: 'The hidden cost of the current way of doing it.',
+    coverTitle: `The cost named plainly — "What Doing It Yourself Costs" / "The Reel That Took Four Hours"`,
+    description:
+      'Show what the current arrangement actually costs in time, attention, or missed inquiries. Costs the reader can verify against their own week. Never invented figures, never a guaranteed saving.',
+    scaffold: `[Hook — the scene or the number.]
+[Where the time actually goes — the breakdown, two or three concrete pieces.]
+[The second cost — the one nobody counts (the thing that does not get done instead).]
+[What the alternative looks like — described as the arrangement, not as a promised result.]
+[CTA — one specific next step.]`,
+    length_bias: 'short',
+  },
 ]
-
-// ─── Hook shapes ──────────────────────────────────────────────────────
-//
-// Ads have carried a per-format `hookShape` since 2026-08-20 and organic
-// scripts did not: every format shared one line in the Writer's beat budget
-// ("concrete fact or question, not a generic opening"), which is a constraint,
-// not a shape. Igor 2026-09-07, off a reference-reel teardown: the two moves
-// that separate a scroll-stopper from a topic announcement are opening on the
-// MISTAKE instead of the subject, and opening on the STATE the reader
-// recognises instead of the process the doctor performs.
-//
-// The second one is where the compliance edge is. "My hair went silky when I…"
-// is a promised result, and a clinic cannot say its equivalent. The clinic
-// version opens on a state the reader ALREADY LIVES IN and recognises — never
-// on the state we are implying they will reach.
-
 export const HOOK_SHAPE_RULES = `HOOK SHAPE — THE FIRST SPOKEN LINE (binding):
 
 1. The hook is the reader's, not ours. It names something true about THEIR week — what they do, what they feel, what they were told. It never opens on the clinic, the doctor, the procedure, or the post itself ("Today we're talking about…", "Let's break down…").
@@ -428,17 +493,40 @@ export const HOOK_SHAPE_RULES = `HOOK SHAPE — THE FIRST SPOKEN LINE (binding):
  * variants must pick differently — variety in the first line is most of what
  * makes two variants feel like two options instead of one draft twice.
  */
-export function buildHookShapeBlock(pinnedShape: string | null): string {
+export function buildHookShapeBlock(
+  pinnedShape: string | null,
+  niche?: string | null
+): string {
   if (pinnedShape) {
     return `${HOOK_SHAPE_RULES}
 
 THIS POST'S HOOK SHAPE (binding — the format owns it): ${pinnedShape}`
   }
-  const menu = POST_FORMATS.map((f) => `• ${f.name} — ${f.hookShape}`).join('\n')
+  const menu = formatsForNiche(niche)
+    .map((f) => `• ${f.name} — ${f.hookShape}`)
+    .join('\n')
   return `${HOOK_SHAPE_RULES}
 
 HOOK SHAPE MENU — pick ONE per variant, and pick a DIFFERENT one for each variant. These are the shapes each format opens on; the shape has to match the format the variant chose.
 ${menu}`
+}
+
+/**
+ * The formats a clinic may use, given its `clinics.niche`. Exactly the shape
+ * of `stylesForNiche()`: a niche that declares its own formats sees ONLY
+ * those; everyone else sees the ungated catalog. Yedino's four B2B formats
+ * never reach a clinic's planner, and the clinical formats never reach
+ * Yedino's — its posts are about running a practice, not about medicine.
+ */
+export function formatsForNiche(niche: string | null | undefined): PostFormat[] {
+  const normalized = (niche ?? '').trim().toLowerCase()
+  const own = POST_FORMATS.filter((f) => f.niches?.includes(normalized))
+  if (own.length > 0) return own
+  return POST_FORMATS.filter((f) => !f.niches)
+}
+
+export function formatNamesForNiche(niche: string | null | undefined): string[] {
+  return formatsForNiche(niche).map((f) => f.name)
 }
 
 export const FORMAT_NAMES = POST_FORMATS.map((f) => f.name)

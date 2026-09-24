@@ -123,6 +123,26 @@ export const STYLE_TEMPLATES: StyleTemplate[] = [
     niches: ['aesthetics'],
     under: 'Made',
   },
+  {
+    id: 6,
+    key: 'yedino',
+    // No photography anywhere in this master — type + one accent colour.
+    // Leaving photoCover true made coverBriefForStyle() rewrite slide 1 into
+    // an `ai` photo that nothing would ever place.
+    photoCover: false,
+    name: 'Yedino Carousel',
+    description: 'Accent-swap master — one colour changes per post (docs/YEDINO-STYLE.md §12).',
+    // Master picked by Igor 2026-09-14. NOT yet verified against the spec:
+    // nobody with Canva access has read its pages, so page count, layer names
+    // and the §7 invariants are unconfirmed. See the handoff.
+    canvaDesignId: 'DAHVZUyzxTg',
+    previewImage: '/style-previews/yedino.png',
+    // MEASURED off the design itself 2026-09-16 (page navigator read "6 / 6"):
+    // cover + 4 body + CTA = 6 pages. The earlier 3 was a guess and was wrong.
+    bodySlots: 4,
+    niches: ['yedino'],
+    under: 'Yedino',
+  },
 ]
 
 /**
@@ -205,4 +225,143 @@ export function bodySlotsForStyle(raw: number | null | undefined): number {
     STYLE_TEMPLATES.find((s) => s.id === id)?.bodySlots ??
     STYLE_TEMPLATES[0].bodySlots
   )
+}
+
+// ── Yedino Systems — the agency's OWN account (@yedino.systems) ─────
+//
+// Yedino is a client of this machine like any clinic: it gets scripts and a
+// carousel. It is style 6, gated by `niches: ['yedino']`, which is what makes
+// the Canva carousel its ONLY option — `stylesForNiche('yedino')` returns just
+// this one, and the five HWC styles never appear in its picker (nor does
+// Yedino appear in theirs). Same mechanism that keeps Aesthetic Made-only.
+//
+// Its visual system is `docs/YEDINO-STYLE.md` — BINDING, and it outranks the
+// master: when the master is rebuilt, the spec's §7 invariants are what the
+// new one has to satisfy. Brand kit is Yedino's own, NOT HWC's `kAG87QCkJl0`.
+//
+// ⚠️ Not in `lib/canva/templates.ts`: that file is dead code with a stale HWC
+// set that nothing imports (HANDOFF-MODULES.md:554).
+
+export const YEDINO_STYLE_ID = 6
+export const YEDINO_NICHE = 'yedino'
+
+/**
+ * Field contract from docs/YEDINO-STYLE.md §9, in page order. Names follow the
+ * `lib/canva/template-map.ts` convention so the master's layers stay labelled
+ * consistently — NOT because server-side autofill runs: it needs Canva
+ * Enterprise brand templates this account doesn't have, and the live build is
+ * the Claude+MCP runner (HANDOFF-MODULES.md §4).
+ */
+// Read off the master 2026-09-16, page by page. The shape is much simpler than
+// the first draft assumed, and two slots it assumed DO NOT EXIST:
+//   page 1 (cover) — TITLE ONLY. There is no hook line and no photo frame.
+//   pages 2-5      — title + ONE paragraph. No bullets anywhere in this master.
+//   page 6 (CTA)   — TITLE ONLY. There is no punchline slot, so the whole CTA
+//                    has to fit in the title ("DM THE WORD AUDIT").
+// Every page also carries fixed furniture the post never changes: brand name
+// and hashtag in the header, handle and year in the footer.
+export const YEDINO_FIELDS = [
+  'cover_title',
+  'slide_2_heading',
+  'slide_2_intro',
+  'slide_3_heading',
+  'slide_3_intro',
+  'slide_4_heading',
+  'slide_4_intro',
+  'slide_5_heading',
+  'slide_5_intro',
+  'cta_keyword',
+] as const
+
+/**
+ * Per-post accent colour (docs/YEDINO-STYLE.md §12).
+ *
+ * Read off the real master 2026-09-14: the accent is NOT the text colour. The
+ * body text is BLACK and sits on an accent-coloured HIGHLIGHT block, and the
+ * same accent draws the dashed arrow. So the contrast test is accent-vs-BLACK,
+ * not accent-vs-white — which is the opposite of what the first pass assumed
+ * and rules out every dark accent.
+ *
+ * Palette is blue / white / yellow (Igor 2026-09-14). Measured against black:
+ * every entry below clears 4.5:1 at any size. Brand-500 #2563EB is deliberately
+ * ABSENT — it measures 4.06:1 against black, which is large-text-only and looks
+ * heavy under a 32pt paragraph. The brand's blue lives in the lighter tints
+ * here instead.
+ *
+ * Keyed by content pillar so the choice is deterministic and carries meaning —
+ * the reader learns the colour before reading the heading — instead of being
+ * picked by feel. Pillar strings mirror `clinics.content_pillars` exactly for
+ * the yedino row; change one and you must change the other.
+ */
+export const YEDINO_ACCENTS: ReadonlyArray<{
+  pillar: string
+  hex: string
+  label: string
+  /** Measured contrast against the black body text that sits on it. */
+  onBlack: number
+}> = [
+  { pillar: 'Why growing a brand matters', hex: '#38BDF8', label: 'sky', onBlack: 9.8 },
+  {
+    pillar: 'What doing it yourself actually costs',
+    hex: '#FBBF24',
+    label: 'yellow',
+    onBlack: 12.58,
+  },
+  { pillar: 'Proof and numbers', hex: '#0EA5E9', label: 'deep sky', onBlack: 7.58 },
+  { pillar: 'Objections doctors actually raise', hex: '#FFFFFF', label: 'white', onBlack: 21 },
+  { pillar: 'How the operation runs', hex: '#93C5FD', label: 'pale blue', onBlack: 11.65 },
+]
+
+/** Accent for a post's pillar. Unknown/missing pillar → sky. */
+export function yedinoAccentFor(pillar: string | null | undefined): string {
+  const n = (pillar ?? '').trim().toLowerCase()
+  return YEDINO_ACCENTS.find((a) => a.pillar.toLowerCase() === n)?.hex ?? '#38BDF8'
+}
+
+/**
+ * LOCKED TYPE STANDARD for the Yedino master, read off the design itself
+ * (Igor 2026-09-14: "шрифт соблюдал тот же, как правило 32 для базы, а
+ * заглавие шрифт не менял размер").
+ *
+ * Both sizes are FIXED. Nothing resizes type per slide — the copy adapts to
+ * the box, never the other way round. Same law as the HWC masters' 46/50.
+ */
+export const YEDINO_TYPE = {
+  /** Body paragraph, as set in the master. */
+  bodyPt: 32,
+  /** Display title — never resized; the copy is cut instead. */
+  titleFixed: true,
+  /** Measured off page 3: ~28 characters per line at 32pt, 5 lines of room. */
+  bodyCharsPerLine: 28,
+  bodyMaxLines: 5,
+  /** Title wraps at ~10 characters. */
+  titleCharsPerLine: 10,
+  /** Body pages share the box with a paragraph — 3 lines, ~26 chars. */
+  titleMaxLines: 3,
+  bodyTitleMaxChars: 26,
+  /**
+   * Cover and CTA are title-only pages, so their title box is taller and
+   * takes more: the master's own read "BRANDING IS MORE THAN JUST LOOKS" (32)
+   * and "DON'T FORGET TO SAVE THIS POST" (30).
+   */
+  soloTitleMaxChars: 32,
+  soloTitleMaxLines: 5,
+} as const
+
+/**
+ * False while the Yedino master has no Canva design id. Compose MUST check
+ * this: composing with an empty id would either fail deep inside the runner or
+ * — worse, if anything ever adds a fallback — build an agency post in a
+ * clinic's look.
+ */
+export function yedinoMasterIsReady(): boolean {
+  return (
+    (STYLE_TEMPLATES.find((s) => s.id === YEDINO_STYLE_ID)?.canvaDesignId ?? '').trim()
+      .length > 0
+  )
+}
+
+/** Every style that has no master built yet — compose refuses these. */
+export function styleIsComposable(raw: number | null | undefined): boolean {
+  return getStyleTemplate(raw).canvaDesignId.trim().length > 0
 }

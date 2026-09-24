@@ -27,8 +27,10 @@ export async function POST(
   const url = new URL(req.url)
   const styleParam = url.searchParams.get('style')
   const styleId = styleParam ? Number(styleParam) : undefined
-  if (styleParam && (!Number.isInteger(styleId) || styleId! < 1 || styleId! > 5)) {
-    return NextResponse.json({ error: 'style must be 1-5' }, { status: 400 })
+  // 6 is Yedino's paper skin (lib/render/skins/style6.ts); 1/2/4/5 still
+  // have no skin and fail loudly inside skinForStyle rather than here.
+  if (styleParam && (!Number.isInteger(styleId) || styleId! < 1 || styleId! > 6)) {
+    return NextResponse.json({ error: 'style must be 1-6' }, { status: 400 })
   }
 
   try {

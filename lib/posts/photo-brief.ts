@@ -286,6 +286,15 @@ function doctrineFor(niche: string | null | undefined): PhotoDoctrine {
   return getNicheProfile(niche).id === 'aesthetics' ? AESTHETICS_DOCTRINE : REGENMED_DOCTRINE
 }
 
+// Niches whose master carries no photography at all. Yedino's master is
+// type + accent colour only (Igor 2026-09-14: "фотки не нужны там что
+// хорошо"), so there is nothing to brief: we skip the LLM call, Flux never
+// runs, and the runner keeps the master's own surfaces. Returning [] rather
+// than a brief full of `fallback` entries is deliberate — `fallback` means
+// "keep the template surface", which reads the same downstream but still
+// costs an agent call to produce.
+const PHOTOLESS_NICHES = new Set(['yedino'])
+
 export async function generatePhotoBriefs(params: {
   cover: PostPlanCover
   slides: PostPlanBodySlide[]
@@ -300,6 +309,7 @@ export async function generatePhotoBriefs(params: {
   clinicId?: string | null
   photoLibraryFolderId?: string | null
 }): Promise<PostPlanPhotoBrief[]> {
+  if (PHOTOLESS_NICHES.has((params.niche ?? '').trim().toLowerCase())) return []
   const doctrine = doctrineFor(params.niche)
   const compactPlan = {
     cover: { n: 1, kind: 'cover', ...params.cover },

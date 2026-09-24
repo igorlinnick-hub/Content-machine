@@ -61,6 +61,24 @@ export interface Skin {
   coverPhoto: boolean
   /** Diagonal panel edge (Style 1/3 look) vs straight/curved. */
   panelEdge: 'diagonal' | 'straight' | 'curve'
+
+  // ── Paper surface (Style 6) ────────────────────────────────────────
+  // The panel styles put white type on a photo. Style 6 puts black type
+  // on paper and highlights the paragraph inline instead. That is a
+  // different SURFACE, not a different code path: one token switches it
+  // and the tokens below are what that surface needs.
+  /** 'panel' (default) = photo + translucent panel. 'paper' = Style 6. */
+  surface?: 'panel' | 'paper'
+  /** Paper base colour, under the texture. */
+  paperTint?: string
+  /** Type colour on paper. */
+  ink?: string
+  /** Inline highlight behind body copy, and the doodles' colour. */
+  highlight?: string
+  /** Type colour inside the highlight. */
+  highlightInk?: string
+  /** Draw the brush underline / dotted arrows / bookmark. */
+  doodles?: boolean
 }
 
 export const CANVAS = { width: 1080, height: 1350 } as const

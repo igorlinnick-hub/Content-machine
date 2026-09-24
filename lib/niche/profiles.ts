@@ -3,9 +3,12 @@
 // Every clinic has a `niche` string in the DB. The profile it resolves to
 // controls how Writer, Splitter, and Compliance behave for that clinic.
 //
-// Two shipped profiles:
+// Shipped profiles:
 //   'regenerative_medicine' — HWC / regenmed clinics. ManyChat keyword CTA.
 //   'aesthetics'            — Botox / filler / cosmetic injector clinics. ManyChat keyword CTA.
+//   'yedino'                — Yedino Systems itself (@yedino.systems). B2B: the
+//                             agency selling a content operation to clinic owners.
+//                             Not a medical advertiser — see YEDINO_COMPLIANCE_FACTS.
 //
 // Unknown niche → fallback to regenerative_medicine (zero breakage for
 // existing HWC clinics that have no niche set).
@@ -154,12 +157,69 @@ const AESTHETICS_PROFILE: NicheProfile = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Profile: yedino
+// Yedino Systems — the AGENCY'S OWN account (@yedino.systems). Not a clinic:
+// the audience is clinic owners and practice managers, and the product is a
+// content operation, not a treatment.
+//
+// It rides the same machine as a clinic (scripts → carousel) because the shape
+// of the work is identical; only the persona, the CTA pool, and the compliance
+// surface differ. Its visual system is docs/YEDINO-STYLE.md.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const YEDINO_MANYCHAT_KEYWORDS = `KEYWORD must be chosen from the Yedino DM trigger list below — these are the ONLY valid keywords. Pick the single best fit for the script's angle. Never invent a keyword outside this list.
+
+  AUDIT      — the free 20-minute growth audit. The default, and the strongest.
+  SYSTEM     — how the content operation is run end to end.
+  POSTS      — what a month of finished content actually looks like.
+  DMS        — the always-on DM answering.
+  NUMBERS    — what gets reported, and how often.`
+
+const YEDINO_COMPLIANCE_FACTS = `YEDINO IS NOT A MEDICAL ADVERTISER. It sells a content operation to clinics. The medical-claim rules that govern a clinic's own posts do not apply here, but FTC advertising rules do, and they are strict:
+
+- NEVER make a medical claim of any kind — not about a treatment, an outcome, or a condition. Yedino does not treat anyone. If a script drifts into describing what a treatment does, that is out of scope and must be cut.
+- NEVER promise business results as a guarantee. Volumes we control (how many videos get produced, how often we report) may be stated plainly. Anything downstream of the market — patients, bookings, revenue, reach — must be described as what the operation is aimed at, never as what the clinic will get.
+- Any number presented as a result must be REAL and traceable to an actual client. No illustrative figures, no "typical" numbers, no composites. If it cannot be sourced, it does not go in the script.
+- Testimonials and case studies describe the experience of that specific client, and must be disclosed as such. No implying a stated result is typical.
+- Screenshots used as proof must be genuine and the client's identifying details removed. A generated or mocked-up proof image is prohibited outright (docs/YEDINO-STYLE.md §6).
+- Never state or imply that Yedino is affiliated with, endorsed by, or acting on behalf of a clinic it does not work with.`
+
+const YEDINO_PROFILE: NicheProfile = {
+  id: 'yedino',
+  label: 'content operations for medical clinics',
+  writerPersona:
+    'You write scripts for the founder of Yedino Systems. Yedino runs the content operation for medical practices: the practice films on a phone, Yedino does everything after that — editing, captions, publishing, boosting, and answering DMs. The audience is DOCTORS WHO OWN THEIR PRACTICE, in regenerative and longevity medicine: stem cell and regenerative therapies, bio-identical HRT, peptides, neuropathy, and the like. They are physicians, not patients and not marketers. They already suspect their marketing is not working and have no time to fix it. Write owner-to-owner about running the practice — why building their own name changes where patients come from, the objections they raise out loud, and concrete advice they can act on. NEVER teach medicine: they know more medicine than you do, and a post that explains their own field to them is the fastest way to lose them.',
+  ctaMode: 'manychat',
+  writerBudget: `SLIDE SHAPE AND TEXT BUDGET (HARD — measured off the Canva master itself, 2026-09-16):
+
+THE POST IS 6 SLIDES, and two of them take a TITLE ONLY:
+1. COVER — title only. There is NO subtitle, hook line, or photo. Everything the cover says must fit one title of at most 32 characters.
+2-5. FOUR BODY SLIDES — a title plus ONE paragraph. There are no bullets anywhere in this master; never write a list.
+6. CTA — title only. There is NO punchline slot, so the entire call to action is the title: "DM THE WORD AUDIT".
+
+SIZES ARE LOCKED. The master sets body copy at 32pt and the title at a fixed display size, and NEITHER IS EVER RESIZED — not by you, not by the designer, not by the runner. The copy adapts to the box; the box never adapts to the copy.
+
+- BODY-SLIDE TITLE: at most 26 characters, at most 3 lines.
+- COVER / CTA TITLE: at most 32 characters, at most 5 lines.
+- NO SINGLE WORD LONGER THAN 10 CHARACTERS in any title — the title wraps at roughly 10 characters and there is no smaller size to fall back to, so one long word breaks the slide outright.
+- BODY PARAGRAPH: at most 5 lines at roughly 28 characters per line — at most 22 words, about 140 characters. (The master's own paragraphs run 117-133 characters, so this is its real working range, not a guess.)
+- WHOLE POST: at most 120 words across every slide combined.
+
+Titles are ALL CAPS.
+
+If an idea does not fit: cut the idea. Never split a sentence across slides to smuggle it in, never pad a short slide to fill space. A slide with three words on it is finished; a slide that overflows is broken, because nothing downstream can shrink it.`,
+  manychatKeywordsBlock: YEDINO_MANYCHAT_KEYWORDS,
+  complianceFacts: YEDINO_COMPLIANCE_FACTS,
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Registry + lookup
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PROFILES: Record<string, NicheProfile> = {
   regenerative_medicine: REGENMED_PROFILE,
   aesthetics: AESTHETICS_PROFILE,
+  yedino: YEDINO_PROFILE,
 }
 
 /**

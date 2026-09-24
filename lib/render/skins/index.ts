@@ -1,5 +1,6 @@
 import type { Skin } from '../types'
 import { style3 } from './style3'
+import { style6 } from './style6'
 
 // Style id → skin. Ids match lib/posts/style-templates.ts (the Canva masters)
 // so a post keeps ONE style identity no matter which renderer draws it.
@@ -8,6 +9,7 @@ import { style3 } from './style3'
 // Canva twin before porting the other four (Igor 2026-08-13).
 const SKINS: Record<number, Skin> = {
   3: style3,
+  6: style6,
 }
 
 export function skinForStyle(styleId: number): Skin {

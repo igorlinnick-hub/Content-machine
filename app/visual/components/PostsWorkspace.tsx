@@ -2,6 +2,7 @@
 'use client'
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { NotesPopover, noteHeadline, type NoteOption } from './NotesPopover'
 import { useRouter } from 'next/navigation'
 import type { PostListItem } from '@/lib/visual/store'
 import type { RenderResult, SlideSetStatus } from '@/types'
@@ -28,6 +29,8 @@ interface Props {
   // between weeks with subtle ‹ › arrows and generate from any of them.
   planWeeks?: StructuredPlanWeek[]
   currentWeekIndex?: number
+  /** Ideas from the Notes workspace — the generator can start from one. */
+  notes?: NoteOption[]
 }
 
 interface ComplianceFinding {
@@ -98,6 +101,7 @@ export function PostsWorkspace({
   posts: initialPosts,
   planWeeks = [],
   currentWeekIndex = 0,
+  notes = [],
 }: Props) {
   // Master styles this clinic may pick — Aesthetic is Made-only, so Dr.
   // Shawn's regenmed clinics never see it.
@@ -896,21 +900,35 @@ export function PostsWorkspace({
             )
           })()}
           <div className="flex flex-col gap-1">
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => {
-                setTopic(e.target.value)
-                // If user edits the text away from a planned topic, switch to ad-hoc mode
-                if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
-              }}
-              placeholder="Topic — e.g. ketamine for treatment-resistant depression"
-              className="cm-input text-sm"
-              disabled={generating}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !generating && (e.metaKey || e.ctrlKey)) generate()
-              }}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={topic}
+                onChange={(e) => {
+                  setTopic(e.target.value)
+                  // If user edits the text away from a planned topic, switch to ad-hoc mode
+                  if (plannedPost && e.target.value !== plannedPost.topic) setPlannedPost(null)
+                }}
+                placeholder="Topic — e.g. ketamine for treatment-resistant depression"
+                className="cm-input min-w-0 flex-1 text-sm"
+                disabled={generating}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !generating && (e.metaKey || e.ctrlKey)) generate()
+                }}
+              />
+              {/* An idea from Notes becomes the topic line; the note body
+                  rides along as the starting note, so nothing is retyped. */}
+              <NotesPopover
+                notes={notes}
+                disabled={generating}
+                accent="#0EA5E9"
+                onPick={(n) => {
+                  setPlannedPost(null)
+                  setTopic(noteHeadline(n))
+                  setNote(n.body.trim())
+                }}
+              />
+            </div>
           </div>
           <textarea
             value={note}

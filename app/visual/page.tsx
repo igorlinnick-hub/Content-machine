@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { loadClinicList } from '@/lib/supabase/context'
 import { loadPosts } from '@/lib/visual/store'
+import { loadIdeaNotes } from '@/lib/notes/ideas'
 import { resolveAccess } from '@/lib/auth/session'
 import { getCurrentStructuredWeek, loadStructuredPlan } from '@/lib/content-plan/store'
 import { createServerClient } from '@/lib/supabase/server'
@@ -34,6 +35,10 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
   const clinic = clinics.find((c) => c.id === clinicId) ?? clinics[0]
 
   const posts = await loadPosts(clinic.id, 50)
+  // Ideas from the Notes workspace, so the generator can start from one
+  // without retyping it. Degrades to an empty list when migration 057
+  // has not been applied yet — the popover simply says there are none.
+  const ideaNotes = await loadIdeaNotes(clinic.id).catch(() => [])
   const [planWeeks, currentPlanWeek] = await Promise.all([
     loadStructuredPlan(clinic.id).catch(() => []),
     getCurrentStructuredWeek(clinic.id),
@@ -79,6 +84,14 @@ export default async function VisualPage({ searchParams }: VisualPageProps) {
         posts={posts}
         planWeeks={planWeeks}
         currentWeekIndex={currentWeekIndex}
+        notes={ideaNotes.map((n) => ({
+          id: n.id,
+          title: n.title,
+          body: n.body,
+          pinned: n.pinned,
+          source: n.source,
+          updated_at: n.updated_at,
+        }))}
       />
     </main>
   )

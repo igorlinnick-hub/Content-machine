@@ -4,7 +4,7 @@
 //
 //   node scripts/render-staff-guide.mjs
 //
-// Output: samples/staff-filming-guide.pdf
+// Output: "HWC/Content Machine PDFs/staff-filming-guide.pdf" (samples/ as fallback)
 // Override the Studio QR target:
 //   STAFF_PORTAL_URL="https://app.example.com/studio?tab=shotlist" node scripts/render-staff-guide.mjs
 
@@ -19,6 +19,12 @@ import QRCode from 'qrcode'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, '..')
+
+// Every PDF this repo hands to a clinic lands in one folder, so nothing gets
+// lost across Downloads/samples/Documents. Same target as
+// scripts/render-doctor-guide.mjs; falls back to samples/ off this machine.
+const HWC_PDF_DIR = '/Users/igorlinnik/Downloads/HWC/Content Machine PDFs'
+const OUT_DIR = existsSync(dirname(HWC_PDF_DIR)) ? HWC_PDF_DIR : join(root, 'samples')
 
 const PORTAL_URL =
   process.env.STAFF_PORTAL_URL ??
@@ -234,6 +240,7 @@ async function main() {
   })
   const html = buildHTML(qrDataUrl)
   await mkdir(join(root, 'samples'), { recursive: true })
+  await mkdir(OUT_DIR, { recursive: true })
   await writeFile(join(root, 'samples', 'staff-filming-guide.html'), html)
 
   if (!CHROME) throw new Error('No Chrome found. Set CHROME_PATH.')
@@ -244,7 +251,7 @@ async function main() {
   })
   const page = await browser.newPage()
   await page.setContent(html, { waitUntil: 'networkidle0' })
-  const outPath = join(root, 'samples', 'staff-filming-guide.pdf')
+  const outPath = join(OUT_DIR, 'staff-filming-guide.pdf')
   await page.pdf({ path: outPath, format: 'A4', printBackground: true, preferCSSPageSize: true })
   await browser.close()
   console.log(`✓ wrote ${outPath}`)
