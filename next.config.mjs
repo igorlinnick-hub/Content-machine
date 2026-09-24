@@ -4,6 +4,11 @@ const nextConfig = {
   // so Vercel deploys do not block on the interactive config prompt.
   eslint: { ignoreDuringBuilds: true },
   experimental: {
+    // /scripts and /teleprompter are force-dynamic on the SERVER, but Next's
+    // client Router Cache still replayed the payload a page was first rendered
+    // with — edit a script on one screen, walk to the other, read the old text
+    // (Igor, 24.09). `dynamic: 0` makes every navigation refetch.
+    staleTimes: { dynamic: 0, static: 0 },
     // These are loaded dynamically inside server-only modules.
     // Mark them external so Next does not try to bundle them
     // (puppeteer-core has require-dynamic that webpack mangles

@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   saveDraft,
   loadLatestDraft,
@@ -10,6 +11,7 @@ import {
   type RecordingDraft,
 } from '@/lib/client/recording-draft'
 import { cleanReadingText } from '@/lib/client/script-text'
+import { spokenScript } from '@/lib/posts/spoken'
 
 type Phase = 'setup' | 'reading' | 'preview' | 'saving' | 'saved'
 
@@ -56,9 +58,19 @@ function fmtDate(iso: string) {
 }
 
 export function TeleprompterView({ clinicId, clinicName, recentScripts, initialScriptId }: Props) {
+  const router = useRouter()
   const [phase, setPhase] = useState<Phase>('setup')
   const [text, setText] = useState('')
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null)
+  // Edits to a loaded script are worthless until they reach the database —
+  // the doctor fixes two words here, walks to the Scripts tab and finds the
+  // old text. `scriptDirty` is what puts the Save bar on screen.
+  const [scriptDirty, setScriptDirty] = useState(false)
+  const [scriptSaving, setScriptSaving] = useState(false)
+  const [scriptSaved, setScriptSaved] = useState(false)
+  const [scriptSaveError, setScriptSaveError] = useState<string | null>(null)
+  // The stored text as last loaded/saved — Revert goes back to this.
+  const loadedTextRef = useRef('')
   const [saveTitle, setSaveTitle] = useState('')
   const [speed, setSpeed] = useState(25) // px per second — Igor's comfortable pace
   const [fontSize, setFontSize] = useState(30)
@@ -118,17 +130,65 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
 
   speedRef.current = speed
 
+  // `text` holds the script EXACTLY as stored, markup included, so an edit
+  // here can be written straight back. The reading surface is what gets
+  // cleaned — never the buffer we save from.
+  const readingText = useMemo(() => cleanReadingText(spokenScript(text)), [text])
+
+  function loadScript(s: RecentScript) {
+    setText(s.body)
+    loadedTextRef.current = s.body
+    setSaveTitle(s.title)
+    setSelectedScriptId(s.id)
+    setScriptDirty(false)
+    setScriptSaved(false)
+    setScriptSaveError(null)
+  }
+
   // Auto-select script when navigated from ScriptCard "Teleprompter →" button
   useEffect(() => {
     if (!initialScriptId) return
     const match = recentScripts.find((s) => s.id === initialScriptId)
-    if (match) {
-      setText(cleanReadingText(match.body))
-      setSaveTitle(match.title)
-      setSelectedScriptId(match.id)
-    }
+    if (match) loadScript(match)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── Save an edit back to the script row ────────────────────────────────────
+  async function saveScriptText() {
+    if (!selectedScriptId || !text.trim()) return
+    setScriptSaving(true)
+    setScriptSaveError(null)
+    try {
+      const res = await fetch(`/api/scripts/${selectedScriptId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_script: text.trim() }),
+      })
+      const body = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        setScriptSaveError(body.error ?? `Save failed (${res.status})`)
+        return
+      }
+      loadedTextRef.current = text.trim()
+      setText(text.trim())
+      setScriptDirty(false)
+      setScriptSaved(true)
+      setTimeout(() => setScriptSaved(false), 2500)
+      // The Scripts tab is a server component: without this it keeps serving
+      // the payload it was rendered with and shows the pre-edit text.
+      router.refresh()
+    } catch (e) {
+      setScriptSaveError(e instanceof Error ? e.message : 'Save failed')
+    } finally {
+      setScriptSaving(false)
+    }
+  }
+
+  function revertScriptText() {
+    setText(loadedTextRef.current)
+    setScriptDirty(false)
+    setScriptSaveError(null)
+  }
 
   // ── Orientation ──────────────────────────────────────────────────────────────
   // Turning the phone sideways IS the gesture — the doctor's hands are busy and
@@ -830,9 +890,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                 <button
                   key={s.id}
                   onClick={() => {
-                    setText(cleanReadingText(s.body))
-                    setSaveTitle(s.title)
-                    setSelectedScriptId(s.id)
+                    loadScript(s)
                     // On a phone the editor sits below the fold: tapping a
                     // script looked like nothing happened. Bring the loaded
                     // text into view.
@@ -854,7 +912,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-neutral-800">{s.title}</span>
                     <span className="block truncate text-xs text-neutral-400">
-                      {cleanReadingText(s.body).slice(0, 80)}…
+                      {cleanReadingText(spokenScript(s.body)).slice(0, 80)}…
                     </span>
                   </span>
                   <span className="shrink-0 text-right">
@@ -929,9 +987,17 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             backdropFilter: 'blur(16px)',
           }}
         >
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-            Script text
-          </p>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+              Script text
+            </p>
+            {selectedScriptId && !scriptDirty && scriptSaved && (
+              <span className="text-xs font-medium text-emerald-600">Saved ✓</span>
+            )}
+            {selectedScriptId && !scriptDirty && !scriptSaved && (
+              <span className="text-xs text-neutral-400">Synced with Scripts</span>
+            )}
+          </div>
           {/* Height is viewport-relative: a fixed row count collapses to a
               peephole on a phone, where this is the main thing being read. */}
           <textarea
@@ -940,9 +1006,53 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             value={text}
             onChange={(e) => {
               setText(e.target.value)
-              setSelectedScriptId(null)
+              // Typing used to drop `selectedScriptId`, which quietly severed
+              // the edit from the script AND from the recording it tags.
+              // Keep the link; mark it unsaved instead.
+              if (selectedScriptId) {
+                setScriptDirty(e.target.value !== loadedTextRef.current)
+                setScriptSaved(false)
+              }
             }}
           />
+
+          {/* Unsaved edits to a loaded script — the whole point of the fix.
+              Pasted-in text has no row to write to, so no bar. */}
+          {selectedScriptId && scriptDirty && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+              <span className="text-xs font-medium text-amber-800">
+                Unsaved edits — the Scripts tab still has the old text.
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={revertScriptText}
+                  disabled={scriptSaving}
+                  className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                >
+                  Revert
+                </button>
+                <button
+                  type="button"
+                  onClick={saveScriptText}
+                  disabled={scriptSaving || !text.trim()}
+                  className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
+                >
+                  {scriptSaving ? 'Saving…' : 'Save to script'}
+                </button>
+              </div>
+            </div>
+          )}
+          {scriptSaveError && (
+            <p className="mt-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-xs text-red-700">
+              {scriptSaveError}
+            </p>
+          )}
+          <p className="mt-2 text-[11px] leading-relaxed text-neutral-400">
+            This is the stored text, slide markers and sources included — the same
+            text the Scripts tab holds. The teleprompter hides that markup while
+            you read; saving keeps it, so carousels from this script survive.
+          </p>
         </div>
 
         {/* Settings row */}
@@ -1281,7 +1391,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
                 textShadow: '0 1px 6px rgba(0,0,0,0.98), 0 0 24px rgba(0,0,0,0.85)',
               }}
             >
-              {text}
+              {readingText}
             </p>
             {/* Spacer so the last line can scroll fully into view */}
             <div style={{ height: '60vh' }} />

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createPortal } from 'react-dom'
 import type { RecentScript } from '@/lib/supabase/context'
 import { cleanReadingText } from '@/lib/client/script-text'
@@ -19,6 +20,7 @@ export function RecentScripts({
   clinicId,
   canStar = true,
 }: RecentScriptsProps) {
+  const router = useRouter()
   const [scripts, setScripts] = useState(initialScripts)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
@@ -92,6 +94,10 @@ export function RecentScripts({
         word_count: body.script?.word_count ?? null,
         updated_at: body.script?.updated_at ?? new Date().toISOString(),
       })
+      // Local state only fixes THIS list. The teleprompter is a separate
+      // server-rendered route — without a refresh it reads the text this
+      // page was built with and the doctor records the pre-edit version.
+      router.refresh()
       return null
     } catch (e) {
       return e instanceof Error ? e.message : 'Save failed'
