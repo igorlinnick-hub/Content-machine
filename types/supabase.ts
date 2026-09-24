@@ -1192,6 +1192,65 @@ export type Database = {
           },
         ]
       }
+      idea_notes: {
+        Row: {
+          id: string
+          clinic_id: string
+          title: string | null
+          body: string
+          raw_body: string
+          source: string
+          tidy_status: string
+          tidy_flags: string[]
+          image_urls: string[]
+          storage_paths: string[]
+          pinned: boolean
+          archived: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          title?: string | null
+          body: string
+          raw_body: string
+          source?: string
+          tidy_status?: string
+          tidy_flags?: string[]
+          image_urls?: string[]
+          storage_paths?: string[]
+          pinned?: boolean
+          archived?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          title?: string | null
+          body?: string
+          raw_body?: string
+          source?: string
+          tidy_status?: string
+          tidy_flags?: string[]
+          image_urls?: string[]
+          storage_paths?: string[]
+          pinned?: boolean
+          archived?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "idea_notes_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           id: string

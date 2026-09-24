@@ -10,11 +10,12 @@ import { DailyWidgets } from '@/app/dashboard/components/DailyWidgets'
 import { ScriptGenerator } from '@/app/dashboard/components/ScriptGenerator'
 import { RecentScripts } from '@/app/dashboard/components/RecentScripts'
 import { PageHeader } from '@/app/components/PageHeader'
+import { NotesWorkspace } from '@/app/scripts/components/NotesWorkspace'
 import { NumberTicker } from '@/app/components/ui/number-ticker'
 
 export const dynamic = 'force-dynamic'
 
-type ScriptsTab = 'generate' | 'recent' | 'input'
+type ScriptsTab = 'generate' | 'recent' | 'input' | 'notes'
 
 interface ScriptsPageProps {
   searchParams: {
@@ -71,9 +72,12 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
   // Generating is admin-only (Igor 2026-09-10) — we write the scripts, the
   // doctor records the starred ones. ?tab=generate on a doctor session
   // falls back to her list instead of rendering the generator.
+  // Notes is for everyone (Igor 2026-09-23): the idea scratchpad next
+  // to Generate — dump thoughts typed or photographed off paper, AI
+  // fixes mechanics only, never the ideas.
   const validTabs: ScriptsTab[] = isAdmin
-    ? ['recent', 'generate', 'input']
-    : ['recent', 'input']
+    ? ['recent', 'generate', 'notes', 'input']
+    : ['recent', 'notes', 'input']
   const tab: ScriptsTab = validTabs.includes(searchParams.tab as ScriptsTab)
     ? (searchParams.tab as ScriptsTab)
     : 'recent'
@@ -129,6 +133,11 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
               active={tab === 'generate'}
             />
           )}
+          <TabLink
+            label="Notes"
+            href={`/scripts?clinicId=${clinicId}&tab=notes`}
+            active={tab === 'notes'}
+          />
           {/* "Today's input" button pulled 2026-08-26 at the clinic's request.
               The tab itself still renders at /scripts?clinicId=…&tab=input —
               re-add this TabLink to bring the button back:
@@ -196,6 +205,15 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
                 doctor's list, so she must not be able to unstar herself out
                 of her own worklist. */}
             <RecentScripts scripts={recent} clinicId={clinicId} canStar={isAdmin} />
+          </Section>
+        )}
+
+        {tab === 'notes' && (
+          <Section
+            title="Notes"
+            subtitle="Your idea scratchpad. Dump thoughts in any shape — typed or snapped off paper — and they land here organized. The AI fixes grammar and sorting only; your ideas stay exactly yours."
+          >
+            <NotesWorkspace clinicId={clinicId} />
           </Section>
         )}
 
