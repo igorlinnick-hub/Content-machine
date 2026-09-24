@@ -40,6 +40,10 @@ export function NotesWorkspace({ clinicId }: Props) {
   const [status, setStatus] = useState<ComposerStatus>('idle')
   const [composerError, setComposerError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  // Local previews of the pages currently being read — rendered as a
+  // live card at the top of the list, so the 10-30 s the vision pass
+  // takes never look like "nothing happened" (Igor 2026-09-23).
+  const [processingUrls, setProcessingUrls] = useState<string[] | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -96,14 +100,15 @@ export function NotesWorkspace({ clinicId }: Props) {
 
   async function uploadPhotos(files: FileList | null) {
     if (!files || files.length === 0) return
+    const picked = Array.from(files).slice(0, 4)
+    const previews = picked.map((f) => URL.createObjectURL(f))
     setUploading(true)
+    setProcessingUrls(previews)
     setComposerError(null)
     try {
       const form = new FormData()
       form.set('clinicId', clinicId)
-      Array.from(files)
-        .slice(0, 4)
-        .forEach((f) => form.append('files', f))
+      picked.forEach((f) => form.append('files', f))
       const res = await fetch('/api/notes/ideas/photo', {
         method: 'POST',
         body: form,
@@ -115,6 +120,8 @@ export function NotesWorkspace({ clinicId }: Props) {
       setComposerError(e instanceof Error ? e.message : 'unknown error')
     } finally {
       setUploading(false)
+      setProcessingUrls(null)
+      previews.forEach((u) => URL.revokeObjectURL(u))
       if (fileInput.current) fileInput.current.value = ''
     }
   }
@@ -167,11 +174,12 @@ export function NotesWorkspace({ clinicId }: Props) {
       </div>
 
       {/* List */}
+      {processingUrls && <ProcessingCard urls={processingUrls} />}
       {loadError && <p className="text-sm text-red-500">{loadError}</p>}
       {notes === null && !loadError && (
         <p className="text-sm text-neutral-400">Loading notes…</p>
       )}
-      {notes?.length === 0 && (
+      {notes?.length === 0 && !processingUrls && (
         <p className="text-sm text-neutral-500">
           No notes yet. Type one above, or photograph the page you scribbled
           on — it lands here organized, with the original kept.
@@ -181,6 +189,69 @@ export function NotesWorkspace({ clinicId }: Props) {
         <NoteCard key={note.id} note={note} onChange={upsertNote} onRemoved={(id) => setNotes((prev) => (prev ?? []).filter((n) => n.id !== id))} />
       ))}
     </div>
+  )
+}
+
+// The stages are cosmetic — it is one request — but naming what the
+// machine is doing right now reads as progress, and the shimmer makes
+// it unmistakable that the app is working, not stuck.
+const PROCESSING_STAGES = [
+  'Uploading the photo…',
+  'Reading the page…',
+  'Transcribing your handwriting…',
+  'Organizing the ideas…',
+  'Almost there…',
+]
+
+function ProcessingCard({ urls }: { urls: string[] }) {
+  const [stage, setStage] = useState(0)
+
+  useEffect(() => {
+    const id = setInterval(
+      () => setStage((v) => Math.min(v + 1, PROCESSING_STAGES.length - 1)),
+      4500
+    )
+    return () => clearInterval(id)
+  }, [])
+
+  return (
+    <article className="cm-card flex items-center gap-4 border-sky-200 bg-sky-50/60 p-5">
+      <div className="flex shrink-0 -space-x-3">
+        {urls.map((url, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={url}
+            src={url}
+            alt=""
+            style={{ animationDelay: `${i * 150}ms` }}
+            className="h-16 w-16 animate-pulse rounded-lg border-2 border-white object-cover shadow-sm"
+          />
+        ))}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+          <svg
+            className="h-4 w-4 shrink-0 animate-spin text-sky-500"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+          >
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+            <path
+              d="M12 2a10 10 0 0 1 10 10"
+              stroke="currentColor"
+              strokeWidth="4"
+              strokeLinecap="round"
+            />
+          </svg>
+          {PROCESSING_STAGES[stage]}
+        </p>
+        <p className="mt-1 text-xs text-neutral-500">
+          Takes up to half a minute — the AI is reading the page word for
+          word. The note will appear right here.
+        </p>
+      </div>
+    </article>
   )
 }
 
