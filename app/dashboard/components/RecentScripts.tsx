@@ -246,7 +246,16 @@ function ScriptCard({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const score = typeof s.critic_score === 'number' ? s.critic_score : null
   const strong = score !== null && score >= 7
-  const preview = (s.hook ?? s.full_script ?? '').replace(/\s+/g, ' ').trim()
+  // The body, not the stored hook. The teleprompter edits full_script, so a
+  // card that previews `hook` kept showing the pre-edit opening and the
+  // script read as unchanged (Igor 2026-09-25). Cleaned the same way the
+  // teleprompter reads it, so the card shows what the doctor will say —
+  // the hook stays the fallback for rows whose body has not loaded.
+  const preview = (
+    cleanReadingText(s.full_script ?? '') || s.hook || ''
+  )
+    .replace(/\s+/g, ' ')
+    .trim()
 
   return (
     <article

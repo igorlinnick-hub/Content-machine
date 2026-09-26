@@ -159,18 +159,36 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     setScriptSaving(true)
     setScriptSaveError(null)
     try {
+      // The card in /scripts and every post caption read `hook`, not the
+      // body — so saving only full_script left the old opening line on
+      // screen and made a saved edit look like it had not happened
+      // (Igor 2026-09-25: "почему тогда эти скрипты те же"). The hook of a
+      // spoken script IS its first line, so it travels with the text.
+      // Derived from the READING text, never the raw buffer: a carousel's
+      // slide markers and SOURCES block must not become someone's caption.
+      const trimmed = text.trim()
+      const firstSpokenLine =
+        cleanReadingText(spokenScript(trimmed))
+          .split('\n')
+          .map((l) => l.trim())
+          .find((l) => l.length > 0) ?? ''
       const res = await fetch(`/api/scripts/${selectedScriptId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_script: text.trim() }),
+        body: JSON.stringify({
+          full_script: trimmed,
+          ...(firstSpokenLine && firstSpokenLine.length <= 300
+            ? { hook: firstSpokenLine }
+            : {}),
+        }),
       })
       const body = (await res.json().catch(() => ({}))) as { error?: string }
       if (!res.ok) {
         setScriptSaveError(body.error ?? `Save failed (${res.status})`)
         return
       }
-      loadedTextRef.current = text.trim()
-      setText(text.trim())
+      loadedTextRef.current = trimmed
+      setText(trimmed)
       setScriptDirty(false)
       setScriptSaved(true)
       setTimeout(() => setScriptSaved(false), 2500)
