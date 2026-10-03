@@ -22,11 +22,12 @@ interface IdeaNote {
   title: string | null
   body: string
   raw_body: string
-  source: 'typed' | 'photo'
+  source: 'typed' | 'photo' | 'voice'
   tidy_status: 'raw' | 'tidied' | 'failed'
   tidy_flags: string[]
   tidy_issues: TidyIssue[]
   image_urls: string[]
+  audio_url: string | null
   pinned: boolean
   archived: boolean
   created_at: string
@@ -51,6 +52,15 @@ export function NotesWorkspace({ clinicId }: Props) {
   // live card at the top of the list, so the 10-30 s the vision pass
   // takes never look like "nothing happened" (Igor 2026-09-23).
   const [processingUrls, setProcessingUrls] = useState<string[] | null>(null)
+  // 'voice' renders the same live card without thumbnails while the
+  // recording is transcribed.
+  const [processingKind, setProcessingKind] = useState<'photo' | 'voice'>('photo')
+  const [recording, setRecording] = useState(false)
+  const [recordSeconds, setRecordSeconds] = useState(0)
+  const recorder = useRef<MediaRecorder | null>(null)
+  const recordTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Tap-stop resolves to "send"; the ✕ sets this so onstop discards.
+  const discardRecording = useRef(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -110,6 +120,7 @@ export function NotesWorkspace({ clinicId }: Props) {
     const picked = Array.from(files).slice(0, 4)
     const previews = picked.map((f) => URL.createObjectURL(f))
     setUploading(true)
+    setProcessingKind('photo')
     setProcessingUrls(previews)
     setComposerError(null)
     try {
@@ -130,6 +141,78 @@ export function NotesWorkspace({ clinicId }: Props) {
       setProcessingUrls(null)
       previews.forEach((u) => URL.revokeObjectURL(u))
       if (fileInput.current) fileInput.current.value = ''
+    }
+  }
+
+  async function startRecording() {
+    setComposerError(null)
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      setComposerError('microphone access denied — allow it in the browser settings')
+      return
+    }
+    // Safari/iPhone records mp4/AAC, Chrome webm/opus — take whichever
+    // this browser can actually produce and tell the server honestly.
+    const mime = ['audio/mp4', 'audio/webm'].find((t) =>
+      typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)
+    )
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+    const chunks: Blob[] = []
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data)
+    }
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop())
+      if (recordTimer.current) clearInterval(recordTimer.current)
+      setRecording(false)
+      setRecordSeconds(0)
+      if (discardRecording.current) return
+      const blob = new Blob(chunks, { type: rec.mimeType || mime || 'audio/webm' })
+      void uploadVoice(blob)
+    }
+    discardRecording.current = false
+    recorder.current = rec
+    setRecording(true)
+    setRecordSeconds(0)
+    recordTimer.current = setInterval(
+      () =>
+        setRecordSeconds((v) => {
+          // Hard stop at 10 min — matches the route's 20 MB ceiling.
+          if (v + 1 >= 600 && recorder.current?.state === 'recording') {
+            recorder.current.stop()
+          }
+          return v + 1
+        }),
+      1000
+    )
+    rec.start()
+  }
+
+  function stopRecording(discard: boolean) {
+    discardRecording.current = discard
+    if (recorder.current?.state === 'recording') recorder.current.stop()
+  }
+
+  async function uploadVoice(blob: Blob) {
+    setUploading(true)
+    setProcessingKind('voice')
+    setProcessingUrls([])
+    setComposerError(null)
+    try {
+      const form = new FormData()
+      form.set('clinicId', clinicId)
+      form.set('file', new File([blob], 'note', { type: blob.type }))
+      const res = await fetch('/api/notes/ideas/audio', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`)
+      upsertNote(data.note as IdeaNote)
+    } catch (e) {
+      setComposerError(e instanceof Error ? e.message : 'unknown error')
+    } finally {
+      setUploading(false)
+      setProcessingUrls(null)
     }
   }
 
@@ -156,15 +239,50 @@ export function NotesWorkspace({ clinicId }: Props) {
               className="hidden"
               onChange={(e) => uploadPhotos(e.target.files)}
             />
-            <button
-              type="button"
-              onClick={() => fileInput.current?.click()}
-              disabled={uploading || status === 'saving'}
-              className="cm-btn text-sm"
-              title="Photograph a paper note — AI reads it into text"
-            >
-              {uploading ? 'Reading the page…' : '📷 Snap a paper note'}
-            </button>
+            {!recording && (
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                disabled={uploading || status === 'saving'}
+                className="cm-btn text-sm"
+                title="Photograph a paper note — AI reads it into text"
+              >
+                {uploading && processingKind === 'photo' ? 'Reading the page…' : '📷 Snap a paper note'}
+              </button>
+            )}
+            {!recording ? (
+              <button
+                type="button"
+                onClick={startRecording}
+                disabled={uploading || status === 'saving'}
+                className="cm-btn text-sm"
+                title="Say the idea out loud — AI writes it down"
+              >
+                {uploading && processingKind === 'voice' ? 'Listening back…' : '🎤 Say it'}
+              </button>
+            ) : (
+              <span className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-1.5">
+                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" />
+                <span className="font-mono text-sm tabular-nums text-red-600">
+                  {Math.floor(recordSeconds / 60)}:{String(recordSeconds % 60).padStart(2, '0')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => stopRecording(false)}
+                  className="cm-btn cm-btn-primary px-3 text-sm"
+                >
+                  Done
+                </button>
+                <button
+                  type="button"
+                  onClick={() => stopRecording(true)}
+                  title="Discard the recording"
+                  className="rounded-lg px-2 py-1 text-sm text-neutral-400 transition hover:bg-neutral-100 hover:text-neutral-600"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
             {composerError && (
               <p className="text-xs text-red-500">{composerError}</p>
             )}
@@ -181,7 +299,7 @@ export function NotesWorkspace({ clinicId }: Props) {
       </div>
 
       {/* List */}
-      {processingUrls && <ProcessingCard urls={processingUrls} />}
+      {processingUrls && <ProcessingCard urls={processingUrls} kind={processingKind} />}
       {loadError && <p className="text-sm text-red-500">{loadError}</p>}
       {notes === null && !loadError && (
         <p className="text-sm text-neutral-400">Loading notes…</p>
@@ -282,27 +400,42 @@ function NotesRibbon({
 // The stages are cosmetic — it is one request — but naming what the
 // machine is doing right now reads as progress, and the shimmer makes
 // it unmistakable that the app is working, not stuck.
-const PROCESSING_STAGES = [
-  'Uploading the photo…',
-  'Reading the page…',
-  'Transcribing your handwriting…',
-  'Organizing the ideas…',
-  'Almost there…',
-]
+const PROCESSING_STAGES = {
+  photo: [
+    'Uploading the photo…',
+    'Reading the page…',
+    'Transcribing your handwriting…',
+    'Organizing the ideas…',
+    'Almost there…',
+  ],
+  voice: [
+    'Uploading the recording…',
+    'Listening to it…',
+    'Writing down your words…',
+    'Organizing the ideas…',
+    'Almost there…',
+  ],
+} as const
 
-function ProcessingCard({ urls }: { urls: string[] }) {
+function ProcessingCard({ urls, kind }: { urls: string[]; kind: 'photo' | 'voice' }) {
+  const stages = PROCESSING_STAGES[kind]
   const [stage, setStage] = useState(0)
 
   useEffect(() => {
     const id = setInterval(
-      () => setStage((v) => Math.min(v + 1, PROCESSING_STAGES.length - 1)),
+      () => setStage((v) => Math.min(v + 1, stages.length - 1)),
       4500
     )
     return () => clearInterval(id)
-  }, [])
+  }, [stages.length])
 
   return (
     <article className="cm-card flex items-center gap-4 border-sky-200 bg-sky-50/60 p-5">
+      {kind === 'voice' && (
+        <span className="flex h-16 w-16 shrink-0 animate-pulse items-center justify-center rounded-lg border-2 border-white bg-red-50 text-2xl shadow-sm">
+          🎤
+        </span>
+      )}
       <div className="flex shrink-0 -space-x-3">
         {urls.map((url, i) => (
           // eslint-disable-next-line @next/next/no-img-element
@@ -331,11 +464,12 @@ function ProcessingCard({ urls }: { urls: string[] }) {
               strokeLinecap="round"
             />
           </svg>
-          {PROCESSING_STAGES[stage]}
+          {stages[stage]}
         </p>
         <p className="mt-1 text-xs text-neutral-500">
-          Takes up to half a minute — the AI is reading the page word for
-          word. The note will appear right here.
+          {kind === 'photo'
+            ? 'Takes up to half a minute — the AI is reading the page word for word. The note will appear right here.'
+            : 'Takes up to a minute — the AI is writing down every word you said. The note will appear right here.'}
         </p>
       </div>
     </article>
@@ -408,6 +542,7 @@ function NoteCard({
               day: 'numeric',
             })}
             {note.source === 'photo' && ' · 📷 from paper'}
+            {note.source === 'voice' && ' · 🎤 spoken'}
             {note.tidy_status === 'failed' && ' · organizer failed — showing your raw text'}
           </p>
         </div>
@@ -519,6 +654,12 @@ function NoteCard({
             </a>
           ))}
         </div>
+      )}
+
+      {note.audio_url && (
+        // The spoken original — same role the photographed page plays:
+        // one tap to check what was actually said.
+        <audio controls preload="none" src={note.audio_url} className="h-9 w-full" />
       )}
 
       {note.tidy_flags.length > 0 && !showRaw && !editing && (

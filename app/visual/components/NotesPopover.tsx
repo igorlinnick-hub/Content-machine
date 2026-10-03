@@ -19,7 +19,7 @@ export interface NoteOption {
   title: string | null
   body: string
   pinned: boolean
-  source: 'typed' | 'photo'
+  source: 'typed' | 'photo' | 'voice'
   updated_at: string
 }
 

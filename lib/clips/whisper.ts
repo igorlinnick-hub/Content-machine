@@ -63,9 +63,10 @@ async function transcribeViaReplicate(params: {
   audio: Buffer
   language?: string
   token: string
+  mimeType?: string
 }): Promise<WhisperResult> {
   const { token } = params
-  const audioUri = `data:audio/mpeg;base64,${params.audio.toString('base64')}`
+  const audioUri = `data:${params.mimeType ?? 'audio/mpeg'};base64,${params.audio.toString('base64')}`
 
   // Latest model version (same approach as the bot's proven script).
   const versions = await replicateReq(token, `/models/${WHISPERX_MODEL}/versions`)
@@ -139,10 +140,11 @@ async function transcribeViaOpenAI(params: {
   fileName: string
   language?: string
   apiKey: string
+  mimeType?: string
 }): Promise<WhisperResult> {
   const fd = new FormData()
   const blob = new Blob([params.audio as unknown as ArrayBuffer], {
-    type: 'audio/mpeg',
+    type: params.mimeType ?? 'audio/mpeg',
   })
   fd.append('file', blob, params.fileName)
   fd.append('model', 'whisper-1')
@@ -189,6 +191,10 @@ export async function transcribeAudio(params: {
   audio: Buffer
   fileName: string
   language?: string // ISO 639-1 hint; omit to auto-detect
+  // Declared type of the bytes. The clips pipeline always feeds mp3 and
+  // may omit it; browser voice notes are webm/opus (Chrome) or mp4/AAC
+  // (Safari) and must declare it, or the decoders guess wrong.
+  mimeType?: string
 }): Promise<WhisperResult> {
   const replicateToken = process.env.REPLICATE_API_TOKEN
   if (replicateToken) {
@@ -196,6 +202,7 @@ export async function transcribeAudio(params: {
       audio: params.audio,
       language: params.language,
       token: replicateToken,
+      mimeType: params.mimeType,
     })
   }
   const openaiKey = process.env.OPENAI_API_KEY

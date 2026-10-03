@@ -4,7 +4,7 @@ import type { Json } from '@/types/supabase'
 
 const BUCKET = 'note-photos'
 
-export type NoteSourceKind = 'typed' | 'photo'
+export type NoteSourceKind = 'typed' | 'photo' | 'voice'
 export type TidyStatus = 'raw' | 'tidied' | 'failed'
 
 // One uncertain word, resolvable with a tap in the UI: `text` is the
@@ -28,6 +28,7 @@ export interface IdeaNote {
   tidy_issues: TidyIssue[]
   image_urls: string[]
   storage_paths: string[]
+  audio_url: string | null
   pinned: boolean
   archived: boolean
   created_at: string
@@ -35,7 +36,7 @@ export interface IdeaNote {
 }
 
 const COLUMNS =
-  'id, clinic_id, title, body, raw_body, source, tidy_status, tidy_flags, tidy_issues, image_urls, storage_paths, pinned, archived, created_at, updated_at'
+  'id, clinic_id, title, body, raw_body, source, tidy_status, tidy_flags, tidy_issues, image_urls, storage_paths, audio_url, pinned, archived, created_at, updated_at'
 
 export async function loadIdeaNotes(
   clinicId: string,
@@ -77,6 +78,7 @@ export interface CreateNoteInput {
   tidyIssues?: TidyIssue[]
   imageUrls?: string[]
   storagePaths?: string[]
+  audioUrl?: string | null
 }
 
 export async function createIdeaNote(
@@ -99,6 +101,7 @@ export async function createIdeaNote(
       tidy_issues: (input.tidyIssues ?? []) as unknown as Json,
       image_urls: input.imageUrls ?? [],
       storage_paths: input.storagePaths ?? [],
+      audio_url: input.audioUrl ?? null,
     })
     .select(COLUMNS)
     .single()
@@ -168,8 +171,10 @@ export interface PhotoUpload {
   ext: string
 }
 
-// Store a photographed page. Returns the public URL + the storage path
-// so deleting the note can clean the bucket up after itself.
+// Store a photographed page or a voice recording (the name predates
+// voice notes — it is bytes+contentType+ext, nothing image-specific).
+// Returns the public URL + the storage path so deleting the note can
+// clean the bucket up after itself.
 export async function uploadNotePhoto(
   clinicId: string,
   file: PhotoUpload
