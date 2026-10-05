@@ -13,8 +13,12 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
 первая часть включена). В планировщике и модалке есть канал Threads, health проверяет один бренд.
 
 ## Последний заход
-- 05.10 Игорь создал в Buffer HireDrop новый API-ключ. Старый (`BUFFER_ACCESS_TOKEN_HIREDROP` в `.env.local` и Vercel prod)
-  после этого проверен — работает, менять ничего не нужно. Если старый отзовут — заменить в обоих местах.
+- 05.10 **Есть токен Meta для прямого постинга в Instagram — без HelloMetrix.** («в буфере» = в буфере обмена, не Buffer!)
+  Системный пользователь Meta Business «HireDrop Campaign Builder», токен `EAAU…` лежит в `.env.local` как
+  `META_SYSTEM_USER_TOKEN` (в Vercel ЕЩЁ НЕТ — добавить Игорю: автомод не даёт мне писать секреты в Vercel). Проверено
+  `me/permissions`: есть `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `business_management`;
+  страница HireDrop → IG `hiredrop.io`, **igUserId `17841446093945559`**, host `graph.facebook.com`. Threads: только
+  `threads_business_basic`, публиковать нельзя (и Threads API отдельный) → Threads остаётся через Buffer.
 - 05.10 (поздно) **Докармливатель Buffer — код написан, НЕ закоммичен, решение Игоря ждёт.** Идея: Buffer free держит 10
   постов на канал, место освобождается с каждым вышедшим → раз в день ставить следующие посты сами, без Meta-кабинета.
   Файлы (незакоммичены): `app/api/cron/buffer-feed/route.ts`, `lib/publish/buffer-api.ts` (запросы проверены живьём:
@@ -78,10 +82,13 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
   `R2/buffer-scheduled.json`, `R2/to-drive.cjs` (вне репо, без git).
 
 ## Следующий шаг
-Спросить Игоря одно: доделывать докармливатель Buffer? **Да** → закоммитить файлы выше, push, дождаться деплоя,
-залить 11–36 (`buffer-feed-enqueue.cjs 11 36 2026-10-23T16:00:00Z 2 16:00`), дёрнуть роут разово через
-`net.http_post` из SQL, проверить в Buffer 10/10 и №11 = 23.10, №12 = 25.10. Предупредить: 11–36 руками больше не постить.
-**Нет** → `select cron.unschedule('buffer-feed')`, выкинуть незакоммиченные файлы.
-Прямой постинг через Meta отложен: ветка HelloMetrix `hiredrop-meta-publish` (d5e6bde) запушена, не смержена — нужно
-прямое «да» Игоря той сессии + кабинет Meta + 2 Connect. pg_cron `meta-publish` всё ещё тикает каждые 5 мин вхолостую —
-поставить на паузу (`cron.unschedule('meta-publish')`), включается обратно миграцией 061. Начинать на Opus.
+1. Instagram напрямую: в `lib/publish/meta-creds.ts` добавить реестр по нише (как `buffer-accounts.ts`): `hiredrop` →
+   `{ tokenEnv: 'META_SYSTEM_USER_TOKEN', igUserId: '17841446093945559', graphHost: 'graph.facebook.com' }`, HelloMetrix —
+   только запасной путь. Игорь кладёт `META_SYSTEM_USER_TOKEN` в Vercel prod. Деплой → `cron.schedule` meta-publish (061,
+   сейчас тикает) → один пробный пост (`meta-enqueue.cjs` с `instagram` только) → проверить permalink.
+2. Тогда 11–36: Instagram — `meta-enqueue.cjs 11 36 … instagram`, Threads — докармливатель Buffer (код ниже, незакоммичен)
+   или руками. Решить с Игорем одной фразой. Ветка HelloMetrix `hiredrop-meta-publish` при этом не нужна для IG.
+3. Незакоммиченное (моё): `app/api/cron/buffer-feed/`, `lib/publish/buffer-api.ts`, `lib/cron/db-key.ts`,
+   `062_buffer_feed.sql` (уже прогнана: таблица + pg_cron `buffer-feed` 16:30 UTC бьёт в несуществующий роут),
+   правка `meta-publish/route.ts`, тип `buffer_feed` в `types/supabase.ts`. Чужое не трогать: `html.ts`, `yedino.md`.
+Начинать на Opus.
