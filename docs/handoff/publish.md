@@ -13,6 +13,13 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
 первая часть включена). В планировщике и модалке есть канал Threads, health проверяет один бренд.
 
 ## Последний заход
+- 05.10 **Прямой постинг в Meta (Graph API), без Buffer** — в проде (`88c2b9c`), контракт и бриф —
+  `docs/META-PUBLISH.md`. Очередь `meta_posts` (060), публикатор `/api/cron/meta-publish`, тик — pg_cron
+  в Supabase CM раз в 5 мин (061; Vercel Hobby крон чаще раза в сутки не умеет). Токены CM не хранит —
+  берёт у HelloMetrix (`/api/cm/meta-publish-creds`), его Meta-приложение делает OAuth и продление.
+  **Ждёт сессию HelloMetrix** (права публикации IG + Threads, эндпоинт, клиент HireDrop → его `clientId`
+  прописать в `clinics.hellometrix_client_id`). Постановка постов: `R2/meta-enqueue.cjs` (PNG → JPEG,
+  Instagram PNG не берёт). Живой публикации через Graph API ещё не было.
 - 03.10 **HireDrop подключён**: отдельный Buffer-аккаунт (hellosystems111, org `6ab46ada478e317582510051`),
   ключ `BUFFER_ACCESS_TOKEN_HIREDROP` в `.env.local` (в Vercel ещё НЕТ). В реестре: Instagram
   `6ab57e4cea19ca0bdeda5d0f`, Threads `6ab57e68ea19ca0bdeda5dd4`; TikTok `hiredrop1` подключён в Buffer,
@@ -59,4 +66,5 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
 
 ## Следующий шаг
 Ничего не ждёт: посты 1–10 выйдут сами до 21.10. После — либо Игорь постит 11–36 руками (папки «manual»
-на диске), либо `buffer-schedule.cjs 11 20 …` по мере освобождения слотов. HireDrop публикуется и из приложения (ключ в Vercel, health зелёный).
+на диске), либо `buffer-schedule.cjs 11 20 …` по мере освобождения слотов, либо — когда HelloMetrix отдаст
+токены — `meta-enqueue.cjs 11 36 …` и прямой постинг (сначала один пост на пробу). HireDrop публикуется и из приложения (ключ в Vercel, health зелёный).
