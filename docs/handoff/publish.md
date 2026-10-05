@@ -13,6 +13,15 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
 первая часть включена). В планировщике и модалке есть канал Threads, health проверяет один бренд.
 
 ## Последний заход
+- 05.10 (поздно) **Докармливатель Buffer — код написан, НЕ закоммичен, решение Игоря ждёт.** Идея: Buffer free держит 10
+  постов на канал, место освобождается с каждым вышедшим → раз в день ставить следующие посты сами, без Meta-кабинета.
+  Файлы (незакоммичены): `app/api/cron/buffer-feed/route.ts`, `lib/publish/buffer-api.ts` (запросы проверены живьём:
+  `posts(... filter:{channelIds,status:[scheduled]})`, `pageInfo.endCursor`), `lib/cron/db-key.ts` (общая проверка
+  `x-cron-key`, на неё же переведён `meta-publish`), `supabase/migrations/062_buffer_feed.sql`, тип `buffer_feed` в
+  `types/supabase.ts`; вне репо `R2/buffer-feed-enqueue.cjs` (11–36 с 23.10 через день 16:00 UTC). `tsc` 0, eslint чист.
+  **Миграция 062 уже прогнана**: таблица `buffer_feed` (пустая) + pg_cron `buffer-feed` 16:30 UTC — роута в проде нет,
+  тик пока бьёт в 404. Залив 11–36 Игорь прервал («погодь, это токен для рекламы был» — про какой-то свой токен Meta;
+  к ключу Buffer HireDrop он не относится). Сейчас в Buffer 8/10 на канал (посты 3–10), 2 места свободны.
 - 05.10 **Прямой постинг в Meta (Graph API), без Buffer** — в проде (`88c2b9c`), контракт и бриф —
   `docs/META-PUBLISH.md`. Очередь `meta_posts` (060), публикатор `/api/cron/meta-publish`, тик — pg_cron
   в Supabase CM раз в 5 мин (061; Vercel Hobby крон чаще раза в сутки не умеет). Токены CM не хранит —
@@ -67,6 +76,10 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
   `R2/buffer-scheduled.json`, `R2/to-drive.cjs` (вне репо, без git).
 
 ## Следующий шаг
-Ничего не ждёт: посты 1–10 выйдут сами до 21.10. После — либо Игорь постит 11–36 руками (папки «manual»
-на диске), либо `buffer-schedule.cjs 11 20 …` по мере освобождения слотов, либо — когда HelloMetrix отдаст
-токены — `meta-enqueue.cjs 11 36 …` и прямой постинг (сначала один пост на пробу). HireDrop публикуется и из приложения (ключ в Vercel, health зелёный).
+Спросить Игоря одно: доделывать докармливатель Buffer? **Да** → закоммитить файлы выше, push, дождаться деплоя,
+залить 11–36 (`buffer-feed-enqueue.cjs 11 36 2026-10-23T16:00:00Z 2 16:00`), дёрнуть роут разово через
+`net.http_post` из SQL, проверить в Buffer 10/10 и №11 = 23.10, №12 = 25.10. Предупредить: 11–36 руками больше не постить.
+**Нет** → `select cron.unschedule('buffer-feed')`, выкинуть незакоммиченные файлы.
+Прямой постинг через Meta отложен: ветка HelloMetrix `hiredrop-meta-publish` (d5e6bde) запушена, не смержена — нужно
+прямое «да» Игоря той сессии + кабинет Meta + 2 Connect. pg_cron `meta-publish` всё ещё тикает каждые 5 мин вхолостую —
+поставить на паузу (`cron.unschedule('meta-publish')`), включается обратно миграцией 061. Начинать на Opus.
