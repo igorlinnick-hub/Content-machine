@@ -177,6 +177,92 @@ export type Database = {
           }
         ]
       }
+      meta_posts: {
+        Row: {
+          id: string
+          clinic_id: string
+          network: string
+          caption: string
+          image_urls: string[]
+          publish_at: string
+          status: string
+          attempts: number
+          last_error: string | null
+          claimed_at: string | null
+          container_id: string | null
+          media_id: string | null
+          permalink: string | null
+          published_at: string | null
+          source: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          network: string
+          caption?: string
+          image_urls?: string[]
+          publish_at: string
+          status?: string
+          attempts?: number
+          last_error?: string | null
+          claimed_at?: string | null
+          container_id?: string | null
+          media_id?: string | null
+          permalink?: string | null
+          published_at?: string | null
+          source?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          network?: string
+          caption?: string
+          image_urls?: string[]
+          publish_at?: string
+          status?: string
+          attempts?: number
+          last_error?: string | null
+          claimed_at?: string | null
+          container_id?: string | null
+          media_id?: string | null
+          permalink?: string | null
+          published_at?: string | null
+          source?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_posts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      app_secrets: {
+        Row: {
+          name: string
+          value: string
+          created_at: string
+        }
+        Insert: {
+          name: string
+          value: string
+          created_at?: string
+        }
+        Update: {
+          name?: string
+          value?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       clinic_recordings: {
         Row: {
           id: string
