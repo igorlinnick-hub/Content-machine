@@ -1,6 +1,6 @@
 # Main — репозиторий, доступы, Drive-аккаунт, тексты и фото по нише
 
-Обновлено: 2026-09-29 · ветка: main
+Обновлено: 2026-10-05 · ветка: main
 
 ## Состояние
 **Рабочая копия — `~/Code/Content-machine`** (старый путь в `~/Documents` — симлинк). **Деплой по `git push`**;
@@ -55,7 +55,8 @@ anyone-reader. Замок скачивания — право владельца
 `.env.local`), аккаунт `igor.linnick@gmail.com`, orgId `696c48ee111da9195976b964`, каналы instagram
 `6ab468f5ea19ca0bdece1589`, threads `6ab46922ea19ca0bdece184b`. API — GraphQL, один эндпоинт
 `POST https://api.buffer.com`, `Authorization: Bearer <key>`; `channels` требует `input: {organizationId}`.
-**HireDrop-ключа нет.** Очерёдность: посты → approve-флаг в `/videos` → видео. Гоча: Buffer'у нужен прямой
+**HireDrop подключён (03.10):** отдельный аккаунт, `BUFFER_ACCESS_TOKEN_HIREDROP` в `.env.local` (в Vercel пока
+нет), посты уже выходят — подробности в `publish.md`. Реестр каналов по брендам — `lib/publish/buffer-accounts.ts`. Очерёдность: посты → approve-флаг в `/videos` → видео. Гоча: Buffer'у нужен прямой
 скачиваемый URL, Drive-шаралинк не подходит.
 
 **Бренды в CM (23.09).** Yedino Systems `c072746d-e302-45ae-a992-7980ee615551`, root
@@ -78,12 +79,13 @@ HWC. Тексты: формат = HOW, тема = WHAT, каталог — 9 ф�
 Бренд агентства — `docs/YEDINO-STYLE.md` + `yedino.md`; блокнот идей — `notes.md`.
 
 ## Последний заход
-- **`clinic_objections` закрыта RLS** (миграция 059, `9efcfee`, прогнана на проде). Повод — письмо Supabase
-  «Table publicly accessible». Проверено REST'ом: anon → `[]`, service_role → 3 строки. Не пушено.
-- Прошлый заход (25.09): «генерация не работает» оказалась обрывом SSE, лечится keepalive (`58fa922`);
-  `Patient question` держит форму при `"next"`; правка в телесуфлёре несёт `hook` (`a1e5a68`).
-- Вне репо: в HireDrop (`msxjcjzmfruizbgkssxo`) без RLS шесть таблиц (`conversations`, `bot_settings`, …) —
-  по просьбе Игоря не трогал, это задача сессии HireDrop.
+- 05.10: закоммичен Buffer по брендам (`e1eee22`) + хендоффы (`4ae7a65`, `cbbca24`). **Не запушено** — пуш
+  выключает публикацию HWC (так решено 28.09). Посты HireDrop №1–2 вышли в IG + Threads, проверено в Buffer.
+- 05.10: строка `clinics` HireDrop **есть** (`261b5a34…`, niche `hiredrop`, проверено REST'ом). В `publish.md`
+  было «строки нет» — неправда, исправлено. Ключ `BUFFER_ACCESS_TOKEN_HIREDROP` в Vercel добавить не дал
+  классификатор автомода — это делает Игорь.
+- 29.09: `clinic_objections` закрыта RLS (миграция 059, `9efcfee`). В HireDrop (`msxjcjzmfruizbgkssxo`) без RLS
+  шесть таблиц — задача сессии HireDrop.
 
 ## Сломано / не доделано
 - **Скина под стиль 6 нет, роут `/render` режет `style must be 1-5`** — цена вопроса «уходим ли от Canva».
@@ -102,6 +104,8 @@ HWC. Тексты: формат = HOW, тема = WHAT, каталог — 9 ф�
 - «Anyone with the link» на папке формы снимать нельзя — на нём держатся врачебные ссылки.
 
 ## Следующий шаг
+Игорь кладёт `BUFFER_ACCESS_TOKEN_HIREDROP` в Vercel (production + preview) → `git push`. После этого
+HireDrop публикуется и из приложения. Дальше по контенту — как было:
 Принять от Игоря список вопросов пациентов, залить в `clinic_objections` вместо пробных и прогнать батч
 `"next"` подряд — это и есть съёмочный день. Параллельно: решение по Canva (уходим — скин под стиль 6 в
 `lib/render/skins/`), прогнать миграции 055 и 057, согласовав с сессией Notes, кто коммитит общую правку.
