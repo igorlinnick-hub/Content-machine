@@ -245,6 +245,68 @@ export type Database = {
           }
         ]
       }
+      buffer_feed: {
+        Row: {
+          id: string
+          clinic_id: string
+          seq: number
+          source: string
+          caption: string
+          threads_text: string | null
+          threads_topic: string | null
+          image_urls: string[]
+          due_at: string
+          status: string
+          buffer_ids: Json
+          attempts: number
+          last_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          seq: number
+          source: string
+          caption: string
+          threads_text?: string | null
+          threads_topic?: string | null
+          image_urls?: string[]
+          due_at: string
+          status?: string
+          buffer_ids?: Json
+          attempts?: number
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          seq?: number
+          source?: string
+          caption?: string
+          threads_text?: string | null
+          threads_topic?: string | null
+          image_urls?: string[]
+          due_at?: string
+          status?: string
+          buffer_ids?: Json
+          attempts?: number
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "buffer_feed_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       app_secrets: {
         Row: {
           name: string

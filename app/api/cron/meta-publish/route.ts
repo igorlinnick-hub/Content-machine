@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { timingSafeEqual } from 'node:crypto'
 import { createServerClient } from '@/lib/supabase/server'
 import { checkCronAuth } from '@/lib/posts/pipeline'
+import { dbCronKeyMatches } from '@/lib/cron/db-key'
 import { sendPushToAdmins } from '@/lib/push/send'
 import { metaCredsForClinic } from '@/lib/publish/meta-creds'
 import {
@@ -47,18 +47,7 @@ interface MetaPostRow {
 }
 
 async function authorized(req: Request): Promise<boolean> {
-  if (checkCronAuth(req)) return true
-  const key = req.headers.get('x-cron-key')
-  if (!key) return false
-  const { data } = await createServerClient()
-    .from('app_secrets')
-    .select('value')
-    .eq('name', 'meta_publish_cron')
-    .maybeSingle()
-  const expected = (data as { value: string } | null)?.value ?? ''
-  const a = Buffer.from(key)
-  const b = Buffer.from(expected)
-  return expected.length > 0 && a.length === b.length && timingSafeEqual(a, b)
+  return checkCronAuth(req) || (await dbCronKeyMatches(req))
 }
 
 async function publishOne(row: MetaPostRow): Promise<PublishResult> {
