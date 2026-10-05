@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Cookie: req.headers.get('cookie') ?? '' },
       body: JSON.stringify({
+        clinicId: body.clinicId,
         channels: body.channels,
         text: body.caption,
         mediaUrls: body.mediaUrl ? [body.mediaUrl] : [],

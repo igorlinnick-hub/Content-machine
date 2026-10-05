@@ -23,6 +23,7 @@ interface BufferHealthInfo {
   token: 'ok' | 'missing' | 'invalid'
   verification: 'full' | 'token_only' | 'none'
   channels: Record<string, ChannelHealthInfo>
+  switchedOff?: boolean
   error?: string
 }
 
@@ -59,10 +60,17 @@ const TtIcon = () => (
   </svg>
 )
 
+const ThIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+    <path d="M17.2 11.1c-.1 0-.2-.1-.3-.1-.2-3-1.8-4.7-4.5-4.7h-.1c-1.6 0-3 .7-3.8 2l1.5 1c.6-.9 1.6-1.1 2.3-1.1 1 0 1.7.3 2.1.9.3.4.5 1 .6 1.7-.8-.1-1.7-.2-2.6-.1-2.6.2-4.3 1.7-4.2 3.8.1 1.1.6 2 1.5 2.6.8.5 1.8.8 2.9.7 1.4-.1 2.5-.6 3.3-1.6.6-.7 1-1.7 1.1-2.9.7.4 1.2.9 1.5 1.6.5 1.1.5 2.9-1 4.4-1.3 1.3-2.9 1.9-5.3 1.9-2.7 0-4.7-.9-6-2.6C5.2 16.9 4.6 14.8 4.6 12s.6-4.9 1.8-6.5c1.3-1.7 3.3-2.5 6-2.6 2.7 0 4.8.9 6.1 2.6.7.8 1.1 1.9 1.4 3.1l1.8-.5c-.4-1.5-1-2.8-1.8-3.8C18.2 2.2 15.6 1.1 12.4 1h-.1C9.1 1.1 6.6 2.2 5 4.3 3.5 6.1 2.8 8.7 2.7 12c0 3.3.8 5.9 2.3 7.8 1.6 2 4.1 3.1 7.3 3.2h.1c2.9 0 4.9-.8 6.6-2.4 2.2-2.2 2.1-4.9 1.4-6.6-.5-1.2-1.5-2.2-2.9-2.9zm-4.9 4.6c-1.1.1-2.3-.4-2.3-1.5 0-.8.6-1.7 2.4-1.8h.6c.7 0 1.3.1 1.9.2-.2 2.6-1.4 3-2.6 3.1z"/>
+  </svg>
+)
+
 const ICON_MAP: Record<ChannelId, React.ReactNode> = {
   instagram: <IgIcon />,
   facebook:  <FbIcon />,
   tiktok:    <TtIcon />,
+  threads:   <ThIcon />,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -194,7 +202,7 @@ function PostCard({
 
 // ── Main SchedulerView component ──────────────────────────────────────────────
 
-const CHANNEL_IDS: ChannelId[] = ['instagram', 'facebook', 'tiktok']
+const CHANNEL_IDS: ChannelId[] = ['instagram', 'threads', 'facebook', 'tiktok']
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -204,7 +212,7 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
   const [month, setMonth] = useState(now.getUTCMonth())
   const [view, setView]   = useState<ViewMode>('calendar')
   const [activeChannels, setActiveChannels] = useState<Set<ChannelId>>(
-    new Set<ChannelId>(['instagram', 'facebook', 'tiktok'])
+    new Set<ChannelId>(CHANNEL_IDS)
   )
   const [hoveredDay, setHoveredDay] = useState<string | null>(null)
 
@@ -219,13 +227,15 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
 
   useEffect(() => {
     let alive = true
-    fetch('/api/publish/buffer/health')
+    if (!clinicId) { setHealthLoading(false); return }
+    setHealthLoading(true)
+    fetch(`/api/publish/buffer/health?clinicId=${clinicId}`)
       .then(r => (r.ok ? (r.json() as Promise<BufferHealthInfo>) : null))
       .then(h => { if (alive) setHealth(h) })
       .catch(() => { if (alive) setHealth(null) })
       .finally(() => { if (alive) setHealthLoading(false) })
     return () => { alive = false }
-  }, [])
+  }, [clinicId])
 
   // Schedule modal
   const [modalOpen,    setModalOpen]    = useState(false)
@@ -405,8 +415,8 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
           <p className="text-[12px] font-medium text-red-700">
-            Buffer is not connected ({health.token === 'missing' ? 'BUFFER_TOKEN is not set' : 'token rejected by Buffer'}).
-            Posts will only be saved as local drafts — <span className="font-bold">nothing will publish</span>.
+            {health.switchedOff ? 'Publishing is switched off for this brand.' : `Buffer is not connected (${health.error ?? (health.token === 'missing' ? 'token is not set' : 'token rejected by Buffer')}).`}
+            {' '}Posts will only be saved as local drafts — <span className="font-bold">nothing will publish</span>.
           </p>
         </div>
       )}
@@ -437,11 +447,11 @@ export function SchedulerView({ clinicId }: { clinicId: string }) {
             <p className="mb-2 px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-neutral-400">Channels</p>
 
             <button
-              onClick={() => setActiveChannels(new Set<ChannelId>(['instagram', 'facebook', 'tiktok']))}
-              className={`flex w-full items-center gap-3 px-4 py-2 text-left transition ${activeChannels.size === 3 ? 'bg-sky-50' : 'hover:bg-neutral-50'}`}
+              onClick={() => setActiveChannels(new Set<ChannelId>(CHANNEL_IDS))}
+              className={`flex w-full items-center gap-3 px-4 py-2 text-left transition ${activeChannels.size === CHANNEL_IDS.length ? 'bg-sky-50' : 'hover:bg-neutral-50'}`}
             >
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-100 text-[10px] font-bold text-neutral-500">All</div>
-              <span className={`text-[13px] font-medium ${activeChannels.size === 3 ? 'text-sky-600' : 'text-neutral-700'}`}>All Channels</span>
+              <span className={`text-[13px] font-medium ${activeChannels.size === CHANNEL_IDS.length ? 'text-sky-600' : 'text-neutral-700'}`}>All Channels</span>
             </button>
 
             {CHANNEL_IDS.map(id => {

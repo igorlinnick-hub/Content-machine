@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAccess } from '@/lib/auth/session'
+import {
+  BUFFER_SERVICES,
+  bufferAccountForClinic,
+  bufferToken,
+  type BufferService,
+} from '@/lib/publish/buffer-accounts'
 
 const BUFFER_API = 'https://api.buffer.com/graphql'
 
-const CHANNEL_MAP: Record<string, string> = {
-  instagram: process.env.BUFFER_CHANNEL_INSTAGRAM ?? '',
-  facebook: process.env.BUFFER_CHANNEL_FACEBOOK ?? '',
-  tiktok: process.env.BUFFER_CHANNEL_TIKTOK ?? '',
-}
-
-// Instagram always needs at least one asset; Facebook/TikTok support text-only
-const REQUIRES_MEDIA = new Set(['instagram', 'tiktok'])
+// Instagram always needs at least one asset; the rest support text-only
+const REQUIRES_MEDIA = new Set<BufferService>(['instagram', 'tiktok'])
 
 interface PublishBody {
-  channels: Array<'instagram' | 'facebook' | 'tiktok'>
+  /** Brand to publish as — decides the Buffer account and channel ids. */
+  clinicId: string
+  channels: BufferService[]
   text: string
   mediaUrls?: string[]
+  /**
+   * Threads only: the parts of a multi-post thread, first part included.
+   * One part (or none) = a single post built from `text`.
+   */
+  thread?: string[]
   scheduledAt?: string // ISO string; omit → add to queue as draft
 }
 
@@ -33,22 +40,28 @@ const MUTATION = `
   }
 `
 
-function buildMetadata(channel: string) {
+function buildMetadata(channel: BufferService, thread: string[]) {
   if (channel === 'instagram') return { instagram: { type: 'post', shouldShareToFeed: true } }
   if (channel === 'facebook') return { facebook: { type: 'post' } }
+  if (channel === 'threads') {
+    // ThreadsPostMetadataInput.thread = [ThreadedPostInput{text, assets}].
+    // Schema read by introspection 2026-09-28; a live thread has not been sent yet.
+    return thread.length > 1
+      ? { threads: { type: 'thread', thread: thread.map((text) => ({ text, assets: [] })) } }
+      : { threads: { type: 'post' } }
+  }
   return {}
 }
 
 async function bufferPost(
-  channel: string,
+  token: string,
+  channel: BufferService,
   channelId: string,
   text: string,
-  assets: Array<{ url: string }>,
+  assets: Array<{ image: { url: string } }>,
+  thread: string[],
   scheduledAt?: string,
 ) {
-  const token = process.env.BUFFER_TOKEN
-  if (!token) throw new Error('BUFFER_TOKEN not set')
-
   const mode = scheduledAt ? 'customScheduled' : 'addToQueue'
 
   const variables = {
@@ -58,7 +71,7 @@ async function bufferPost(
       schedulingType: 'automatic',
       mode,
       assets,
-      metadata: buildMetadata(channel),
+      metadata: buildMetadata(channel, thread),
       ...(scheduledAt ? { dueAt: scheduledAt } : { saveToDraft: true }),
     },
   }
@@ -102,18 +115,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { channels, text, mediaUrls, scheduledAt } = body
+  const { clinicId, channels, mediaUrls, scheduledAt } = body
+  const thread = (body.thread ?? []).map((t) => t.trim()).filter(Boolean)
+  const text = thread[0] ?? body.text
 
+  if (!clinicId) return NextResponse.json({ error: 'clinicId required' }, { status: 400 })
   if (!channels?.length) return NextResponse.json({ error: 'channels required' }, { status: 400 })
   if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 })
 
-  const assets = (mediaUrls ?? []).map((url) => ({ url }))
+  const { niche, account } = await bufferAccountForClinic(clinicId)
+  if (!account) {
+    return NextResponse.json(
+      { error: `Publishing is switched off for this brand (niche: ${niche ?? 'none'})` },
+      { status: 403 },
+    )
+  }
+  const token = bufferToken(account)
+  if (!token) {
+    return NextResponse.json({ error: `${account.tokenEnv} is not set` }, { status: 503 })
+  }
+
+  // AssetInput is a union-like object: { image | video | document }. A bare { url } is rejected.
+  // Several images on Instagram = carousel; the post type stays 'post' (Buffer refuses 'carousel').
+  const assets = (mediaUrls ?? []).map((url) => ({ image: { url } }))
   const results: Array<{ channel: string; postId?: string; status?: string; error?: string }> = []
 
   for (const ch of channels) {
-    const channelId = CHANNEL_MAP[ch]
+    if (!BUFFER_SERVICES.includes(ch)) {
+      results.push({ channel: ch, error: 'Unknown channel' })
+      continue
+    }
+    const channelId = account.channels[ch]
     if (!channelId) {
-      results.push({ channel: ch, error: 'Channel ID not configured' })
+      results.push({ channel: ch, error: `No ${ch} channel connected for this brand` })
       continue
     }
 
@@ -123,7 +157,15 @@ export async function POST(req: NextRequest) {
     }
 
     try {
-      const r = await bufferPost(ch, channelId, text, assets, scheduledAt)
+      const r = await bufferPost(
+        token,
+        ch,
+        channelId,
+        text,
+        assets,
+        ch === 'threads' ? thread : [],
+        scheduledAt,
+      )
       results.push(r)
     } catch (err) {
       results.push({ channel: ch, error: err instanceof Error ? err.message : String(err) })
