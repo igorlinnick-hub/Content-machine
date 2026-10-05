@@ -47,11 +47,12 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
   вышли в IG и Threads вовремя (`sent`, ~1–4 мин после `dueAt`, без ошибок). Ветка Threads
   (`type: 'thread'`) вживую не проверялась.
 - Строки `clinics` с `niche='hiredrop'` ещё нет — без неё реестр HireDrop не сработает.
-- Не закоммичено. В дереве лежит чужой незакоммиченный `lib/render/html.ts` — его не коммитить вслепую.
+- Код Buffer закоммичен 05.10 (`e1eee22`), **не запушен** — в Vercel нет `BUFFER_ACCESS_TOKEN_HIREDROP`.
+  В дереве остаётся чужой незакоммиченный `lib/render/html.ts` — его не коммитить вслепую.
 
 - Файлы 03.10: `lib/publish/buffer-accounts.ts` (каналы hiredrop), `app/api/publish/buffer/route.ts`
   (assets → `{ image: { url } }`), `.env.local` (`BUFFER_ACCESS_TOKEN_HIREDROP`); вне репо — `R2/buffer-schedule.cjs`,
-  `R2/buffer-scheduled.json`, `R2/to-drive.cjs`. Ничего не закоммичено.
+  `R2/buffer-scheduled.json`, `R2/to-drive.cjs` (вне репо, без git).
 
 ## Следующий шаг
 Ничего не ждёт: посты 1–10 выйдут сами до 21.10. После — либо Игорь постит 11–36 руками (папки «manual»

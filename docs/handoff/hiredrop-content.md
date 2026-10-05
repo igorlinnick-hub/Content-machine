@@ -61,7 +61,7 @@ italic, Inter, Caveat; персонаж Drop, правила в его README). 
   P21 уже переписан, «ок» ждёт; дни и партнёрка решены (см. выше).
 - Иллюстрации подписаны: письма «example letter», цифры экрана партнёра «example numbers».
 - Ничего из этого не в движке: нет строки `clinics` niche=`hiredrop`, профиля, форматов, вкладки Threads,
-  скина `hiredrop` в `lib/render/skins/`. Не закоммичены и правки Buffer из `publish.md`.
+  скина `hiredrop` в `lib/render/skins/`. Правки Buffer закоммичены (`e1eee22`, см. `publish.md`).
 
 - Файлы 03.10 (всё вне репо, `HireDrop Templates/R2/`): `carousels.html`, `batch-2…6.html`, `slides.css`
   (`.meta3 .who`), `posts.json` (подписи, P03 = «ask Drop anything»), `CONTENT-PLAN.md` (факты о Drop, решения),
