@@ -46,9 +46,11 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
 - **Живая публикация работает** (проверено 05.10 запросом `post(input:{id})` к Buffer): №1 P01 и №2 P03
   вышли в IG и Threads вовремя (`sent`, ~1–4 мин после `dueAt`, без ошибок). Ветка Threads
   (`type: 'thread'`) вживую не проверялась.
-- В Vercel нет `BUFFER_ACCESS_TOKEN_HIREDROP` (добавить мне не дали — автомод). Строка `clinics` HireDrop есть:
-  `261b5a34-8584-405c-aa52-b55dfbd0fa09`, niche `hiredrop` (проверено 05.10).
-- Код Buffer закоммичен 05.10 (`e1eee22`), **не запушен** — в Vercel нет `BUFFER_ACCESS_TOKEN_HIREDROP`.
+- **HireDrop подключён и в приложении (05.10):** `BUFFER_ACCESS_TOKEN_HIREDROP` в Vercel production (preview нет),
+  код в проде (`d171eb1`), health на проде → instagram + threads `connected`, `verification: full`. Клиника
+  `261b5a34-8584-405c-aa52-b55dfbd0fa09`, niche `hiredrop`. Через приложение HireDrop ещё ни разу не постили —
+  все живые посты шли скриптом.
+- Код Buffer в проде с 05.10 (`e1eee22`): HWC/aesthetics публиковать больше не могут (403, так задумано).
   В дереве остаётся чужой незакоммиченный `lib/render/html.ts` — его не коммитить вслепую.
 
 - Файлы 03.10: `lib/publish/buffer-accounts.ts` (каналы hiredrop), `app/api/publish/buffer/route.ts`
@@ -57,4 +59,4 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
 
 ## Следующий шаг
 Ничего не ждёт: посты 1–10 выйдут сами до 21.10. После — либо Игорь постит 11–36 руками (папки «manual»
-на диске), либо `buffer-schedule.cjs 11 20 …` по мере освобождения слотов. Чтобы HireDrop публиковался и из приложения: ключ в Vercel + `git push`.
+на диске), либо `buffer-schedule.cjs 11 20 …` по мере освобождения слотов. HireDrop публикуется и из приложения (ключ в Vercel, health зелёный).

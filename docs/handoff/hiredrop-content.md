@@ -66,7 +66,7 @@ italic, Inter, Caveat; персонаж Drop, правила в его README). 
 - Файлы 03.10 (всё вне репо, `HireDrop Templates/R2/`): `carousels.html`, `batch-2…6.html`, `slides.css`
   (`.meta3 .who`), `posts.json` (подписи, P03 = «ask Drop anything»), `CONTENT-PLAN.md` (факты о Drop, решения),
   `to-drive.cjs` (даты из Buffer / «manual»), `map/` (страница-карта), бэкапы `_backup-2026-10-03-*`.
-  Карта-артефакт ещё показывает старые даты Пн/Ср/Пт — `map/build.cjs` не понимает «manual» в имени папки.
+  Карта-артефакт (05.10) — без дат: посты помечены «In Buffer» / «Manual» по имени папки (`map/build.cjs`).
 
 ## Следующий шаг
 Посты 1–10 в Buffer по расписанию (03–21.10, через день, см. `publish.md`); 11–36 Игорь постит сам — на
