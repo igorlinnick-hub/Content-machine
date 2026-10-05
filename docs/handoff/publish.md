@@ -17,8 +17,10 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
   `docs/META-PUBLISH.md`. Очередь `meta_posts` (060), публикатор `/api/cron/meta-publish`, тик — pg_cron
   в Supabase CM раз в 5 мин (061; Vercel Hobby крон чаще раза в сутки не умеет). Токены CM не хранит —
   берёт у HelloMetrix (`/api/cm/meta-publish-creds`), его Meta-приложение делает OAuth и продление.
-  **Ждёт сессию HelloMetrix** (права публикации IG + Threads, эндпоинт, клиент HireDrop → его `clientId`
-  прописать в `clinics.hellometrix_client_id`). Постановка постов: `R2/meta-enqueue.cjs` (PNG → JPEG,
+  HelloMetrix свою часть написал (ветка `hiredrop-meta-publish`, ещё не задеплоена): скрытый клиент HireDrop
+  `a125b7a8-735f-45e7-a1b0-722608e2163f` — **прописан** в `clinics.hellometrix_client_id` (05.10). Instagram через
+  Instagram Login → `graphHost` всегда `graph.instagram.com`. **Ждёт Игоря:** «да» на деплой HelloMetrix, кабинет
+  Meta (use cases IG + Threads, тестеры, 4 ключа в Vercel HelloMetrix), два «Connect» на `/hiredrop`. Постановка постов: `R2/meta-enqueue.cjs` (PNG → JPEG,
   Instagram PNG не берёт). Живой публикации через Graph API ещё не было.
 - 03.10 **HireDrop подключён**: отдельный Buffer-аккаунт (hellosystems111, org `6ab46ada478e317582510051`),
   ключ `BUFFER_ACCESS_TOKEN_HIREDROP` в `.env.local` (в Vercel ещё НЕТ). В реестре: Instagram
