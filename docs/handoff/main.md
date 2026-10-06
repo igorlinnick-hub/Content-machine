@@ -20,7 +20,7 @@ Vercel — только коммит, поэтому **обе половины �
 **Публикация по брендам — отдельный модуль, см. `publish.md`.** Buffer: реестр `lib/publish/buffer-accounts.ts`,
 ключ = `clinics.niche`, ниша без записи публиковать не может (HWC/aesthetics выключены, решение 28.09).
 Прямой Instagram через Meta: реестр `DIRECT_META` в `lib/publish/meta-creds.ts`, для `hiredrop` токен
-`META_SYSTEM_USER_TOKEN` (только Instagram; Threads — через Buffer). Код написан 05.10, не закоммичен.
+`META_SYSTEM_USER_TOKEN` (только Instagram; Threads — через Buffer). Закоммичено 05.10 (`63858f0`).
 
 **Долгий SSE рвётся без сердцебиения (24.09).** Writer пишет минутами, поток молчит — прокси закрывает
 простаивающее соединение, браузер бросает «Stream ended without result», а прогон при этом доходит до конца
@@ -80,10 +80,13 @@ HWC. Тексты: формат = HOW, тема = WHAT, каталог — 9 ф�
 Бренд агентства — `docs/YEDINO-STYLE.md` + `yedino.md`; блокнот идей — `notes.md`.
 
 ## Последний заход
+- 05.10: HireDrop — у Drop убраны розовые щёки во всех 36 каруселях (вне репо, см. `hiredrop-content.md`);
+  **Buffer-докармливатель задеплоен** (`058fd61`, по «да» Игоря): посты 11–36 в `buffer_feed`, 3–12 в Buffer
+  с новыми картинками. Детали — `publish.md`.
 - 05.10: в `lib/publish/meta-creds.ts` добавлен прямой путь к Instagram через Meta для ниши `hiredrop`
   (токен `META_SYSTEM_USER_TOKEN` из env, `igUserId 17841446093945559`, `graph.facebook.com`). Threads для
   этой ниши — `null`, идёт через Buffer. Остальные ниши — прежнее поведение через Hellometrix.
-  `tsc` 0, `eslint` чист. **Не закоммичено, не задеплоено.**
+  `tsc` 0, `eslint` чист. Закоммичено (`63858f0`), не задеплоено.
 - 05.10: `META_SYSTEM_USER_TOKEN` есть в `.env.local`, **в Vercel production его нет**. Попытка добавить
   заблокирована классификатором (Secret-Store Writes). Обходить не стали.
 - 05.10: `clinics`-строка HireDrop есть (`261b5a34…`, niche `hiredrop`, проверено REST'ом); `BUFFER_ACCESS_TOKEN_HIREDROP`
@@ -94,11 +97,8 @@ HWC. Тексты: формат = HOW, тема = WHAT, каталог — 9 ф�
 ## Сломано / не доделано
 - **Прямой Instagram не работает, пока нет `META_SYSTEM_USER_TOKEN` в Vercel prod.** Нужно либо добавить
   переменную руками, либо дать мне узкое разрешение на `vercel env add`. Потом деплой, пробный пост, permalink.
-- **Незакоммиченное в рабочей копии** (несколько сессий): `lib/publish/meta-creds.ts` (этот заход),
-  `app/api/cron/meta-publish/route.ts`, `app/api/cron/buffer-feed/`, `lib/publish/buffer-api.ts`,
-  `lib/cron/db-key.ts`, `supabase/migrations/062_buffer_feed.sql` (уже прогнана; pg_cron `buffer-feed` бьёт в
-  несуществующий роут), `types/supabase.ts`, `docs/handoff/yedino.md`, `lib/render/html.ts`. Коммитить по правилу
-  «обе половины одним коммитом», чужое не трогать без согласования.
+- **Незакоммиченное в рабочей копии** (чужие сессии): `lib/render/html.ts`, `docs/handoff/yedino.md`,
+  `docs/YEDINO-ELEMENTS.md`. Коммитить по правилу «обе половины одним коммитом», без согласования не трогать.
 - **Скина под стиль 6 нет, роут `/render` режет `style must be 1-5`** — цена вопроса «уходим ли от Canva».
 - **Миграции 055 (`canva_oauth_tokens`) и 057 (`idea_notes`) не прогнаны** — попап Notes отдаёт пустой список.
 - **Пайплайн не дёрнуть напрямую**: `SERVICE_TOKEN`, `SUPABASE_*`, `ANTHROPIC_API_KEY` — `[SENSITIVE]`.
@@ -114,8 +114,8 @@ HWC. Тексты: формат = HOW, тема = WHAT, каталог — 9 ф�
 - «Anyone with the link» на папке формы снимать нельзя — на нём держатся врачебные ссылки.
 
 ## Следующий шаг
-1. Публикация HireDrop в Instagram: `META_SYSTEM_USER_TOKEN` в Vercel prod → деплой (сначала закоммитить
-   `meta-creds.ts` вместе с парными правками) → пробный пост → permalink. Детали — `publish.md`.
+1. Публикация HireDrop в Instagram: `META_SYSTEM_USER_TOKEN` в Vercel prod → деплой (`meta-creds.ts` уже
+   в коммите `63858f0`) → пробный пост → permalink. Детали — `publish.md`.
 2. Принять от Игоря список вопросов пациентов, залить в `clinic_objections` вместо пробных и прогнать батч
    `"next"` подряд — это и есть съёмочный день.
 3. Параллельно: решение по Canva (уходим — скин под стиль 6 в `lib/render/skins/`), прогнать миграции 055 и
