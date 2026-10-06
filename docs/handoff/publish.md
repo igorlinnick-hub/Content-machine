@@ -13,6 +13,12 @@ Yedino подключён: Instagram `6ab468f5ea19ca0bdece1589`, Threads `6ab469
 первая часть включена). В планировщике и модалке есть канал Threads, health проверяет один бренд.
 
 ## Последний заход
+- 06.10 03:05 UTC **Первая живая публикация через Meta Graph API — работает.** P13 вышел в Instagram hiredrop.io:
+  https://www.instagram.com/p/DeIxyBqjJPh/ (`meta_posts` → `published`, 1 попытка). Путь: `DIRECT_META` в
+  `lib/publish/meta-creds.ts` (`63858f0`), `META_SYSTEM_USER_TOKEN` в Vercel prod (внёс Игорь), pg_cron `meta-publish`
+  */5 (job 3) — его в базе НЕ было, включил Игорь прогоном 061. P13 в `buffer_feed` = `cancelled` (чтобы IG не вышел
+  дважды) → **Threads P13 не поставлен**. Классификатор не даёт Claude ставить посты в `meta_posts` и трогать pg_cron —
+  такие шаги Игорь запускает сам через `!`.
 - 05.10 (ночь) **Докармливатель Buffer в проде** (`058fd61`, «да» Игоря: «schedule через Buffer»). Закоммичены
   `app/api/cron/buffer-feed/`, `lib/publish/buffer-api.ts`, `lib/cron/db-key.ts`, правка `meta-publish/route.ts`,
   тип `buffer_feed`, миграция 062 (сборка `next build` в чистом worktree прошла). pg_cron `buffer-feed` 16:30 UTC

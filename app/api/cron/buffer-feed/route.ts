@@ -26,7 +26,9 @@ export const maxDuration = 120
 
 const MIN_LEAD_MS = 60 * 60_000 // never schedule closer than 1h from now
 const FALLBACK_LIMIT = 10 // free plan, if Buffer doesn't report the limit
-const SERVICES = ['instagram', 'threads'] as const
+// Instagram only: carousels don't go to Threads. Threads gets separate
+// text-only posts, about once a week (Igor 2026-10-06).
+const SERVICES: readonly ('instagram' | 'threads')[] = ['instagram']
 
 interface FeedRow {
   id: string
