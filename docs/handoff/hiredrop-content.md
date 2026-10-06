@@ -64,6 +64,11 @@ italic, Inter, Caveat; персонаж Drop, правила в его README). 
 - 05.10: расписание — все 36 через Buffer (см. `publish.md`): 3–10 перепривязаны на новые картинки, 11–36 в очереди
   докармливателя, через день 06:00 HST с 23.10, P23 = 26.11, P36 = 25.12, P35 последний обычный (10.12).
   Даты для диска — `R2/buffer-feed-plan.json` (его читает `to-drive.cjs`).
+- 05.10: карта перепубликована (v7, https://claude.ai/artifact/KY2TAJ8ZUCbY8w2Afagz58): превью без щёк, у каждого
+  поста дата HST, группы Posted / Scheduled (`map/build.cjs`, старый — `build.before-dates-again.cjs`). Диск не нужен:
+  `folders.txt`/`counts.txt` собраны из `buffer-scheduled.json` + `buffer-feed-plan.json` + `export/` (prep.sh всё ещё
+  читает диск — его не звать, пока не переписан). Публиковать из копии в scratchpad: файлы вне рабочей папки не публикуются.
+- Стоимость сессии 05.10 (щёки + Buffer + карта): ≈ $8 API-эквивалента на Opus 5.5.
 
 ## Сломано / не доделано
 - Игорь ещё не смотрел 36 постов. Вопросы в конце `CONTENT-PLAN.md`: дни публикации, партнёрка в декабре
@@ -78,7 +83,6 @@ italic, Inter, Caveat; персонаж Drop, правила в его README). 
   Карта-артефакт (05.10) — без дат: посты помечены «In Buffer» / «Manual» по имени папки (`map/build.cjs`).
 
 ## Следующий шаг
-1. Подключить диск TOSHIBA → `node to-drive.cjs` (папки 11–36 получат даты вместо «manual», картинки без щёк) →
-   `map/prep.sh` → перепубликовать карту https://claude.ai/artifact/KY2TAJ8ZUCbY8w2Afagz58.
+1. Подключить диск TOSHIBA → `node to-drive.cjs` (папки 11–36 получат даты вместо «manual», картинки без щёк).
 2. Окно 11.12–24.12 пустое — новые посты по запросу Игоря (ставить `buffer-feed-enqueue.cjs` с `IMG_PREFIX`).
 Начинать моделью **Opus**.
