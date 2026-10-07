@@ -63,6 +63,18 @@ treatment, panel-fit), and photo direction (aesthetic-first, ~60/40 AI/stock,
 no close-up-face covers). The writer/splitter own the text rules; the
 `canva-compose-runner` skill owns the layout/design rules.
 
+## Anti-slop check (any English copy — 2026-10-07)
+
+Generated scripts, carousels and captions are scanned automatically (Critic +
+Captioner retry). **Copy written by hand or in a Claude session — HireDrop,
+Yedino, a caption fixed in chat — is not.** Before it ships, run:
+
+    node scripts/slop-check.mjs <file>        # or --text "…", or pipe stdin
+
+Exit 1 = rewrite the quoted lines. Rules live in `lib/agents/teaser-lines.ts`;
+what was deliberately left out and why — POST-CRAFT "Ad-copy constructions".
+English only: Russian copy always passes, so read it yourself.
+
 ## Tech reminders
 
 - **Read [HANDOFF-MODULES.md](HANDOFF-MODULES.md) first** every deep session — per-module current truth. `HANDOFF.md` §15/§16 = historical ledger.
