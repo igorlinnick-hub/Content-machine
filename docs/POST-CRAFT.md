@@ -55,8 +55,16 @@ them (`lib/agents/teaser-lines.ts` catches the obvious shapes deterministically)
   "at the end of the day", "the bottom line", "it's important to note",
   "plays a key/crucial role", "when it comes to", "in today's world", "let's
   be honest", "the good news is", "holistic", "empower", "transform your…",
-  "significantly", "varies significantly", "isn't uniform", "in many cases."
+  "significantly", "varies significantly", "isn't uniform", "in many cases",
+  "delve", "seamless", "leverage", "cutting-edge", "transformative".
   Cut them; say the concrete thing.
+- **Ad-copy constructions** (added 2026-10-07 from the SlopMonster catalogue) —
+  "Whether you're X or Y", "That's where X comes in", "Say goodbye to",
+  "X doesn't just A — it B", "more than just", "The result? …", "may
+  potentially". Two of its rules are deliberately NOT adopted: "can help you"
+  (the compliance hedge we require) and "N patients" (R-TEST judges that in
+  context). Two em dashes around a definition — "PRP — platelet-rich plasma —
+  is…" — are house style, not a tell.
 - **Perfectly parallel, symmetric prose.** Real speech is uneven — a 3-word
   sentence next to a 20-word one. Use contractions and plain verbs.
 - **Ending every slide on a neat wrap-up.** Sometimes just stop on the useful

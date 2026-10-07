@@ -64,6 +64,38 @@ const CLICHE_PATTERNS: RegExp[] = [
   // Tidy antithesis bow
   /\bit'?s not (?:about )?\w[\w' ]{0,30}[,—–-] it'?s (?:about )?\w/i,
   /\bthe problem (?:was|is) never\b/i,
+  /(?:\bnot|n['’]t) (?:just|only|merely|simply)\b[^.!?]{0,80}\bbut\b/i,
+  /(?:\bnot|n['’]t) (?:just|only|merely|simply)\b[^.!?]{0,80}?[,;—–]\s*(?:it|this|that|they|we|you)\b/i,
+  /\bmore than just\b/i,
+
+  // From the SlopMonster catalogue (github.com/ItsssssJack/SlopMonster, MIT; 2026-10-07).
+  // Its "hedged benefit" ("can help you") and "N patients" proof rules are NOT taken:
+  // compliance REQUIRES that hedge and R-TEST already judges patient claims in context.
+  // Audience-address and ad-copy constructions
+  /\bwhether you(?:['’]re| are)\b[^.!?]{0,40}\bor\b/i,
+  /\b(?:that|this)(?:['’]s| is) where\b[^.!?]{0,30}\bcomes? in\b/i,
+  /\bsay goodbye to\b/i,
+  /\bimagine (?:a world|a life|waking up|never having)\b/i,
+  /\bin conclusion\b|\bto sum (?:it )?up\b/i,
+  /\bthe best part(?: is\b|\?)/i,
+  /\bready to (?:get started|take the (?:first|next) step)\b/i,
+  // Self-answering question: "The result? Faster healing."
+  /^(?:so |and |but )?(?:the )?(?:result|answer|catch|kicker|upshot|twist|verdict|takeaway|best part)\?$/i,
+  // Stacked hedges and intensifier padding (one hedge is compliance; two is noise)
+  /\b(?:may|might|could) (?:potentially|possibly)\b/i,
+  /\bvery unique\b|\bquite literally\b/i,
+  // AI vocabulary. Left out on purpose — literal in medical copy: robust (evidence),
+  // comprehensive (panel), pivotal (trial), crucial, elevate/elevated (leg, levels).
+  /\bdelv(?:e|es|ed|ing)\b/i,
+  /\btapestry\b|\btestament to\b|\bmyriad\b|\bplethora\b|\brealm\b|\bparadigm shift\b/i,
+  /\bunderscor(?:e|es|ed|ing)\b/i,
+  /\bseamless(?:ly)?\b|\bsupercharg\w*|\bunleash\w*|\brevolutioni[sz]\w*|\bsynerg\w*/i,
+  /\bcutting[- ]edge\b|\bgame[- ]changing\b|\bever[- ]evolving\b|\btransformative\b/i,
+  /\b(?:best|world)[- ]in[- ]class\b|\bworld[- ]class\b/i,
+  /\bleverag(?:e|es|ed|ing)\b|\bfoster(?:s|ed|ing)?\b|\bstreamlin\w*|\bmeticulous(?:ly)?\b|\bcurated\b/i,
+  /\bembark(?:s|ed|ing)? on\b|\bharness(?:es|ed|ing)? the power\b/i,
+  /\bnavigat(?:e|es|ing) the (?:world|landscape|complexit\w*|maze)\b/i,
+  /\belevat(?:e|es|ing) your (?:health|wellness|life|game|routine|results|recovery|experience)\b/i,
 ]
 
 function splitSentences(text: string): string[] {
