@@ -63,7 +63,7 @@ node scripts/feed-video.mjs list --brand hiredrop     # what's queued, status, e
 | Length | ≥ 3 s | TikTok rejects shorter |
 | **Audio** | **bake the music in** | trending sounds can't be added through the API — whatever audio is in the file is what posts. The HireDrop reels so far were cut silent "for trending audio in-app" — that doesn't work on autopilot. Use royalty-free / TikTok-commercial-safe tracks. |
 | Caption | English passes `scripts/slop-check.mjs` | checked automatically; `--force` overrides |
-| AI label | `"ai": true` for AI-generated footage (Seedance, Flux-animated, avatars) | TikTok requires the label on realistic AI video |
+| AI label | leave off (default). HireDrop videos = Igor's own b-roll + AI-made subtitles — not AI video (Igor 2026-10-09). `"ai": true` only if a clip ever uses generated footage (Seedance, avatars) | TikTok's label is for realistic AI imagery/voice, not for captions |
 | Cover | optional jpg/png | otherwise the platform picks a frame |
 
 ## Status (2026-10-09)
