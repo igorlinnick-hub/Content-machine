@@ -40,14 +40,16 @@ const ACCOUNTS: Record<string, BufferAccount> = {
     },
   },
   // Separate Buffer account (hellosystems111, org "My organization"), listed 2026-10-03.
-  // Free plan: 3 channels, 10 scheduled posts per channel. TikTok (hiredrop1,
-  // 6ab73629ea19ca0bdeef4eeb) is connected there but left out on purpose: the
-  // 4:5 carousels don't belong on TikTok (Igor 2026-10-03).
+  // Free plan: 3 channels, 10 scheduled posts per channel. TikTok (hiredrop1)
+  // takes video only — the 4:5 carousels stay off it (Igor 2026-10-03); videos
+  // go there daily from 2026-10 (Igor 2026-10-09). Direct publish: the channel
+  // has TikTok's video.publish scope.
   hiredrop: {
     tokenEnv: 'BUFFER_ACCESS_TOKEN_HIREDROP',
     channels: {
       instagram: '6ab57e4cea19ca0bdeda5d0f',
       threads: '6ab57e68ea19ca0bdeda5dd4',
+      tiktok: '6ab73629ea19ca0bdeef4eeb',
     },
   },
 }

@@ -255,6 +255,10 @@ export type Database = {
           threads_text: string | null
           threads_topic: string | null
           image_urls: string[]
+          channels: string[]
+          video_url: string | null
+          cover_url: string | null
+          ai_generated: boolean
           due_at: string
           status: string
           buffer_ids: Json
@@ -272,6 +276,10 @@ export type Database = {
           threads_text?: string | null
           threads_topic?: string | null
           image_urls?: string[]
+          channels?: string[]
+          video_url?: string | null
+          cover_url?: string | null
+          ai_generated?: boolean
           due_at: string
           status?: string
           buffer_ids?: Json
@@ -289,6 +297,10 @@ export type Database = {
           threads_text?: string | null
           threads_topic?: string | null
           image_urls?: string[]
+          channels?: string[]
+          video_url?: string | null
+          cover_url?: string | null
+          ai_generated?: boolean
           due_at?: string
           status?: string
           buffer_ids?: Json

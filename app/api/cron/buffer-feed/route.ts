@@ -9,6 +9,7 @@ import {
   bufferOrganizations,
   bufferScheduled,
   bufferSchedulePost,
+  type FeedService,
 } from '@/lib/publish/buffer-api'
 
 export const runtime = 'nodejs'
@@ -19,16 +20,17 @@ export const maxDuration = 120
 // buffer_feed (migration 062). Ticked daily at 16:30 UTC by pg_cron.
 //
 // Per brand: count scheduled posts on each channel, then hand Buffer the next
-// pending rows in seq order while every channel has a free slot. Order is kept
-// strictly: if any channel is full, nothing later is scheduled either.
-// A row past its due_at gets the next free time instead (MIN_LEAD from now),
-// so a missed tick shifts the plan rather than dropping a post.
+// pending rows in due order. Each row names its own channels (063): carousels
+// go to Instagram, videos to TikTok and/or Instagram as a Reel. Order is kept
+// per channel: once a row can't be completed, every later row that shares one
+// of its channels waits too — but a full TikTok queue doesn't hold back an
+// Instagram carousel. A row past its due_at gets the next free time instead
+// (MIN_LEAD from now), so a missed tick shifts the plan rather than dropping a post.
 
 const MIN_LEAD_MS = 60 * 60_000 // never schedule closer than 1h from now
 const FALLBACK_LIMIT = 10 // free plan, if Buffer doesn't report the limit
-// Instagram only: carousels don't go to Threads. Threads gets separate
-// text-only posts, about once a week (Igor 2026-10-06).
-const SERVICES: readonly ('instagram' | 'threads')[] = ['instagram']
+// Carousels don't go to Threads: Threads gets separate text-only posts, about
+// once a week (Igor 2026-10-06). That is the channels default in 063.
 
 interface FeedRow {
   id: string
@@ -39,6 +41,10 @@ interface FeedRow {
   threads_text: string | null
   threads_topic: string | null
   image_urls: string[]
+  video_url: string | null
+  cover_url: string | null
+  ai_generated: boolean
+  channels: FeedService[]
   due_at: string
   buffer_ids: Record<string, string>
   attempts: number
@@ -51,19 +57,27 @@ async function feedClinic(clinicId: string, rows: FeedRow[]) {
   const token = bufferToken(account)
   if (!token) return { clinicId, error: `${account.tokenEnv} is not set` }
 
-  const channels = SERVICES.filter((s) => account.channels[s])
   const [org] = await bufferOrganizations(token)
   if (!org) return { clinicId, error: 'Buffer account has no organization' }
   const limit = org.scheduledLimit ?? FALLBACK_LIMIT
 
+  const used = Array.from(new Set(rows.flatMap((r) => r.channels)))
+  const missing = used.filter((s) => !account.channels[s])
   const free: Record<string, number> = {}
-  for (const s of channels) {
+  for (const s of used) {
+    if (!account.channels[s]) continue
     const { count } = await bufferScheduled(token, org.id, account.channels[s]!)
     free[s] = Math.max(0, limit - count)
   }
 
   const done: string[] = []
+  const blocked = new Set<FeedService>()
   for (const row of rows) {
+    const channels = row.channels
+    if (channels.some((s) => blocked.has(s))) {
+      channels.forEach((s) => blocked.add(s))
+      continue
+    }
     const ids = { ...row.buffer_ids }
     const minDue = Date.now() + MIN_LEAD_MS
     const dueAt = new Date(Math.max(new Date(row.due_at).getTime(), minDue)).toISOString()
@@ -72,6 +86,10 @@ async function feedClinic(clinicId: string, rows: FeedRow[]) {
 
     for (const s of channels) {
       if (ids[s]) continue
+      if (!account.channels[s]) {
+        failure = `no ${s} channel connected for this brand`
+        break
+      }
       if (free[s] <= 0) break
       try {
         ids[s] = await bufferSchedulePost(token, {
@@ -79,6 +97,9 @@ async function feedClinic(clinicId: string, rows: FeedRow[]) {
           service: s,
           text: s === 'threads' ? (row.threads_text ?? row.caption) : row.caption,
           imageUrls: row.image_urls,
+          videoUrl: row.video_url,
+          coverUrl: row.cover_url,
+          aiGenerated: row.ai_generated,
           dueAt,
           threadsTopic: row.threads_topic,
         })
@@ -108,10 +129,14 @@ async function feedClinic(clinicId: string, rows: FeedRow[]) {
     if (failure && !limitHit && attempts >= 3) {
       await sendPushToAdmins({ title: 'Buffer feed stuck', body: `${row.source}: ${failure}`.slice(0, 200), url: '/scheduler' })
     }
-    if (!complete) break // keep the order: nothing later goes before this row
-    done.push(`${row.source} @ ${dueAt}`)
+    if (!complete) {
+      // keep the order per channel: nothing later on these channels goes first
+      channels.forEach((s) => blocked.add(s))
+      continue
+    }
+    done.push(`${row.source} → ${channels.join('+')} @ ${dueAt}`)
   }
-  return { clinicId, free, scheduled: done }
+  return { clinicId, free, scheduled: done, ...(missing.length ? { missing } : {}) }
 }
 
 async function handle(req: Request) {
@@ -121,8 +146,11 @@ async function handle(req: Request) {
   const supabase = createServerClient()
   const { data, error } = await supabase
     .from('buffer_feed')
-    .select('id, clinic_id, seq, source, caption, threads_text, threads_topic, image_urls, due_at, buffer_ids, attempts')
+    .select(
+      'id, clinic_id, seq, source, caption, threads_text, threads_topic, image_urls, video_url, cover_url, ai_generated, channels, due_at, buffer_ids, attempts',
+    )
     .eq('status', 'pending')
+    .order('due_at', { ascending: true })
     .order('seq', { ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

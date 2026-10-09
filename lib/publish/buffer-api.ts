@@ -4,6 +4,8 @@
 // - createPost with mode customScheduled + dueAt schedules; assets = { image: { url } };
 // - Instagram carousel = type 'post' with several images ('carousel' is rejected);
 // - LimitReachedError = the channel's scheduled-posts cap (10 on the free plan) is full.
+// Video (schema read 2026-10-09, not yet sent live): asset = { video: { url, thumbnailUrl } };
+// Instagram video = type 'reel'; TikTok metadata is only { title, isAiGenerated }.
 
 const BUFFER_API = 'https://api.buffer.com/graphql'
 
@@ -65,21 +67,32 @@ export async function bufferScheduled(
   return { count, lastDueAt }
 }
 
+export type FeedService = 'instagram' | 'threads' | 'tiktok'
+
 export async function bufferSchedulePost(
   token: string,
   input: {
     channelId: string
-    service: 'instagram' | 'threads'
+    service: FeedService
     text: string
     imageUrls: string[]
+    videoUrl?: string | null
+    coverUrl?: string | null
+    aiGenerated?: boolean
     dueAt: string
     threadsTopic?: string | null
   },
 ): Promise<string> {
+  const ai = input.aiGenerated ? { isAiGenerated: true } : {}
   const metadata =
     input.service === 'instagram'
-      ? { instagram: { type: 'post', shouldShareToFeed: true } }
-      : { threads: { type: 'post', ...(input.threadsTopic ? { topic: input.threadsTopic } : {}) } }
+      ? { instagram: { type: input.videoUrl ? 'reel' : 'post', shouldShareToFeed: true, ...ai } }
+      : input.service === 'tiktok'
+        ? { tiktok: { ...ai } }
+        : { threads: { type: 'post', ...(input.threadsTopic ? { topic: input.threadsTopic } : {}) } }
+  const assets = input.videoUrl
+    ? [{ video: { url: input.videoUrl, ...(input.coverUrl ? { thumbnailUrl: input.coverUrl } : {}) } }]
+    : input.imageUrls.map((url) => ({ image: { url } }))
   const d = await gql<{
     createPost: { __typename: string; message?: string; post?: { id: string } }
   }>(
@@ -94,7 +107,7 @@ export async function bufferSchedulePost(
         schedulingType: 'automatic',
         mode: 'customScheduled',
         dueAt: input.dueAt,
-        assets: input.imageUrls.map((url) => ({ image: { url } })),
+        assets,
         metadata,
       },
     },

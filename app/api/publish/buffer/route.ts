@@ -40,8 +40,13 @@ const MUTATION = `
   }
 `
 
-function buildMetadata(channel: BufferService, thread: string[]) {
-  if (channel === 'instagram') return { instagram: { type: 'post', shouldShareToFeed: true } }
+type Asset = { image: { url: string } } | { video: { url: string } }
+
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm)(\?|$)/i
+
+function buildMetadata(channel: BufferService, thread: string[], isVideo: boolean) {
+  if (channel === 'instagram') return { instagram: { type: isVideo ? 'reel' : 'post', shouldShareToFeed: true } }
+  if (channel === 'tiktok') return { tiktok: {} }
   if (channel === 'facebook') return { facebook: { type: 'post' } }
   if (channel === 'threads') {
     // ThreadsPostMetadataInput.thread = [ThreadedPostInput{text, assets}].
@@ -58,7 +63,7 @@ async function bufferPost(
   channel: BufferService,
   channelId: string,
   text: string,
-  assets: Array<{ image: { url: string } }>,
+  assets: Asset[],
   thread: string[],
   scheduledAt?: string,
 ) {
@@ -71,7 +76,7 @@ async function bufferPost(
       schedulingType: 'automatic',
       mode,
       assets,
-      metadata: buildMetadata(channel, thread),
+      metadata: buildMetadata(channel, thread, assets.some((a) => 'video' in a)),
       ...(scheduledAt ? { dueAt: scheduledAt } : { saveToDraft: true }),
     },
   }
@@ -137,7 +142,8 @@ export async function POST(req: NextRequest) {
 
   // AssetInput is a union-like object: { image | video | document }. A bare { url } is rejected.
   // Several images on Instagram = carousel; the post type stays 'post' (Buffer refuses 'carousel').
-  const assets = (mediaUrls ?? []).map((url) => ({ image: { url } }))
+  // A video URL goes as { video } — Instagram then posts a Reel, TikTok takes video only.
+  const assets: Asset[] = (mediaUrls ?? []).map((url) => (VIDEO_EXT.test(url) ? { video: { url } } : { image: { url } }))
   const results: Array<{ channel: string; postId?: string; status?: string; error?: string }> = []
 
   for (const ch of channels) {
@@ -153,6 +159,10 @@ export async function POST(req: NextRequest) {
 
     if (REQUIRES_MEDIA.has(ch) && assets.length === 0) {
       results.push({ channel: ch, error: `${ch} requires at least one image or video` })
+      continue
+    }
+    if (ch === 'tiktok' && !assets.some((a) => 'video' in a)) {
+      results.push({ channel: ch, error: 'tiktok takes video only' })
       continue
     }
 
