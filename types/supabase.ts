@@ -184,6 +184,8 @@ export type Database = {
           network: string
           caption: string
           image_urls: string[]
+          video_url: string | null
+          cover_url: string | null
           publish_at: string
           status: string
           attempts: number
@@ -203,6 +205,8 @@ export type Database = {
           network: string
           caption?: string
           image_urls?: string[]
+          video_url?: string | null
+          cover_url?: string | null
           publish_at: string
           status?: string
           attempts?: number
@@ -222,6 +226,8 @@ export type Database = {
           network?: string
           caption?: string
           image_urls?: string[]
+          video_url?: string | null
+          cover_url?: string | null
           publish_at?: string
           status?: string
           attempts?: number

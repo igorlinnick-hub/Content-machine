@@ -61,3 +61,6 @@ __pycache__/
 samples/doctor-guide-*-doctor.html
 samples/doctor-guide-*-doctor.pdf
 samples/floor-folder-access*.pdf
+
+# video inbox (scripts/feed-video.mjs drop) — local files only
+/inbox/

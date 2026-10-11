@@ -9,6 +9,10 @@
 //
 // Images must be public URLs. Instagram takes JPEG only (PNG is rejected);
 // Threads takes JPEG and PNG. Instagram carousels: 2–10 items; Threads: 2–20.
+//
+// Instagram video = a Reel (media_type REELS, video_url, optional cover_url).
+// Meta processes a video for a minute or more; publish throws MetaProcessing
+// while it isn't ready, and the caller tries the same container again later.
 
 export type MetaNetwork = 'instagram' | 'threads'
 
@@ -74,6 +78,9 @@ async function call(
   return json
 }
 
+/** The container is still being processed by Meta — not an error, come back later. */
+export class MetaProcessing extends Error {}
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /** Polls a container until Meta has processed it. */
@@ -89,7 +96,7 @@ async function waitReady(
     }
     await sleep(everyMs)
   }
-  throw new MetaApiError('container still processing after 60s', true)
+  throw new MetaProcessing('container still processing after 60s')
 }
 
 // ── Instagram ────────────────────────────────────────────────────────────────
@@ -131,6 +138,29 @@ export async function createInstagramContainer(
     access_token: token,
   })
   return String(r.id)
+}
+
+/** A Reel container. share_to_feed keeps it on the profile grid too. */
+export async function createInstagramReelContainer(
+  c: InstagramCreds,
+  videoUrl: string,
+  caption: string,
+  coverUrl?: string | null,
+): Promise<string> {
+  const r = await call('POST', `${igBase(c)}/${c.igUserId}/media`, {
+    media_type: 'REELS',
+    video_url: videoUrl,
+    caption,
+    share_to_feed: 'true',
+    ...(coverUrl ? { cover_url: coverUrl } : {}),
+    access_token: c.accessToken,
+  })
+  return String(r.id)
+}
+
+/** Meta's processing state of a container: IN_PROGRESS, FINISHED, ERROR, EXPIRED, PUBLISHED. */
+export async function instagramContainerStatus(c: InstagramCreds, containerId: string): Promise<string> {
+  return igStatus(c, containerId)
 }
 
 export async function publishInstagramContainer(

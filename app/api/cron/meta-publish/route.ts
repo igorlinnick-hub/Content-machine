@@ -6,7 +6,9 @@ import { sendPushToAdmins } from '@/lib/push/send'
 import { metaCredsForClinic } from '@/lib/publish/meta-creds'
 import {
   MetaApiError,
+  MetaProcessing,
   createInstagramContainer,
+  createInstagramReelContainer,
   createThreadsContainer,
   publishInstagramContainer,
   publishThreadsContainer,
@@ -28,10 +30,16 @@ export const maxDuration = 300
 // retry first asks Meta whether the saved container is already PUBLISHED.
 // Retryable errors go back to `scheduled` until MAX_ATTEMPTS; the rest fail
 // at once with a push to admins — nothing is lost silently.
+//
+// A Reel (video_url, 064) can need a few minutes of processing on Meta's side.
+// While it does, the row goes back to `scheduled` with its container saved and
+// the attempt not counted; the next tick publishes it. Past PROCESSING_MAX_MIN
+// after publish_at it fails like any other error.
 
 const MAX_ATTEMPTS = 5
 const STALE_MIN = 15
 const PER_TICK = 4 // ~30–60s each; stays well inside maxDuration
+const PROCESSING_MAX_MIN = 60
 
 interface MetaPostRow {
   id: string
@@ -39,6 +47,8 @@ interface MetaPostRow {
   network: 'instagram' | 'threads'
   caption: string
   image_urls: string[]
+  video_url: string | null
+  cover_url: string | null
   publish_at: string
   status: string
   attempts: number
@@ -59,7 +69,11 @@ async function publishOne(row: MetaPostRow): Promise<PublishResult> {
 
   if (row.network === 'instagram') {
     if (!creds.instagram) throw new MetaApiError('no Instagram connection for this brand in Hellometrix', false)
-    const containerId = row.container_id ?? (await createInstagramContainer(creds.instagram, row.image_urls, row.caption))
+    const containerId =
+      row.container_id ??
+      (row.video_url
+        ? await createInstagramReelContainer(creds.instagram, row.video_url, row.caption, row.cover_url)
+        : await createInstagramContainer(creds.instagram, row.image_urls, row.caption))
     if (!row.container_id) await saveContainer(containerId)
     return publishInstagramContainer(creds.instagram, containerId)
   }
@@ -79,7 +93,7 @@ async function handle(req: Request) {
 
   const { data: due, error } = await supabase
     .from('meta_posts')
-    .select('id, clinic_id, network, caption, image_urls, publish_at, status, attempts, container_id, source')
+    .select('id, clinic_id, network, caption, image_urls, video_url, cover_url, publish_at, status, attempts, container_id, source')
     .lte('publish_at', now.toISOString())
     .or(`status.eq.scheduled,and(status.eq.publishing,claimed_at.lt.${stale})`)
     .order('publish_at', { ascending: true })
@@ -120,6 +134,16 @@ async function handle(req: Request) {
       results.push({ id: row.id, source: row.source, network: row.network, ok: true, detail: r.permalink ?? 'published' })
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
+      const overdueMin = (Date.now() - new Date(row.publish_at).getTime()) / 60_000
+      if (e instanceof MetaProcessing && overdueMin < PROCESSING_MAX_MIN) {
+        // Still processing: back to the queue, this attempt doesn't count.
+        await supabase
+          .from('meta_posts')
+          .update({ status: 'scheduled', attempts: row.attempts, last_error: null, updated_at: new Date().toISOString() })
+          .eq('id', row.id)
+        results.push({ id: row.id, source: row.source, network: row.network, ok: false, detail: 'processing' })
+        continue
+      }
       const retryable = e instanceof MetaApiError ? e.retryable : true
       const giveUp = !retryable || row.attempts + 1 >= MAX_ATTEMPTS
       await supabase
