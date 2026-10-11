@@ -1,4 +1,4 @@
-# Video feed — TikTok + Instagram Reels through Buffer
+# Video feed — TikTok (Buffer) + Instagram Reels (Meta API)
 
 For whoever produces videos ahead of time (the My Bots video pipeline, a cron
 agent, a person). You hand over finished files; Content Machine does the rest.
