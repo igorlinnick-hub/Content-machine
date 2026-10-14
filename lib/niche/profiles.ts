@@ -232,3 +232,19 @@ export function getNicheProfile(niche: string | null | undefined): NicheProfile 
   const normalized = niche.trim().toLowerCase()
   return PROFILES[normalized] ?? PROFILES.regenerative_medicine
 }
+
+/**
+ * Whether this niche's scripts go through the compliance gate at all.
+ *
+ * HireDrop is Igor's own job-search product, not a clinic: the account is
+ * only used to paste his own scripts and read them in the teleprompter
+ * (Igor 2026-10-14). With no profile of its own it fell back to the
+ * regen-med ruleset — job-search copy graded as clinic copy, which is
+ * noise, plus an ~8 s wait on every save and a refused save whenever the
+ * gate is down. Every clinic niche (and an unset one) stays screened.
+ */
+const UNSCREENED_NICHES = new Set(['hiredrop'])
+
+export function nicheIsScreened(niche: string | null | undefined): boolean {
+  return !UNSCREENED_NICHES.has((niche ?? '').trim().toLowerCase())
+}

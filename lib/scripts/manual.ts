@@ -47,11 +47,17 @@ export function gradedText(hook: string | null, body: string): string {
  * Same block rule as shouldBlockPublish (REMOVE / REWORD) — repeated
  * here because that module pulls in the agent SDK.
  * Machine-written rows with no stored verdict keep their old behaviour.
+ * `screened` = the clinic's niche goes through the gate (nicheIsScreened);
+ * an unscreened account (HireDrop) never locks the star.
  */
-export function starBlockReason(row: {
-  source: string | null
-  compliance: ComplianceResult | null
-}): string | null {
+export function starBlockReason(
+  row: {
+    source: string | null
+    compliance: ComplianceResult | null
+  },
+  screened = true
+): string | null {
+  if (!screened) return null
   const grade = row.compliance?.grade
   if (grade === 'REMOVE' || grade === 'REWORD') {
     return 'Flagged wording — fix it before it goes to the doctor.'

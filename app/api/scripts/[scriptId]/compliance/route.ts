@@ -4,6 +4,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { runComplianceGate } from '@/lib/posts/pipeline'
 import { convergeCompliance } from '@/lib/agents/compliance-loop'
 import { deriveHook, gateRan, gradedText, wordCount } from '@/lib/scripts/manual'
+import { nicheIsScreened } from '@/lib/niche/profiles'
 import type { ComplianceResult } from '@/types'
 import type { Json } from '@/types/supabase'
 
@@ -69,6 +70,12 @@ export async function POST(
     .eq('id', script.clinic_id ?? '')
     .single()
   const niche = clinic?.niche ?? null
+  if (!nicheIsScreened(niche)) {
+    return NextResponse.json(
+      { error: "This account's scripts are not compliance-screened." },
+      { status: 400 }
+    )
+  }
 
   const stored = (script.compliance as unknown as ComplianceResult | null) ?? null
   const current = stored && gateRan(stored) ? stored : null

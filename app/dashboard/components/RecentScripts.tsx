@@ -24,6 +24,9 @@ interface RecentScriptsProps {
   canStar?: boolean
   // "+ Add your own script" — admin only, like Generate.
   canAdd?: boolean
+  // The clinic's niche goes through the compliance gate (nicheIsScreened).
+  // false (HireDrop): no verdicts, no "check" copy, the star never locks.
+  screened?: boolean
 }
 
 export function RecentScripts({
@@ -31,6 +34,7 @@ export function RecentScripts({
   clinicId,
   canStar = true,
   canAdd = false,
+  screened = true,
 }: RecentScriptsProps) {
   const router = useRouter()
   const [scripts, setScripts] = useState(initialScripts)
@@ -72,7 +76,7 @@ export function RecentScripts({
     if (!current) return null
     const next = !current.starred
     if (next) {
-      const blocked = starBlockReason(current)
+      const blocked = starBlockReason(current, screened)
       if (blocked) return blocked
     }
     patchLocal(id, { starred: next })
@@ -169,6 +173,7 @@ export function RecentScripts({
   const addModal = adding && (
     <AddScriptModal
       clinicId={clinicId}
+      screened={screened}
       onCreated={onCreated}
       onClose={() => setAdding(false)}
     />
@@ -203,7 +208,7 @@ export function RecentScripts({
   return (
     <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {canAdd && <AddScriptTile onClick={() => setAdding(true)} />}
+        {canAdd && <AddScriptTile screened={screened} onClick={() => setAdding(true)} />}
         {scripts.map((s) => (
           <ScriptCard
             key={s.id}
@@ -215,6 +220,7 @@ export function RecentScripts({
             onDelete={() => onDelete(s.id)}
             onToggleStar={() => { void onToggleStar(s.id) }}
             canStar={canStar}
+            screened={screened}
           />
         ))}
       </div>
@@ -228,6 +234,7 @@ export function RecentScripts({
           onDelete={() => onDelete(open.id)}
           onToggleStar={() => onToggleStar(open.id)}
           canStar={canStar}
+          screened={screened}
           onSave={(fields) => onSaveEdit(open.id, fields)}
           onCompliance={(action) => onCompliance(open.id, action)}
           onClose={() => setOpenId(null)}
@@ -349,6 +356,7 @@ function ScriptCard({
   onDelete,
   onToggleStar,
   canStar,
+  screened,
 }: {
   script: RecentScript
   clinicId: string
@@ -358,6 +366,7 @@ function ScriptCard({
   onDelete: () => void
   onToggleStar: () => void
   canStar: boolean
+  screened: boolean
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const score = typeof s.critic_score === 'number' ? s.critic_score : null
@@ -408,12 +417,12 @@ function ScriptCard({
               Compliant
             </span>
           )}
-          {canStar && <VerdictChip script={s} />}
+          {canStar && screened && <VerdictChip script={s} />}
           <StarButton
             starred={s.starred}
             onToggle={onToggleStar}
             interactive={canStar}
-            blockedReason={canStar ? starBlockReason(s) : null}
+            blockedReason={canStar ? starBlockReason(s, screened) : null}
           />
         </div>
       </header>
@@ -506,6 +515,7 @@ function ScriptModal({
   onDelete,
   onToggleStar,
   canStar,
+  screened,
   onSave,
   onCompliance,
   onClose,
@@ -517,6 +527,7 @@ function ScriptModal({
   onDelete: () => void
   onToggleStar: () => Promise<string | null>
   canStar: boolean
+  screened: boolean
   onSave: (fields: { topic: string; hook?: string; full_script: string }) => Promise<string | null>
   onCompliance: (action: ComplianceAction) => Promise<{ error?: string; changed?: boolean }>
   onClose: () => void
@@ -526,7 +537,7 @@ function ScriptModal({
   // Rows that carry a verdict are re-graded on save — the button says so,
   // because that save takes seconds, not milliseconds.
   const manual = script.source === MANUAL_SOURCE
-  const tracksCompliance = manual || script.compliance !== null
+  const tracksCompliance = screened && (manual || script.compliance !== null)
   const showVerdict = canStar && tracksCompliance
 
   async function toggleStar() {
@@ -656,7 +667,7 @@ function ScriptModal({
               onToggle={toggleStar}
               size={18}
               interactive={canStar}
-              blockedReason={canStar ? starBlockReason(script) : null}
+              blockedReason={canStar ? starBlockReason(script, screened) : null}
             />
             {!editing && (
               <button
@@ -1031,7 +1042,7 @@ function CompliancePanel({
 
 // ── Add your own ─────────────────────────────────────────────────────────────
 
-function AddScriptTile({ onClick }: { onClick: () => void }) {
+function AddScriptTile({ onClick, screened }: { onClick: () => void; screened: boolean }) {
   return (
     <button
       type="button"
@@ -1045,7 +1056,9 @@ function AddScriptTile({ onClick }: { onClick: () => void }) {
       </span>
       <span className="text-[15px] font-semibold text-neutral-900">Add your own script</span>
       <span className="max-w-[16rem] text-[12px] leading-snug text-neutral-500">
-        Paste one you wrote. It&rsquo;s screened for compliance when you save.
+        {screened
+          ? <>Paste one you wrote. It&rsquo;s screened for compliance when you save.</>
+          : 'Paste one you wrote, then read it in the teleprompter.'}
       </span>
     </button>
   )
@@ -1053,10 +1066,12 @@ function AddScriptTile({ onClick }: { onClick: () => void }) {
 
 function AddScriptModal({
   clinicId,
+  screened,
   onCreated,
   onClose,
 }: {
   clinicId: string
+  screened: boolean
   onCreated: (script: RecentScript) => void
   onClose: () => void
 }) {
@@ -1151,8 +1166,9 @@ function AddScriptModal({
             Add your own script
           </h2>
           <p className="mt-1 text-[13px] leading-relaxed text-neutral-500">
-            Saved word for word. It runs through the same compliance screen as generated
-            scripts — anything flagged is listed so you can fix it before it goes to the doctor.
+            {screened
+              ? 'Saved word for word. It runs through the same compliance screen as generated scripts — anything flagged is listed so you can fix it before it goes to the doctor.'
+              : 'Saved word for word. Open it in the teleprompter when you’re ready to record.'}
           </p>
         </header>
 
@@ -1206,7 +1222,9 @@ function AddScriptModal({
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
         >
           <span className="hidden text-xs text-neutral-400 sm:inline">
-            {saving ? 'Checking the wording — about 15 seconds' : '⌘ Enter to save'}
+            {saving
+              ? screened ? 'Checking the wording — about 15 seconds' : 'Saving…'
+              : '⌘ Enter to save'}
           </span>
           <div className="ml-auto flex items-center gap-2">
             <button
@@ -1223,7 +1241,9 @@ function AddScriptModal({
               disabled={saving}
               className="cm-btn cm-btn-sky text-sm disabled:opacity-60"
             >
-              {saving ? 'Checking…' : 'Save & check'}
+              {screened
+                ? saving ? 'Checking…' : 'Save & check'
+                : saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </footer>

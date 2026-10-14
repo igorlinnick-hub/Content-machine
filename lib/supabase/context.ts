@@ -365,12 +365,13 @@ export async function loadRecentScripts(
 
 // A script a person wrote themselves ("+ Add your own script"). No Writer,
 // no Critic — the caller has already run the compliance gate and hands the
-// verdict in. Hook = the first spoken line, same as a teleprompter edit.
+// verdict in (null for an unscreened niche). Hook = the first spoken line,
+// same as a teleprompter edit.
 export async function saveManualScript(params: {
   clinicId: string
   topic: string
   fullScript: string
-  compliance: ComplianceResult
+  compliance: ComplianceResult | null
 }): Promise<RecentScript> {
   const supabase = createServerClient()
   const { data, error } = await supabase

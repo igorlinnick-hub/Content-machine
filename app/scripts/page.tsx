@@ -12,6 +12,7 @@ import { RecentScripts } from '@/app/dashboard/components/RecentScripts'
 import { PageHeader } from '@/app/components/PageHeader'
 import { NotesWorkspace } from '@/app/scripts/components/NotesWorkspace'
 import { NumberTicker } from '@/app/components/ui/number-ticker'
+import { nicheIsScreened } from '@/lib/niche/profiles'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +46,7 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
   const supabase = createServerClient()
   const { data: clinicRow } = await supabase
     .from('clinics')
-    .select('name, services, content_pillars')
+    .select('name, niche, services, content_pillars')
     .eq('id', clinicId)
     .single()
 
@@ -209,6 +210,7 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
               clinicId={clinicId}
               canStar={isAdmin}
               canAdd={isAdmin}
+              screened={nicheIsScreened(clinicRow.niche)}
             />
           </Section>
         )}

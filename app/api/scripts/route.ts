@@ -4,6 +4,7 @@ import { resolveAccess } from '@/lib/auth/session'
 import { saveManualScript } from '@/lib/supabase/context'
 import { runComplianceGate } from '@/lib/posts/pipeline'
 import { MANUAL_SCRIPT_MAX_CHARS, gateRan } from '@/lib/scripts/manual'
+import { nicheIsScreened } from '@/lib/niche/profiles'
 
 export const runtime = 'nodejs'
 // One gate pass: factCheck + one Opus grade, ~5-20 s.
@@ -27,6 +28,9 @@ interface PostBody {
  *
  * Admin only, like Generate: the marketing team writes, the doctor
  * records the starred ones.
+ *
+ * An unscreened niche (HireDrop — see nicheIsScreened) saves straight
+ * away with no verdict: it is not clinic copy.
  */
 export async function POST(req: Request) {
   const access = await resolveAccess()
@@ -61,6 +65,16 @@ export async function POST(req: Request) {
     .eq('id', clinicId)
     .single()
   if (!clinic) return NextResponse.json({ error: 'clinic not found' }, { status: 404 })
+
+  if (!nicheIsScreened(clinic.niche)) {
+    try {
+      const script = await saveManualScript({ clinicId, topic, fullScript, compliance: null })
+      return NextResponse.json({ ok: true, script })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'save failed'
+      return NextResponse.json({ error: msg }, { status: 500 })
+    }
+  }
 
   const compliance = await runComplianceGate({
     script: fullScript,

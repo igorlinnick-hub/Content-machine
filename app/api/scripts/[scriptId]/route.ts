@@ -10,6 +10,7 @@ import {
   starBlockReason,
   wordCount,
 } from '@/lib/scripts/manual'
+import { nicheIsScreened } from '@/lib/niche/profiles'
 import type { ComplianceResult } from '@/types'
 import type { Json } from '@/types/supabase'
 
@@ -113,16 +114,27 @@ export async function PATCH(
   const nextHook = 'hook' in patch ? (patch.hook ?? null) : script.hook
   const nextBody = patch.full_script ?? script.full_script
   const nextSpoken = gradedText(nextHook, nextBody)
-  if (tracksCompliance && nextSpoken !== gradedText(script.hook, script.full_script)) {
+  const regrade =
+    tracksCompliance && nextSpoken !== gradedText(script.hook, script.full_script)
+
+  // The niche decides whether the gate applies at all (HireDrop: no).
+  // Only looked up when a regrade or a star actually needs it.
+  let niche: string | null = null
+  if (regrade || patch.starred === true) {
     const { data: clinic } = await supabase
       .from('clinics')
       .select('niche')
       .eq('id', script.clinic_id ?? '')
       .single()
+    niche = clinic?.niche ?? null
+  }
+  const screened = nicheIsScreened(niche)
+
+  if (regrade && screened) {
     const graded = await runComplianceGate({
       script: nextSpoken,
       topic: patch.topic ?? script.topic,
-      niche: clinic?.niche ?? null,
+      niche,
     }).catch(() => null)
     // A failed check leaves the row ungraded rather than wearing the
     // verdict of text it no longer has. The edit itself still saves —
@@ -132,7 +144,7 @@ export async function PATCH(
   }
 
   if (patch.starred === true) {
-    const reason = starBlockReason({ source: script.source, compliance })
+    const reason = starBlockReason({ source: script.source, compliance }, screened)
     if (reason) return NextResponse.json({ error: reason }, { status: 409 })
   }
 
