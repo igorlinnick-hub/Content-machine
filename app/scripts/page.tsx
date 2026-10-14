@@ -99,7 +99,7 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
                 ? `Nothing to record yet — your marketing team stars the scripts they want you to film.`
                 : `${recent.length} to record · ${clinicRow.name}`
               : recent.length === 0
-                ? 'Generate your first batch — everything Writer saves lands here.'
+                ? 'Generate your first batch or add your own — everything lands here.'
                 : `${recent.length} saved${starred ? ` · ${starred} starred` : ''} · ${clinicRow.name}`
           }
           back={`/dashboard?clinicId=${clinicId}`}
@@ -198,13 +198,18 @@ export default async function ScriptsPage({ searchParams }: ScriptsPageProps) {
             subtitle={
               isDoctor
                 ? 'The scripts your marketing team picked for you. Tap any to read, edit, or copy.'
-                : 'Every script Writer has saved for this clinic. Tap any to read, edit, star, or copy.'
+                : 'Every script Writer has saved for this clinic, plus the ones you add by hand. Tap any to read, edit, star, or copy.'
             }
           >
             {/* Only admin toggles the star: it is what puts a script on the
                 doctor's list, so she must not be able to unstar herself out
                 of her own worklist. */}
-            <RecentScripts scripts={recent} clinicId={clinicId} canStar={isAdmin} />
+            <RecentScripts
+              scripts={recent}
+              clinicId={clinicId}
+              canStar={isAdmin}
+              canAdd={isAdmin}
+            />
           </Section>
         )}
 

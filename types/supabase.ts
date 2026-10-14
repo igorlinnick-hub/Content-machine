@@ -853,6 +853,7 @@ export type Database = {
           starred: boolean | null
           updated_at: string | null
           objection_id: string | null
+          source: string | null
         }
         Insert: {
           approved?: boolean | null
@@ -878,6 +879,7 @@ export type Database = {
           compliance?: Json | null
           format_template_id?: string | null
           objection_id?: string | null
+          source?: string | null
         }
         Update: {
           approved?: boolean | null
@@ -903,6 +905,7 @@ export type Database = {
           starred?: boolean | null
           updated_at?: string | null
           objection_id?: string | null
+          source?: string | null
         }
         Relationships: [
           {

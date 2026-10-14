@@ -14,9 +14,11 @@ import type {
   FeedbackAction,
   RoleBlock,
   StudioRolePayload,
+  ComplianceResult,
 } from '@/types'
 import type { Json } from '@/types/supabase'
 import { createServerClient } from './server'
+import { MANUAL_SOURCE, deriveHook, wordCount } from '@/lib/scripts/manual'
 
 
 export async function loadSharedContext(clinicId: string): Promise<SharedContext> {
@@ -292,6 +294,11 @@ export interface RecentScript {
   template_used: string | null
   starred: boolean
   updated_at: string | null
+  // 'manual' = pasted in by a person (065); null = machine-written.
+  source: string | null
+  // Gate verdict (050). Set for manual and Studio rows; null on Writer
+  // output, which converges compliance before it is saved.
+  compliance: ComplianceResult | null
 }
 
 const RECENT_SCRIPT_COLS =
@@ -311,7 +318,7 @@ export async function loadRecentScripts(
   // marketing team starred, not the whole archive.
   let query = supabase
     .from('scripts')
-    .select(`${RECENT_SCRIPT_COLS}, starred, updated_at`)
+    .select(`${RECENT_SCRIPT_COLS}, starred, updated_at, source, compliance`)
     .eq('clinic_id', clinicId)
 
   if (opts.starredOnly) query = query.eq('starred', true)
@@ -350,8 +357,54 @@ export async function loadRecentScripts(
       template_used: r.template_used ?? null,
       starred: r.starred ?? false,
       updated_at: r.updated_at ?? null,
+      source: r.source ?? null,
+      compliance: (r.compliance as ComplianceResult | null | undefined) ?? null,
     }
   })
+}
+
+// A script a person wrote themselves ("+ Add your own script"). No Writer,
+// no Critic — the caller has already run the compliance gate and hands the
+// verdict in. Hook = the first spoken line, same as a teleprompter edit.
+export async function saveManualScript(params: {
+  clinicId: string
+  topic: string
+  fullScript: string
+  compliance: ComplianceResult
+}): Promise<RecentScript> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('scripts')
+    .insert({
+      clinic_id: params.clinicId,
+      topic: params.topic,
+      hook: deriveHook(params.fullScript),
+      full_script: params.fullScript,
+      word_count: wordCount(params.fullScript),
+      critic_score: null,
+      approved: false,
+      source: MANUAL_SOURCE,
+      compliance: params.compliance as unknown as Json,
+    })
+    .select(`${RECENT_SCRIPT_COLS}, starred, updated_at, source, compliance`)
+    .single()
+  if (error || !data) throw error ?? new Error('insert returned no row')
+  return {
+    id: data.id,
+    variant_id: data.variant_id,
+    topic: data.topic,
+    hook: data.hook,
+    full_script: data.full_script,
+    word_count: data.word_count,
+    critic_score: data.critic_score,
+    approved: data.approved,
+    created_at: data.created_at ?? new Date().toISOString(),
+    template_used: data.template_used,
+    starred: data.starred ?? false,
+    updated_at: data.updated_at,
+    source: data.source,
+    compliance: (data.compliance as unknown as ComplianceResult | null) ?? null,
+  }
 }
 
 export async function loadClinicList(): Promise<
@@ -561,10 +614,14 @@ export async function pruneOldScripts(
   keep = 30
 ): Promise<number> {
   const supabase = createServerClient()
+  // The window counts machine output only: a script someone wrote by hand
+  // is never pushed out by a fresh batch (065). Before that migration the
+  // filter errors, `beyond` is null and nothing is pruned.
   const { data: beyond } = await supabase
     .from('scripts')
     .select('id')
     .eq('clinic_id', clinicId)
+    .is('source', null)
     .order('created_at', { ascending: false })
     .range(keep, keep + 199)
   const candidates = (beyond ?? []).map((r) => r.id)

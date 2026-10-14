@@ -1,8 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { resolveAccess } from '@/lib/auth/session'
+import { runComplianceGate } from '@/lib/posts/pipeline'
+import {
+  MANUAL_SOURCE,
+  deriveHook,
+  gateRan,
+  gradedText,
+  starBlockReason,
+  wordCount,
+} from '@/lib/scripts/manual'
+import type { ComplianceResult } from '@/types'
+import type { Json } from '@/types/supabase'
 
 export const runtime = 'nodejs'
+// A text edit on a row that carries a verdict re-runs the gate (~5-20 s).
+export const maxDuration = 60
 
 interface PatchBody {
   topic?: string
@@ -15,6 +28,12 @@ interface PatchBody {
  * Edit a saved script in place: text, title/hook, or the star flag.
  * `full_script` is stored RAW (slide markup intact) — the reading
  * surfaces clean it at display time, the carousel splitter needs it.
+ *
+ * Rows that carry a compliance verdict (hand-added, Studio) are re-graded
+ * whenever the spoken text changes — a verdict must describe the text it
+ * sits on. Starring is refused while the verdict blocks (REMOVE/REWORD)
+ * or a hand-added script is ungraded: the star is what puts a script on
+ * the doctor's list.
  */
 export async function PATCH(
   req: Request,
@@ -33,7 +52,7 @@ export async function PATCH(
 
   const { data: script } = await supabase
     .from('scripts')
-    .select('id, clinic_id')
+    .select('id, clinic_id, topic, hook, full_script, source, compliance')
     .eq('id', scriptId)
     .single()
 
@@ -49,6 +68,7 @@ export async function PATCH(
     full_script?: string
     word_count?: number
     updated_at?: string
+    compliance?: Json | null
   } = {}
 
   if (typeof body.starred === 'boolean') patch.starred = body.starred
@@ -68,7 +88,13 @@ export async function PATCH(
     const text = body.full_script.trim()
     if (!text) return NextResponse.json({ error: 'script cannot be empty' }, { status: 400 })
     patch.full_script = text
-    patch.word_count = text.split(/\s+/).filter(Boolean).length
+    patch.word_count = wordCount(text)
+    // A hand-written script's hook is its first line, same as on create.
+    // Without this a body edit leaves the old opening behind — and the
+    // gate keeps grading (and flagging) a line that is no longer there.
+    if (script.source === MANUAL_SOURCE && body.hook === undefined) {
+      patch.hook = deriveHook(text)
+    }
   }
 
   if (Object.keys(patch).length === 0) {
@@ -82,11 +108,39 @@ export async function PATCH(
     'full_script' in patch || 'topic' in patch || 'hook' in patch
   if (contentEdit) patch.updated_at = new Date().toISOString()
 
+  let compliance = (script.compliance as unknown as ComplianceResult | null) ?? null
+  const tracksCompliance = script.source === MANUAL_SOURCE || compliance !== null
+  const nextHook = 'hook' in patch ? (patch.hook ?? null) : script.hook
+  const nextBody = patch.full_script ?? script.full_script
+  const nextSpoken = gradedText(nextHook, nextBody)
+  if (tracksCompliance && nextSpoken !== gradedText(script.hook, script.full_script)) {
+    const { data: clinic } = await supabase
+      .from('clinics')
+      .select('niche')
+      .eq('id', script.clinic_id ?? '')
+      .single()
+    const graded = await runComplianceGate({
+      script: nextSpoken,
+      topic: patch.topic ?? script.topic,
+      niche: clinic?.niche ?? null,
+    }).catch(() => null)
+    // A failed check leaves the row ungraded rather than wearing the
+    // verdict of text it no longer has. The edit itself still saves —
+    // a doctor fixing a line mid-shoot must not lose it to a gate outage.
+    compliance = graded && gateRan(graded) ? graded : null
+    patch.compliance = compliance as unknown as Json
+  }
+
+  if (patch.starred === true) {
+    const reason = starBlockReason({ source: script.source, compliance })
+    if (reason) return NextResponse.json({ error: reason }, { status: 409 })
+  }
+
   const { data: updated, error } = await supabase
     .from('scripts')
     .update(patch)
     .eq('id', scriptId)
-    .select('id, topic, hook, full_script, word_count, starred, updated_at')
+    .select('id, topic, hook, full_script, word_count, starred, updated_at, source, compliance')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
