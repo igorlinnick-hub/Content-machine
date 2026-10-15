@@ -507,8 +507,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     }
     // A mid-take recorder failure (codec, disk, track ended) used to surface
     // only as a quiet "Not recording" badge after the fact. Say it out loud;
-    // the browser flushes what it captured and fires `stop` right after,
-    // which takes us to preview with whatever survived.
+    // the browser fires `stop` right after, which takes us to preview with
+    // whatever chunks survived.
     recorder.onerror = (e) => {
       const detail = (e as ErrorEvent).error?.message ?? (e as ErrorEvent).message
       console.error('MediaRecorder error', e)
@@ -547,15 +547,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       stopCamera()
       setPhase('preview')
     }
-    // No timeslice. With start(250) Safari writes a fragmented mp4 with no
-    // total duration in its header (mvhd = 0) and one fragment per slice, so
-    // the player has to walk every fragment to learn how long the take is.
-    // On a long phone take it gives up early and the preview stops after a
-    // few seconds (Igor 2026-10-15). Without a timeslice the whole take is a
-    // single fragment and the duration is readable from the first box
-    // (checked in Safari: 1 moof, duration known at loadedmetadata).
+    // Keep the 250 ms timeslice. Recording without one (start()) made iPhone
+    // Safari ignore videoBitsPerSecond: a 4:27 take came out at 23.6 MB
+    // (~0.7 Mbps) instead of ~200 MB (Igor 2026-10-15). Quality wins here.
     try {
-      recorder.start()
+      recorder.start(250)
     } catch {
       setCameraError('Could not start recorder. Try a different browser.')
       stopCamera()
