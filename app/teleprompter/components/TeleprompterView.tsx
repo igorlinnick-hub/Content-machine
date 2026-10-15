@@ -57,6 +57,15 @@ function fmtDate(iso: string) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
 }
 
+// iPadOS reports itself as a Mac; the touch points give it away.
+function isIOS() {
+  if (typeof navigator === 'undefined') return false
+  return (
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  )
+}
+
 export function TeleprompterView({ clinicId, clinicName, recentScripts, initialScriptId }: Props) {
   const router = useRouter()
   const [phase, setPhase] = useState<Phase>('setup')
@@ -290,6 +299,41 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     }
   }, [])
 
+  // Keep the screen on while the phone works without being touched: the
+  // script scrolling on a tripod, and the upload to Drive. Auto-lock in the
+  // middle of an upload kills the request and the doctor has to start over
+  // (Igor 2026-10-15: "постоянно нужно на экран нажимать"). The browser drops
+  // the lock whenever the page is hidden, so take it again on return.
+  useEffect(() => {
+    if (phase !== 'reading' && phase !== 'saving') return
+    if (!('wakeLock' in navigator)) return
+    let lock: WakeLockSentinel | null = null
+    let cancelled = false
+    const acquire = async () => {
+      if (document.visibilityState !== 'visible') return
+      try {
+        const next = await navigator.wakeLock.request('screen')
+        if (cancelled) {
+          next.release().catch(() => {})
+          return
+        }
+        lock = next
+      } catch {
+        // Low Power Mode or the browser said no — nothing we can do here.
+      }
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') acquire()
+    }
+    acquire()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+      lock?.release().catch(() => {})
+    }
+  }, [phase])
+
   // Stable stop-recording callback stored in a ref so the RAF loop can call it
   const stopRecordingFn = useCallback(() => {
     if (!recorderRef.current) return
@@ -463,8 +507,8 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     }
     // A mid-take recorder failure (codec, disk, track ended) used to surface
     // only as a quiet "Not recording" badge after the fact. Say it out loud;
-    // the browser fires `stop` right after, which takes us to preview with
-    // whatever chunks survived.
+    // the browser flushes what it captured and fires `stop` right after,
+    // which takes us to preview with whatever survived.
     recorder.onerror = (e) => {
       const detail = (e as ErrorEvent).error?.message ?? (e as ErrorEvent).message
       console.error('MediaRecorder error', e)
@@ -503,8 +547,15 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       stopCamera()
       setPhase('preview')
     }
+    // No timeslice. With start(250) Safari writes a fragmented mp4 with no
+    // total duration in its header (mvhd = 0) and one fragment per slice, so
+    // the player has to walk every fragment to learn how long the take is.
+    // On a long phone take it gives up early and the preview stops after a
+    // few seconds (Igor 2026-10-15). Without a timeslice the whole take is a
+    // single fragment and the duration is readable from the first box
+    // (checked in Safari: 1 moof, duration known at loadedmetadata).
     try {
-      recorder.start(250)
+      recorder.start()
     } catch {
       setCameraError('Could not start recorder. Try a different browser.')
       stopCamera()
@@ -794,6 +845,43 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       setUploadError(e instanceof Error ? e.message : 'Upload failed')
       setPhase('preview')
     }
+  }
+
+  // ── Save the take on the phone itself ───────────────────────────────────────
+  // A web page cannot write into Photos directly. On iPhone the one road there
+  // is the share sheet: it offers "Save Video", which lands in Photos — a plain
+  // download would go to the Files app instead. Everywhere else (Android,
+  // desktop) a download is the right thing: Android's gallery shows Downloads.
+  async function saveToPhone() {
+    if (!recordedBlob) return
+    const type = (recordedBlob.type || 'video/mp4').split(';')[0].trim()
+    const ext = type.includes('mp4') ? 'mp4' : 'webm'
+    const base =
+      (saveTitle.trim() || 'Recording').replace(/[^\w\- ]+/g, '').trim().slice(0, 60) ||
+      'Recording'
+    const name = `${base}.${ext}`
+
+    if (isIOS()) {
+      const file = new File([recordedBlob], name, { type })
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] })
+          return
+        } catch (e) {
+          // Closing the sheet is a choice, not a failure.
+          if (e instanceof Error && e.name === 'AbortError') return
+        }
+      }
+    }
+
+    const url = URL.createObjectURL(recordedBlob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
 
   // ── Reset to setup ───────────────────────────────────────────────────────────
@@ -1603,13 +1691,20 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{uploadError}</p>
         )}
 
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={saveRecording}
+              className="cm-btn cm-btn-primary flex-1 rounded-2xl py-3 text-sm font-semibold"
+            >
+              Save to Drive
+            </button>
+            <SaveToPhoneButton onClick={saveToPhone} />
+          </div>
+          {isIOS() && <SaveToPhoneHint />}
+        </div>
+
         <div className="flex flex-col gap-2 sm:flex-row">
-          <button
-            onClick={saveRecording}
-            className="cm-btn cm-btn-primary flex-1 rounded-2xl py-3 text-sm font-semibold"
-          >
-            Save to Drive
-          </button>
           <button
             onClick={resetToSetup}
             className="flex-1 rounded-2xl border border-neutral-200 bg-white py-3 text-sm font-semibold text-neutral-700 transition hover:bg-neutral-50"
@@ -1640,6 +1735,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             {uploadProgress < 0.05 ? 'Starting upload…' : `Uploading to Drive… ${pct}%`}
           </p>
           <p className="mt-1 text-xs text-neutral-400">{fmtBytes(recordedBlob?.size ?? null)}</p>
+          <p className="mt-3 text-xs text-neutral-500">
+            Keep this screen open until it finishes — switching apps stops the upload.
+          </p>
         </div>
         <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-neutral-200">
           <div
@@ -1686,6 +1784,12 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           </svg>
           Watch in My videos
         </Link>
+        {recordedBlob && (
+          <>
+            <SaveToPhoneButton onClick={saveToPhone} />
+            {isIOS() && <SaveToPhoneHint />}
+          </>
+        )}
         <button
           onClick={resetToSetup}
           className="cm-btn cm-btn-primary w-full rounded-2xl py-3 text-sm font-semibold"
@@ -1700,5 +1804,27 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         </Link>
       </div>
     </div>
+  )
+}
+
+function SaveToPhoneButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-1 items-center justify-center gap-2 rounded-2xl border border-violet-200 bg-violet-50 py-3 text-sm font-semibold text-violet-700 transition hover:bg-violet-100"
+    >
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+      </svg>
+      Save to phone
+    </button>
+  )
+}
+
+function SaveToPhoneHint() {
+  return (
+    <p className="text-center text-xs text-neutral-400">
+      Opens the share menu — tap &ldquo;Save Video&rdquo; to put it in Photos.
+    </p>
   )
 }
