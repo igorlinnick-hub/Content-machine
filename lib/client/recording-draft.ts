@@ -53,6 +53,21 @@ export async function loadLatestDraft(clinicId: string): Promise<RecordingDraft 
   })
 }
 
+// The stored copy comes back as a Blob backed by a file on disk, not by the
+// recorder's chunks in memory — the preview plays from this one.
+export async function loadDraft(id: string): Promise<RecordingDraft | null> {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly')
+    const req = tx.objectStore(STORE).get(id)
+    req.onsuccess = () => {
+      db.close()
+      resolve((req.result as RecordingDraft | undefined) ?? null)
+    }
+    req.onerror = () => { db.close(); reject(req.error) }
+  })
+}
+
 export async function clearDraft(id: string): Promise<void> {
   const db = await openDB()
   return new Promise((resolve, reject) => {

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   saveDraft,
+  loadDraft,
   loadLatestDraft,
   clearDraft,
   draftAgeLabel,
@@ -103,6 +104,11 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   const [progress, setProgress] = useState(0)
   const [elapsedSec, setElapsedSec] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
+  // What the preview <video> plays: the IndexedDB copy of the take once it is
+  // on disk, the in-memory blob only if that copy can't be made.
+  const [previewSrc, setPreviewSrc] = useState<Blob | null>(null)
+  // Set when the preview player stops short of the end, with what it saw.
+  const [previewStall, setPreviewStall] = useState<{ at: number; sees: number } | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   // True after entering reading phase but before doctor taps "Start Recording"
@@ -111,6 +117,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   // Draft recovery state
   const [pendingDraft, setPendingDraft] = useState<RecordingDraft | null>(null)
   const draftIdRef = useRef<string | null>(null)
+  // Which take the preview belongs to — a late disk copy of an older take
+  // must not land in the preview of the next one.
+  const previewTakeRef = useRef<string | null>(null)
 
   // Recordings history
   const [savedRecordings, setSavedRecordings] = useState<SavedRecording[]>([])
@@ -524,7 +533,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       // Persist to IndexedDB immediately — survives a page refresh
       const draftId = `${clinicId}-${Date.now()}`
       draftIdRef.current = draftId
-      saveDraft({
+      previewTakeRef.current = draftId
+      setPreviewSrc(null)
+      const saved = saveDraft({
         id: draftId,
         clinicId,
         scriptId: selectedScriptId,
@@ -540,6 +551,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
         console.error(err)
         draftIdRef.current = null
         setDraftSaveFailed(true)
+      })
+
+      // The preview plays the copy on disk, not the ~200 MB the recorder left
+      // in memory. On iPhone the in-memory blob stopped playing after ~5 s
+      // while the same file played to the end in Photos (Igor 2026-10-15);
+      // Safari on a Mac plays both, so this is the iPhone-only difference.
+      // Upload and Save to phone keep the in-memory blob. If the disk copy
+      // is not there in 20 s, preview from memory rather than wait forever.
+      const fromDisk = saved
+        .then(() => (draftIdRef.current === draftId ? loadDraft(draftId) : null))
+        .then((d) => d?.blob ?? null)
+        .catch(() => null)
+      const giveUp = new Promise<null>((r) => setTimeout(() => r(null), 20_000))
+      Promise.race([fromDisk, giveUp]).then((stored) => {
+        if (previewTakeRef.current !== draftId) return
+        setPreviewSrc(stored ?? blob)
       })
 
       setElapsedSec(durationSec)
@@ -654,7 +681,9 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
   // ── Restore a draft recording from IndexedDB ─────────────────────────────────
   function restoreDraft(draft: RecordingDraft) {
     draftIdRef.current = draft.id
+    previewTakeRef.current = draft.id
     setRecordedBlob(draft.blob)
+    setPreviewSrc(draft.blob)
     setElapsedSec(draft.durationSec)
     setSaveTitle(draft.title)
     setSelectedScriptId(draft.scriptId)
@@ -669,9 +698,10 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
 
   // ── Preview: wire recorded blob to video element ─────────────────────────────
   useEffect(() => {
-    if (phase !== 'preview' || !previewVideoRef.current || !recordedBlob) return
-    const url = URL.createObjectURL(recordedBlob)
+    if (phase !== 'preview' || !previewVideoRef.current || !previewSrc) return
+    const url = URL.createObjectURL(previewSrc)
     const video = previewVideoRef.current
+    setPreviewStall(null)
     video.src = url
     video.preload = 'auto'
     video.load() // iOS Safari won't load the blob unless load() is called explicitly
@@ -692,11 +722,46 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
     }
     video.addEventListener('loadedmetadata', onMeta)
 
+    // Say so when the player gives up short of the end, with what it saw —
+    // the numbers tell a wrong duration (ended early) from a stall.
+    let stopped = false
+    const report = () => {
+      if (stopped) return
+      stopped = true
+      setPreviewStall({ at: video.currentTime, sees: video.duration })
+    }
+    // elapsedSec is wall-clock from Start to the recorder's stop, a little
+    // longer than the media itself — hence the slack.
+    const onEnded = () => {
+      if (elapsedSec - video.currentTime > Math.max(3, elapsedSec * 0.03)) report()
+    }
+    let lastT = -1
+    let stuckSince = 0
+    const watch = setInterval(() => {
+      if (video.paused || video.seeking || video.ended) {
+        stuckSince = 0
+        return
+      }
+      if (video.currentTime !== lastT) {
+        lastT = video.currentTime
+        stuckSince = 0
+      } else if (!stuckSince) {
+        stuckSince = Date.now()
+      } else if (Date.now() - stuckSince > 3000) {
+        report()
+      }
+    }, 1000)
+    video.addEventListener('ended', onEnded)
+    video.addEventListener('error', report)
+
     return () => {
+      clearInterval(watch)
       video.removeEventListener('loadedmetadata', onMeta)
+      video.removeEventListener('ended', onEnded)
+      video.removeEventListener('error', report)
       URL.revokeObjectURL(url)
     }
-  }, [phase, recordedBlob])
+  }, [phase, previewSrc, elapsedSec])
 
   // ── Upload straight to Google Drive (presign → PUT → confirm) ───────────────
   // The old server-proxy path capped uploads at Vercel's 4.5MB request
@@ -893,7 +958,10 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
       draftIdRef.current = null
     }
 
+    previewTakeRef.current = null
     setRecordedBlob(null)
+    setPreviewSrc(null)
+    setPreviewStall(null)
     setIsScrolling(false)
     setIsRecording(false)
     isRecordingRef.current = false
@@ -1647,7 +1715,7 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
           <h1 className="mt-1 text-xl font-bold text-neutral-900">How did it go?</h1>
         </div>
 
-        {recordedBlob && (
+        {previewSrc ? (
           <video
             ref={previewVideoRef}
             controls
@@ -1655,6 +1723,22 @@ export function TeleprompterView({ clinicId, clinicName, recentScripts, initialS
             className="w-full rounded-2xl bg-neutral-950 shadow-lg"
             style={{ maxHeight: '55vh' }}
           />
+        ) : (
+          recordedBlob && (
+            <div className="flex aspect-video w-full items-center justify-center rounded-2xl bg-neutral-950 text-sm text-neutral-400 shadow-lg">
+              Preparing preview…
+            </div>
+          )
+        )}
+
+        {previewStall && (
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            The preview stopped at {fmtTime(Math.floor(previewStall.at))}
+            {Number.isFinite(previewStall.sees)
+              ? ` (the player sees ${fmtTime(Math.floor(previewStall.sees))} of ${fmtTime(elapsedSec)})`
+              : ''}
+            . Your recording itself is fine — Save to phone and watch it in Photos.
+          </p>
         )}
 
         <div className="flex items-center justify-between text-sm text-neutral-500">
