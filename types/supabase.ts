@@ -182,6 +182,7 @@ export type Database = {
           id: string
           clinic_id: string
           network: string
+          kind: string
           caption: string
           image_urls: string[]
           video_url: string | null
@@ -203,6 +204,7 @@ export type Database = {
           id?: string
           clinic_id: string
           network: string
+          kind?: string
           caption?: string
           image_urls?: string[]
           video_url?: string | null
@@ -224,6 +226,7 @@ export type Database = {
           id?: string
           clinic_id?: string
           network?: string
+          kind?: string
           caption?: string
           image_urls?: string[]
           video_url?: string | null

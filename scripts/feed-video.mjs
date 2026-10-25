@@ -2,7 +2,7 @@
 // Queue finished videos: TikTok through the Buffer feeder (buffer_feed),
 // Instagram Reels straight through the Meta Graph API (meta_posts).
 // Uploads the mp4 (and cover) to the brand's public bucket, then adds the rows.
-// Contract: docs/VIDEO-FEED.md.
+// Also Instagram Stories (images, meta_posts kind 'story'). Contract: docs/VIDEO-FEED.md.
 //
 //   node scripts/feed-video.mjs drop <folder> --brand hiredrop [--every 2] [--hour 16] [--notify]
 //        every <name>.mp4 that has <name>.caption.txt next to it → next free slot
@@ -12,6 +12,10 @@
 //        [--cover cover.jpg] [--ai] [--source my-id] [--dry]
 //   node scripts/feed-video.mjs plan month.json [--dry]   # explicit dates
 //   node scripts/feed-video.mjs list --brand hiredrop
+//   node scripts/feed-video.mjs stories <folder> --brand hiredrop --start 2026-10-26T13:00:00Z \
+//        [--every-min 60] [--only 1-10] [--name my-story] [--dry]
+//        every NN-slug.png/jpg in name order → one Instagram Story every --every-min minutes;
+//        PNG becomes JPEG q95 (Instagram takes JPEG only), the folder itself is not touched
 //
 // The caption goes through the slop check (scripts/slop-check.mjs); hits stop
 // the video unless --force. Re-running is safe: a source already queued is skipped.
@@ -115,7 +119,7 @@ function slopCheck(caption) {
 async function queued(clinicId) {
   const [feed, meta] = await Promise.all([
     rest('GET', `buffer_feed?clinic_id=eq.${clinicId}&status=neq.cancelled&select=source,channels,due_at,video_url,status,last_error`),
-    rest('GET', `meta_posts?clinic_id=eq.${clinicId}&status=not.in.(cancelled,failed)&select=source,network,publish_at,video_url,status,last_error,permalink`),
+    rest('GET', `meta_posts?clinic_id=eq.${clinicId}&status=not.in.(cancelled,failed)&select=source,network,kind,publish_at,video_url,status,last_error,permalink`),
   ])
   return { feed, meta }
 }
@@ -125,7 +129,8 @@ const dayKey = (t) => new Date(t).toISOString().slice(0, 10)
 /** Days that already carry an Instagram post, and when the last video goes out. */
 function calendar({ feed, meta }) {
   const igDays = new Set([
-    ...meta.filter((m) => m.network === 'instagram').map((m) => dayKey(m.publish_at)),
+    // Stories never land on the grid, so they don't take the day.
+    ...meta.filter((m) => m.network === 'instagram' && m.kind !== 'story').map((m) => dayKey(m.publish_at)),
     ...feed.filter((f) => f.channels.includes('instagram')).map((f) => dayKey(f.due_at)),
   ])
   const videoTimes = [
@@ -327,9 +332,65 @@ async function list() {
   const rows = [
     ...feed.filter((f) => f.video_url).map((f) => ({ t: f.due_at, ch: 'tiktok (Buffer)', s: f.status, src: f.source, err: f.last_error })),
     ...meta.filter((m) => m.video_url).map((m) => ({ t: m.publish_at, ch: 'instagram (Meta)', s: m.status, src: m.source, err: m.last_error, link: m.permalink })),
+    ...meta.filter((m) => m.kind === 'story').map((m) => ({ t: m.publish_at, ch: 'ig story (Meta)', s: m.status, src: m.source, err: m.last_error, link: m.permalink })),
   ].sort((a, b) => a.t.localeCompare(b.t))
   for (const r of rows) console.log(`${r.t.slice(0, 16)}  ${r.s.padEnd(10)} ${r.ch.padEnd(17)} ${r.src}${r.link ? `  ${r.link}` : ''}${r.err ? `  ✗ ${r.err}` : ''}`)
-  console.log(`${rows.length} video row(s)`)
+  console.log(`${rows.length} video/story row(s)`)
+}
+
+/** NN-slug.png/jpg → one Story each, in name order, starting at --start. */
+async function stories() {
+  const dir = path.resolve(argv[1] ?? die('stories <folder>'))
+  const brand = opt('brand') ?? die('--brand required')
+  const start = Date.parse(opt('start') ?? die('--start required (ISO, e.g. 2026-10-26T13:00:00Z)'))
+  if (Number.isNaN(start)) die(`bad --start "${opt('start')}"`)
+  const everyMin = Number(opt('every-min', '60'))
+  const name = slug(opt('name', path.basename(dir)))
+  const [lo, hi] = (opt('only') ?? '1-999').split('-').map(Number)
+  const bucket = BUCKETS[brand] ?? die(`no public bucket for brand "${brand}" — add it to BUCKETS`)
+  if (!fs.existsSync(dir)) die(`no such folder: ${dir}`)
+
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => /\.(png|jpe?g)$/i.test(f) && !f.startsWith('.'))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  if (!files.length) die(`no png/jpg in ${dir}`)
+
+  const clinic = await clinicFor(brand)
+  const q = await queued(clinic.id)
+  const tmp = fs.mkdtempSync(path.join(process.env.TMPDIR ?? '/tmp', 'stories-'))
+  let added = 0
+  for (const [i, file] of files.entries()) {
+    const n = i + 1
+    if (n < lo || n > (hi || lo)) continue
+    const base = slug(file.replace(/\.(png|jpe?g)$/i, ''))
+    const source = `story:${name}-${base}`
+    const at = new Date(start + (n - lo) * everyMin * 60_000).toISOString()
+    if (q.meta.some((m) => m.source === source)) {
+      console.log(`  = ${source} already queued — skipped`)
+      continue
+    }
+    if (DRY) {
+      console.log(`  ~ ${source} @ ${at} (dry run, nothing uploaded)`)
+      continue
+    }
+    let jpg = path.join(dir, file)
+    if (/\.png$/i.test(file)) {
+      jpg = path.join(tmp, `${base}.jpg`)
+      execFileSync('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '95', path.join(dir, file), '--out', jpg], { stdio: 'ignore' })
+    }
+    const url = await upload(bucket, jpg, `stories/${name}/${base}.jpg`, 'image/jpeg')
+    await rest(
+      'POST',
+      'meta_posts',
+      { clinic_id: clinic.id, network: 'instagram', kind: 'story', caption: '', image_urls: [url], publish_at: at, source },
+      { Prefer: 'return=minimal' },
+    )
+    added++
+    console.log(`  + ${source} @ ${at}  ${url}`)
+  }
+  fs.rmSync(tmp, { recursive: true, force: true })
+  console.log(`\n${added} stor${added === 1 ? 'y' : 'ies'} queued${DRY ? ' (dry run)' : ''}.`)
 }
 
 async function addOrPlan() {
@@ -364,6 +425,6 @@ async function addOrPlan() {
   if (failed) process.exit(1)
 }
 
-const COMMANDS = { drop, list, add: addOrPlan, plan: addOrPlan }
-if (!COMMANDS[cmd]) die('usage: feed-video.mjs drop|add|plan|list … (see the header)')
+const COMMANDS = { drop, list, stories, add: addOrPlan, plan: addOrPlan }
+if (!COMMANDS[cmd]) die('usage: feed-video.mjs drop|add|plan|list|stories … (see the header)')
 COMMANDS[cmd]().catch((e) => die(e.message))

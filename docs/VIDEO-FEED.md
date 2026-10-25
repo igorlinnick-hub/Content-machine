@@ -44,6 +44,24 @@ node scripts/feed-video.mjs plan november.json        # [{ video, caption, at, c
   the same name is never queued twice, so keep names unique across months.
 - Channels default to `tiktok,instagram`.
 
+## Queue Instagram Stories (images)
+
+```bash
+node scripts/feed-video.mjs stories <folder> --brand hiredrop --start 2026-10-26T13:00:00Z [--every-min 60] [--only 1-10] [--dry]
+```
+
+- Every `NN-slug.png/jpg` in name order becomes one Story, `--every-min` apart
+  (default 60), straight through Meta (`meta_posts.kind = 'story'`, migration 066).
+- 1080×1920. PNG is turned into JPEG q95 on the way (Instagram takes JPEG only);
+  the source folder is not touched. Images land in `hiredrop-posts/stories/<name>/`.
+- No caption — Stories take none, the text is on the picture. Link stickers,
+  mentions, music and Highlights can't be set through the API: a story that
+  needs a link goes out from the phone (`--only` leaves it out).
+- Stories don't take the day in the grid calendar, so videos aren't pushed by them.
+- Source id `story:<folder>-<slug>`: re-running skips what is queued.
+- Checked 2026-10-25: Meta created a STORIES container from a 1080×1920 JPEG on
+  HireDrop and reached FINISHED at once (not published).
+
 ## What the file must be
 
 | | Rule | Why |

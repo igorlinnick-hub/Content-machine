@@ -9,6 +9,7 @@ import {
   MetaProcessing,
   createInstagramContainer,
   createInstagramReelContainer,
+  createInstagramStoryContainer,
   createThreadsContainer,
   publishInstagramContainer,
   publishThreadsContainer,
@@ -35,6 +36,8 @@ export const maxDuration = 300
 // While it does, the row goes back to `scheduled` with its container saved and
 // the attempt not counted; the next tick publishes it. Past PROCESSING_MAX_MIN
 // after publish_at it fails like any other error.
+//
+// A Story (kind 'story', 066) is one image sent as media_type STORIES, no caption.
 
 const MAX_ATTEMPTS = 5
 const STALE_MIN = 15
@@ -45,6 +48,7 @@ interface MetaPostRow {
   id: string
   clinic_id: string
   network: 'instagram' | 'threads'
+  kind: 'feed' | 'story'
   caption: string
   image_urls: string[]
   video_url: string | null
@@ -71,9 +75,11 @@ async function publishOne(row: MetaPostRow): Promise<PublishResult> {
     if (!creds.instagram) throw new MetaApiError('no Instagram connection for this brand in Hellometrix', false)
     const containerId =
       row.container_id ??
-      (row.video_url
-        ? await createInstagramReelContainer(creds.instagram, row.video_url, row.caption, row.cover_url)
-        : await createInstagramContainer(creds.instagram, row.image_urls, row.caption))
+      (row.kind === 'story'
+        ? await createInstagramStoryContainer(creds.instagram, row.image_urls[0])
+        : row.video_url
+          ? await createInstagramReelContainer(creds.instagram, row.video_url, row.caption, row.cover_url)
+          : await createInstagramContainer(creds.instagram, row.image_urls, row.caption))
     if (!row.container_id) await saveContainer(containerId)
     return publishInstagramContainer(creds.instagram, containerId)
   }
@@ -93,7 +99,7 @@ async function handle(req: Request) {
 
   const { data: due, error } = await supabase
     .from('meta_posts')
-    .select('id, clinic_id, network, caption, image_urls, video_url, cover_url, publish_at, status, attempts, container_id, source')
+    .select('id, clinic_id, network, kind, caption, image_urls, video_url, cover_url, publish_at, status, attempts, container_id, source')
     .lte('publish_at', now.toISOString())
     .or(`status.eq.scheduled,and(status.eq.publishing,claimed_at.lt.${stale})`)
     .order('publish_at', { ascending: true })
@@ -156,7 +162,7 @@ async function handle(req: Request) {
         .eq('id', row.id)
       if (giveUp) {
         await sendPushToAdmins({
-          title: `${row.network === 'instagram' ? 'Instagram' : 'Threads'} post failed`,
+          title: `${row.network === 'instagram' ? 'Instagram' : 'Threads'} ${row.kind === 'story' ? 'story' : 'post'} failed`,
           body: `${row.source ?? row.id}: ${msg}`.slice(0, 200),
           url: '/scheduler',
         })

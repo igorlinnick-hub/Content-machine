@@ -10,6 +10,7 @@
 // Images must be public URLs. Instagram takes JPEG only (PNG is rejected);
 // Threads takes JPEG and PNG. Instagram carousels: 2–10 items; Threads: 2–20.
 //
+// Instagram Story = media_type STORIES with one image_url and no caption.
 // Instagram video = a Reel (media_type REELS, video_url, optional cover_url).
 // Meta processes a video for a minute or more; publish throws MetaProcessing
 // while it isn't ready, and the caller tries the same container again later.
@@ -153,6 +154,16 @@ export async function createInstagramReelContainer(
     caption,
     share_to_feed: 'true',
     ...(coverUrl ? { cover_url: coverUrl } : {}),
+    access_token: c.accessToken,
+  })
+  return String(r.id)
+}
+
+/** A Story container: one image, no caption (Stories take none), not on the grid. */
+export async function createInstagramStoryContainer(c: InstagramCreds, imageUrl: string): Promise<string> {
+  const r = await call('POST', `${igBase(c)}/${c.igUserId}/media`, {
+    media_type: 'STORIES',
+    image_url: imageUrl,
     access_token: c.accessToken,
   })
   return String(r.id)
