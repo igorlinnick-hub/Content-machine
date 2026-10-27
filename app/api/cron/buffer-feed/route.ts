@@ -42,7 +42,6 @@ interface FeedRow {
   threads_topic: string | null
   image_urls: string[]
   video_url: string | null
-  cover_url: string | null
   ai_generated: boolean
   channels: FeedService[]
   due_at: string
@@ -98,7 +97,6 @@ async function feedClinic(clinicId: string, rows: FeedRow[]) {
           text: s === 'threads' ? (row.threads_text ?? row.caption) : row.caption,
           imageUrls: row.image_urls,
           videoUrl: row.video_url,
-          coverUrl: row.cover_url,
           aiGenerated: row.ai_generated,
           dueAt,
           threadsTopic: row.threads_topic,
@@ -147,7 +145,7 @@ async function handle(req: Request) {
   const { data, error } = await supabase
     .from('buffer_feed')
     .select(
-      'id, clinic_id, seq, source, caption, threads_text, threads_topic, image_urls, video_url, cover_url, ai_generated, channels, due_at, buffer_ids, attempts',
+      'id, clinic_id, seq, source, caption, threads_text, threads_topic, image_urls, video_url, ai_generated, channels, due_at, buffer_ids, attempts',
     )
     .eq('status', 'pending')
     .order('due_at', { ascending: true })

@@ -4,8 +4,10 @@
 // - createPost with mode customScheduled + dueAt schedules; assets = { image: { url } };
 // - Instagram carousel = type 'post' with several images ('carousel' is rejected);
 // - LimitReachedError = the channel's scheduled-posts cap (10 on the free plan) is full.
-// Video (schema read 2026-10-09, not yet sent live): asset = { video: { url, thumbnailUrl } };
-// Instagram video = type 'reel'; TikTok metadata is only { title, isAiGenerated }.
+// Video (live since 2026-10-20): asset = { video: { url } }; Instagram video = type 'reel';
+// TikTok metadata is only { title, isAiGenerated }. Buffer rejects video.thumbnailUrl
+// (no network takes a custom cover image); the only cover control is
+// video.metadata.thumbnailOffset (ms into the video). Reels covers go via Meta directly.
 
 const BUFFER_API = 'https://api.buffer.com/graphql'
 
@@ -77,7 +79,6 @@ export async function bufferSchedulePost(
     text: string
     imageUrls: string[]
     videoUrl?: string | null
-    coverUrl?: string | null
     aiGenerated?: boolean
     dueAt: string
     threadsTopic?: string | null
@@ -91,7 +92,7 @@ export async function bufferSchedulePost(
         ? { tiktok: { ...ai } }
         : { threads: { type: 'post', ...(input.threadsTopic ? { topic: input.threadsTopic } : {}) } }
   const assets = input.videoUrl
-    ? [{ video: { url: input.videoUrl, ...(input.coverUrl ? { thumbnailUrl: input.coverUrl } : {}) } }]
+    ? [{ video: { url: input.videoUrl } }]
     : input.imageUrls.map((url) => ({ image: { url } }))
   const d = await gql<{
     createPost: { __typename: string; message?: string; post?: { id: string } }
