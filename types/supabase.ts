@@ -328,6 +328,71 @@ export type Database = {
           }
         ]
       }
+      zernio_feed: {
+        Row: {
+          id: string
+          clinic_id: string
+          seq: number
+          source: string
+          channel: string
+          text: string
+          media_urls: string[]
+          document_title: string | null
+          first_comment: string | null
+          due_at: string
+          status: string
+          zernio_post_id: string | null
+          attempts: number
+          last_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          clinic_id: string
+          seq: number
+          source: string
+          channel: string
+          text: string
+          media_urls?: string[]
+          document_title?: string | null
+          first_comment?: string | null
+          due_at: string
+          status?: string
+          zernio_post_id?: string | null
+          attempts?: number
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          clinic_id?: string
+          seq?: number
+          source?: string
+          channel?: string
+          text?: string
+          media_urls?: string[]
+          document_title?: string | null
+          first_comment?: string | null
+          due_at?: string
+          status?: string
+          zernio_post_id?: string | null
+          attempts?: number
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zernio_feed_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       app_secrets: {
         Row: {
           name: string
