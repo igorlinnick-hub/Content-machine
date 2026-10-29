@@ -118,7 +118,7 @@ function slopCheck(caption) {
 
 async function queued(clinicId) {
   const [feed, meta] = await Promise.all([
-    rest('GET', `buffer_feed?clinic_id=eq.${clinicId}&status=neq.cancelled&select=source,channels,due_at,video_url,status,last_error`),
+    rest('GET', `buffer_feed?clinic_id=eq.${clinicId}&status=neq.cancelled&select=source,channels,due_at,video_url,status,last_error,buffer_ids`),
     rest('GET', `meta_posts?clinic_id=eq.${clinicId}&status=not.in.(cancelled,failed)&select=source,network,kind,publish_at,video_url,status,last_error,permalink`),
   ])
   return { feed, meta }
@@ -325,12 +325,62 @@ async function drop() {
   if (failed.length) process.exit(1)
 }
 
+/** BUFFER_ACCESS_TOKEN_<BRAND> from the environment or .env.local; null if absent. */
+function bufferToken(brand) {
+  const name = `BUFFER_ACCESS_TOKEN_${brand.toUpperCase()}`
+  if (process.env[name]) return process.env[name]
+  try {
+    const env = fs.readFileSync(fileURLToPath(new URL('../.env.local', import.meta.url)), 'utf8')
+    return env.match(new RegExp(`^${name}=["']?([^"'\\n]+)`, 'm'))?.[1] ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * buffer_feed keeps `scheduled` after a post goes out — only Buffer knows it
+ * was sent. Ask Buffer per post: { status: sent|scheduled|error…, link, error }.
+ */
+async function bufferStatus(token, ids) {
+  const out = {}
+  for (const id of ids) {
+    try {
+      const res = await fetch('https://api.buffer.com/graphql', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: 'query($id: PostId!){ post(input:{id:$id}) { status sentAt externalLink error { message } } }',
+          variables: { id },
+        }),
+      })
+      const j = await res.json()
+      const p = j.data?.post
+      out[id] = p
+        ? { status: p.status, link: p.externalLink, error: p.error?.message }
+        : { status: '?', error: j.errors?.map((e) => e.message).join('; ') ?? `HTTP ${res.status}` }
+    } catch (e) {
+      out[id] = { status: '?', error: e.message }
+    }
+  }
+  return out
+}
+
 async function list() {
   const brand = opt('brand') ?? die('--brand required')
   const clinic = await clinicFor(brand)
   const { feed, meta } = await queued(clinic.id)
+  const token = bufferToken(brand)
+  const tiktokIds = feed.filter((f) => f.video_url && f.buffer_ids?.tiktok).map((f) => f.buffer_ids.tiktok)
+  const live = token ? await bufferStatus(token, tiktokIds) : {}
+  if (!token) console.warn(`  ! no BUFFER_ACCESS_TOKEN_${brand.toUpperCase()} — TikTok status is the table's, not Buffer's`)
+  const tiktokRow = (f) => {
+    const b = live[f.buffer_ids?.tiktok]
+    // pending = still in our table, not handed to Buffer yet
+    const s = !f.buffer_ids?.tiktok ? 'pending' : b?.status === 'sent' ? 'published' : (b?.status ?? f.status)
+    return { t: f.due_at, ch: 'tiktok (Buffer)', s, src: f.source, err: b?.error ?? f.last_error, link: b?.link }
+  }
   const rows = [
-    ...feed.filter((f) => f.video_url).map((f) => ({ t: f.due_at, ch: 'tiktok (Buffer)', s: f.status, src: f.source, err: f.last_error })),
+    ...feed.filter((f) => f.video_url).map(tiktokRow),
     ...meta.filter((m) => m.video_url).map((m) => ({ t: m.publish_at, ch: 'instagram (Meta)', s: m.status, src: m.source, err: m.last_error, link: m.permalink })),
     ...meta.filter((m) => m.kind === 'story').map((m) => ({ t: m.publish_at, ch: 'ig story (Meta)', s: m.status, src: m.source, err: m.last_error, link: m.permalink })),
   ].sort((a, b) => a.t.localeCompare(b.t))
