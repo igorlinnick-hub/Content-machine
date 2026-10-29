@@ -1,6 +1,6 @@
 # Publish — Buffer и прямой Meta по брендам
 
-Обновлено: 2026-10-27 · ветка: main
+Обновлено: 2026-10-29 · ветка: main
 
 ## Состояние
 - **Бренды:** у каждого свой Buffer-ключ и каналы, реестр `lib/publish/buffer-accounts.ts` (ключ = `clinics.niche`). Нет
@@ -40,7 +40,8 @@
 - 25.10 Instagram Stories через Meta (`a1690f6`, миграция 066): 11 сторис «My story» вышли 26.10 13:00–23:00 UTC.
 
 ## Находки
-- [x] F1 TikTok через Buffer стоял с 22.10 (`thumbnailUrl`) → закрыто: `7f39ec2` + даты 28.10–01.11; живой выход — следующий шаг.
+- [x] F1 TikTok через Buffer стоял с 22.10 (`thumbnailUrl`) → закрыто: `7f39ec2` + даты 28.10–01.11; вышел вживую 28.10 16:07 UTC
+  (https://tiktok.com/@hiredrop1/video/7701750487955016974).
 - [x] F2 Instagram Stories CM не публиковала → закрыто: `a1690f6` + миграция 066.
 - [x] F3 Отчёт о сторис «My story» → закрыто 27.10: все 11 `published` с media id (`feed-video.mjs list`).
 - [ ] F4 `buffer_feed.status` не узнаёт о выходе: `list` показывает вышедшие посты как `scheduled` (JobFlow 27.10 принял
@@ -59,4 +60,4 @@
 - В дереве чужой незакоммиченный `lib/render/html.ts` — не коммитить вслепую.
 
 ## Следующий шаг
-28.10 после 16:00 UTC проверить, что TikTok why-i-built-hiredrop вышел (Buffer `post{status sentAt externalLink}` по `buffer_ids.tiktok`), потом взять F5 (шаг между просроченными); Opus.
+F5: в `app/api/cron/buffer-feed/route.ts` разносить просроченные строки одного канала на шаг (сутки) друг от друга, а не на одно «сейчас + 1 ч»; Opus.
