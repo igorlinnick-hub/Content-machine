@@ -696,6 +696,9 @@ wrong role plan.
   **never Telegram** (removed — `[[project_telegram_team]]`).
 - **Code:** `app/scheduler/*`, `app/api/scheduled-posts/*`, `app/api/publish/buffer`,
   `app/api/cron/scheduled-post`, `lib/push/send.ts`.
+- **Brand feeds (pg_cron, current truth in `docs/handoff/publish.md`):** `buffer_feed` → Buffer (IG, Threads,
+  TikTok; `scripts/feed-video.mjs`), `meta_posts` → Meta direct (Reels, R3, Stories), `zernio_feed` (067) →
+  Zernio (X, LinkedIn; 14-day horizon, `scripts/zernio-feed.mjs plan|doc|list|move|drop|tick`).
 
 ### 10. Auth / clinic model
 - **Does:** per-doctor Supabase cookie auth, admin key, install links, view-as.
