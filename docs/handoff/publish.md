@@ -64,10 +64,9 @@
   (hiredrop-social F5/F15).
 - [ ] F12 Первый пост LinkedIn через Zernio (L01, 05.11 16:00 UTC, с первым комментарием-источником) вживую ещё не выходил →
   06.11 `zernio-feed.mjs list`: `published` + ссылка, комментарий на месте → хозяин: лейн publish.
-- [ ] F13 **git на маке без лицензии Xcode** с 30.10: Xcode.app обновился 29.10 14:30, `xcode-select` смотрит в него →
-  «You have not agreed to the Xcode license agreements» (exit 69). Обход без пароля: `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`
-  (git из Command Line Tools). Насовсем — Игорь с паролем: `sudo xcode-select -s /Library/Developer/CommandLineTools`
-  (Xcode не нужен) → хозяин: Игорь.
+- [x] F13 git на маке без лицензии Xcode (Xcode.app обновился 29.10, `xcode-select` смотрит в него → exit 69) → закрыто 30.10:
+  обход `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`. Xcode в планах Игоря — **xcode-select не переключать,
+  лицензию не принимать за него**: примет сам при первом запуске Xcode.
 
 ## Сломано / не доделано
 - git без лицензии Xcode (F13): работать через `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`.
@@ -79,6 +78,6 @@
 - В дереве чужие незакоммиченные `lib/render/html.ts`, `scripts/buffer-post.mjs`, хендоффы main/yedino — не коммитить вслепую.
 
 ## Следующий шаг
-Игорь: F13 насовсем (`sudo xcode-select -s /Library/Developer/CommandLineTools`), закреп в X (F10: X01, тред-знакомство или ничего). Claude:
+Игорь: закреп в X (F10: X01, тред-знакомство или ничего). Claude (git — через `DEVELOPER_DIR`, F13):
 31.10 после 15:00 UTC — `zernio-feed.mjs list`: X07 `scheduled`; 06.11 — L01 вышел с комментарием (F12). Потом F5
 в `app/api/cron/buffer-feed/route.ts` по образцу `zernio-feed`. Новой сессией, Opus.
