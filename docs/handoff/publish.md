@@ -78,7 +78,7 @@
 
 ## Следующий шаг
 **Игорь, один раз:**
-`! cd ~/Code/Content-machine && grep '^ZERNIO_API_KEY=' .env.local | cut -d= -f2- | tr -d '"\n' | vercel env add ZERNIO_API_KEY production`
+`! cd ~/Code/Content-machine && grep '^ZERNIO_API_KEY=' .env.local | cut -d= -f2- | tr -d '"\n' | npx vercel env add ZERNIO_API_KEY production`
 Потом Claude (эта же вкладка или новая, Opus): `git commit --allow-empty -m "chore: redeploy for ZERNIO_API_KEY"` + push →
 дождаться деплоя (роут отвечает 401) → `node scripts/zernio-feed.mjs tick` → `list --brand hiredrop`: 8 `scheduled`. 31.10 —
 `list`: X01 вышел, ссылка → напомнить про закрепление (F10). Затем F5 в `app/api/cron/buffer-feed/route.ts` по образцу `zernio-feed`.
