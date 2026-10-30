@@ -64,9 +64,10 @@
   (hiredrop-social F5/F15).
 - [ ] F12 Первый пост LinkedIn через Zernio (L01, 05.11 16:00 UTC, с первым комментарием-источником) вживую ещё не выходил →
   06.11 `zernio-feed.mjs list`: `published` + ссылка, комментарий на месте → хозяин: лейн publish.
-- [ ] F13 **git на маке без лицензии Xcode** с 30.10: Xcode.app обновился 29.10 14:30, `xcode-select` смотрит в него → «You have not agreed to the Xcode license agreements» (exit 69). **Обход без пароля: `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`** (git из Command Line Tools). Насовсем — Игорь с паролем: `sudo xcode-select -s /Library/Developer/CommandLineTools` (Xcode не нужен) или принять лицензию; было «видимо после
-  обновления Xcode/macOS). Коммитить не может ни одна сессия, правки хендоффов этого захода лежат незакоммиченными. Лечится одной
-  командой в Терминале с паролем: `sudo xcodebuild -license accept` → хозяин: Игорь.
+- [ ] F13 **git на маке без лицензии Xcode** с 30.10: Xcode.app обновился 29.10 14:30, `xcode-select` смотрит в него →
+  «You have not agreed to the Xcode license agreements» (exit 69). Обход без пароля: `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`
+  (git из Command Line Tools). Насовсем — Игорь с паролем: `sudo xcode-select -s /Library/Developer/CommandLineTools`
+  (Xcode не нужен) → хозяин: Игорь.
 
 ## Сломано / не доделано
 - git без лицензии Xcode (F13): работать через `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`.
