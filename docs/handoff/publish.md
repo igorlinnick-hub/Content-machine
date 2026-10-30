@@ -1,6 +1,6 @@
 # Publish — Buffer, прямой Meta и Zernio по брендам
 
-Обновлено: 2026-10-29 (поздно) · ветка: main
+Обновлено: 2026-10-30 00:35 UTC · ветка: main
 
 ## Состояние
 - **Бренды Buffer:** у каждого свой ключ и каналы, реестр `lib/publish/buffer-accounts.ts` (ключ = `clinics.niche`). Нет
@@ -36,15 +36,17 @@
   видео `{video:{url}}` без `thumbnailUrl` (обложка — `video.metadata.thumbnailOffset`); `editPost` требует `metadata` с type.
 - **Ручной тик buffer-feed:** `supabase link --project-ref pscqjvkuqqmvmcbxdwtu --yes` во временной папке →
   `supabase db query --linked "select net.http_post(... '/api/cron/buffer-feed' ... x-cron-key из app_secrets 'meta_publish_cron')"`.
-- **Классификатор не даёт Claude:** писать секреты в Vercel (29.10 снова отказ на `ZERNIO_API_KEY`), удалять посты в
-  Buffer, ставить launchd. Миграцию с pg_cron (067) через `supabase db query` 29.10 пропустил. Редеплой без env — пустой коммит + push.
+- **Классификатор не даёт Claude:** писать секреты в Vercel без прямого «сам» Игоря (29.10 отказ на `ZERNIO_API_KEY`;
+  30.10 с его разрешением ключ лёг), удалять посты в Buffer, ставить launchd. Миграцию с pg_cron (067) через `supabase db query` 29.10 пропустил. Редеплой без env — пустой коммит + push.
+- **`vercel` нет в PATH шелла** (`command not found`) — только `npx --yes vercel …`.
 
 ## Последний заход
-- 29.10 поздно, F8: построен фид Zernio — миграция 067 применена (таблица + `cron.job` `zernio-feed` 15:00 UTC, проверено),
-  роут на проде, `lib/publish/zernio.ts`, `types/supabase.ts`, `scripts/zernio-feed.mjs` (`1e3f754`); строка в HANDOFF-MODULES §9.
-- План 1 поставлен в `zernio_feed`: X01–X04, X06, X07, L01, L02 — `pending`; L03 — `needs-pdf`. X05 отсеян проверкой (F9).
-- Ручной тик прода (`zernio-feed.mjs tick`) → `"ZERNIO_API_KEY is not set"`. Запись ключа в Vercel классификатор запретил.
-- Трогал ещё `hiredrop-social.md` (F13, F14, F16) и `hiredrop-content.md` (закоммитил правки прошлой сессии, `6766871`).
+- 29.10 поздно, F8: построен фид Zernio (миграция 067, cron `zernio-feed` 15:00 UTC, роут, `zernio.ts`, `zernio-feed.mjs`,
+  `1e3f754`); план 1 в `zernio_feed`, X05 отсеян (F9); тик прода → `"ZERNIO_API_KEY is not set"`.
+- 30.10 ~00:30 UTC, F8: `ZERNIO_API_KEY` в Vercel prod (положили почти одновременно две вкладки; редеплои `9e015d6`, `14ac7e0`).
+  Ручной тик → 200, Zernio принял 7 постов: X01–X04, X06, L01, L02 (`list` спрашивает Zernio — все `scheduled`; прямой
+  `GET /v1/posts` — ровно 7, дублей нет). Боевой `POST /v1/posts` по OpenAPI-форме прошёл. X07 (13.11 17:00) за окном 14 дней —
+  уйдёт с cron 31.10. Закрыл F11, в `hiredrop-social.md` закрыл F14 и убрал устаревшее «токен Buffer истекает 03.11».
 
 ## Находки
 - [x] F1 TikTok через Buffer стоял с 22.10 (`thumbnailUrl`) → закрыто: `7f39ec2`; вышел вживую 28.10.
@@ -55,20 +57,17 @@
   Образец решения уже есть в `zernio-feed` (время дня + шаг сутки, ±20 ч) → хозяин: лейн publish.
 - [ ] F6 Сторис «My story» добавить в «Актуальное» (только с телефона) → хозяин: Игорь.
 - [x] F7 Ключ Buffer HireDrop истекал 02.11 → закрыто 29.10: перевыпущен до 29.10.2027, в `.env.local` и Vercel prod.
-- [ ] F8 **X и LinkedIn HireDrop через Zernio** → фид, cron и план 1 готовы (`1e3f754`). Осталось: Игорь кладёт `ZERNIO_API_KEY`
-  в Vercel prod (команда в «Следующем шаге») → Claude: пустой коммит + push → `zernio-feed.mjs tick` → `list` (8 строк
-  `scheduled`, L03 `needs-pdf`). Без ключа к cron 30.10 15:00 UTC X01 сам сдвинется на 31.10 17:00 UTC → хозяин: Игорь (ключ),
-  затем лейн publish.
+- [ ] F8 **X и LinkedIn HireDrop через Zernio** → 30.10 ключ в Vercel, 7 постов плана 1 в Zernio `scheduled`. Закрыть, когда
+  X01 реально выйдет 30.10 17:00 UTC (`list` покажет ссылку на пост) → хозяин: лейн publish.
 - [ ] F9 **X05 не проходит в X**: 4 голых домена (`boards.greenhouse.io`…) X делает ссылками → 283 из 280 по весу и $0.20.
   Не поставлен. Переписать и `zernio-feed.mjs plan … --plan 1` (стоящие пропустит), до 09.11 → хозяин: лейн hiredrop-social (F16).
 - [ ] F10 X01 (30.10 17:00 UTC) закрепить в профиле `@hiredrop_io` руками — API X закреплять не умеет → хозяин: Игорь.
-- [ ] F11 X/LinkedIn выходят в 7:00 и 6:00 HST. Если в первый час на вопросы отвечает Игорь — сдвинуть (X 19:00, LinkedIn
-  18:00 UTC): `zernio-feed.mjs move <source> <iso>` двигает и в Zernio → хозяин: Игорь (решение; hiredrop-social F5/F15).
+- [x] F11 X/LinkedIn выходят в 7:00 и 6:00 HST → закрыто 29.10: Игорь «пусть идут как есть», время не двигаем
+  (hiredrop-social F5/F15).
 
 ## Сломано / не доделано
-- **В Zernio пока ничего не ушло** — нет `ZERNIO_API_KEY` в Vercel (F8). Строки ждут в `zernio_feed`.
-- Боевой `POST /v1/posts` ещё ни разу не прошёл: форма тела собрана по OpenAPI-спеке, вживую проверим первым тиком с ключом.
-  Если Zernio отвергнет — ошибка будет в `list` (`✗ …`) и в push.
+- Пост через Zernio ещё ни разу не **вышел** в X/LinkedIn: Zernio принял расписание, публикацию проверить после 30.10 17:00 UTC
+  (F8). Если сорвётся — `list` покажет `✗ …`, придёт push.
 - **Threads без Buffer — ждёт «да» Игоря.** Путь через HelloMetrix (ветка `hiredrop-meta-publish`: OAuth, slug
   `threads-publish`): Игорь в приложении HelloMetrics `1467679217599442` включает «Access the Threads API», redirect
   `https://dashboard-hwc.vercel.app/api/auth/meta-publish/threads/callback`, HireDrop в Threads Testers,
@@ -77,8 +76,6 @@
 - В дереве чужие незакоммиченные `lib/render/html.ts`, `scripts/buffer-post.mjs`, хендоффы main/yedino — не коммитить вслепую.
 
 ## Следующий шаг
-**Игорь, один раз:**
-`! cd ~/Code/Content-machine && grep '^ZERNIO_API_KEY=' .env.local | cut -d= -f2- | tr -d '"\n' | npx vercel env add ZERNIO_API_KEY production`
-Потом Claude (эта же вкладка или новая, Opus): `git commit --allow-empty -m "chore: redeploy for ZERNIO_API_KEY"` + push →
-дождаться деплоя (роут отвечает 401) → `node scripts/zernio-feed.mjs tick` → `list --brand hiredrop`: 8 `scheduled`. 31.10 —
-`list`: X01 вышел, ссылка → напомнить про закрепление (F10). Затем F5 в `app/api/cron/buffer-feed/route.ts` по образцу `zernio-feed`.
+После 30.10 17:00 UTC (07:00 HST): `node scripts/zernio-feed.mjs list --brand hiredrop` → у X01 ссылка на пост → закрыть F8,
+напомнить Игорю закрепить X01 (F10). 31.10 после 15:00 UTC — X07 тоже `scheduled`. Затем F5 в `app/api/cron/buffer-feed/route.ts`
+по образцу `zernio-feed`. Новой сессией, Opus.

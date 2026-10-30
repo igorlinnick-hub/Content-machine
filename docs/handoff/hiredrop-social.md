@@ -1,6 +1,6 @@
 # HireDrop social — что выходит в Threads, LinkedIn и X
 
-Обновлено: 2026-10-29 (поздно) · ветка: main
+Обновлено: 2026-10-30 · ветка: main
 
 ## Состояние
 - Лейн = **содержание** текстовых площадок HireDrop: Threads, LinkedIn, X. Профили и канал — лейн `hiredrop-content.md`;
@@ -51,8 +51,8 @@
   поста 12.11; документ 2 к 17.11. Тексты — `document_pages` в `plan-2026-11.json`. Строка L03 уже стоит (`needs-pdf`), PDF
   цепляется так: `node scripts/zernio-feed.mjs doc hiredrop:linkedin-L03 <file.pdf> --brand hiredrop [--title "…"]` (заливает в
   бакет и отпускает строку; без PDF за 2 дня до срока — push) → хозяин: этот лейн.
-- [ ] F14 Фид Zernio + cron на 2 недели для X и LinkedIn → 29.10 фид готов, план 1 стоит в `zernio_feed` (X01–X04, X06, X07,
-  L01–L03); уйдёт в Zernio, когда Игорь положит `ZERNIO_API_KEY` в Vercel (`publish.md` F8) → хозяин: лейн publish.
+- [x] F14 Фид Zernio + cron на 2 недели для X и LinkedIn → закрыто 30.10: ключ в Vercel, 7 постов плана 1 в Zernio `scheduled`;
+  X07 уйдёт с cron 31.10, L03 ждёт PDF (F13). Выход X01 30.10 проверяет лейн publish (F8).
 - [ ] F16 **X05 отсеян фидом**: X делает ссылками голые домены (`boards.greenhouse.io`, `jobs.lever.co`…) → вес 283 из 280 и
   $0.20 за пост. «≤ 280» в плане считалось без ссылок. Переписать X05 (без доменов или строкой поиска на картинке), поправить
   `plan-2026-11.json` и `node scripts/zernio-feed.mjs plan "<plan.json>" --brand hiredrop --plan 1` (стоящие пропустит). До 09.11
@@ -60,9 +60,6 @@
 - [x] F15 Время X/LinkedIn под ответы Игоря → закрыто 29.10: не сдвигаем, отвечать никто не будет (F5).
 
 ## Сломано / не доделано
-- X и LinkedIn плана 1 стоят в `zernio_feed`, но в Zernio не уйдут без `ZERNIO_API_KEY` в Vercel (F14). Если ключа не будет к
-  30.10 15:00 UTC, X01 сам сдвинется на 31.10 17:00 UTC.
-- Токен Buffer HireDrop истекает 03.11 (`publish.md` F7): Threads плана 1 уже в Buffer и выйдет, но план 2 без нового токена не встанет.
 - `~/.claude/scripts/sessions.py` нет — лейн на доске сессий не заведён, только этот файл.
 
 ## Следующий шаг
