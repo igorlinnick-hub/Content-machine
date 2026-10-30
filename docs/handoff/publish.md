@@ -1,6 +1,6 @@
 # Publish — Buffer, прямой Meta и Zernio по брендам
 
-Обновлено: 2026-10-30 00:35 UTC · ветка: main
+Обновлено: 2026-10-30 22:55 UTC · ветка: main
 
 ## Состояние
 - **Бренды Buffer:** у каждого свой ключ и каналы, реестр `lib/publish/buffer-accounts.ts` (ключ = `clinics.niche`). Нет
@@ -41,12 +41,10 @@
 - **`vercel` нет в PATH шелла** (`command not found`) — только `npx --yes vercel …`.
 
 ## Последний заход
-- 29.10 поздно, F8: построен фид Zernio (миграция 067, cron `zernio-feed` 15:00 UTC, роут, `zernio.ts`, `zernio-feed.mjs`,
-  `1e3f754`); план 1 в `zernio_feed`, X05 отсеян (F9); тик прода → `"ZERNIO_API_KEY is not set"`.
-- 30.10 ~00:30 UTC, F8: `ZERNIO_API_KEY` в Vercel prod (положили почти одновременно две вкладки; редеплои `9e015d6`, `14ac7e0`).
-  Ручной тик → 200, Zernio принял 7 постов: X01–X04, X06, L01, L02 (`list` спрашивает Zernio — все `scheduled`; прямой
-  `GET /v1/posts` — ровно 7, дублей нет). Боевой `POST /v1/posts` по OpenAPI-форме прошёл. X07 (13.11 17:00) за окном 14 дней —
-  уйдёт с cron 31.10. Закрыл F11, в `hiredrop-social.md` закрыл F14 и убрал устаревшее «токен Buffer истекает 03.11».
+- 30.10 22:54 UTC: `zernio-feed.mjs list` — **X01 вышел** 30.10 17:00 UTC, ссылка есть; X02–X04, X06, L01, L02 `scheduled`;
+  L03 `needs-pdf`; X07 `pending` (горизонт 14 дней, уйдёт cron 31.10 15:00 UTC). Cron 30.10 15:00 UTC — `succeeded`. F8 закрыт.
+- Раньше (29–30.10): фид Zernio (`1e3f754`: миграция 067, роут, `zernio.ts`, `zernio-feed.mjs`), ключ в Vercel, 7 постов плана 1
+  приняты Zernio. git упал на лицензии Xcode (F13), обход — `DEVELOPER_DIR` на Command Line Tools.
 
 ## Находки
 - [x] F1 TikTok через Buffer стоял с 22.10 (`thumbnailUrl`) → закрыто: `7f39ec2`; вышел вживую 28.10.
@@ -57,17 +55,21 @@
   Образец решения уже есть в `zernio-feed` (время дня + шаг сутки, ±20 ч) → хозяин: лейн publish.
 - [ ] F6 Сторис «My story» добавить в «Актуальное» (только с телефона) → хозяин: Игорь.
 - [x] F7 Ключ Buffer HireDrop истекал 02.11 → закрыто 29.10: перевыпущен до 29.10.2027, в `.env.local` и Vercel prod.
-- [ ] F8 **X и LinkedIn HireDrop через Zernio** → 30.10 ключ в Vercel, 7 постов плана 1 в Zernio `scheduled`. Закрыть, когда
-  X01 реально выйдет 30.10 17:00 UTC (`list` покажет ссылку на пост) → хозяин: лейн publish.
+- [x] F8 X и LinkedIn HireDrop через Zernio → закрыто 30.10: X01 вышел 30.10 17:00 UTC
+  (https://twitter.com/i/web/status/2116213981383647659), cron `zernio-feed` 30.10 15:00 UTC `succeeded`.
 - [ ] F9 **X05 не проходит в X**: 4 голых домена (`boards.greenhouse.io`…) X делает ссылками → 283 из 280 по весу и $0.20.
   Не поставлен. Переписать и `zernio-feed.mjs plan … --plan 1` (стоящие пропустит), до 09.11 → хозяин: лейн hiredrop-social (F16).
 - [ ] F10 X01 (30.10 17:00 UTC) закрепить в профиле `@hiredrop_io` руками — API X закреплять не умеет → хозяин: Игорь.
 - [x] F11 X/LinkedIn выходят в 7:00 и 6:00 HST → закрыто 29.10: Игорь «пусть идут как есть», время не двигаем
   (hiredrop-social F5/F15).
+- [ ] F12 Первый пост LinkedIn через Zernio (L01, 05.11 16:00 UTC, с первым комментарием-источником) вживую ещё не выходил →
+  06.11 `zernio-feed.mjs list`: `published` + ссылка, комментарий на месте → хозяин: лейн publish.
+- [ ] F13 **git на маке без лицензии Xcode** с 30.10: Xcode.app обновился 29.10 14:30, `xcode-select` смотрит в него → «You have not agreed to the Xcode license agreements» (exit 69). **Обход без пароля: `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`** (git из Command Line Tools). Насовсем — Игорь с паролем: `sudo xcode-select -s /Library/Developer/CommandLineTools` (Xcode не нужен) или принять лицензию; было «видимо после
+  обновления Xcode/macOS). Коммитить не может ни одна сессия, правки хендоффов этого захода лежат незакоммиченными. Лечится одной
+  командой в Терминале с паролем: `sudo xcodebuild -license accept` → хозяин: Игорь.
 
 ## Сломано / не доделано
-- Пост через Zernio ещё ни разу не **вышел** в X/LinkedIn: Zernio принял расписание, публикацию проверить после 30.10 17:00 UTC
-  (F8). Если сорвётся — `list` покажет `✗ …`, придёт push.
+- git без лицензии Xcode (F13): работать через `DEVELOPER_DIR=/Library/Developer/CommandLineTools git …`.
 - **Threads без Buffer — ждёт «да» Игоря.** Путь через HelloMetrix (ветка `hiredrop-meta-publish`: OAuth, slug
   `threads-publish`): Игорь в приложении HelloMetrics `1467679217599442` включает «Access the Threads API», redirect
   `https://dashboard-hwc.vercel.app/api/auth/meta-publish/threads/callback`, HireDrop в Threads Testers,
@@ -76,6 +78,6 @@
 - В дереве чужие незакоммиченные `lib/render/html.ts`, `scripts/buffer-post.mjs`, хендоффы main/yedino — не коммитить вслепую.
 
 ## Следующий шаг
-После 30.10 17:00 UTC (07:00 HST): `node scripts/zernio-feed.mjs list --brand hiredrop` → у X01 ссылка на пост → закрыть F8,
-напомнить Игорю закрепить X01 (F10). 31.10 после 15:00 UTC — X07 тоже `scheduled`. Затем F5 в `app/api/cron/buffer-feed/route.ts`
-по образцу `zernio-feed`. Новой сессией, Opus.
+Игорь: F13 насовсем (`sudo xcode-select -s /Library/Developer/CommandLineTools`), закреп в X (F10: X01, тред-знакомство или ничего). Claude:
+31.10 после 15:00 UTC — `zernio-feed.mjs list`: X07 `scheduled`; 06.11 — L01 вышел с комментарием (F12). Потом F5
+в `app/api/cron/buffer-feed/route.ts` по образцу `zernio-feed`. Новой сессией, Opus.
